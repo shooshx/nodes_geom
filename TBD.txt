@@ -1,0 +1,8 @@
+
+transform for each node
+
+NODES:
+mouse vertices
+color per vertex? for gradient
+triangulation
+round edges

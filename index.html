@@ -1,0 +1,157 @@
+<html>
+<head>
+<script>
+"use strict"
+
+function start()
+{
+    setup_vert_splitter(main_view, image_panel, canvas_image, image_splitter, edit_panel, canvas_nodes)
+    
+    setup_horz_splitter(edit_panel, edit_params, edit_splitter, edit_nodes, canvas_nodes)
+
+}
+
+
+const GRIP_WIDTH = 5
+const MIN_PANEL_SIZE = 10
+
+function setup_horz_splitter(container, p1, grip, p2, c2)
+{    
+    var p1_height = container.offsetHeight / 2 - GRIP_WIDTH
+    var resize = function() {
+        p1.style.height = p1_height + "px"
+        var p2_height = container.offsetHeight - p1_height - GRIP_WIDTH
+        p2.style.height = p2_height + "px"
+        c2.height = p2_height
+    }
+    resize()
+    window.addEventListener('resize', resize);
+ 
+    var moving = false;
+    var startOffset;
+    
+    grip.addEventListener('mousedown', function(e) {
+        moving = true;
+        startOffset = p1.offsetHeight - e.pageY;
+    });
+    document.addEventListener('mouseup', function() {
+        moving = false;
+    });
+
+    document.addEventListener('mousemove', function(e) {
+      if (moving && e.pageY > MIN_PANEL_SIZE && e.pageY < container.offsetHeight - MIN_PANEL_SIZE) {
+          p1_height = startOffset + e.pageY
+          p1.style.height = p1_height + 'px';
+          var p2_height = container.offsetHeight - p1_height - GRIP_WIDTH
+          p2.style.height = p2_height + "px"
+          c2.height = p2_height
+          e.preventDefault(); // prevent selection action from messing it up
+          
+      }
+    });
+
+ 
+}
+
+function setup_vert_splitter(container, p1, c1, grip, p2, c2)
+{
+    var p1sz = container.offsetWidth / 2 - GRIP_WIDTH
+    
+    var resize = function() {
+        p1.style.width = p1sz + "px"
+        c1.width = p1sz
+        c1.height = container.offsetHeight // Assumes image canvas takes the whole height
+        var p2sz = container.offsetWidth - p1sz - GRIP_WIDTH
+        p2.style.width = p2sz + "px"
+        c2.width = p2sz
+    }
+    resize()
+    window.addEventListener('resize', resize);
+
+    var moving = false;
+    var startOffset;
+    
+    grip.addEventListener('mousedown', function(e) {
+        moving = true;
+        startOffset = p1.offsetWidth - e.pageX;
+    });
+    document.addEventListener('mouseup', function() {
+        moving = false;
+    });
+
+    document.addEventListener('mousemove', function(e) {
+      if (moving && e.pageX > MIN_PANEL_SIZE && e.pageX < container.offsetWidth - MIN_PANEL_SIZE) {
+          p1sz = startOffset + e.pageX
+          p1.style.width = p1sz + 'px';
+          c1.width = p1sz
+          var p2sz = container.offsetWidth - p1sz - GRIP_WIDTH
+          p2.style.width = p2sz + "px"
+          c2.width = p2sz
+          e.preventDefault(); // prevent selection action from messing it up
+      }
+    });
+
+}
+
+</script>
+<style>
+
+body {
+    margin: 0;
+    box-sizing: border-box;
+    font-family: Verdana;
+}
+
+#main_view {
+    position: absolute;
+    bottom: 0;
+    top: 0;
+    left: 0;
+    right: 0;
+}
+
+#image_panel {
+    display: inline-block;
+    width: calc(50% - 4px);
+}
+#edit_panel {
+    position: absolute;
+    top: 0;
+    display: inline-block;
+    width: 50%;
+    height:100%;
+}
+#edit_params {
+    display: inline-block;
+    height: 200px;
+    width: 100%
+}
+
+.splitter {
+    display: inline-block;
+    background-color: #ddd;
+}
+.splitter:hover {
+    background-color: #ccc;
+}
+#image_splitter {
+    cursor: col-resize;
+    width:5px;
+    height:100%;
+}
+#edit_splitter {
+    cursor: row-resize;
+    height: 5px;
+    width: 100%;
+}
+
+</style>
+</head>
+<body onload=start()>
+  <div id="main_view">
+  <div id="image_panel"><canvas id="canvas_image" width="100" height="100"></canvas></div><div id="image_splitter" class="splitter"></div><div id="edit_panel"><div id="edit_params"></div><div id="edit_splitter" class="splitter"></div><div id="edit_nodes"><canvas id="canvas_nodes" width="100" height="100"></div></div>
+  </div>
+  
+
+</body>
+</html>
