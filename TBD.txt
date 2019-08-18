@@ -6,3 +6,8 @@ mouse vertices
 color per vertex? for gradient
 triangulation
 round edges
+
+
+NOVE-VIEW
+- arrow heads
+- better lines
