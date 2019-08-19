@@ -12,7 +12,7 @@ function recalc_canvases_rects() {
 
 function setup_horz_splitter(container, p1, grip, p2, c2)
 {    
-    var p1_height = container.offsetHeight / 2 - GRIP_WIDTH
+    var p1_height = container.offsetHeight *0.35 - GRIP_WIDTH
     var resize = function() {
         p1.style.height = p1_height + "px"
         var p2_height = container.offsetHeight - p1_height - GRIP_WIDTH
@@ -119,6 +119,7 @@ function nodes_panel_mouse_control()
     var panning = false
     var prev_x, prev_y
     var hit = null
+    var did_move = false  // used for detecting unselect
     
     canvas_nodes.addEventListener('mousedown', function(e) {
         if (e.buttons == 1) {
@@ -126,17 +127,19 @@ function nodes_panel_mouse_control()
             hit = find_node_obj(nodes_view.view_x(e.pageX), nodes_view.view_y(e.pageY));
             if (hit != null) {
                 console.log("hit ", hit)
-                hit.mousedown()
+                hit.mousedown(e)
                 return
             }
-            unselect_all()
+            did_move = false
             panning = true
         }
     });
     document.addEventListener('mouseup', function() {
         panning = false;
         if (hit !== null)
-            hit.mouseup()            
+            hit.mouseup()  
+        else if (!did_move)
+            unselect_all(true)
         hit = null
     });
     document.addEventListener('mousemove', function(e) {
@@ -144,6 +147,7 @@ function nodes_panel_mouse_control()
         prev_x = e.pageX, prev_y = e.pageY
         if (dx == 0 && dy == 0) 
             return
+        did_move = true
         if (panning) {
             nodes_view.pan_x += dx
             nodes_view.pan_y += dy
@@ -159,6 +163,10 @@ function nodes_panel_mouse_control()
         e.preventDefault()
         return false;
     })
+    document.addEventListener('mousedown', function(e) {
+        nodes_dismiss_ctx_menu()
+        nodes_dismiss_name_input()
+    })
 }
 
 function addTextChild(elem, txt) {
@@ -170,7 +178,7 @@ function addTextChild(elem, txt) {
 }
 
 
-function open_context_menu(options, pgx, pgy, parent_elem)
+function open_context_menu(options, wx, wy, parent_elem, dismiss_func)
 {
     let text = "<div class='ctx_menu'>"
     for(let opt of options) {
@@ -181,16 +189,23 @@ function open_context_menu(options, pgx, pgy, parent_elem)
     let parent_width = parent_elem.offsetWidth, parent_height = parent_elem.offsetHeight
     let menu_elem = addTextChild(parent_elem, text)    
     for(let i = 0; i < menu_elem.childNodes.length; ++i) {
-        menu_elem.childNodes[i].addEventListener('click', options[i].func)
+        let child = menu_elem.childNodes[i]
+        child.addEventListener('mousedown', function(e) {
+            e.stopPropagation()            
+        })
+        child.addEventListener('click', function() {
+            options[i].func()
+            dismiss_func()
+        })        
     }
     
     let menu_width = menu_elem.offsetWidth, menu_height = menu_elem.offsetHeight
-    var rx = pgx, ry = pgy
+    var rx = wx, ry = wy
     
-    if (pgx + menu_width > parent_width) {  // x overflow
+    if (wx + menu_width > parent_width) {  // x overflow
         rx = parent_width - menu_width
     }
-    if (pgy + menu_height > parent_height) { // y overflow
+    if (wy + menu_height > parent_height) { // y overflow
         ry = parent_height - menu_height
     }
     
@@ -200,10 +215,52 @@ function open_context_menu(options, pgx, pgy, parent_elem)
 }
 
 
+class NameInput
+{
+    constructor(node, parent_elem) {
+        this.node = node
+    }
+    mousedown(e) {
+        e.stopPropagation() // don't want it to dismiss the NameInput we just opened
+        let text = "<div class='node_name_edit'><input class='node_name_input' type='text' spellcheck='false'></div>"
+        this.elem = addTextChild(main_view, text)
+        let input = this.elem.firstChild
+        this.elem.style.left = this.node.namex() + nodes_view.rect.left
+        this.elem.style.top = this.node.namey() + nodes_view.rect.top
+        input.value = this.node.name
+        input.addEventListener('mousedown', function(e) {
+            e.stopPropagation()            
+        })
+        let that = this
+        input.addEventListener('input', function() {
+            that.node.set_name(input.value)
+            draw_nodes()
+        })
+    }
+    mouseup() {
+    }
+    mousemove() {
+    }
+}
 
-
-
-
+// pass along the messages to the node and just flip the display flag
+class DisplayFlagProxy
+{
+    constructor(node) {
+        this.node = node
+    }
+    mousedown(e) {
+        set_display_node(this.node) 
+        // no need to draw_nodes since the selection of the node will do that
+        this.node.mousedown(e)
+    }
+    mouseup() {
+        this.node.mouseup()
+    }
+    mousemove(a,b,c,d) {
+        this.node.mousemove(a,b,c,d)
+    }
+}
 
 
 
