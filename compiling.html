@@ -1,0 +1,45 @@
+<html>
+<head>
+<script>
+"use strict"
+
+function start() {
+    request()
+}
+
+function request() {
+    console.log("sending request")
+    let req = new XMLHttpRequest()
+    req.onload = function() {
+        console.log("got:" + req.response)
+        let first_line = req.response.split("\n",1)[0]
+        if (first_line == "ready")
+            window.location.href = '/'
+        else if (first_line == "error") {
+            let text = req.response.substr(req.response.indexOf("\n"))
+            msg.innerText = text
+        }
+        else {
+            console.log("setting next " + first_line)
+            setTimeout(request, 500)
+        }
+    }
+    req.onerror = function() {
+        console.error("ERROR")
+    }
+    req.open("GET", "/status")
+    req.send()
+}
+
+</script>
+<style>
+#msg {
+    font-family: monospace;
+}
+</style>
+</head>
+<body onload="start()">
+    <h>Compiling...</h>
+    <div id="msg"></div>
+</body>
+</html>

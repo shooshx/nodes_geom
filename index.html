@@ -3,10 +3,38 @@
 <script src="gui.js"></script>
 <script src="base_node.js"></script>
 <script>
+
+ var Module = {
+    preRun: [],
+    postRun: [],
+    print: function(text) {
+        console.log(text);
+    },
+    printErr: function(text) {
+        console.error(text);
+    },
+    canvas: null,
+    setStatus: function(text) {
+        // console.log("STATUS:" + text)
+    },
+    totalDependencies: 0,
+    monitorRunDependencies: function(left) {
+    },
+    onRuntimeInitialized: function() {
+        //console.log('zerg');
+        start()
+    }    
+ }  
+</script>
+<script src="out/geom_nodes.js"></script>
+<script>
 "use strict"
 
 
 var ctx_nodes, ctx_image
+
+function page_onload() {
+}
 
 function start()
 {
@@ -18,6 +46,7 @@ function start()
     canvas_image.do_draw = function() {
     }
     
+    Module.test()
     
     setup_vert_splitter(main_view, image_panel, canvas_image, image_splitter, edit_panel, canvas_nodes)
     setup_horz_splitter(edit_panel, edit_params, edit_splitter, edit_nodes, canvas_nodes)
@@ -112,5 +141,5 @@ function show_params_of(node) {
 <link rel="stylesheet" type="text/css" href="style.css">
 
 </head>
-<body onload=start()><div id="main_view"><div id="image_panel"><canvas id="canvas_image" width="100" height="100"></canvas></div><div id="image_splitter" class="splitter"></div><div id="edit_panel"><div id="edit_params"><div id="div_params_list"></div></div><div id="edit_splitter" class="splitter"></div><div id="edit_nodes"><canvas id="canvas_nodes" width="100" height="100"></div></div></div></body>
+<body onload=page_onload()><div id="main_view"><div id="image_panel"><canvas id="canvas_image" width="100" height="100"></canvas></div><div id="image_splitter" class="splitter"></div><div id="edit_panel"><div id="edit_params"><div id="div_params_list"></div></div><div id="edit_splitter" class="splitter"></div><div id="edit_nodes"><canvas id="canvas_nodes" width="100" height="100"></div></div></div></body>
 </html>

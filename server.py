@@ -1,5 +1,8 @@
-import sys, os, time, threading, ctypes
+import sys, os, time, threading, ctypes, subprocess
 from http.server import BaseHTTPRequestHandler, HTTPServer
+
+#run C:\lib\emscripten\emsdk\emsdk_env.bat
+
 
 this_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -8,8 +11,43 @@ PORT_NUMBER = 8000
 
 MIME_TYPES = {".html": "text/html", 
               ".js":"text/javascript", 
-              ".css":"text/css"
+              ".css":"text/css",
+              ".wasm":"application/wasm"
               }
+
+CPP_SOURCES = ["src/mesh.cpp"
+            ]              
+JS_OUT = "out/geom_nodes.js"
+
+def check_need_update():
+    out_modified = os.stat(JS_OUT).st_mtime
+    for cpp in CPP_SOURCES:
+        if os.stat(cpp).st_mtime > out_modified:
+            return True
+    return False
+    
+
+compiling_thread = None
+status = ("ready", "")
+
+DEBUG_CMD = "em++ -g4 -O0 -s WASM=1 --bind -s ASSERTIONS=2 -s SAFE_HEAP=1 -s DEMANGLE_SUPPORT=1 -s ALLOW_MEMORY_GROWTH=0 -s NO_EXIT_RUNTIME=1 -D_DEBUG -D_LIBCPP_DEBUG=0  --memory-init-file 0 -Wno-switch -Isrc -o out/geom_nodes.js " 
+
+
+def compile():
+    global status
+    try:
+        status = ("compiling", "")
+        cmd = DEBUG_CMD.split() + CPP_SOURCES
+        print("**", cmd)
+        out = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
+        status = ("ready", out.decode('latin1'))
+        print("** done")
+    except Exception as e:
+        out = e.output
+        status = ("error", out.decode('latin1'))
+        print(out)
+    global compiling_thread
+    compiling_thread = None
 
 class MyHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -17,8 +55,25 @@ class MyHandler(BaseHTTPRequestHandler):
             self.error(500, 'illigal path')
             return
         getpath = self.path
-        if getpath == '/':
-            getpath = '/index.html'
+        if getpath == '/': 
+            if check_need_update():
+                global compiling_thread
+                if compiling_thread is not None:
+                    self.error(500, 'still working')
+                    return
+                compiling_thread = threading.Thread(target=compile)
+                compiling_thread.start()
+                getpath = "/compiling.html"
+            else:
+                getpath = '/index.html'
+        
+        if getpath == "/status":
+            print("  Sending", status)
+            self.send_response(200)
+            self.send_header('Content-type', 'text/plain')
+            self.end_headers()
+            self.wfile.write(bytes(status[0] + "\n" + status[1], "latin1"))
+            return
 
         ext = os.path.splitext(getpath)[1]
         if ext not in MIME_TYPES:
