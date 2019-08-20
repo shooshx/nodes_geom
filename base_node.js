@@ -25,13 +25,13 @@ function connector_line_s(fx, fy, tx, ty) { // from, to
 }
 
 
-function connector_line(fx, fy, fxoffset, tx, ty, txoffset) { // from, to
+function connector_line(fx, fy, fxoffset, tx, ty, txoffset, free) { // from, to
     ctx_nodes.beginPath()
     fx += nodes_view.pan_x, tx += nodes_view.pan_x
     fy += nodes_view.pan_y, ty += nodes_view.pan_y
     ctx_nodes.moveTo(fx, fy)
     let dy = ty - fy, dx = tx - fx
-    if (ty - 2*TERM_RADIUS -5 > fy || Math.sqrt(dx*dx+dy*dy) < 70) {// going down or very short
+    if (ty - 2*TERM_RADIUS -5 > fy || Math.sqrt(dx*dx+dy*dy) < 70 || free) {// going down or very short
         ctx_nodes.bezierCurveTo(fx + dx*0.1, fy + dy*0.58, tx - dx*0.1, ty - dy*0.58,  tx, ty)
     }
     else {
@@ -77,14 +77,19 @@ function rounded_rect(ctx, x, y, width, height, r) {
 
 class Line {
     constructor(from_term, to_term) {
-        this.from_term = from_term
-        this.to_term = to_term
+        if (!to_term.is_input) {
+            this.from_term = to_term
+            this.to_term = from_term
+        }
+        else {
+            this.from_term = from_term
+            this.to_term = to_term
+        }
     }
     
     draw() {
-
         connector_line(this.from_term.cx, this.from_term.cy, this.from_term.offset,
-                       this.to_term.cx, this.to_term.cy, this.to_term.offset)
+                       this.to_term.cx, this.to_term.cy, this.to_term.offset, false)
     }
 }
 
@@ -114,7 +119,7 @@ class Terminal {
             return
         }
         if (linkto === null || linkto.owner === undefined || linkto.owner == this.owner) {
-            connector_line(this.cx, this.cy, 0, px, py, 0)
+            connector_line(this.cx, this.cy, 0, px, py, 0, true)
         }
         else {
             this.line_pending = new Line(this, linkto)
@@ -153,9 +158,6 @@ class Node {
         this.terminals = this.inputs.concat(this.outputs)
         // geom including terminals
 
-        
-        
-        
         this.make_term_offset(this.inputs, true)
         this.make_term_offset(this.outputs, false)
     }
@@ -309,9 +311,7 @@ function find_node_obj(px, py) {
                 return t
         }
         if (px > n.x + n.width && px < n.x + n.width + n.name_measure.width + NODE_NAME_PROPS.margin_left && py >= n.y && py <= n.y + NODE_NAME_PROPS.height) {
-            nodes_dismiss_name_input()
-            last_name_input = new NameInput(n, edit_nodes)
-            return last_name_input
+            return new NameInput(n, edit_nodes)
         }
         
     }
@@ -326,13 +326,6 @@ function nodes_dismiss_ctx_menu() {
     }
 }
 
-var last_name_input = null
-function nodes_dismiss_name_input() {
-    if (last_name_input != null) {
-        main_view.removeChild(last_name_input.elem)
-        last_name_input = null
-    }
-}
 
 function nodes_context_menu(px, py, wx, wy) {
     let node = find_node_obj(px, py)

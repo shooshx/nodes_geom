@@ -12,7 +12,7 @@ function recalc_canvases_rects() {
 
 function setup_horz_splitter(container, p1, grip, p2, c2)
 {    
-    var p1_height = Math.round(container.offsetHeight *0.35) - GRIP_WIDTH
+    var p1_height = Math.trunc(container.offsetHeight *0.35) - GRIP_WIDTH
     var resize = function() {
         p1.style.height = p1_height + "px"
         var p2_height = container.offsetHeight - p1_height - GRIP_WIDTH
@@ -53,7 +53,7 @@ function setup_horz_splitter(container, p1, grip, p2, c2)
 
 function setup_vert_splitter(container, p1, c1, grip, p2, c2)
 {
-    var p1sz = Math.round(container.offsetWidth *0.6) - GRIP_WIDTH
+    var p1sz = Math.trunc(container.offsetWidth *0.6) - GRIP_WIDTH
     
     var resize = function() {
         p1.style.width = p1sz + "px"
@@ -209,24 +209,33 @@ function open_context_menu(options, wx, wy, parent_elem, dismiss_func)
         ry = parent_height - menu_height
     }
     
-    menu_elem.style.left = rx
-    menu_elem.style.top = ry
+    menu_elem.style.left = rx + "px"
+    menu_elem.style.top = ry + "px"
     return menu_elem
 }
 
+var last_name_input = null
+function nodes_dismiss_name_input() {
+    if (last_name_input != null && last_name_input.elem != null) {
+        main_view.removeChild(last_name_input.elem)
+        last_name_input = null
+    }
+}
 
 class NameInput
 {
     constructor(node, parent_elem) {
         this.node = node
+        this.elem = null
     }
     mousedown(e) {
         e.stopPropagation() // don't want it to dismiss the NameInput we just opened
+        nodes_dismiss_name_input()
         let text = "<div class='node_name_edit'><input class='node_name_input' type='text' spellcheck='false'></div>"
         this.elem = addTextChild(main_view, text)
         let input = this.elem.firstChild
-        this.elem.style.left = this.node.namex() + nodes_view.rect.left
-        this.elem.style.top = this.node.namey() + nodes_view.rect.top
+        this.elem.style.left = this.node.namex() + nodes_view.rect.left + "px"
+        this.elem.style.top = this.node.namey() + nodes_view.rect.top - 5 + "px"
         input.value = this.node.name
         input.addEventListener('mousedown', function(e) {
             e.stopPropagation()            
@@ -236,6 +245,7 @@ class NameInput
             that.node.set_name(input.value)
             draw_nodes()
         })
+        last_name_input = this
     }
     mouseup() {
     }
