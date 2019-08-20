@@ -1,3 +1,4 @@
+"use strict"
 
 var selected_node = null
 var display_node = null

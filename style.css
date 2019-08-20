@@ -1,0 +1,107 @@
+
+body {
+    margin: 0;
+    box-sizing: border-box;
+    font-family: Verdana;
+    user-select: none;
+}
+
+#main_view {
+    position: absolute;
+    bottom: 0;
+    top: 0;
+    left: 0;
+    right: 0;
+}
+
+#image_panel {
+    display: inline-block;
+    width: calc(50% - 4px);
+}
+#edit_panel {
+    position: absolute;
+    top: 0;
+    display: inline-block;
+    width: 50%;
+    height:100%;
+}
+#edit_params {
+    /*display: block;*/
+    height: 200px;
+    width: 100%;
+    background-color: #312F31;
+    color: #fff;    
+}
+
+.splitter {
+    display: inline-block;
+    background-color: #ddd;
+}
+.splitter:hover {
+    background-color: #ccc;
+}
+#image_splitter {
+    cursor: col-resize;
+    width:5px;
+    height:100%;
+}
+#edit_splitter {
+    /*display: block;*/
+    cursor: row-resize;
+    height: 5px;
+    width: 100%;
+}
+
+.ctx_menu {
+    position: absolute;
+    background-color: #656565;
+    padding: 7px 0;
+    border-radius: 4px;
+    border: solid 2px #7d7d7d;
+    color: #fff;
+    line-height: 140%;
+}
+.ctx_menu_opt {  
+    padding: 0 7px;
+}
+.ctx_menu_opt:hover {  
+    background-color: #888888;
+}
+
+.node_name_edit {
+    position: absolute;
+}
+.node_name_input {
+    outline:none;  /* no focus outline */
+    width: 100px;
+    font-size: 14px;
+    margin-top: -5px;
+    margin-left: -4px;
+    background-color: #555;
+    color: #fff;
+    border: solid 1px #888;
+    padding-left: 3px;
+    border-radius: 2px;
+    font-size: 15px;
+}
+.param_line {
+    padding: 5px 0 0 0;
+}
+.param_label_pre {
+    width: 120px;
+    display: inline-block;
+    text-align: right;
+    padding-right: 5px;
+}
+.param_input {
+    background-color: #555;
+    color: #fff;
+    border: solid 1px #888;
+    margin: 0 5px;
+    height: 24px;
+    border-radius: 3px;
+    padding: 0 5px;
+    font-family: Verdana;
+    width: 25%;
+    min-width: 100px;
+}

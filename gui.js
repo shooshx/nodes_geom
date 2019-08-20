@@ -12,7 +12,7 @@ function recalc_canvases_rects() {
 
 function setup_horz_splitter(container, p1, grip, p2, c2)
 {    
-    var p1_height = container.offsetHeight *0.35 - GRIP_WIDTH
+    var p1_height = Math.round(container.offsetHeight *0.35) - GRIP_WIDTH
     var resize = function() {
         p1.style.height = p1_height + "px"
         var p2_height = container.offsetHeight - p1_height - GRIP_WIDTH
@@ -53,7 +53,7 @@ function setup_horz_splitter(container, p1, grip, p2, c2)
 
 function setup_vert_splitter(container, p1, c1, grip, p2, c2)
 {
-    var p1sz = container.offsetWidth / 2 - GRIP_WIDTH
+    var p1sz = Math.round(container.offsetWidth *0.6) - GRIP_WIDTH
     
     var resize = function() {
         p1.style.width = p1sz + "px"
