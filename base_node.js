@@ -93,7 +93,7 @@ class Line {
     }
 }
 
-class Terminal {
+class TerminalBase {
     constructor(name) {
         this.name = name
         
@@ -110,15 +110,36 @@ class Terminal {
         else
             this.cy = this.owner.y + this.owner.height + TERM_RADIUS + TERM_MARGIN_Y    
     }
+
+    px() {
+        return this.cx + nodes_view.pan_x
+    }
+    py() {
+        return this.cy + nodes_view.pan_y
+    }
+
+    is_connected_to(other_term) {
+        for(let l of this.lines) {
+            if (l.from_term === other_term || l.to_term === other_term)
+                return true;
+        }
+        return false;
+    }
+    gender_match(other_term) {
+        return (this.is_input && !other_term.is_input) || (!this.is_input && other_term.is_input)
+    }
     
     mousemove(dx, dy, px, py) {
         let linkto = find_node_obj(px, py)
         this.line_pending = null
         draw_nodes()
-        if ( linkto === this) {
+        if (linkto === this) { // should not connect to itself
             return
         }
-        if (linkto === null || linkto.owner === undefined || linkto.owner == this.owner) {
+        if (linkto === null || linkto.owner === undefined || linkto.owner === this.owner || 
+            !this.gender_match(linkto) || this.is_connected_to(linkto)) 
+        {
+            // free line
             connector_line(this.cx, this.cy, 0, px, py, 0, true)
         }
         else {
@@ -138,28 +159,69 @@ class Terminal {
     }    
 }
 
+// normal circle terminal
+class Terminal extends TerminalBase
+{
+    draw() {
+        ctx_nodes.beginPath();
+        ctx_nodes.arc(this.px(), this.py() , TERM_RADIUS, 0, 2*Math.PI)
+        ctx_nodes.fillStyle = "#aaa"
+        ctx_nodes.fill()
+        ctx_nodes.stroke() 
+    }
+    hit_test(px, py) {
+        return px >= this.cx - TERM_RADIUS && px <= this.cx + TERM_RADIUS && 
+               py >= this.cy - TERM_RADIUS && py <= this.cy + TERM_RADIUS
+    }
+}
+
+const TERM_MULTI_HWIDTH = 30
+
+// elongated
+class TerminalMulti extends TerminalBase
+{
+    draw() {
+        rounded_rect(ctx_nodes, this.px() - TERM_MULTI_HWIDTH, this.py() - TERM_RADIUS, TERM_MULTI_HWIDTH*2, 2*TERM_RADIUS, TERM_RADIUS)
+        ctx_nodes.fillStyle = "#aaa"
+        ctx_nodes.fill()
+        ctx_nodes.stroke()         
+    }
+    hit_test(px, py) {
+        return px >= this.cx - TERM_MULTI_HWIDTH && px <= this.cx + TERM_MULTI_HWIDTH && 
+               py >= this.cy - TERM_RADIUS && py <= this.cy + TERM_RADIUS
+    }    
+}
+
 
 const NODE_NAME_PROPS = { font:"14px Verdana", margin_top:3, margin_left:5, height:15}
 const NODE_FLAG_DISPLAY = {offset: 105, color: "#00A1F7" }
 
 class Node {    
-    constructor(x, y, name, cls) {
+    constructor(x, y, name, cls_name) {
         this.x = x
         this.y = y
-        this.cls = new cls()
         this.width = NODE_WIDTH
         this.height = 30
         this.set_name(name)
         this.color = "#ccc"
-        this.inputs = this.cls.inputs
-        this.outputs = this.cls.outputs
-        
+
+        this.inputs = [] //this.cls.inputs
+        this.outputs = [] //this.cls.outputs        
         // calculated data members
         this.terminals = this.inputs.concat(this.outputs)
-        // geom including terminals
 
         this.make_term_offset(this.inputs, true)
         this.make_term_offset(this.outputs, false)
+        this.make_cpp_impl(cls_name)        
+    }
+
+    make_cpp_impl(cls_name) {
+        this.parameters = []
+        this.cpp_impl = Module.create_node(cls_name, this)
+        
+    }
+    destroy() {
+        Module.delete_node(this.cpp_impl)
     }
    
     make_term_offset(lst, is_input) {
@@ -228,11 +290,7 @@ class Node {
         ctx_nodes.stroke()
         
         for(let t of this.terminals) {
-            ctx_nodes.beginPath();
-            ctx_nodes.arc(t.cx + nodes_view.pan_x, t.cy + nodes_view.pan_y , TERM_RADIUS, 0, 2*Math.PI)
-            ctx_nodes.fillStyle = "#aaa"
-            ctx_nodes.fill()
-            ctx_nodes.stroke() 
+            t.draw()
         }
         ctx_nodes.fillStyle = "#fff"
         ctx_nodes.font = NODE_NAME_PROPS.font;
@@ -250,10 +308,10 @@ class Node {
         ctx_nodes.font = NODE_NAME_PROPS.font
         this.name_measure = ctx_nodes.measureText(this.name)
         
-        this.recalc_bounding_box()
-        
+        this.recalc_bounding_box() 
     }
     
+    // geom including terminals
     recalc_bounding_box() {
         this.tx = this.x + this.name_measure.width + NODE_NAME_PROPS.left
         this.ty = this.y - TERM_RADIUS*2 - 2
@@ -307,7 +365,7 @@ function find_node_obj(px, py) {
                 return n
         }
         for(let t of n.terminals) {
-            if (px >= t.cx - TERM_RADIUS && px <= t.cx + TERM_RADIUS && py >= t.cy - TERM_RADIUS && py <= t.cy + TERM_RADIUS)
+            if (t.hit_test(px, py))
                 return t
         }
         if (px > n.x + n.width && px < n.x + n.width + n.name_measure.width + NODE_NAME_PROPS.margin_left && py >= n.y && py <= n.y + NODE_NAME_PROPS.height) {
@@ -336,7 +394,10 @@ function nodes_context_menu(px, py, wx, wy) {
         var opt = [{text:"Delete", func:function() { delete_node(node, true)} }]
     }
     else {
-        var opt = []
+        let clss = []
+        for(let c of nodes_classes)
+            clss.push( {text:c.name(), func:function() { add_node(px, py, "node", c); draw_nodes() } } )
+        var opt = clss
     }
     
     last_nodes_ctx_menu = open_context_menu(opt, wx, wy, main_view, nodes_dismiss_ctx_menu)    

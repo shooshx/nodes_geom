@@ -46,7 +46,7 @@ function start()
     canvas_image.do_draw = function() {
     }
     
-    Module.test()
+    Module.start()
     
     setup_vert_splitter(main_view, image_panel, canvas_image, image_splitter, edit_panel, canvas_nodes)
     setup_horz_splitter(edit_panel, edit_params, edit_splitter, edit_nodes, canvas_nodes)
@@ -54,8 +54,8 @@ function start()
     nodes_panel_mouse_control()
     
 
-    add_node(0, 0, "node1", NodeGeomPrimitive)
-    add_node(100, 100, "node2", NodeTestDummy)
+    add_node(0, 0, "node1", "Geom_Primitive")
+    add_node(100, 100, "node2", "Test_Dummy")
     
     draw_nodes()
 }
@@ -79,15 +79,43 @@ class NodeTestDummy {
 
 class NodeGeomPrimitive
 {
+    static name() { return "Geom_Primitive" }
     constructor() {
         this.inputs = []
         this.outputs = [new Terminal("out_mesh")]
         this.parameters = [
              new ParamCoord2("size", 0.5, 0.5)
         ]
-
     }
 }
+
+class NodePointColor
+{
+    static name() { return "Point_Color" }
+    constructor() {
+        this.inputs = [new Terminal("in_mesh")]
+        this.outputs = [new Terminal("out_mesh")]
+        this.parameters = [
+            new ParamColor("Uniform", "#cccccc")
+        ]
+    }
+}
+
+class NodeGeomMerge
+{
+    static name() { return "Geom_Merge" }
+    constructor() {
+        this.inputs = [new TerminalMulti("in_multi_mesh")]
+        this.outputs = [new Terminal("out_mesh")]
+        this.parameters = [
+        ]
+    }
+}
+
+var nodes_classes = [
+    "Test_Dummy", "Geom_Primitive", "Point_Color", "Geom_Merge"
+]
+
 
 class Parameter
 {
@@ -96,18 +124,21 @@ class Parameter
     }
 }
 
-class ParamInt extends Parameter {
-    constructor(label, start_val) {
+window.ParamInt = class ParamInt extends Parameter {
+    constructor(label) {
         super(label)
-        this.value = start_val
+        this.value = 0
     }
 }
 
-class ParamCoord2 extends Parameter {
-    constructor(label, start_w, start_h) {
+window.ParamVec2 = class ParamVec2 extends Parameter {
+    constructor(label, cpp_param) {
         super(label)
-        this.w = start_w;
-        this.h = start_h
+        this.cpp_param = cpp_param
+    }
+    init_val(x, y) {
+        this.elem_x.value = x
+        this.elem_y.value = y
     }
     add_elems(parent) {
         let line = addTextChild(parent, "<div class='param_line'>\
@@ -115,10 +146,12 @@ class ParamCoord2 extends Parameter {
 <input class='param_input' type='text' spellcheck='false'>\
 <input class='param_input' type='text' spellcheck='false'>\
 </div>".replace(/LABEL/, this.label))
-        this.elem_w = line.childNodes[1]
-        this.elem_h = line.childNodes[2]
-        this.elem_w.value = this.w
-        this.elem_h.value = this.h
+        this.elem_x = line.childNodes[1]
+        this.elem_y = line.childNodes[2]
+        this.cpp_param.pull_value()
+        let that = this
+        this.elem_x.addEventListener("input", function() { that.cpp_param.set_value(0, that.elem_x.value) })
+        this.elem_y.addEventListener("input", function() { that.cpp_param.set_value(1, that.elem_y.value) })
     }
 }
 
@@ -132,7 +165,7 @@ function show_params_of(node) {
     if (node === null)
         return
     
-    for(let p of node.cls.parameters) {
+    for(let p of node.parameters) {
         p.add_elems(div_params_list)
     }
 }

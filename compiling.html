@@ -7,6 +7,10 @@ function start() {
     request()
 }
 
+function format_error(text) {
+    return text.replace(/error/g, "<span class='err'>error</span>");
+}
+
 function request() {
     console.log("sending request")
     let req = new XMLHttpRequest()
@@ -17,7 +21,7 @@ function request() {
             window.location.href = '/'
         else if (first_line == "error") {
             let text = req.response.substr(req.response.indexOf("\n"))
-            msg.innerText = text
+            msg.innerHTML = format_error(text)
         }
         else {
             console.log("setting next " + first_line)
@@ -33,13 +37,21 @@ function request() {
 
 </script>
 <style>
+body {
+    font-family: Verdana;
+    background-color: #333;
+    color: #fff;
+}    
 #msg {
     font-family: monospace;
+}
+.err {
+    color: #ff6666;
 }
 </style>
 </head>
 <body onload="start()">
     <h>Compiling...</h>
-    <div id="msg"></div>
+    <pre id="msg"></pre>
 </body>
 </html>

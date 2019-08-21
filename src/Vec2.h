@@ -1,6 +1,6 @@
 #pragma once
 #include <cmath>
-#include <cfloat>
+#include <cdouble>
 #include <ostream>
 
 template<typename T>
@@ -29,14 +29,14 @@ public:
     Vec2() : x(0.0f), y(0.0f) 
     {}
 
-    Vec2(float _x, float _y) : x(_x), y(_y)
+    Vec2(double _x, double _y) : x(_x), y(_y)
     {}
 
     union {
         struct {
-            float x, y;
+            double x, y;
         };
-        float v[2];
+        double v[2];
     };
 
 
@@ -48,11 +48,11 @@ public:
         x -= o.x;
         y -= o.y;
     }
-    void operator/=(float v) {
+    void operator/=(double v) {
         x /= v;
         y /= v;
     }
-    void operator*=(float v) {
+    void operator*=(double v) {
         x *= v;
         y *= v;
     }
@@ -75,9 +75,9 @@ public:
         return x != FLT_MAX;
     }
 
-    static float distSq(const Vec2& a, const Vec2& b) {
-        float dx = a.x - b.x;
-        float dy = a.y - b.y;
+    static double distSq(const Vec2& a, const Vec2& b) {
+        double dx = a.x - b.x;
+        double dy = a.y - b.y;
         return dx*dx + dy*dy;
     }
 };
@@ -90,19 +90,19 @@ inline Vec2 operator-(const Vec2& a, const Vec2& b) {
 }
 
 // dot product
-inline float operator*(const Vec2& a, const Vec2& b) {
+inline double operator*(const Vec2& a, const Vec2& b) {
     return a.x * b.x + a.y * b.y;
 }
 
-inline float dot(const Vec2& a, const Vec2& b) {
+inline double dot(const Vec2& a, const Vec2& b) {
     return a.x * b.x + a.y * b.y;
 }
 
 
-inline Vec2 operator*(const Vec2& a, float v) {
+inline Vec2 operator*(const Vec2& a, double v) {
     return Vec2(a.x * v, a.y * v);
 }
-inline Vec2 operator*(float v, const Vec2& a) {
+inline Vec2 operator*(double v, const Vec2& a) {
     return Vec2(a.x * v, a.y * v);
 }
 
@@ -110,28 +110,28 @@ inline bool operator==(const Vec2& a, const Vec2& b) {
     return a.x == b.x && a.y == b.y;
 }
 
-inline float absSq(const Vec2& v) {
+inline double absSq(const Vec2& v) {
     return v * v;
 }
 
-inline float distSq(const Vec2& a, const Vec2& b) {
+inline double distSq(const Vec2& a, const Vec2& b) {
     return absSq(a - b);
 }
 
-inline float dist(const Vec2& a, const Vec2& b) {
+inline double dist(const Vec2& a, const Vec2& b) {
     return sqrt(absSq(a - b));
 }
 
-inline float length(const Vec2& v) {
+inline double length(const Vec2& v) {
     return std::sqrt(v * v);
 }
 
-inline float det(const Vec2& a, const Vec2& b) {
+inline double det(const Vec2& a, const Vec2& b) {
     return a.x * b.y - a.y * b.x;
 }
 
-inline Vec2 operator/(const Vec2& a, float v) {
-    const float inv = 1.0f / v;
+inline Vec2 operator/(const Vec2& a, double v) {
+    const double inv = 1.0f / v;
     return Vec2(a.x * inv, a.y * inv);
 }
 
@@ -144,7 +144,7 @@ inline Vec2 normal(const Vec2& a, const Vec2& b) {
 }
 
 inline Vec2& Vec2::normalize() {
-    float d = 1.0f / ::length(*this);
+    double d = 1.0f / ::length(*this);
     x *= d;
     y *= d;
     return *this;
@@ -155,23 +155,23 @@ inline Vec2 operator-(const Vec2& v) {
 }
 
 
-inline float sqr(float scalar) {
+inline double sqr(double scalar) {
     return scalar * scalar;
 }
 
 inline Vec2 project(const Vec2& p, const Vec2& a, const Vec2& b) {
     Vec2 ab = (b-a);
     Vec2 ap = (p-a);
-    float d = dot(ap, ab) / dot(ab, ab);
+    double d = dot(ap, ab) / dot(ab, ab);
     d = imin(1.0f, imax(0.0f, d));
     return a + d * ab;
 }
 
 // distance squared to p projected on segment a-b or FLT_MAX if it is not projected
-inline float distSqToProjectOrMax(const Vec2& p, const Vec2& a, const Vec2& b) {
+inline double distSqToProjectOrMax(const Vec2& p, const Vec2& a, const Vec2& b) {
     Vec2 ab = (b-a);
     Vec2 ap = (p-a);
-    float d = dot(ap, ab) / dot(ab, ab);
+    double d = dot(ap, ab) / dot(ab, ab);
     if (d < 0.0 || d > 1.0)
         return FLT_MAX;
     return absSq(a + d * ab - p);
@@ -188,14 +188,14 @@ inline std::ostream& operator<<(std::ostream& os, const Vec2& p) {
 class Vec3 {
 public:
     Vec3() : x(0), y(0), z(0) {}
-    Vec3(float _x, float _y, float _z) : x(_x), y(_y), z(_z) {}
-    float x, y, z;
+    Vec3(double _x, double _y, double _z) : x(_x), y(_y), z(_z) {}
+    double x, y, z;
 
-    float length() const {
+    double length() const {
         return sqrt(x*x + y*y + z*z);
     }
     void normalize() {
-        float n = 1.0f/length();
+        double n = 1.0f/length();
         x *= n; y *= n; z *= n;
     }
     Vec2 toVec2() const {
@@ -214,10 +214,10 @@ inline Vec3 operator-(const Vec3& a, const Vec3& b) {
 inline Vec3 operator+(const Vec3& a, const Vec3& b) {
     return Vec3(a.x+b.x, a.y+b.y, a.z+b.z);
 }
-inline Vec3 operator*(const Vec3& a, float v) {
+inline Vec3 operator*(const Vec3& a, double v) {
     return Vec3(a.x*v, a.y*v, a.z*v);
 }
-inline float dist(const Vec3& a, const Vec3& b) {
-    float dx = a.x-b.x, dy = a.y-b.y, dz = a.z-b.z;
+inline double dist(const Vec3& a, const Vec3& b) {
+    double dx = a.x-b.x, dy = a.y-b.y, dz = a.z-b.z;
     return sqrt(dx*dx + dy*dy + dz*dz);
 }

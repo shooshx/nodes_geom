@@ -12,16 +12,29 @@ PORT_NUMBER = 8000
 MIME_TYPES = {".html": "text/html", 
               ".js":"text/javascript", 
               ".css":"text/css",
-              ".wasm":"application/wasm"
+              ".wasm":"application/wasm",
+              ".map":"application/wasm",
+              ".ico":"image/x-icon",
               }
 
-CPP_SOURCES = ["src/mesh.cpp"
-            ]              
+CPP_SOURCES = ["src/Mesh2D.cpp"
+               ]
+CPP_HEADERS = ["src/Node.h", 
+               "src/PObject.h", 
+               "src/Vec2.h",
+               ]
 JS_OUT = "out/geom_nodes.js"
+
+class HException(Exception):
+    def __init__(self, code, msg):
+        self.code = code
+        self.msg = msg
 
 def check_need_update():
     out_modified = os.stat(JS_OUT).st_mtime
-    for cpp in CPP_SOURCES:
+    for cpp in CPP_SOURCES + CPP_HEADERS:
+        if not os.path.exists(cpp):
+            raise HException(500, "Did not find file " + cpp)
         if os.stat(cpp).st_mtime > out_modified:
             return True
     return False
@@ -30,7 +43,8 @@ def check_need_update():
 compiling_thread = None
 status = ("ready", "")
 
-DEBUG_CMD = "em++ -g4 -O0 -s WASM=1 --bind -s ASSERTIONS=2 -s SAFE_HEAP=1 -s DEMANGLE_SUPPORT=1 -s ALLOW_MEMORY_GROWTH=0 -s NO_EXIT_RUNTIME=1 -D_DEBUG -D_LIBCPP_DEBUG=0  --memory-init-file 0 -Wno-switch -Isrc -o out/geom_nodes.js " 
+WASM = 0
+DEBUG_CMD = "em++ -g4 -O0 -s WASM=%s --bind -s ASSERTIONS=2 -s SAFE_HEAP=1 -s DEMANGLE_SUPPORT=1 -s ALLOW_MEMORY_GROWTH=0 -s NO_EXIT_RUNTIME=1 -s DISABLE_EXCEPTION_CATCHING=0 -D_DEBUG -D_LIBCPP_DEBUG=0  --memory-init-file 0 -Wno-switch -Isrc -o out/geom_nodes.js " % (WASM)
 
 
 def compile():
@@ -45,62 +59,79 @@ def compile():
     except Exception as e:
         out = e.output
         status = ("error", out.decode('latin1'))
-        print(out)
+        print(out.decode('ascii'))
     global compiling_thread
     compiling_thread = None
 
 class MyHandler(BaseHTTPRequestHandler):
     def do_GET(self):
-        if "/./" in self.path or "/../" in self.path:
-            self.error(500, 'illigal path')
-            return
-        getpath = self.path
-        if getpath == '/': 
-            if check_need_update():
-                global compiling_thread
-                if compiling_thread is not None:
-                    self.error(500, 'still working')
+        try:
+            if "/./" in self.path or "/../" in self.path:
+                raise HException(500, 'illigal path')
+            getpath = self.path
+            if getpath == '/': 
+                if check_need_update():
+                    global compiling_thread
+                    if compiling_thread is not None:
+                        raise HException(500, 'still working')
+                    compiling_thread = threading.Thread(target=compile)
+                    compiling_thread.start()
+                    getpath = "/compiling.html"
+                else:
+                    getpath = '/index.html'
+            
+            if getpath == "/status":
+                #print("  Sending", status)
+                self.send_response(200)
+                self.send_header('Content-type', 'text/plain')
+                self.end_headers()
+                self.wfile.write(bytes(status[0] + "\n" + status[1], "latin1"))
+                return
+
+            ext = os.path.splitext(getpath)[1]
+            if ext not in MIME_TYPES:
+                raise HException(500, 'unknown extension `%s` in `%s`' % (ext, getpath))
+
+            fpath = this_dir + getpath
+            if os.path.exists(fpath):
+                self.send_file(fpath, ext)
+                return
+            if ext == ".map":
+                # chrome asks for the .wasm.map file without the folder
+                fpath = this_dir + "/out" + getpath
+                print("Checking", fpath)
+                if os.path.exists(fpath):
+                    self.send_file(fpath, ext)
                     return
-                compiling_thread = threading.Thread(target=compile)
-                compiling_thread.start()
-                getpath = "/compiling.html"
-            else:
-                getpath = '/index.html'
-        
-        if getpath == "/status":
-            print("  Sending", status)
-            self.send_response(200)
-            self.send_header('Content-type', 'text/plain')
-            self.end_headers()
-            self.wfile.write(bytes(status[0] + "\n" + status[1], "latin1"))
-            return
 
-        ext = os.path.splitext(getpath)[1]
-        if ext not in MIME_TYPES:
-            self.error(500, 'unknown extension `%s` in `%s`' % (ext, getpath))
-            return
-
-        fpath = this_dir + getpath
-        if os.path.exists(fpath):
-            self.send_response(200)
-            self.send_header('Content-type', MIME_TYPES[ext])
-            self.end_headers()
-            content = open(fpath, "rb").read()
-            self.wfile.write(content)
+        except HException as e:
+            print(e)
+            self.error(e.code, e.msg)
             return
 
         self.error(404)
+
+    def send_file(self, fpath, ext):
+        self.send_response(200)
+        self.send_header('Content-type', MIME_TYPES[ext])
+        self.end_headers()
+        content = open(fpath, "rb").read()
+        self.wfile.write(content)
+
 
     def error(self, code, msg=""):
         self.send_response(code)
         self.send_header('Content-type', 'text/html')
         self.end_headers()
-        content = '''
-        <html><head><title>Error</title></head>
-        <body><p>Something went wrong: {}</p>
-        <p>msg: {}</p>
+        content = ('''
+        <html><head><title>Error</title><style>
+        body { font-family: Verdana; }
+        </style>
+        </head>
+        <body><p>Something went wrong: %s</p>
+        <p>msg: %s</p>
         </body></html>
-        '''.format(code, msg).encode('ascii')   
+        ''' % (code, msg)).encode('ascii')  
         self.wfile.write(content)
 
 
