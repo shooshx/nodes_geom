@@ -160,7 +160,7 @@ class TerminalBase {
 }
 
 // normal circle terminal
-class Terminal extends TerminalBase
+window.Terminal = class Terminal extends TerminalBase
 {
     draw() {
         ctx_nodes.beginPath();
@@ -178,7 +178,7 @@ class Terminal extends TerminalBase
 const TERM_MULTI_HWIDTH = 30
 
 // elongated
-class TerminalMulti extends TerminalBase
+window.TerminalMulti = class TerminalMulti extends TerminalBase
 {
     draw() {
         rounded_rect(ctx_nodes, this.px() - TERM_MULTI_HWIDTH, this.py() - TERM_RADIUS, TERM_MULTI_HWIDTH*2, 2*TERM_RADIUS, TERM_RADIUS)
@@ -205,21 +205,16 @@ class Node {
         this.set_name(name)
         this.color = "#ccc"
 
-        this.inputs = [] //this.cls.inputs
-        this.outputs = [] //this.cls.outputs        
         // calculated data members
-        this.terminals = this.inputs.concat(this.outputs)
-
+        this.parameters = []
+        this.inputs = []
+        this.outputs = [] 
+        this.cpp_impl = Module.create_node(cls_name, this)
         this.make_term_offset(this.inputs, true)
         this.make_term_offset(this.outputs, false)
-        this.make_cpp_impl(cls_name)        
+        this.terminals = this.inputs.concat(this.outputs)
     }
 
-    make_cpp_impl(cls_name) {
-        this.parameters = []
-        this.cpp_impl = Module.create_node(cls_name, this)
-        
-    }
     destroy() {
         Module.delete_node(this.cpp_impl)
     }
@@ -395,8 +390,8 @@ function nodes_context_menu(px, py, wx, wy) {
     }
     else {
         let clss = []
-        for(let c of nodes_classes)
-            clss.push( {text:c.name(), func:function() { add_node(px, py, "node", c); draw_nodes() } } )
+        for(let cname of nodes_classes)
+            clss.push( {text: cname, func:function() { add_node(px, py, "node", cname); draw_nodes() } } )
         var opt = clss
     }
     

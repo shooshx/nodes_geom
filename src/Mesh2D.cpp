@@ -23,13 +23,13 @@ class Mesh2D : public PObject
 public:
     virtual ~Mesh2D() {}
     void add_vtx(float x, float y) {
-        m_vtx.push_back(Vec2(x, y));
+        m_vtx.push_back(Vec2f(x, y));
     }
     void add_quad(int a, int b, int c, int d) {
         m_poly.insert(m_poly.end(), {a, b, c, d});
     }
 private:
-    vector<Vec2> m_vtx;
+    vector<Vec2f> m_vtx;
     vector<int> m_poly;
     EMeshType m_type;
 };
@@ -43,22 +43,40 @@ class NodeGeomPrimitive : public Node
 {
 public:
     NodeGeomPrimitive(emscripten::val& js_node) : Node(js_node)
-        , m_size(this, "Size", Vec2(0.5, 0.5))
+        ,m_size(this, "Size", Vec2d(0.5, 0.5))
+        ,m_out_mesh(this, "out_mesh") 
     {}
     static constexpr const char* const s_name = "Geom_Primitive";
 private:
-    Param<Vec2> m_size;
+    Param<Vec2d> m_size;
+    OutTerminal<Mesh2D> m_out_mesh;
+};
+
+class NodeTestDummy : public Node
+{
+public:
+    NodeTestDummy(emscripten::val& js_node) : Node(js_node)
+        ,m_in_1(this, "in_1")
+        ,m_in_2(this, "in_2")
+        ,m_out_mesh(this, "out_mesh") 
+    {}
+    static constexpr const char* const s_name = "Test_Dummy";
+private:
+    InTerminal<Mesh2D> m_in_1;
+    InTerminal<Mesh2D> m_in_2;
     OutTerminal<Mesh2D> m_out_mesh;
 };
 
 
-
+#define REG_NODE(cls_name) m_reg[cls_name::s_name] = [](emscripten::val& js_node){ return new cls_name(js_node); }
 
 class NodeFactory {
 public:
     void register_all() {
-        m_reg[NodeGeomPrimitive::s_name] = [](emscripten::val& js_node){ return new NodeGeomPrimitive(js_node); };
+        REG_NODE(NodeGeomPrimitive);
+        REG_NODE(NodeTestDummy);
     }
+
     Node* create(const char* name, emscripten::val& js_node) {
         auto it = m_reg.find(name);
         if (it == m_reg.end()) {

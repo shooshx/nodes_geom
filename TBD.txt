@@ -11,3 +11,4 @@ round edges
 NOVE-VIEW
 - arrow heads
 - better lines
+- don't allow connect more than one thing into an input, unless it's a multi-input
