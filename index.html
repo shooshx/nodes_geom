@@ -2,6 +2,8 @@
 <head>
 <script src="gui.js"></script>
 <script src="base_node.js"></script>
+<script src="parameters.js"></script>
+<script src="mesh.js"></script>
 
 <script>
 "use strict"
@@ -36,7 +38,8 @@ function page_onload()
 
 var program = {
     nodes: [],
-    lines: []
+    lines: [],
+    display_node: null
 }
 
 class NodeTestDummy {
@@ -55,6 +58,15 @@ class NodeGeomPrimitive
     constructor(node) {
         this.out = new OutTerminal(node, "out_mesh")
         this.size = new ParamVec2(node, "size", 0.5, 0.5)
+    }
+    run() {
+        let m = new Mesh()
+        // center at 0,0
+        let hx = this.size.x * 0.5, hy = this.size.y * 0.5
+        m.set_vtx([-hx, -hy, hx, -hy, hx, hy, -hx, hy])
+        m.set_idx([0, 1, 2, 3])
+        m.set_type(MESH_QUAD)
+        this.out.set(m)
     }
 }
 
@@ -77,62 +89,17 @@ class NodeGeomMerge
     }
 }
 
+// called whenever the display needs to be updated to reflect a change
+function trigger_frame_draw() {
+
+}
+
+
+
 var nodes_classes = [
     NodeTestDummy, NodeGeomPrimitive, NodePointColor, NodeGeomMerge
 ]
 
-
-class Parameter
-{
-    constructor(node, label) {
-        this.label = label
-        node.parameters.push(this)
-    }
-}
-
-class ParamInt extends Parameter {
-    constructor(node, label) {
-        super(node, label)
-        this.value = 0
-    }
-}
-
-class ParamVec2 extends Parameter {
-    constructor(node, label, start_x, start_y) {
-        super(node, label)
-        this.x = start_x
-        this.y = start_y
-    }
-    add_elems(parent) {
-        let line = addTextChild(parent, "<div class='param_line'>\
-<span class='param_label_pre'>LABEL:</span>\
-<input class='param_input' type='text' spellcheck='false'>\
-<input class='param_input' type='text' spellcheck='false'>\
-</div>".replace(/LABEL/, this.label))
-        this.elem_x = line.childNodes[1]
-        this.elem_y = line.childNodes[2]
-        this.elem_x.value = this.x
-        this.elem_y.value = this.y
-        let that = this
-        this.elem_x.addEventListener("input", function() { that.x = that.elem_x.value })
-        this.elem_y.addEventListener("input", function() { that.y = that.elem_y.value })
-    }
-}
-
-
-function show_params_of(node) {
-    // clear children
-    let div_params_list = document.getElementById('div_params_list')
-    var cNode = div_params_list.cloneNode(false);
-    div_params_list.parentNode.replaceChild(cNode, div_params_list);
-    div_params_list = cNode
-    if (node === null)
-        return
-    
-    for(let p of node.parameters) {
-        p.add_elems(div_params_list)
-    }
-}
 
 </script>
 <link rel="stylesheet" type="text/css" href="style.css">

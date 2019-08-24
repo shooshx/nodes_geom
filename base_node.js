@@ -1,7 +1,7 @@
 "use strict"
 
 var selected_node = null
-var display_node = null
+
 
 const TERM_RADIUS = 8
 const TERM_MARGIN_X = 20
@@ -190,6 +190,9 @@ class OutTerminal extends Terminal {
     constructor(in_node, name) {
         super(name, in_node, false)
     }
+    set(v) {
+        this.out_v = v
+    }
 }
 
 const TERM_MULTI_HWIDTH = 30
@@ -295,7 +298,7 @@ class Node {
         }
         
         // display flag
-        if (display_node === this) {
+        if (program.display_node === this) {
             ctx_nodes.beginPath();
             rounded_rect_f(ctx_nodes, px + NODE_FLAG_DISPLAY.offset, py, this.width - NODE_FLAG_DISPLAY.offset, this.height, 0, 0, 5, 5)
             ctx_nodes.fillStyle = "#00A1F7"
@@ -367,7 +370,10 @@ function unselect_all(redraw) {
 }
 
 function set_display_node(node) {
-    display_node = node
+    if (node == program.display_node)
+        return
+    program.display_node = node
+    trigger_frame_draw()
 }
 
 function find_node_obj(px, py) {
@@ -427,7 +433,7 @@ function delete_node(node, redraw)
 {
     if (selected_node == node)
         unselect_all(false)
-    if (display_node == node) 
+    if (program.display_node == node) 
         set_display_node(null)
     var index = program.nodes.indexOf(node);
     program.nodes.splice(index, 1);
