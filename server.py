@@ -17,12 +17,8 @@ MIME_TYPES = {".html": "text/html",
               ".ico":"image/x-icon",
               }
 
-CPP_SOURCES = ["src/Mesh2D.cpp"
-               ]
-CPP_HEADERS = ["src/Node.h", 
-               "src/PObject.h", 
-               "src/Vec2.h",
-               ]
+CPP_SOURCES = []
+CPP_HEADERS = []
 JS_OUT = "out/geom_nodes.js"
 
 class HException(Exception):

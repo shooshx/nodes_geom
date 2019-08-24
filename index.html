@@ -2,41 +2,15 @@
 <head>
 <script src="gui.js"></script>
 <script src="base_node.js"></script>
-<script>
 
- var Module = {
-    preRun: [],
-    postRun: [],
-    print: function(text) {
-        console.log(text);
-    },
-    printErr: function(text) {
-        console.error(text);
-    },
-    canvas: null,
-    setStatus: function(text) {
-        // console.log("STATUS:" + text)
-    },
-    totalDependencies: 0,
-    monitorRunDependencies: function(left) {
-    },
-    onRuntimeInitialized: function() {
-        //console.log('zerg');
-        start()
-    }    
- }  
-</script>
-<script src="out/geom_nodes.js"></script>
 <script>
 "use strict"
 
 
 var ctx_nodes, ctx_image
 
-function page_onload() {
-}
 
-function start()
+function page_onload()
 {
     ctx_nodes = canvas_nodes.getContext('2d')
     
@@ -46,7 +20,6 @@ function start()
     canvas_image.do_draw = function() {
     }
     
-    Module.start()
     
     setup_vert_splitter(main_view, image_panel, canvas_image, image_splitter, edit_panel, canvas_nodes)
     setup_horz_splitter(edit_panel, edit_params, edit_splitter, edit_nodes, canvas_nodes)
@@ -54,8 +27,8 @@ function start()
     nodes_panel_mouse_control()
     
 
-    add_node(0, 0, "node1", "Geom_Primitive")
-    add_node(100, 100, "node2", "Test_Dummy")
+    add_node(0, 0, "node1", NodeGeomPrimitive)
+    add_node(100, 100, "node2", NodeTestDummy)
     
     draw_nodes()
 }
@@ -67,12 +40,11 @@ var program = {
 }
 
 class NodeTestDummy {
-    constructor() {
-        this.inputs = [ new Terminal("in_1"), new Terminal("in_2") ]
-        this.outputs = [ new Terminal("out") ]
-        this.parameters = [
-            
-        ]
+    static name() { return "Test_Dummy" }
+    constructor(node) {
+        this.in_1 = new InTerminal(node, "in_1")
+        this.in_2 = new InTerminal(node, "in_2")
+        this.out = new OutTerminal(node, "out")
     }
 }
 
@@ -80,65 +52,56 @@ class NodeTestDummy {
 class NodeGeomPrimitive
 {
     static name() { return "Geom_Primitive" }
-    constructor() {
-        this.inputs = []
-        this.outputs = [new Terminal("out_mesh")]
-        this.parameters = [
-             new ParamCoord2("size", 0.5, 0.5)
-        ]
+    constructor(node) {
+        this.out = new OutTerminal(node, "out_mesh")
+        this.size = new ParamVec2(node, "size", 0.5, 0.5)
     }
 }
 
 class NodePointColor
 {
     static name() { return "Point_Color" }
-    constructor() {
-        this.inputs = [new Terminal("in_mesh")]
-        this.outputs = [new Terminal("out_mesh")]
-        this.parameters = [
-            new ParamColor("Uniform", "#cccccc")
-        ]
+    constructor(node) {
+        this.in_mesh = new InTerminal(node, "in_mesh")
+        this.out_mesh = new OutTerminal(node, "out_mesh")
+        this.color = new ParamColor(node, "#cccccc")
     }
 }
 
 class NodeGeomMerge
 {
     static name() { return "Geom_Merge" }
-    constructor() {
-        this.inputs = [new TerminalMulti("in_multi_mesh")]
-        this.outputs = [new Terminal("out_mesh")]
-        this.parameters = [
-        ]
+    constructor(node) {
+        this.in_m = new InTerminalMulti(node, "in_multi_mesh")
+        this.out = new OutTerminal(node, "out_mesh")
     }
 }
 
 var nodes_classes = [
-    "Test_Dummy", "Geom_Primitive", "Point_Color", "Geom_Merge"
+    NodeTestDummy, NodeGeomPrimitive, NodePointColor, NodeGeomMerge
 ]
 
 
 class Parameter
 {
-    constructor(label) {
+    constructor(node, label) {
         this.label = label
+        node.parameters.push(this)
     }
 }
 
-window.ParamInt = class ParamInt extends Parameter {
-    constructor(label) {
-        super(label)
+class ParamInt extends Parameter {
+    constructor(node, label) {
+        super(node, label)
         this.value = 0
     }
 }
 
-window.ParamVec2 = class ParamVec2 extends Parameter {
-    constructor(label, cpp_param) {
-        super(label)
-        this.cpp_param = cpp_param
-    }
-    init_val(x, y) {
-        this.elem_x.value = x
-        this.elem_y.value = y
+class ParamVec2 extends Parameter {
+    constructor(node, label, start_x, start_y) {
+        super(node, label)
+        this.x = start_x
+        this.y = start_y
     }
     add_elems(parent) {
         let line = addTextChild(parent, "<div class='param_line'>\
@@ -148,10 +111,11 @@ window.ParamVec2 = class ParamVec2 extends Parameter {
 </div>".replace(/LABEL/, this.label))
         this.elem_x = line.childNodes[1]
         this.elem_y = line.childNodes[2]
-        this.cpp_param.pull_value()
+        this.elem_x.value = this.x
+        this.elem_y.value = this.y
         let that = this
-        this.elem_x.addEventListener("input", function() { that.cpp_param.set_value(0, that.elem_x.value) })
-        this.elem_y.addEventListener("input", function() { that.cpp_param.set_value(1, that.elem_y.value) })
+        this.elem_x.addEventListener("input", function() { that.x = that.elem_x.value })
+        this.elem_y.addEventListener("input", function() { that.y = that.elem_y.value })
     }
 }
 

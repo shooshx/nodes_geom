@@ -94,11 +94,16 @@ class Line {
 }
 
 class TerminalBase {
-    constructor(name) {
+    constructor(name, in_node, is_input) {
         this.name = name
+        console.assert(is_input !== undefined, "don't instantiate Terminal")
         
         this.line_pending = null
         this.lines = []
+        if (is_input)
+            in_node.inputs.push(this)
+        else
+            in_node.outputs.push(this)
     }
     
     move_with_owner(is_input) {
@@ -160,7 +165,7 @@ class TerminalBase {
 }
 
 // normal circle terminal
-window.Terminal = class Terminal extends TerminalBase
+class Terminal extends TerminalBase
 {
     draw() {
         ctx_nodes.beginPath();
@@ -175,11 +180,26 @@ window.Terminal = class Terminal extends TerminalBase
     }
 }
 
+class InTerminal extends Terminal {
+    constructor(in_node, name) {
+        super(name, in_node, true)
+    }
+}
+
+class OutTerminal extends Terminal {
+    constructor(in_node, name) {
+        super(name, in_node, false)
+    }
+}
+
 const TERM_MULTI_HWIDTH = 30
 
 // elongated
-window.TerminalMulti = class TerminalMulti extends TerminalBase
+class InTerminalMulti extends TerminalBase
 {
+    constructor(in_node, name) {
+        super(name, in_node, true)
+    }
     draw() {
         rounded_rect(ctx_nodes, this.px() - TERM_MULTI_HWIDTH, this.py() - TERM_RADIUS, TERM_MULTI_HWIDTH*2, 2*TERM_RADIUS, TERM_RADIUS)
         ctx_nodes.fillStyle = "#aaa"
@@ -197,7 +217,7 @@ const NODE_NAME_PROPS = { font:"14px Verdana", margin_top:3, margin_left:5, heig
 const NODE_FLAG_DISPLAY = {offset: 105, color: "#00A1F7" }
 
 class Node {    
-    constructor(x, y, name, cls_name) {
+    constructor(x, y, name, cls) {
         this.x = x
         this.y = y
         this.width = NODE_WIDTH
@@ -209,7 +229,7 @@ class Node {
         this.parameters = []
         this.inputs = []
         this.outputs = [] 
-        this.cpp_impl = Module.create_node(cls_name, this)
+        this.cls = new cls(this)
         this.make_term_offset(this.inputs, true)
         this.make_term_offset(this.outputs, false)
         this.terminals = this.inputs.concat(this.outputs)
@@ -258,6 +278,10 @@ class Node {
         ctx_nodes.fillStyle = this.color
         ctx_nodes.fill()
         ctx_nodes.stroke() 
+
+        //ctx_nodes.strokeStyle = "#f00"
+        //ctx_nodes.strokeRect(this.tx + nodes_view.pan_x, this.ty + nodes_view.pan_y, this.twidth, this.theight)
+        //ctx_nodes.strokeStyle = "#000"
         
         if (selected_node === this) {
             ctx_nodes.beginPath();            
@@ -306,11 +330,11 @@ class Node {
         this.recalc_bounding_box() 
     }
     
-    // geom including terminals
+    // geom including terminals and name
     recalc_bounding_box() {
-        this.tx = this.x + this.name_measure.width + NODE_NAME_PROPS.left
+        this.tx = this.x
         this.ty = this.y - TERM_RADIUS*2 - 2
-        this.twidth = this.width
+        this.twidth = this.width + this.name_measure.width + NODE_NAME_PROPS.margin_left
         this.theight = this.height + TERM_RADIUS * 4 + TERM_MARGIN_Y*2
     }
 
@@ -390,8 +414,8 @@ function nodes_context_menu(px, py, wx, wy) {
     }
     else {
         let clss = []
-        for(let cname of nodes_classes)
-            clss.push( {text: cname, func:function() { add_node(px, py, "node", cname); draw_nodes() } } )
+        for(let c of nodes_classes)
+            clss.push( {text: c.name(), func:function() { add_node(px, py, null, c); draw_nodes() } } )
         var opt = clss
     }
     
@@ -417,8 +441,19 @@ function delete_node(node, redraw)
 }
 
 
+// map node cls name to the next index a node of this class is going to get
+var names_indices = {}
+
+
 function add_node(x, y, name, cls) 
 {
+    if (name === null) {
+        if (names_indices[cls.name()] === undefined)
+            names_indices[cls.name()] = 1
+        else
+            names_indices[cls.name()]++
+        name = cls.name().toLowerCase() + "_" + names_indices[cls.name()]
+    }
     var node = new Node(x, y, name, cls)
     program.nodes.push(node)
 }
