@@ -191,7 +191,7 @@ class OutTerminal extends Terminal {
         super(name, in_node, false)
     }
     set(v) {
-        this.out_v = v
+        this.v = v
     }
 }
 

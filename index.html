@@ -1,5 +1,6 @@
 <!DOCTYPE html><html>
 <head>
+<script src="gl-matrix.js"></script>    
 <script src="gui.js"></script>
 <script src="base_node.js"></script>
 <script src="parameters.js"></script>
@@ -8,13 +9,15 @@
 <script>
 "use strict"
 
+var vec2 = glMatrix.vec2, mat3 = glMatrix.mat3
 
-var ctx_nodes, ctx_image
+var ctx_nodes, ctx_img
 
 
 function page_onload()
 {
     ctx_nodes = canvas_nodes.getContext('2d')
+    ctx_img = canvas_image.getContext('2d')
     
     canvas_nodes.do_draw = function() {
         draw_nodes()
@@ -33,6 +36,7 @@ function page_onload()
     add_node(100, 100, "node2", NodeTestDummy)
     
     draw_nodes()
+    init_img_view()
 }
 
 
@@ -40,6 +44,17 @@ var program = {
     nodes: [],
     lines: [],
     display_node: null
+}
+
+var img_view = {
+    t_viewport: null
+}
+
+function init_img_view() {
+    img_view.t_viewport = mat3.create()
+    let f = Math.min(canvas_image.width, canvas_image.height)
+    mat3.scale(img_view.t_viewport, img_view.t_viewport, vec2.fromValues(f, f))
+    mat3.translate(img_view.t_viewport, img_view.t_viewport, vec2.fromValues(0.5, 0.5))
 }
 
 class NodeTestDummy {
@@ -90,8 +105,17 @@ class NodeGeomMerge
 }
 
 // called whenever the display needs to be updated to reflect a change
-function trigger_frame_draw() {
+function trigger_frame_draw() 
+{
+    ctx_img.fillStyle = '#fff'
+    ctx_img.fillRect(0, 0, canvas_image.width, canvas_image.height)
 
+    if (program.display_node == null)
+        return
+    program.display_node.cls.run()
+    let disp_obj = program.display_node.cls.out.v
+    disp_obj.transform(img_view.t_viewport)
+    disp_obj.draw()
 }
 
 

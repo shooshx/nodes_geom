@@ -31,8 +31,8 @@ class ParamVec2 extends Parameter {
         this.elem_x.value = this.x
         this.elem_y.value = this.y
         let that = this
-        this.elem_x.addEventListener("input", function() { that.x = that.elem_x.value })
-        this.elem_y.addEventListener("input", function() { that.y = that.elem_y.value })
+        this.elem_x.addEventListener("input", function() { that.x = that.elem_x.value; trigger_frame_draw() })
+        this.elem_y.addEventListener("input", function() { that.y = that.elem_y.value; trigger_frame_draw() })
     }
 }
 
