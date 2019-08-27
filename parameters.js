@@ -7,6 +7,37 @@ class Parameter
     }
 }
 
+function add_param_line(parent) {
+    let e = document.createElement("div");
+    e.classList = ['param_line']
+    parent.appendChild(e)
+    return e
+}
+function add_param_label(line, text) {
+    let e = document.createElement('span')
+    e.classList = ['param_label_pre']
+    e.innerText = text + ":"
+    line.appendChild(e)
+    return e
+}
+function add_param_edit(line, value, set_func) {
+    let e = document.createElement('input')
+    e.className = 'param_input'
+    e.type = 'text'
+    e.spellcheck = 'false'
+    e.value = value
+    e.addEventListener("input", function() { set_func(e.value); trigger_frame_draw() })
+    line.appendChild(e)
+    return e
+}
+function add_param_color(line, value, set_func) {
+    let e = document.createElement('input')
+    e.className = 'param_input'
+    line.appendChild(e)
+    let ce = ColorEditBox.create_at(e, 200, function(c) { set_func(c); trigger_frame_draw() })
+    ce.set_color(value, true)
+}
+
 class ParamInt extends Parameter {
     constructor(node, label) {
         super(node, label)
@@ -21,21 +52,26 @@ class ParamVec2 extends Parameter {
         this.y = start_y
     }
     add_elems(parent) {
-        let line = addTextChild(parent, "<div class='param_line'>\
-<span class='param_label_pre'>LABEL:</span>\
-<input class='param_input' type='text' spellcheck='false'>\
-<input class='param_input' type='text' spellcheck='false'>\
-</div>".replace(/LABEL/, this.label))
-        this.elem_x = line.childNodes[1]
-        this.elem_y = line.childNodes[2]
-        this.elem_x.value = this.x
-        this.elem_y.value = this.y
+        let line = add_param_line(parent)
+        add_param_label(line, this.label)
         let that = this
-        this.elem_x.addEventListener("input", function() { that.x = that.elem_x.value; trigger_frame_draw() })
-        this.elem_y.addEventListener("input", function() { that.y = that.elem_y.value; trigger_frame_draw() })
+        add_param_edit(line, this.x, function(v) { that.x = v })
+        add_param_edit(line, this.y, function(v) { that.y = v })
     }
 }
 
+class ParamColor extends Parameter {
+    constructor(node, label, start_c_str) {
+        super(node, label)
+        this.v = start_c_str
+    }
+    add_elems(parent) {
+        let line = add_param_line(parent)
+        add_param_label(line, this.label)
+        let that = this
+        add_param_color(line, this.v, function(v) { that.v = v.hex })
+    }
+}
 
 function show_params_of(node) {
     // clear children

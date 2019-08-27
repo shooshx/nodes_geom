@@ -1,6 +1,7 @@
 <!DOCTYPE html><html>
 <head>
-<script src="gl-matrix.js"></script>    
+<script src="gl-matrix.js"></script>
+<script src="ColorPicker.js"></script>
 <script src="gui.js"></script>
 <script src="base_node.js"></script>
 <script src="parameters.js"></script>
@@ -32,8 +33,8 @@ function page_onload()
     nodes_panel_mouse_control()
     
 
-    add_node(0, 0, "node1", NodeGeomPrimitive)
-    add_node(100, 100, "node2", NodeTestDummy)
+    add_node(-50, -50, null, NodeGeomPrimitive)
+    add_node(50, 50, null, NodePointColor)
     
     draw_nodes()
     init_img_view()
@@ -91,7 +92,10 @@ class NodePointColor
     constructor(node) {
         this.in_mesh = new InTerminal(node, "in_mesh")
         this.out_mesh = new OutTerminal(node, "out_mesh")
-        this.color = new ParamColor(node, "#cccccc")
+        this.color = new ParamColor(node, "color", "#cccccc")
+    }
+    run() {
+        //m.set_vtx_prop(3, Int8Array([
     }
 }
 
