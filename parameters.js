@@ -36,6 +36,7 @@ function add_param_color(line, value, set_func) {
     line.appendChild(e)
     let ce = ColorEditBox.create_at(e, 200, function(c) { set_func(c); trigger_frame_draw() })
     ce.set_color(value, true)
+    return ce.get_color()
 }
 
 class ParamInt extends Parameter {
@@ -69,7 +70,7 @@ class ParamColor extends Parameter {
         let line = add_param_line(parent)
         add_param_label(line, this.label)
         let that = this
-        add_param_color(line, this.v, function(v) { that.v = v.hex })
+        this.v = add_param_color(line, this.v, function(v) { that.v = v })
     }
 }
 

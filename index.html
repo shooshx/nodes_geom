@@ -51,6 +51,11 @@ var img_view = {
     t_viewport: null
 }
 
+function assert(cond, node, msg) {
+    if (!cond)
+        throw { msg: msg, node:node }
+}
+
 function init_img_view() {
     img_view.t_viewport = mat3.create()
     let f = Math.min(canvas_image.width, canvas_image.height)
@@ -58,9 +63,16 @@ function init_img_view() {
     mat3.translate(img_view.t_viewport, img_view.t_viewport, vec2.fromValues(0.5, 0.5))
 }
 
-class NodeTestDummy {
+class NodeCls {
+    constructor() {
+
+    }
+}
+
+class NodeTestDummy extends NodeCls {
     static name() { return "Test_Dummy" }
     constructor(node) {
+        super()
         this.in_1 = new InTerminal(node, "in_1")
         this.in_2 = new InTerminal(node, "in_2")
         this.out = new OutTerminal(node, "out")
@@ -68,10 +80,11 @@ class NodeTestDummy {
 }
 
 
-class NodeGeomPrimitive
+class NodeGeomPrimitive extends NodeCls
 {
     static name() { return "Geom_Primitive" }
     constructor(node) {
+        super()
         this.out = new OutTerminal(node, "out_mesh")
         this.size = new ParamVec2(node, "size", 0.5, 0.5)
     }
@@ -86,26 +99,66 @@ class NodeGeomPrimitive
     }
 }
 
-class NodePointColor
+class NodePointColor extends NodeCls
 {
     static name() { return "Point_Color" }
     constructor(node) {
+        super()
         this.in_mesh = new InTerminal(node, "in_mesh")
         this.out_mesh = new OutTerminal(node, "out_mesh")
         this.color = new ParamColor(node, "color", "#cccccc")
     }
     run() {
-        //m.set_vtx_prop(3, Int8Array([
+        assert(this.in_mesh !== null, this, "missing in_mesh")
+        let mesh = this.in_mesh.get_mutable()
+        let prop = new Uint8Array(mesh.vtx.length * 3)
+        for(let i = 0; i < prop.length; i += 3) {
+            prop[i] = this.color.v.r
+            prop[i+1] = this.color.v.g
+            prop[i+2] = this.color.v.b
+        }
+        mesh.set_vtx_color(prop)
+        this.out_mesh.set(mesh)
     }
 }
 
-class NodeGeomMerge
+class NodeGeomMerge extends NodeCls
 {
     static name() { return "Geom_Merge" }
     constructor(node) {
+        super()
         this.in_m = new InTerminalMulti(node, "in_multi_mesh")
         this.out = new OutTerminal(node, "out_mesh")
     }
+}
+
+class NodeTransform extends NodeCls
+{
+    static name() { return "Transform" }
+    constructor(node) {
+        super()
+        this.in = new InTerminal(node, "input")
+        this.out = new OutTerminal(node, "output")
+        this.transform = new ParamTransform(node, "transform")
+    }
+    run() {
+        let obj = this.in.get_mutable()
+        obj.transform(this.transform.v)
+        this.out.set(obj)
+    }
+
+}
+
+function run_nodes_tree(n) {
+    for(let inp_t of n.inputs) {
+        assert(inp_t.lines.length <= 1, n, "too many lines into input " + inp_t.name)
+        if (inp_t.lines.length > 0) {
+            let line = inp_t.lines[0]
+            run_nodes_tree(line.from_term.node)
+            line.to_term.v = line.from_term.v
+        }
+    }
+    n.cls.run()
 }
 
 // called whenever the display needs to be updated to reflect a change
@@ -116,8 +169,11 @@ function trigger_frame_draw()
 
     if (program.display_node == null)
         return
-    program.display_node.cls.run()
-    let disp_obj = program.display_node.cls.out.v
+
+    run_nodes_tree(program.display_node)
+
+    //program.display_node.cls.run()
+    let disp_obj = program.display_node.outputs[0].v
     disp_obj.transform(img_view.t_viewport)
     disp_obj.draw()
 }

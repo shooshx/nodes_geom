@@ -13,6 +13,7 @@ class Mesh
         this.vtx = new Float32Array(0)
         this.idx = new Int16Array(0)
         this.type = MESH_NOT_SET
+        this.vtx_color = null  // Uint8Array
     }
 
     set_vtx(arr) {
@@ -24,6 +25,9 @@ class Mesh
     set_type(v) {
         this.type = v
     }
+    set_vtx_color(arr) {
+        this.vtx_color = arr
+    }
 
     transform(m) {
         for(let i = 0; i < this.vtx.length; i += 2) {
@@ -32,16 +36,32 @@ class Mesh
             this.vtx[i+1] = m[1] * x + m[4] * y + m[7];            
         }
     }
-    
-    draw() {
+
+    draw_vertices() {
+        if (this.vtx_color !== null) {
+            for(let i = 0; i < this.vtx.length; i += 2) {
+                ctx_img.beginPath();
+                ctx_img.arc(this.vtx[i], this.vtx[i+1], MESH_DISP.vtx_radius, 0, 2*Math.PI)
+                let vidx = i*3
+                ctx_img.fillStyle = "rgb(" + this.vtx_color[vidx] + "," + this.vtx_color[vidx+1] + "," + this.vtx_color[vidx+2]+ ")"
+                ctx_img.fill()
+            }
+            ctx_img.lineWidth = 0.5
+        }
+        else {
+            ctx_img.lineWidth = 1
+        }
         ctx_img.beginPath();
         for(let i = 0; i < this.vtx.length; i += 2) {
             ctx_img.moveTo(this.vtx[i] + MESH_DISP.vtx_radius, this.vtx[i+1])
             ctx_img.arc(this.vtx[i], this.vtx[i+1], MESH_DISP.vtx_radius, 0, 2*Math.PI)
         }
         ctx_img.strokeStyle = "#000"
-        ctx_img.stroke()
+        ctx_img.stroke()       
+    }
 
+    draw_poly() {
+        ctx_img.lineWidth = 1
         ctx_img.beginPath();
         let i = 0
         if (this.type == MESH_QUAD) {
@@ -70,7 +90,11 @@ class Mesh
                 ctx_img.stroke()
             }
         }
-
+    }
+    
+    draw() {
+        this.draw_vertices()
+        this.draw_poly()
     }
 }
 

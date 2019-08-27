@@ -7,6 +7,9 @@ color per vertex? for gradient
 triangulation
 round edges
 
+nodes the produce transform, invert it
+try for changing pivot T1 * Tp1 * R * Tp1' = T2 * Tp2 * R * Tp
+
 
 NOVE-VIEW
 - arrow heads

@@ -100,6 +100,7 @@ class TerminalBase {
         
         this.line_pending = null
         this.lines = []
+        this.node = in_node
         if (is_input)
             in_node.inputs.push(this)
         else
@@ -178,20 +179,27 @@ class Terminal extends TerminalBase
         return px >= this.cx - TERM_RADIUS && px <= this.cx + TERM_RADIUS && 
                py >= this.cy - TERM_RADIUS && py <= this.cy + TERM_RADIUS
     }
+    set(v) {
+        this.v = v
+    }
 }
 
 class InTerminal extends Terminal {
     constructor(in_node, name) {
         super(name, in_node, true)
     }
+    get_const() {
+        return this.v
+    }
+    get_mutable() {
+        return this.v
+    }
+
 }
 
 class OutTerminal extends Terminal {
     constructor(in_node, name) {
         super(name, in_node, false)
-    }
-    set(v) {
-        this.v = v
     }
 }
 

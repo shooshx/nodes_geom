@@ -231,6 +231,10 @@ function create_at(elem, add_func, sz, visible, onchange)
         if (onchange)
             onchange(sel_col)
     }
+
+    var get_color = function() {
+        return sel_col
+    }
     
     var set_color = function(c, do_onchange) {
         if (c === sel_col)
@@ -335,7 +339,7 @@ function create_at(elem, add_func, sz, visible, onchange)
         canvas.style.display = v ? 'initial':'none'
     }
     
-    return { set_color: set_color, sel_col:sel_col, set_visible:set_visible, elem:canvas }
+    return { set_color:set_color, get_color:get_color, set_visible:set_visible, elem:canvas }
 }
 
 return { create_as_child:create_as_child, create_after:create_after }
