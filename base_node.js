@@ -77,6 +77,7 @@ function rounded_rect(ctx, x, y, width, height, r) {
 
 class Line {
     constructor(from_term, to_term) {
+        console.assert(to_term.is_input !== undefined, "unexpected undefined")
         if (!to_term.is_input) {
             this.from_term = to_term
             this.to_term = from_term
@@ -88,16 +89,16 @@ class Line {
     }
     
     draw() {
-        connector_line(this.from_term.cx, this.from_term.cy, this.from_term.offset,
-                       this.to_term.cx, this.to_term.cy, this.to_term.offset, false)
+        connector_line(this.from_term.center_x(), this.from_term.center_y(), this.from_term.center_offset(),
+                       this.to_term.center_x(), this.to_term.center_y(), this.to_term.center_offset(), false)
     }
 }
 
 class TerminalBase {
     constructor(name, in_node, is_input) {
         this.name = name
-        console.assert(is_input !== undefined, "don't instantiate Terminal")
-        
+        console.assert(is_input !== undefined, "don't instantiate TerminalBase")
+        this.owner = null  // set in Node
         this.line_pending = null
         this.lines = []
         this.node = in_node
@@ -117,12 +118,11 @@ class TerminalBase {
             this.cy = this.owner.y + this.owner.height + TERM_RADIUS + TERM_MARGIN_Y    
     }
 
-    px() {
-        return this.cx + nodes_view.pan_x
-    }
-    py() {
-        return this.cy + nodes_view.pan_y
-    }
+    px() { return this.cx + nodes_view.pan_x }
+    py() { return this.cy + nodes_view.pan_y }
+    center_x() { return this.cx }
+    center_y() { return this.cy }
+    center_offset() { return this.offset }
 
     is_connected_to(other_term) {
         for(let l of this.lines) {
@@ -133,6 +133,10 @@ class TerminalBase {
     }
     gender_match(other_term) {
         return (this.is_input && !other_term.is_input) || (!this.is_input && other_term.is_input)
+    }
+    
+    get_attachment() { // useful in multi
+        return this
     }
     
     mousemove(dx, dy, px, py) {
@@ -149,7 +153,7 @@ class TerminalBase {
             connector_line(this.cx, this.cy, 0, px, py, 0, true)
         }
         else {
-            this.line_pending = new Line(this, linkto)
+            this.line_pending = new Line(this.get_attachment(), linkto.get_attachment())
             this.line_pending.draw()
         }        
     }
@@ -174,6 +178,7 @@ class Terminal extends TerminalBase
         ctx_nodes.fillStyle = "#aaa"
         ctx_nodes.fill()
         ctx_nodes.stroke() 
+        this.v = null
     }
     hit_test(px, py) {
         return px >= this.cx - TERM_RADIUS && px <= this.cx + TERM_RADIUS && 
@@ -205,6 +210,26 @@ class OutTerminal extends Terminal {
 
 const TERM_MULTI_HWIDTH = 30
 
+class InAttachMulti {
+    constructor(owner_term) {
+        this.owner_term = owner_term
+        this.lines = owner_term.lines  // needed by add_line
+        this.is_input = owner_term.is_input // needed by Line ctor
+        this.v = null
+    }
+    center_x() {
+        return this.owner_term.cx
+    }
+    center_y() {
+        return this.owner_term.cy
+    }
+    center_offset() {
+        return this.owner_term.offset
+    }
+    set(v) {
+        this.v = v
+    }    
+}
 // elongated
 class InTerminalMulti extends TerminalBase
 {
@@ -220,7 +245,10 @@ class InTerminalMulti extends TerminalBase
     hit_test(px, py) {
         return px >= this.cx - TERM_MULTI_HWIDTH && px <= this.cx + TERM_MULTI_HWIDTH && 
                py >= this.cy - TERM_RADIUS && py <= this.cy + TERM_RADIUS
-    }    
+    } 
+    get_attachment() {
+        return new InAttachMulti(this)
+    }
 }
 
 

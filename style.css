@@ -80,7 +80,7 @@ input {
 }
 .node_name_input {
     outline:none;  /* no focus outline */
-    width: 100px;
+    width: 150px;
     font-size: 14px;
     margin-left: -4px;
     background-color: #555;

@@ -10,7 +10,8 @@
 <script>
 "use strict"
 
-var vec2 = glMatrix.vec2, mat3 = glMatrix.mat3
+var vec2 = glMatrix.vec2, mat3 = glMatrix.mat3, glm = glMatrix.glMatrix
+glm.setMatrixArrayType(Float64Array)
 
 var ctx_nodes, ctx_img
 
@@ -24,6 +25,8 @@ function page_onload()
         draw_nodes()
     }
     canvas_image.do_draw = function() {
+        calc_img_viewport()
+        trigger_frame_draw()
     }
     
     
@@ -37,7 +40,7 @@ function page_onload()
     add_node(50, 50, null, NodePointColor)
     
     draw_nodes()
-    init_img_view()
+    calc_img_viewport()
 }
 
 
@@ -56,11 +59,19 @@ function assert(cond, node, msg) {
         throw { msg: msg, node:node }
 }
 
-function init_img_view() {
+function calc_img_viewport() {
     img_view.t_viewport = mat3.create()
-    let f = Math.min(canvas_image.width, canvas_image.height)
+    if (canvas_image.width > canvas_image.height) {
+        var f = canvas_image.height
+        var remainx = (canvas_image.width - canvas_image.height) / (canvas_image.height * 2), remainy = 0
+    }
+    else {
+        var f = canvas_image.width
+        var remainy = (canvas_image.height - canvas_image.width) / (canvas_image.width * 2), remainx = 0
+    }
     mat3.scale(img_view.t_viewport, img_view.t_viewport, vec2.fromValues(f, f))
-    mat3.translate(img_view.t_viewport, img_view.t_viewport, vec2.fromValues(0.5, 0.5))
+    mat3.translate(img_view.t_viewport, img_view.t_viewport, vec2.fromValues(0.5 + remainx, 0.5 + remainy))        
+
 }
 
 class NodeCls {
@@ -109,7 +120,7 @@ class NodePointColor extends NodeCls
         this.color = new ParamColor(node, "color", "#cccccc")
     }
     run() {
-        assert(this.in_mesh !== null, this, "missing in_mesh")
+        assert(this.in_mesh.v !== null, this, "missing in_mesh")
         let mesh = this.in_mesh.get_mutable()
         let prop = new Uint8Array(mesh.vtx.length * 3)
         for(let i = 0; i < prop.length; i += 3) {
@@ -142,6 +153,7 @@ class NodeTransform extends NodeCls
         this.transform = new ParamTransform(node, "transform")
     }
     run() {
+        assert(this.in.v !== null, this, "missing input")
         let obj = this.in.get_mutable()
         obj.transform(this.transform.v)
         this.out.set(obj)
@@ -181,7 +193,11 @@ function trigger_frame_draw()
 
 
 var nodes_classes = [
-    NodeTestDummy, NodeGeomPrimitive, NodePointColor, NodeGeomMerge
+    NodeTestDummy, 
+    NodeGeomPrimitive, 
+    NodePointColor, 
+    NodeGeomMerge, 
+    NodeTransform
 ]
 
 

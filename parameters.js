@@ -74,6 +74,37 @@ class ParamColor extends Parameter {
     }
 }
 
+class ParamTransform extends Parameter {
+    constructor(node, label) {
+        super(node, label)
+        this.translate = vec2.fromValues(0,0)
+        this.rotate = 0
+        this.scale = vec2.fromValues(1,1)
+        this.v = mat3.create()
+    }
+    calc_mat() {
+        mat3.identity(this.v)
+        mat3.scale(this.v, this.v, this.scale)
+        mat3.rotate(this.v, this.v, glm.toRadian(this.rotate))
+        mat3.translate(this.v, this.v, this.translate)
+    }
+    add_elems(parent) {
+        let that = this
+        let line1 = add_param_line(parent)
+        add_param_label(line1, "Translate")
+        add_param_edit(line1, this.translate[0], function(v) { that.translate[0] = v; that.calc_mat() })
+        add_param_edit(line1, this.translate[1], function(v) { that.translate[1] = v; that.calc_mat()})
+        let line2 = add_param_line(parent)
+        add_param_label(line2, "Rotate")
+        add_param_edit(line2, this.rotate, function(v) { that.rotate = v; that.calc_mat()})
+        let line3 = add_param_line(parent)
+        add_param_label(line3, "Scale")
+        add_param_edit(line3, this.scale[0], function(v) { that.scale[0] = v; that.calc_mat()})
+        add_param_edit(line3, this.scale[1], function(v) { that.scale[1] = v; that.calc_mat()})
+    }
+}
+
+
 function show_params_of(node) {
     // clear children
     let div_params_list = document.getElementById('div_params_list')
