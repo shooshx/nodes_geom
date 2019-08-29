@@ -504,6 +504,7 @@ function add_line(line) {
     program.lines.push(line)
     line.from_term.lines.push(line)
     line.to_term.lines.push(line)
+    trigger_frame_draw()
 }
 
 function delete_line(line) {

@@ -13,20 +13,21 @@ class Mesh
         this.vtx = new Float32Array(0)
         this.idx = new Int16Array(0)
         this.type = MESH_NOT_SET
-        this.vtx_color = null  // Uint8Array
+        this.vtx_color = undefined  // Uint8Array
+        this.arrs = { vtx:this.vtx, idx:this.idx }
     }
 
-    set_vtx(arr) {
-        this.vtx = arr
-    }
-    set_idx(arr) {
-        this.idx = arr
-    }
-    set_type(v) {
-        this.type = v
-    }
-    set_vtx_color(arr) {
-        this.vtx_color = arr
+    set_vtx(arr) { this.vtx = arr; this.arrs.vtx = arr  }
+    set_idx(arr) {  this.idx = arr; this.arrs.idx = arr }
+    set_type(v) { this.type = v }
+    set_vtx_color(arr) { this.vtx_color = arr; this.arrs.vtx_color = arr }
+
+    get_sizes() {
+        let r = { type: this.type, arrs:{} }       
+        for(let n in this.arrs) {
+            r.arrs[n] = { sz: this.arrs[n].length, type: this.arrs[n].__proto__.constructor }
+        }
+        return r
     }
 
     transform(m) {
@@ -38,7 +39,7 @@ class Mesh
     }
 
     draw_vertices() {
-        if (this.vtx_color !== null) {
+        if (this.vtx_color !== undefined) {
             for(let i = 0; i < this.vtx.length; i += 2) {
                 ctx_img.beginPath();
                 ctx_img.arc(this.vtx[i], this.vtx[i+1], MESH_DISP.vtx_radius, 0, 2*Math.PI)

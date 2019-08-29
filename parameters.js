@@ -34,6 +34,7 @@ function add_param_color(line, value, set_func) {
     let e = document.createElement('input')
     e.className = 'param_input'
     line.appendChild(e)
+    // TBD move setting the func to be the last thing to avoid spurious triggers
     let ce = ColorEditBox.create_at(e, 200, function(c) { set_func(c); trigger_frame_draw() })
     ce.set_color(value, true)
     return ce.get_color()
@@ -64,7 +65,7 @@ class ParamVec2 extends Parameter {
 class ParamColor extends Parameter {
     constructor(node, label, start_c_str) {
         super(node, label)
-        this.v = start_c_str
+        this.v = ColorPicker.parse_hex(start_c_str)
     }
     add_elems(parent) {
         let line = add_param_line(parent)

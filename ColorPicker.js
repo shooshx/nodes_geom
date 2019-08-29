@@ -342,7 +342,7 @@ function create_at(elem, add_func, sz, visible, onchange)
     return { set_color:set_color, get_color:get_color, set_visible:set_visible, elem:canvas }
 }
 
-return { create_as_child:create_as_child, create_after:create_after }
+return { create_as_child:create_as_child, create_after:create_after, parse_hex:parse_hex }
 
 })();
 

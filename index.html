@@ -133,16 +133,90 @@ class NodePointColor extends NodeCls
     }
 }
 
-class NodeGeomMerge extends NodeCls
+class NodeMeshMerge extends NodeCls
 {
-    static name() { return "Geom_Merge" }
+    static name() { return "Mesh_Merge" }
     constructor(node) {
         super()
         this.in_m = new InTerminalMulti(node, "in_multi_mesh")
         this.out = new OutTerminal(node, "out_mesh")
     }
+    run() {
+        if (this.in_m.lines.length == 0) {
+            this.out.set(new Mesh())
+            return
+        }
+        if (this.in_m.lines.length == 1) {
+            this.out.set(this.in_m.lines[0].to_term.v)
+            return
+        }
+
+        // first calculate the size of the eventual arrays and check type agreement
+        let szs = this.in_m.lines[0].to_term.v.get_sizes()
+        for(let i = 1; i < this.in_m.lines.length; ++i) {
+            let line = this.in_m.lines[i]
+            let lm = line.to_term.v.get_size()
+            assert(lm.type === szs.type, this, "Input " + i + " has different type from input 0")
+            for(let k in m.arrs) {
+                if (szs[k] === undefined)
+                    szs.arrs[k] = lm.arrs[k]
+                else {
+                    assert(szs.arrs[k].type === lm.arrs[k].type, "Input " + i + " has wrong data-type of element " + k + " from that of input 0")
+                    szs.arrs[k].sz += lm.arrs[k].sz
+                }
+            }
+        }
+        // create the arrays
+        let r = new Mesh()
+        for(let k in szs)
+            r.arrs[k] = new szs.arrs[k].type(szs.arrs[k].sz)
+        // copy the data TBD
+
+    }
 }
 
+
+class PObjGroup {
+    constructor() {
+        this.v = []
+    }
+    transform(m) {
+        for(let obj of this.v) {
+            obj.transform(m)
+        }
+    }
+    draw() {
+        for(let obj of this.v) {
+            obj.draw()
+        }
+    }
+}
+
+class NodeGroupObjects extends NodeCls {
+    static name() { return "Group_Objects" }
+    constructor(node) {
+        super()
+        this.in_m = new InTerminalMulti(node, "in_multi_mesh")
+        this.out = new OutTerminal(node, "out_mesh")
+    }
+    run() {
+        if (this.in_m.lines.length == 0) {
+            this.out.set(new PObjGroup())
+            return
+        }
+        if (this.in_m.lines.length == 1) {
+            this.out.set(this.in_m.lines[0].to_term.v)
+            return
+        }     
+        let r = new PObjGroup()
+        for(let line of this.in_m.lines) {
+            r.v.push(line.to_term.v)
+        }
+        this.out.set(r)
+    }
+}
+
+// maybe wrap with a proxy?
 class NodeTransform extends NodeCls
 {
     static name() { return "Transform" }
@@ -162,10 +236,8 @@ class NodeTransform extends NodeCls
 }
 
 function run_nodes_tree(n) {
-    for(let inp_t of n.inputs) {
-        assert(inp_t.lines.length <= 1, n, "too many lines into input " + inp_t.name)
-        if (inp_t.lines.length > 0) {
-            let line = inp_t.lines[0]
+    for(let inp_t of n.inputs) {        
+        for(let line of inp_t.lines) {
             run_nodes_tree(line.from_term.node)
             line.to_term.v = line.from_term.v
         }
@@ -186,6 +258,7 @@ function trigger_frame_draw()
 
     //program.display_node.cls.run()
     let disp_obj = program.display_node.outputs[0].v
+    assert(disp_obj !== null, program.display_node, "No output generated")
     disp_obj.transform(img_view.t_viewport)
     disp_obj.draw()
 }
@@ -196,7 +269,8 @@ var nodes_classes = [
     NodeTestDummy, 
     NodeGeomPrimitive, 
     NodePointColor, 
-    NodeGeomMerge, 
+    //NodeGeomMerge, 
+    NodeGroupObjects,
     NodeTransform
 ]
 
