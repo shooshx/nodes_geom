@@ -120,9 +120,9 @@ class NodePointColor extends NodeCls
         this.color = new ParamColor(node, "color", "#cccccc")
     }
     run() {
-        assert(this.in_mesh.v !== null, this, "missing in_mesh")
         let mesh = this.in_mesh.get_mutable()
-        let prop = new Uint8Array(mesh.vtx.length * 3)
+        assert(mesh, this, "missing in_mesh")
+        let prop = new Uint8Array(mesh.arrs.vtx.length * 3)
         for(let i = 0; i < prop.length; i += 3) {
             prop[i] = this.color.v.r
             prop[i+1] = this.color.v.g
@@ -175,9 +175,11 @@ class NodeMeshMerge extends NodeCls
     }
 }
 
-
-class PObjGroup {
+// TBD: a slightly better way to do this is to own PHandle and have a custom clone
+//      that clones only objects with more than 1 refcount
+class PObjGroup extends PObject{
     constructor() {
+        super()
         this.v = []
     }
     transform(m) {
@@ -185,9 +187,9 @@ class PObjGroup {
             obj.transform(m)
         }
     }
-    draw() {
+    draw(m) {
         for(let obj of this.v) {
-            obj.draw()
+            obj.draw(m)
         }
     }
 }
@@ -200,17 +202,9 @@ class NodeGroupObjects extends NodeCls {
         this.out = new OutTerminal(node, "out_mesh")
     }
     run() {
-        if (this.in_m.lines.length == 0) {
-            this.out.set(new PObjGroup())
-            return
-        }
-        if (this.in_m.lines.length == 1) {
-            this.out.set(this.in_m.lines[0].to_term.v)
-            return
-        }     
         let r = new PObjGroup()
         for(let line of this.in_m.lines) {
-            r.v.push(line.to_term.v)
+            r.v.push(line.to_term.get_const())
         }
         this.out.set(r)
     }
@@ -228,6 +222,7 @@ class NodeTransform extends NodeCls
     }
     run() {
         assert(this.in.v !== null, this, "missing input")
+        // TBD mutate only if not identity
         let obj = this.in.get_mutable()
         obj.transform(this.transform.v)
         this.out.set(obj)
@@ -236,13 +231,36 @@ class NodeTransform extends NodeCls
 }
 
 function run_nodes_tree(n) {
-    for(let inp_t of n.inputs) {        
+    if (n.outputs[0].get_const() !== null)
+        return
+    // all inputs    
+    for(let inp_t of n.inputs) {  
+        // all lines going into an input
         for(let line of inp_t.lines) {
             run_nodes_tree(line.from_term.node)
-            line.to_term.v = line.from_term.v
+            // out-terminals pass data to in-terminals automatically
         }
     }
     n.cls.run()
+    // distribute outputs to all connected inputs so that all references of an object will be known
+    for(let out_t of n.outputs) {  
+        for(let line of out_t.lines) {
+            line.to_term.set(line.from_term.get_const())
+        }
+    }
+    // clear all inputs so that they won't take up references
+    for(let inp_t of n.inputs) {
+        for(let line of inp_t.lines) {
+            line.to_term.clear()
+        }
+    }
+
+}
+
+function clear_outputs(prog) {
+    for(let n of prog.nodes) {
+        n.outputs[0].clear() // first output is used as an indicator that the node has ran
+    }
 }
 
 // called whenever the display needs to be updated to reflect a change
@@ -254,13 +272,14 @@ function trigger_frame_draw()
     if (program.display_node == null)
         return
 
+    clear_outputs(program)
     run_nodes_tree(program.display_node)
 
     //program.display_node.cls.run()
-    let disp_obj = program.display_node.outputs[0].v
+    let disp_obj = program.display_node.outputs[0].get_const()
     assert(disp_obj !== null, program.display_node, "No output generated")
-    disp_obj.transform(img_view.t_viewport)
-    disp_obj.draw()
+
+    disp_obj.draw(img_view.t_viewport)
 }
 
 

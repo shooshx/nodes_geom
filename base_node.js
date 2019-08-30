@@ -169,7 +169,64 @@ class TerminalBase {
     }    
 }
 
-// normal circle terminal
+
+// rules for PObjects (for clone)
+// - should have no-arg constructor
+// - should not have more than one reference to the same object
+// - should not have cycles
+class PObject {
+    constructor() {
+        this.refcount = 0
+    }
+}
+class PHandle {
+    constructor(obj) {
+        this.p = obj
+        if (obj !== null)
+            obj.refcount += 1
+    }
+    get_const() {
+        return this.p
+    }
+    get_mutable() {
+        if (this.p === null || this.p.refcount == 1)
+            return this.p
+        let copy = clone(this.p)
+        copy.refcount = 1
+        this.p.refcount -= 1
+        this.p = copy
+        return copy
+    }
+    clear() {
+        this.p.refcount -= 1
+        this.p = null
+    }
+}
+
+function clone(obj) {
+    if (obj === null || typeof (obj) !== 'object')
+        return obj;    
+    if (obj.BYTES_PER_ELEMENT !== undefined) { // it's a typed array 
+        return new obj.constructor(obj)
+    }    
+    let n = new obj.constructor()
+    for(let k in obj) {
+        n[k] = clone(obj[k])
+    }
+    return n
+}
+
+class PWeakHandle {
+    constructor(obj) {
+        this.p = obj
+    }
+    get_const() {
+        return this.p
+    }
+}
+
+
+// normal circle terminal taking a single value
 class Terminal extends TerminalBase
 {
     draw() {
@@ -178,33 +235,54 @@ class Terminal extends TerminalBase
         ctx_nodes.fillStyle = "#aaa"
         ctx_nodes.fill()
         ctx_nodes.stroke() 
-        this.v = null
     }
     hit_test(px, py) {
         return px >= this.cx - TERM_RADIUS && px <= this.cx + TERM_RADIUS && 
                py >= this.cy - TERM_RADIUS && py <= this.cy + TERM_RADIUS
     }
-    set(v) {
-        this.v = v
-    }
+
+
 }
 
 class InTerminal extends Terminal {
     constructor(in_node, name) {
         super(name, in_node, true)
+        this.h = null
     }
+    set(v) {
+        if (v.constructor === PHandle || v.constructor === PWeakHandle)
+            this.h = new PHandle(v.p) // copy ctor
+        else            
+            this.h = new PHandle(v)
+    }    
     get_const() {
-        return this.v
+        return this.h.get_const()
     }
     get_mutable() {
-        return this.v
+        return this.h.get_mutable()
     }
-
+    clear() {
+        this.h.clear()
+    }    
 }
 
 class OutTerminal extends Terminal {
     constructor(in_node, name) {
         super(name, in_node, false)
+        this.h = null
+    }
+    set(v) {
+        // and also save a wear-ref to it so that display would work 
+        if (v.constructor === PHandle || v.constructor === PWeakHandle)
+            this.h = new PWeakHandle(v.p) // copy ctor
+        else            
+            this.h = new PWeakHandle(v)
+    }
+    get_const() {
+        return this.h.get_const()
+    }    
+    clear() {
+        this.h = new PWeakHandle(null)
     }
 }
 
@@ -215,7 +293,7 @@ class InAttachMulti {
         this.owner_term = owner_term
         this.lines = owner_term.lines  // needed by add_line
         this.is_input = owner_term.is_input // needed by Line ctor
-        this.v = null
+        this.h = null
     }
     center_x() {
         return this.owner_term.cx
@@ -227,7 +305,19 @@ class InAttachMulti {
         return this.owner_term.offset
     }
     set(v) {
-        this.v = v
+        if (v.constructor === PHandle || v.constructor === PWeakHandle)
+            this.h = new PHandle(v.p) // copy ctor
+        else            
+            this.h = new PHandle(v)
+    }    
+    get_const() {
+        return this.h.get_const()
+    }
+    get_mutable() {
+        return this.h.get_mutable()
+    }
+    clear() {
+        this.h.clear()
     }    
 }
 // elongated
@@ -272,10 +362,6 @@ class Node {
         this.make_term_offset(this.inputs, true)
         this.make_term_offset(this.outputs, false)
         this.terminals = this.inputs.concat(this.outputs)
-    }
-
-    destroy() {
-        Module.delete_node(this.cpp_impl)
     }
    
     make_term_offset(lst, is_input) {
@@ -356,6 +442,8 @@ class Node {
     }
     
     select() {
+        if (selected_node === this)
+            return
         selected_node = this
         draw_nodes() // need to paint the previous selected one
         show_params_of(this)
@@ -510,7 +598,7 @@ function add_line(line) {
 function delete_line(line) {
     line.from_term.lines.splice(line.from_term.lines.indexOf(line), 1)
     line.to_term.lines.splice(line.to_term.lines.indexOf(line), 1)
-    program.lines.splice(program.lines.indexOf(line))
+    program.lines.splice(program.lines.indexOf(line), 1)
 }
 
 const NODES_GRID_SIZE = 50
