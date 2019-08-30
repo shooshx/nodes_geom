@@ -26,6 +26,7 @@ function add_param_edit(line, value, set_func) {
     e.type = 'text'
     e.spellcheck = 'false'
     e.value = value
+    // TBD parse error
     e.addEventListener("input", function() { set_func(e.value); trigger_frame_draw() })
     line.appendChild(e)
     return e
@@ -35,7 +36,7 @@ function add_param_color(line, value, set_func) {
     e.className = 'param_input'
     line.appendChild(e)
     // TBD move setting the func to be the last thing to avoid spurious triggers
-    let ce = ColorEditBox.create_at(e, 200, function(c) { set_func(c); trigger_frame_draw() })
+    let ce = ColorEditBox.create_at(e, 200, function(c) { if (set_func(c)) trigger_frame_draw() })
     ce.set_color(value, true)
     return ce.get_color()
 }
@@ -71,7 +72,12 @@ class ParamColor extends Parameter {
         let line = add_param_line(parent)
         add_param_label(line, this.label)
         let that = this
-        this.v = add_param_color(line, this.v, function(v) { that.v = v })
+        this.v = add_param_color(line, this.v, function(v) { 
+            if (that.v.hex == v.hex) 
+                return false; 
+            that.v = v 
+            return true
+        })
     }
 }
 

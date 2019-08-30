@@ -261,6 +261,7 @@ class DisplayFlagProxy
     }
     mousedown(e) {
         set_display_node(this.node) 
+        draw_nodes()
         // no need to draw_nodes since the selection of the node will do that
         this.node.mousedown(e)
     }
