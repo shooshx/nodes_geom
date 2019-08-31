@@ -44,7 +44,7 @@ function add_param_color(line, value, set_func) {
 class ParamInt extends Parameter {
     constructor(node, label) {
         super(node, label)
-        this.value = 0
+        this.v = 0
     }
 }
 
@@ -54,6 +54,8 @@ class ParamVec2 extends Parameter {
         this.x = start_x
         this.y = start_y
     }
+    save() { return {x:this.x, y:this.y} }
+    load(v) { this.x=v.x; this.y=v.y }
     add_elems(parent) {
         let line = add_param_line(parent)
         add_param_label(line, this.label)
@@ -68,6 +70,8 @@ class ParamColor extends Parameter {
         super(node, label)
         this.v = ColorPicker.parse_hex(start_c_str)
     }
+    save() { return this.v.hex }
+    load(v) { this.v = ColorPicker.parse_hex(v) }
     add_elems(parent) {
         let line = add_param_line(parent)
         add_param_label(line, this.label)
@@ -89,6 +93,8 @@ class ParamTransform extends Parameter {
         this.scale = vec2.fromValues(1,1)
         this.v = mat3.create()
     }
+    save() { return {t:this.translate, r:this.rotate, s:this.scale} }
+    load(v) { this.translate[0] = v.t[0]; this.translate[1] = v.t[1]; this.rotate = v.r; this.scale[0] = v.s[0]; this.scale[1] = v.s[1] }
     calc_mat() {
         mat3.identity(this.v)
         mat3.scale(this.v, this.v, this.scale)

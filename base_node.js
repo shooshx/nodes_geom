@@ -135,9 +135,8 @@ class TerminalBase {
         return (this.is_input && !other_term.is_input) || (!this.is_input && other_term.is_input)
     }
     
-    get_attachment() { // useful in multi
-        return this
-    }
+    get_attachment() { return this }// useful in multi
+    get_attachee() { return this }    
     
     mousemove(dx, dy, px, py) {
         let linkto = find_node_obj(px, py)
@@ -295,6 +294,9 @@ class InAttachMulti {
         this.is_input = owner_term.is_input // needed by Line ctor
         this.h = null
     }
+    get_attachee() {
+        return this.owner_term
+    }
     center_x() {
         return this.owner_term.cx
     }
@@ -346,13 +348,14 @@ const NODE_NAME_PROPS = { font:"14px Verdana", margin_top:3, margin_left:5, heig
 const NODE_FLAG_DISPLAY = {offset: 105, color: "#00A1F7" }
 
 class Node {    
-    constructor(x, y, name, cls) {
+    constructor(x, y, name, cls, id) {
         this.x = x
         this.y = y
         this.width = NODE_WIDTH
         this.height = 30
         this.set_name(name)
         this.color = "#ccc"
+        this.id = id
 
         // calculated data members
         this.parameters = []
@@ -560,7 +563,8 @@ function delete_node(node, redraw)
     if (program.display_node == node) 
         set_display_node(null)
     var index = program.nodes.indexOf(node);
-    program.nodes.splice(index, 1);
+    program.nodes.splice(index, 1);        
+    delete program.nodes_map[node.id];
     for(let t of node.terminals) {
         while(t.lines.length > 0)
             delete_line(t.lines[0])
@@ -571,21 +575,24 @@ function delete_node(node, redraw)
 }
 
 
-// map node cls name to the next index a node of this class is going to get
-var names_indices = {}
 
 
-function add_node(x, y, name, cls) 
+function add_node(x, y, name, cls, id) 
 {
     if (name === null) {
-        if (names_indices[cls.name()] === undefined)
-            names_indices[cls.name()] = 1
+        if (program.names_indices[cls.name()] === undefined)
+            program.names_indices[cls.name()] = 1
         else
-            names_indices[cls.name()]++
-        name = cls.name().toLowerCase() + "_" + names_indices[cls.name()]
+            program.names_indices[cls.name()]++
+        name = cls.name().toLowerCase() + "_" + program.names_indices[cls.name()]
     }
-    var node = new Node(x, y, name, cls)
+    if (id === null || id === undefined) {
+        id = program.next_node_id++ 
+    }
+    var node = new Node(x, y, name, cls, id)
+    program.nodes_map[node.id] = node
     program.nodes.push(node)
+    return node
 }
 
 function add_line(line) {
@@ -606,6 +613,7 @@ const NODES_GRID_SIZE = 50
 
 function draw_nodes()
 {   
+    save_state()
     ctx_nodes.lineWidth = 1
     ctx_nodes.fillStyle = '#312F31'
     ctx_nodes.fillRect(0, 0, canvas_nodes.width, canvas_nodes.height)

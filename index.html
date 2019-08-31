@@ -29,30 +29,40 @@ function page_onload()
         trigger_frame_draw()
     }
     
+    clear_program()
+    load_state()
     
     setup_vert_splitter(main_view, image_panel, canvas_image, image_splitter, edit_panel, canvas_nodes)
     setup_horz_splitter(edit_panel, edit_params, edit_splitter, edit_nodes, canvas_nodes)
     
     nodes_panel_mouse_control()
     
-
-    add_node(-50, -50, null, NodeGeomPrimitive)
-    add_node(50, 50, null, NodePointColor)
+    //add_node(-50, -50, null, NodeGeomPrimitive)
+    //add_node(50, 50, null, NodePointColor)
     
     draw_nodes()
     calc_img_viewport()
 }
 
 
-var program = {
-    nodes: [],
-    lines: [],
-    display_node: null
-}
+var program = null
 
 var img_view = {
     t_viewport: null
 }
+
+function clear_program() {
+    program = {
+        nodes: [], // nodes in an array for iteration
+        nodes_map: {},  // node-id to node 
+        lines: [],
+        display_node: null,
+        // map node cls name to the next index a node of this class is going to get
+        names_indices: {},
+        next_node_id: 1
+    }
+}
+
 
 function assert(cond, node, msg) {
     if (!cond)
@@ -266,6 +276,7 @@ function clear_outputs(prog) {
 // called whenever the display needs to be updated to reflect a change
 function trigger_frame_draw() 
 {
+    save_state()
     ctx_img.fillStyle = '#fff'
     ctx_img.fillRect(0, 0, canvas_image.width, canvas_image.height)
 
@@ -280,6 +291,38 @@ function trigger_frame_draw()
     assert(disp_obj !== null, program.display_node, "No output generated")
 
     disp_obj.draw(img_view.t_viewport)
+
+}
+
+
+function save_state() {
+    let state = { program:{ nodes: {} } }
+    for(let n of program.nodes) {
+        let sn = { params: {}, name:n.name, cls_name: n.cls.constructor.name(), x:n.x, y:n.y }
+        for(let p of n.parameters) {
+            sn.params[p.label] = p.save()
+        }        
+        state.program.nodes[n.id] = sn
+    }
+    localStorage.setItem("state", JSON.stringify(state))
+}
+
+
+function load_state() {
+    let state = localStorage.getItem("state")
+    if (state === null)
+        return
+    state = JSON.parse(state)
+    clear_program()
+    for(let nid_s in state.program.nodes) {
+        let nid = parseInt(nid_s)
+        let sn = state.program.nodes[nid]
+        let n = add_node(sn.x, sn.y, sn.name, nodes_classes_by_name[sn.cls_name], nid)
+        for(let p of n.parameters) {
+            let sp = sn.params[p.label]
+            p.load(sp)
+        }
+    }
 }
 
 
@@ -292,6 +335,9 @@ var nodes_classes = [
     NodeGroupObjects,
     NodeTransform
 ]
+var nodes_classes_by_name = {}
+for(let c of nodes_classes)
+    nodes_classes_by_name[c.name()] = c
 
 
 </script>

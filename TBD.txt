@@ -1,8 +1,9 @@
 
+serialization
 transform for each node
 
 NODES:
-mouse vertices
+- mouse vertices
 color per vertex? for gradient
 triangulation
 round edges
