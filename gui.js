@@ -98,8 +98,8 @@ function setup_vert_splitter(container, p1, c1, grip, p2, c2)
 
 
 var nodes_view = {
-    pan_x: 0,
-    pan_y: 0,
+    pan_x: null,
+    pan_y: null,
     zoom: 1,
     rect: null,
     
@@ -108,13 +108,21 @@ var nodes_view = {
     },
     view_y: function(pageY) {
         return pageY - nodes_view.rect.top - nodes_view.pan_y
+    },
+    save: function() {
+        return { pan_x:this.pan_x, pan_y:this.pan_y }
+    },
+    load: function(s) {
+        this.pan_x = parseInt(s.pan_x); this.pan_y = parseInt(s.pan_y)
     }
 }
 
 function nodes_panel_mouse_control() 
 {
-    nodes_view.pan_x = Math.round(canvas_nodes.width/2)
-    nodes_view.pan_y = Math.round(canvas_nodes.height/2)
+    if (nodes_view.pan_x === null) { // did not come from load
+        nodes_view.pan_x = Math.round(canvas_nodes.width/2)
+        nodes_view.pan_y = Math.round(canvas_nodes.height/2)
+    }
     
     var panning = false
     var prev_x, prev_y

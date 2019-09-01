@@ -6,7 +6,7 @@
 <script src="base_node.js"></script>
 <script src="parameters.js"></script>
 <script src="mesh.js"></script>
-
+<script src="serialization.js"></script>
 <script>
 "use strict"
 
@@ -30,7 +30,12 @@ function page_onload()
     }
     
     clear_program()
-    load_state()
+    try {
+        load_state()
+    }
+    catch(e) {
+        console.error("failed load " + e)
+    }
     
     setup_vert_splitter(main_view, image_panel, canvas_image, image_splitter, edit_panel, canvas_nodes)
     setup_horz_splitter(edit_panel, edit_params, edit_splitter, edit_nodes, canvas_nodes)
@@ -132,7 +137,7 @@ class NodePointColor extends NodeCls
     run() {
         let mesh = this.in_mesh.get_mutable()
         assert(mesh, this, "missing in_mesh")
-        let prop = new Uint8Array(mesh.arrs.vtx.length * 3)
+        let prop = new Uint8Array(mesh.arrs.vtx.length * 1.5) // / 2 for (x,y) * 3 for (r,g,b)
         for(let i = 0; i < prop.length; i += 3) {
             prop[i] = this.color.v.r
             prop[i+1] = this.color.v.g
@@ -231,9 +236,9 @@ class NodeTransform extends NodeCls
         this.transform = new ParamTransform(node, "transform")
     }
     run() {
-        assert(this.in.v !== null, this, "missing input")
         // TBD mutate only if not identity
         let obj = this.in.get_mutable()
+        assert(obj, this, "missing input")
         obj.transform(this.transform.v)
         this.out.set(obj)
     }
@@ -295,40 +300,10 @@ function trigger_frame_draw()
 }
 
 
-function save_state() {
-    let state = { program:{ nodes: {} } }
-    for(let n of program.nodes) {
-        let sn = { params: {}, name:n.name, cls_name: n.cls.constructor.name(), x:n.x, y:n.y }
-        for(let p of n.parameters) {
-            sn.params[p.label] = p.save()
-        }        
-        state.program.nodes[n.id] = sn
-    }
-    localStorage.setItem("state", JSON.stringify(state))
-}
-
-
-function load_state() {
-    let state = localStorage.getItem("state")
-    if (state === null)
-        return
-    state = JSON.parse(state)
-    clear_program()
-    for(let nid_s in state.program.nodes) {
-        let nid = parseInt(nid_s)
-        let sn = state.program.nodes[nid]
-        let n = add_node(sn.x, sn.y, sn.name, nodes_classes_by_name[sn.cls_name], nid)
-        for(let p of n.parameters) {
-            let sp = sn.params[p.label]
-            p.load(sp)
-        }
-    }
-}
-
 
 
 var nodes_classes = [
-    NodeTestDummy, 
+    //NodeTestDummy, 
     NodeGeomPrimitive, 
     NodePointColor, 
     //NodeGeomMerge, 

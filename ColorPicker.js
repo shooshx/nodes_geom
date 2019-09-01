@@ -43,7 +43,7 @@ function HSVtoRGB(h, s, v, into) {
 }
 
 
-function RGBtoHSV(r, g, b) {
+function RGBtoHSV(r, g, b, into) {
     r = r / 255;
     g = g / 255;
     b = b / 255;
@@ -66,7 +66,10 @@ function RGBtoHSV(r, g, b) {
         }
         h /= 6;
     }
-    return { h: h, s: s, v: v, is_gray:is_gray };
+    into.h = h
+    into.s = s
+    into.v = v
+    into.is_gray = is_gray;
 }
 
 var MARGIN = 10
@@ -200,6 +203,12 @@ function parse_hex(s) {
     return null
 }
 
+function parse_hex_user(s) {
+    let r = parse_hex(s)
+    r.hex = make_hex(r)
+    return r
+}
+
 function create_after(elem, sz, visible, onchange) {
     return create_at(elem, addSiblingAfter, sz, visible, onchange)
 }
@@ -217,7 +226,9 @@ function create_at(elem, add_func, sz, visible, onchange)
     canvas.style.outline = "none"  // but don't put a focus border on it
     var ctx = canvas.getContext("2d")
     var cfg = { sz:sz }
-    var sel_col = { h:0, s:0, v:0, r:0, g:0, b:0 }
+    var sel_col = { h:0, s:0, v:0, r:0, g:0, b:0, hex:"", copy: function() {
+        return { r:this.r, g:this.g, b:this.b, hex:this.hex }
+    }}
     var sel_pos = { sq_x: 0, sq_y: 0, bar_y: 0 } // range:0-1
     var presets = {}
     
@@ -243,7 +254,7 @@ function create_at(elem, add_func, sz, visible, onchange)
             c = parse_hex(c)
         if (c === undefined || c == null)
             return
-        sel_col = RGBtoHSV(c.r, c.g, c.b)
+        RGBtoHSV(c.r, c.g, c.b, sel_col)
         sel_col.r = c.r
         sel_col.g = c.g
         sel_col.b = c.b
@@ -342,7 +353,7 @@ function create_at(elem, add_func, sz, visible, onchange)
     return { set_color:set_color, get_color:get_color, set_visible:set_visible, elem:canvas }
 }
 
-return { create_as_child:create_as_child, create_after:create_after, parse_hex:parse_hex }
+return { create_as_child:create_as_child, create_after:create_after, parse_hex:parse_hex_user }
 
 })();
 

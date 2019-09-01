@@ -38,7 +38,7 @@ function add_param_color(line, value, set_func) {
     // TBD move setting the func to be the last thing to avoid spurious triggers
     let ce = ColorEditBox.create_at(e, 200, function(c) { if (set_func(c)) trigger_frame_draw() })
     ce.set_color(value, true)
-    return ce.get_color()
+    return ce.get_color().copy()
 }
 
 class ParamInt extends Parameter {
@@ -79,7 +79,7 @@ class ParamColor extends Parameter {
         this.v = add_param_color(line, this.v, function(v) { 
             if (that.v.hex == v.hex) 
                 return false; 
-            that.v = v 
+            that.v = v.copy() // make a copy so that this.v will be different object than the internal object
             return true
         })
     }
@@ -94,7 +94,7 @@ class ParamTransform extends Parameter {
         this.v = mat3.create()
     }
     save() { return {t:this.translate, r:this.rotate, s:this.scale} }
-    load(v) { this.translate[0] = v.t[0]; this.translate[1] = v.t[1]; this.rotate = v.r; this.scale[0] = v.s[0]; this.scale[1] = v.s[1] }
+    load(v) { this.translate[0] = v.t[0]; this.translate[1] = v.t[1]; this.rotate = v.r; this.scale[0] = v.s[0]; this.scale[1] = v.s[1]; this.calc_mat() }
     calc_mat() {
         mat3.identity(this.v)
         mat3.scale(this.v, this.v, this.scale)
