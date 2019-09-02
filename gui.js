@@ -10,9 +10,17 @@ function recalc_canvases_rects() {
     image_canvas_rect = canvas_image.getBoundingClientRect();
 }
 
+var main_view_state = {
+    split_1_h: 0.6,
+    split_2_v: 0.35,
+
+    save: function() { return { split_1_h: this.split_1_h, split_2_v: this.split_2_v } },
+    load: function(v) { this.split_1_h = parseFloat(v.split_1_h); this.split_2_v = parseFloat(v.split_2_v) }
+}
+
 function setup_horz_splitter(container, p1, grip, p2, c2)
 {    
-    var p1_height = Math.trunc(container.offsetHeight *0.35) - GRIP_WIDTH
+    var p1_height = Math.trunc(container.offsetHeight * main_view_state.split_2_v) - GRIP_WIDTH
     var resize = function() {
         p1.style.height = p1_height + "px"
         var p2_height = container.offsetHeight - p1_height - GRIP_WIDTH
@@ -42,18 +50,21 @@ function setup_horz_splitter(container, p1, grip, p2, c2)
           var p2_height = container.offsetHeight - p1_height - GRIP_WIDTH
           p2.style.height = p2_height + "px"
           c2.height = p2_height
+          main_view_state.split_2_v = (p1_height + GRIP_WIDTH) / container.offsetHeight
           c2.do_draw()
           e.preventDefault(); // prevent selection action from messing it up
           recalc_canvases_rects()
       }
     });
 
- 
 }
+
+
+
 
 function setup_vert_splitter(container, p1, c1, grip, p2, c2)
 {
-    var p1sz = Math.trunc(container.offsetWidth *0.6) - GRIP_WIDTH
+    var p1sz = Math.trunc(container.offsetWidth * main_view_state.split_1_h) - GRIP_WIDTH
     
     var resize = function() {
         p1.style.width = p1sz + "px"
@@ -89,6 +100,7 @@ function setup_vert_splitter(container, p1, c1, grip, p2, c2)
           var p2sz = container.offsetWidth - p1sz - GRIP_WIDTH
           p2.style.width = p2sz + "px"
           c2.width = p2sz
+          main_view_state.split_1_h = (p1sz + GRIP_WIDTH) / container.offsetWidth
           c2.do_draw()
           e.preventDefault(); // prevent selection action from messing it up
           recalc_canvases_rects()

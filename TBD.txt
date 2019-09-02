@@ -1,6 +1,6 @@
 
-serialization
-transform for each node
+
+transform UI, for each node
 
 NODES:
 - mouse vertices

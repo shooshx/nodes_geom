@@ -24,7 +24,8 @@ function save_program() {
 
 function save_state() {
     let state = { program: save_program(),
-                  nodes_view: nodes_view.save() }
+                  nodes_view: nodes_view.save(), 
+                  main_view_s: main_view_state.save() }
 
     //console.log("SAVING: + ", JSON.stringify(state))
     localStorage.setItem("state", JSON.stringify(state))
@@ -69,6 +70,7 @@ function load_state() {
         return
     //console.log("LOADING: " + state)
     let state = JSON.parse(state_s)
+    main_view_state.load(state.main_view_s)
     nodes_view.load(state.nodes_view)
     load_program(state.program)
 
