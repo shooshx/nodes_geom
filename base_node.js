@@ -487,7 +487,7 @@ class Node {
     
 }
 
-function unselect_all(redraw) {
+function nodes_unselect_all(redraw) {
     if (selected_node == null)
         return
     selected_node = null
@@ -553,13 +553,13 @@ function nodes_context_menu(px, py, wx, wy) {
     }
     
     last_nodes_ctx_menu = open_context_menu(opt, wx, wy, main_view, nodes_dismiss_ctx_menu)    
-    
+    return last_nodes_ctx_menu
 }
 
 function delete_node(node, redraw)
 {
     if (selected_node == node)
-        unselect_all(false)
+        nodes_unselect_all(false)
     if (program.display_node == node) 
         set_display_node(null)
     var index = program.nodes.indexOf(node);

@@ -1,5 +1,6 @@
 
-
+pan, zoom image view
+save as
 transform UI, for each node
 
 NODES:

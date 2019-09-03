@@ -2,11 +2,12 @@
 <head>
 <script src="gl-matrix.js"></script>
 <script src="ColorPicker.js"></script>
-<script src="gui.js"></script>
 <script src="base_node.js"></script>
+<script src="gui.js"></script>
 <script src="parameters.js"></script>
 <script src="mesh.js"></script>
 <script src="serialization.js"></script>
+<script src="nodes_mesh.js"></script>
 <script>
 "use strict"
 
@@ -18,6 +19,9 @@ var ctx_nodes, ctx_img
 
 function page_onload()
 {
+    nodes_view = new NodesView(canvas_nodes)
+    image_view = new ImageView(canvas_image)
+
     ctx_nodes = canvas_nodes.getContext('2d')
     ctx_img = canvas_image.getContext('2d')
     
@@ -25,8 +29,7 @@ function page_onload()
         draw_nodes()
     }
     canvas_image.do_draw = function() {
-        calc_img_viewport()
-        trigger_frame_draw()
+        image_view.resize_redraw()
     }
     
     clear_program()
@@ -40,7 +43,10 @@ function page_onload()
     setup_vert_splitter(main_view, image_panel, canvas_image, image_splitter, edit_panel, canvas_nodes)
     setup_horz_splitter(edit_panel, edit_params, edit_splitter, edit_nodes, canvas_nodes)
     
-    nodes_panel_mouse_control()
+    panel_mouse_control(nodes_view, canvas_nodes)
+    panel_mouse_control(image_view, canvas_image)
+
+    image_view.resize_redraw()
     
     //add_node(-50, -50, null, NodeGeomPrimitive)
     //add_node(50, 50, null, NodePointColor)
@@ -52,9 +58,6 @@ function page_onload()
 
 var program = null
 
-var img_view = {
-    t_viewport: null
-}
 
 function clear_program() {
     program = {
@@ -75,7 +78,9 @@ function assert(cond, node, msg) {
 }
 
 function calc_img_viewport() {
-    img_view.t_viewport = mat3.create()
+    let t_viewport = mat3.create()
+    image_view.t_viewport = t_viewport
+
     if (canvas_image.width > canvas_image.height) {
         var f = canvas_image.height
         var remainx = (canvas_image.width - canvas_image.height) / (canvas_image.height * 2), remainy = 0
@@ -84,166 +89,12 @@ function calc_img_viewport() {
         var f = canvas_image.width
         var remainy = (canvas_image.height - canvas_image.width) / (canvas_image.width * 2), remainx = 0
     }
-    mat3.scale(img_view.t_viewport, img_view.t_viewport, vec2.fromValues(f, f))
-    mat3.translate(img_view.t_viewport, img_view.t_viewport, vec2.fromValues(0.5 + remainx, 0.5 + remainy))        
+    mat3.scale(t_viewport, t_viewport, vec2.fromValues(f, f))
+    mat3.translate(t_viewport, t_viewport, vec2.fromValues(0.5 + remainx + image_view.pan_x / f, 0.5 + remainy + image_view.pan_y / f))        
 
 }
 
-class NodeCls {
-    constructor() {
 
-    }
-}
-
-class NodeTestDummy extends NodeCls {
-    static name() { return "Test_Dummy" }
-    constructor(node) {
-        super()
-        this.in_1 = new InTerminal(node, "in_1")
-        this.in_2 = new InTerminal(node, "in_2")
-        this.out = new OutTerminal(node, "out")
-    }
-}
-
-
-class NodeGeomPrimitive extends NodeCls
-{
-    static name() { return "Geom_Primitive" }
-    constructor(node) {
-        super()
-        this.out = new OutTerminal(node, "out_mesh")
-        this.size = new ParamVec2(node, "size", 0.5, 0.5)
-    }
-    run() {
-        let m = new Mesh()
-        // center at 0,0
-        let hx = this.size.x * 0.5, hy = this.size.y * 0.5
-        m.set_vtx([-hx, -hy, hx, -hy, hx, hy, -hx, hy])
-        m.set_idx([0, 1, 2, 3])
-        m.set_type(MESH_QUAD)
-        this.out.set(m)
-    }
-}
-
-class NodePointColor extends NodeCls
-{
-    static name() { return "Point_Color" }
-    constructor(node) {
-        super()
-        this.in_mesh = new InTerminal(node, "in_mesh")
-        this.out_mesh = new OutTerminal(node, "out_mesh")
-        this.color = new ParamColor(node, "color", "#cccccc")
-    }
-    run() {
-        let mesh = this.in_mesh.get_mutable()
-        assert(mesh, this, "missing in_mesh")
-        let prop = new Uint8Array(mesh.arrs.vtx.length * 1.5) // / 2 for (x,y) * 3 for (r,g,b)
-        for(let i = 0; i < prop.length; i += 3) {
-            prop[i] = this.color.v.r
-            prop[i+1] = this.color.v.g
-            prop[i+2] = this.color.v.b
-        }
-        mesh.set_vtx_color(prop)
-        this.out_mesh.set(mesh)
-    }
-}
-
-class NodeMeshMerge extends NodeCls
-{
-    static name() { return "Mesh_Merge" }
-    constructor(node) {
-        super()
-        this.in_m = new InTerminalMulti(node, "in_multi_mesh")
-        this.out = new OutTerminal(node, "out_mesh")
-    }
-    run() {
-        if (this.in_m.lines.length == 0) {
-            this.out.set(new Mesh())
-            return
-        }
-        if (this.in_m.lines.length == 1) {
-            this.out.set(this.in_m.lines[0].to_term.v)
-            return
-        }
-
-        // first calculate the size of the eventual arrays and check type agreement
-        let szs = this.in_m.lines[0].to_term.v.get_sizes()
-        for(let i = 1; i < this.in_m.lines.length; ++i) {
-            let line = this.in_m.lines[i]
-            let lm = line.to_term.v.get_size()
-            assert(lm.type === szs.type, this, "Input " + i + " has different type from input 0")
-            for(let k in m.arrs) {
-                if (szs[k] === undefined)
-                    szs.arrs[k] = lm.arrs[k]
-                else {
-                    assert(szs.arrs[k].type === lm.arrs[k].type, "Input " + i + " has wrong data-type of element " + k + " from that of input 0")
-                    szs.arrs[k].sz += lm.arrs[k].sz
-                }
-            }
-        }
-        // create the arrays
-        let r = new Mesh()
-        for(let k in szs)
-            r.arrs[k] = new szs.arrs[k].type(szs.arrs[k].sz)
-        // copy the data TBD
-
-    }
-}
-
-// TBD: a slightly better way to do this is to own PHandle and have a custom clone
-//      that clones only objects with more than 1 refcount
-class PObjGroup extends PObject{
-    constructor() {
-        super()
-        this.v = []
-    }
-    transform(m) {
-        for(let obj of this.v) {
-            obj.transform(m)
-        }
-    }
-    draw(m) {
-        for(let obj of this.v) {
-            obj.draw(m)
-        }
-    }
-}
-
-class NodeGroupObjects extends NodeCls {
-    static name() { return "Group_Objects" }
-    constructor(node) {
-        super()
-        this.in_m = new InTerminalMulti(node, "in_multi_mesh")
-        this.out = new OutTerminal(node, "out_mesh")
-    }
-    run() {
-        let r = new PObjGroup()
-        for(let line of this.in_m.lines) {
-            r.v.push(line.to_term.get_const())
-        }
-        this.out.set(r)
-    }
-}
-
-// maybe wrap with a proxy?
-class NodeTransform extends NodeCls
-{
-    static name() { return "Transform" }
-    constructor(node) {
-        super()
-        this.in = new InTerminal(node, "input")
-        this.out = new OutTerminal(node, "output")
-        this.transform = new ParamTransform(node, "transform")
-    }
-    run() {
-        // TBD mutate only if not identity
-        let obj = this.in.get_mutable()
-        assert(obj, this, "missing input")
-        obj.transform(this.transform.v)
-        this.out.set(obj)
-    }
-
-}
 
 function run_nodes_tree(n) {
     if (n.outputs[0].get_const() !== null)
@@ -295,7 +146,7 @@ function trigger_frame_draw()
     let disp_obj = program.display_node.outputs[0].get_const()
     assert(disp_obj !== null, program.display_node, "No output generated")
 
-    disp_obj.draw(img_view.t_viewport)
+    disp_obj.draw(image_view.t_viewport)
 
 }
 

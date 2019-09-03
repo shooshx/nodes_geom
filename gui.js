@@ -3,11 +3,11 @@
 const GRIP_WIDTH = 5
 const MIN_PANEL_SIZE = 10
 
-var image_canvas_rect = null
+
 
 function recalc_canvases_rects() {
     nodes_view.rect = canvas_nodes.getBoundingClientRect();
-    image_canvas_rect = canvas_image.getBoundingClientRect();
+    image_view.rect = canvas_image.getBoundingClientRect();
 }
 
 var main_view_state = {
@@ -108,43 +108,84 @@ function setup_vert_splitter(container, p1, c1, grip, p2, c2)
     });
 }
 
+class ViewBase 
+{
+    constructor() {
+        this.pan_x = null
+        this.pan_y = null
+        this.zoom = 1
+        this.rect = null
+    }
 
-var nodes_view = {
-    pan_x: null,
-    pan_y: null,
-    zoom: 1,
-    rect: null,
-    
-    view_x: function(pageX) {
+    view_x(pageX) {
         return pageX - nodes_view.rect.left - nodes_view.pan_x
-    },
-    view_y: function(pageY) {
+    }
+    view_y(pageY) {
         return pageY - nodes_view.rect.top - nodes_view.pan_y
-    },
-    save: function() {
+    }
+    save() {
         return { pan_x:this.pan_x, pan_y:this.pan_y }
-    },
-    load: function(s) {
+    }
+    load(s) {
         this.pan_x = parseInt(s.pan_x); this.pan_y = parseInt(s.pan_y)
     }
 }
 
-function nodes_panel_mouse_control() 
+class NodesView extends ViewBase
 {
-    if (nodes_view.pan_x === null) { // did not come from load
-        nodes_view.pan_x = Math.round(canvas_nodes.width/2)
-        nodes_view.pan_y = Math.round(canvas_nodes.height/2)
+    constructor(canvas) {
+        super()
+        this.pan_x = Math.round(canvas.width/2) // default before load from state
+        this.pan_y = Math.round(canvas.height/2)
+
+        this.find_obj = find_node_obj
+        this.unselect_all = nodes_unselect_all
+        this.context_menu = nodes_context_menu
+        this.pan_redraw = draw_nodes
     }
-    
+
+    dismiss_popups() {
+        nodes_dismiss_ctx_menu()
+        nodes_dismiss_name_input()
+    }
+}
+
+let nodes_view = null
+
+class ImageView extends ViewBase
+{
+    constructor(canvas) {
+        super()
+        this.find_obj = function() { return null }
+        this.unselect_all = function() {}
+        this.context_menu = function() { return null }
+        this.dismiss_popups = function() {}
+
+        this.t_viewport = null        
+    }
+
+    pan_redraw() {
+        calc_img_viewport()
+        trigger_frame_draw()        
+    }
+    resize_redraw() {
+        this.pan_redraw()
+    }
+}
+
+let image_view = null
+
+function panel_mouse_control(view, canvas) 
+{    
     var panning = false
     var prev_x, prev_y
     var hit = null
     var did_move = false  // used for detecting unselect
     
-    canvas_nodes.addEventListener('mousedown', function(e) {
+    canvas.addEventListener('mousedown', function(e) {
         if (e.buttons == 1) {
             prev_x = e.pageX; prev_y = e.pageY
-            hit = find_node_obj(nodes_view.view_x(e.pageX), nodes_view.view_y(e.pageY));
+            hit = view.find_obj(view.view_x(e.pageX), view.view_y(e.pageY));
             if (hit != null) {
                 console.log("hit ", hit)
                 hit.mousedown(e)
@@ -159,7 +200,7 @@ function nodes_panel_mouse_control()
         if (hit !== null)
             hit.mouseup()  
         else if (!did_move)
-            unselect_all(true)
+            view.unselect_all(true)
         hit = null
     });
     document.addEventListener('mousemove', function(e) {
@@ -169,23 +210,23 @@ function nodes_panel_mouse_control()
             return
         did_move = true
         if (panning) {
-            nodes_view.pan_x += dx
-            nodes_view.pan_y += dy
-            draw_nodes()
+            view.pan_x += dx
+            view.pan_y += dy
+            view.pan_redraw()
         }
         else if (hit !== null) {
-            hit.mousemove(dx, dy, nodes_view.view_x(e.pageX), nodes_view.view_y(e.pageY))
+            hit.mousemove(dx, dy, view.view_x(e.pageX), view.view_y(e.pageY))
         }
     })
     
-    canvas_nodes.addEventListener("contextmenu", function(e) {
-        nodes_context_menu(nodes_view.view_x(e.pageX), nodes_view.view_y(e.pageY), e.pageX, e.pageY)
-        e.preventDefault()
+    canvas.addEventListener("contextmenu", function(e) {
+        let ctx = view.context_menu(view.view_x(e.pageX), view.view_y(e.pageY), e.pageX, e.pageY)
+        if (ctx !== null)
+            e.preventDefault()
         return false;
     })
     document.addEventListener('mousedown', function(e) {
-        nodes_dismiss_ctx_menu()
-        nodes_dismiss_name_input()
+        view.dismiss_popups()
     })
 }
 
@@ -291,6 +332,11 @@ class DisplayFlagProxy
     mousemove(a,b,c,d) {
         this.node.mousemove(a,b,c,d)
     }
+}
+
+function image_panel_mouse_control()
+{
+
 }
 
 
