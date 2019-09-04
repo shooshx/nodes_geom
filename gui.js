@@ -156,12 +156,19 @@ class ImageView extends ViewBase
 {
     constructor(canvas) {
         super()
+        this.pan_x = 0
+        this.pan_y = 0
         this.find_obj = function() { return null }
         this.unselect_all = function() {}
         this.context_menu = function() { return null }
         this.dismiss_popups = function() {}
 
-        this.t_viewport = null        
+        // viewport transform. don't use the canvas transform since we want stuff like vertex markers to remain the same size no matter what
+        this.t_viewport = null       
+        // distance from the top or from the left of a the largest square that fits in the canvas. only one of these would be non-zero
+        // used for centering the viewport
+        this.margin_x = 0
+        this.margin_y = 0 
     }
 
     pan_redraw() {
@@ -204,7 +211,10 @@ function panel_mouse_control(view, canvas)
         hit = null
     });
     document.addEventListener('mousemove', function(e) {
-        var dx = e.pageX - prev_x, dy = e.pageY - prev_y
+        var dx = e.pageX - prev_x
+        var dy = e.pageY - prev_y
+        dx /= view.zoom
+        dy /= view.zoom
         prev_x = e.pageX, prev_y = e.pageY
         if (dx == 0 && dy == 0) 
             return
@@ -229,6 +239,65 @@ function panel_mouse_control(view, canvas)
         view.dismiss_popups()
     })
 }
+
+// https://github.com/jackmoore/wheelzoom/blob/master/wheelzoom.js
+function panel_mouse_wheel(view, canvas)
+{
+    const zoom_factor = 0.40
+
+    var mindim = Math.min(canvas.width, canvas.height)
+    var bgWidth = mindim;
+    var bgHeight = mindim;
+
+    function onWarCanvasWheel(e) 
+    {
+        let bgPosX = view.pan_x * view.zoom
+        let bgPosY = view.pan_y * view.zoom
+
+        var deltaY = 0;
+        e.preventDefault();
+        if (e.deltaY) { // FireFox 17+ (IE9+, Chrome 31+?)
+            deltaY = e.deltaY;
+        } else if (e.wheelDelta) {
+            deltaY = -e.wheelDelta;
+        }
+        // As far as I know, there is no good cross-browser way to get the cursor position relative to the event target.
+        // We have to calculate the target element's position relative to the document, and subtrack that from the
+        // cursor's position relative to the document.
+        var rect = canvas.getBoundingClientRect();
+        var offsetX = e.pageX - rect.left - window.pageXOffset;
+        var offsetY = e.pageY - rect.top - window.pageYOffset;
+        // Record the offset between the bg edge and cursor:
+        //  from corner to cursor
+        var bgCursorX = offsetX - bgPosX;
+        var bgCursorY = offsetY - bgPosY;
+        // Use the previous offset to get the percent offset between the bg edge and cursor:
+        var bgRatioX = bgCursorX/bgWidth;
+        var bgRatioY = bgCursorY/bgHeight;
+        // Update the bg size:
+        if (deltaY < 0) {
+            bgWidth += bgWidth*zoom_factor;
+            bgHeight += bgHeight*zoom_factor;
+        } else {
+            bgWidth -= bgWidth*zoom_factor;
+            bgHeight -= bgHeight*zoom_factor;
+        }
+
+        // Take the percent offset and apply it to the new size:
+        //  from cursor back to corner
+        bgPosX = offsetX - (bgWidth * bgRatioX);
+        bgPosY = offsetY - (bgHeight * bgRatioY);
+
+        view.zoom = bgWidth / mindim;
+        view.pan_x = bgPosX / view.zoom // don't know...
+        view.pan_y = bgPosY / view.zoom
+
+        view.pan_redraw()
+
+    }
+    canvas.addEventListener("wheel", onWarCanvasWheel)    
+}
+
 
 function addTextChild(elem, txt) {
     var dummy = document.createElement("DIV")

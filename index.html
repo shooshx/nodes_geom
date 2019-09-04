@@ -45,6 +45,7 @@ function page_onload()
     
     panel_mouse_control(nodes_view, canvas_nodes)
     panel_mouse_control(image_view, canvas_image)
+    panel_mouse_wheel(image_view, canvas_image)
 
     image_view.resize_redraw()
     
@@ -83,14 +84,16 @@ function calc_img_viewport() {
 
     if (canvas_image.width > canvas_image.height) {
         var f = canvas_image.height
-        var remainx = (canvas_image.width - canvas_image.height) / (canvas_image.height * 2), remainy = 0
+        image_view.margin_x = (canvas_image.width - canvas_image.height) / (canvas_image.height * 2)
+        image_view.margin_y = 0
     }
     else {
         var f = canvas_image.width
-        var remainy = (canvas_image.height - canvas_image.width) / (canvas_image.width * 2), remainx = 0
+        image_view.margin_y = (canvas_image.height - canvas_image.width) / (canvas_image.width * 2)
+        image_view.margin_x = 0
     }
-    mat3.scale(t_viewport, t_viewport, vec2.fromValues(f, f))
-    mat3.translate(t_viewport, t_viewport, vec2.fromValues(0.5 + remainx + image_view.pan_x / f, 0.5 + remainy + image_view.pan_y / f))        
+    mat3.scale(t_viewport, t_viewport, vec2.fromValues(f*image_view.zoom, f*image_view.zoom))
+    mat3.translate(t_viewport, t_viewport, vec2.fromValues(0.5 + image_view.margin_x + image_view.pan_x / f, 0.5 + image_view.margin_y + image_view.pan_y / f))        
 
 }
 
