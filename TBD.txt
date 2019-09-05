@@ -1,21 +1,52 @@
+GUI:
+- catch assert and show error on node   (!!)
+- save as
+- transform UI, for each node
+- parameter with drag and right button
+- before running - do type checking
+- round lines just before drawing to avoid thinning artifacts when zooming?
+- space forces redraw
+- template display
 
-pan, zoom image view
-save as
-transform UI, for each node
+ENGINE:
+- too many triggers when clicking on display of points color
 
 NODES:
-- mouse vertices
-color per vertex? for gradient
-triangulation
-round edges
+- mouse vertices - polyline
+- Primitive Circle
+- color per vertex? for gradient
+- triangulation
+- round edges
+- transform invert
+- single value input using a slider
+
+- grid of points - actually divide
+
+- random points  - https://www.sidefx.com/docs/houdini/nodes/sop/scatter.html
+    on a surface
+    on a line
+    interpolate property from input geometry
+
+- animate? modify a property for the next frame
+- random color with r,g,b ranges and seed parameter
 
 nodes the produce transform, invert it
 try for changing pivot T1 * Tp1 * R * Tp1' = T2 * Tp2 * R * Tp
 
-- before running - do type checking
-- too many triggers when clicking on display of points color
+
 
 NOVE-VIEW
 - arrow heads
 - better lines
+- delete lines
+- hover tooltip on terminals
 - don't allow connect more than one thing into an input, unless it's a multi-input
+
+
+demo idea
+- random points with random colors that make a field of polygons, animated to move slightly
+- robot hand with transformations
+- random points by texture
+- stuff for AxiDraw
+
+nice visualizations: https://bost.ocks.org/mike/algorithms/

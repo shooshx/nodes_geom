@@ -41,10 +41,19 @@ function add_param_color(line, value, set_func) {
     return ce.get_color().copy()
 }
 
+
 class ParamInt extends Parameter {
-    constructor(node, label) {
+    constructor(node, label, start_v) {
         super(node, label)
-        this.v = 0
+        this.v = start_v
+    }
+    save() { return {v:this.v}}
+    load(v) { this.v = v.v }
+    add_elems(parent) {
+        let line = add_param_line(parent)
+        add_param_label(line, this.label)
+        let that = this
+        add_param_edit(line, this.v, function(v) { that.v = parseInt(v) }) // TBD enforce int with parsing
     }
 }
 
@@ -60,8 +69,8 @@ class ParamVec2 extends Parameter {
         let line = add_param_line(parent)
         add_param_label(line, this.label)
         let that = this
-        add_param_edit(line, this.x, function(v) { that.x = v })
-        add_param_edit(line, this.y, function(v) { that.y = v })
+        add_param_edit(line, this.x, function(v) { that.x = parseFloat(v) })
+        add_param_edit(line, this.y, function(v) { that.y = parseFloat(v) })
     }
 }
 

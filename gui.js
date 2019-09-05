@@ -243,7 +243,7 @@ function panel_mouse_control(view, canvas)
 // https://github.com/jackmoore/wheelzoom/blob/master/wheelzoom.js
 function panel_mouse_wheel(view, canvas)
 {
-    const zoom_factor = 0.40
+    const zoom_factor = 0.10
 
     var mindim = Math.min(canvas.width, canvas.height)
     var bgWidth = mindim;

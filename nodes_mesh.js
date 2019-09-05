@@ -30,8 +30,8 @@ class NodeGeomPrimitive extends NodeCls
         let m = new Mesh()
         // center at 0,0
         let hx = this.size.x * 0.5, hy = this.size.y * 0.5
-        m.set_vtx([-hx, -hy, hx, -hy, hx, hy, -hx, hy])
-        m.set_idx([0, 1, 2, 3])
+        m.set_vtx(new TVtxArr([-hx, -hy, hx, -hy, hx, hy, -hx, hy]))
+        m.set_idx(new TIdxArr([0, 1, 2, 3]))
         m.set_type(MESH_QUAD)
         this.out.set(m)
     }
@@ -154,5 +154,79 @@ class NodeTransform extends NodeCls
         obj.transform(this.transform.v)
         this.out.set(obj)
     }
+}
 
+
+class RandNumGen
+{
+    constructor(seed) {
+        this.state = seed
+    }
+    next() {
+        this.state = (this.state * 1103515245 + 12345) % 2147483648
+        return this.state / 2147483648
+    }
+}
+
+function dist(ax, ay, bx, by) {
+    var dx = ax - bx, dy = ay - by
+    return Math.sqrt(dx*dx+dy*dy)
+}
+
+
+class RandomPoints extends NodeCls
+{
+    static name() { return "Scatter" }
+    constructor(node) {
+        super()
+        this.in_mesh = new InTerminal(node, "in_mesh")
+        this.out_mesh = new OutTerminal(node, "out_mesh")
+        this.seed = new ParamInt(node, "Seed", 1)
+        this.count = new ParamInt(node, "Count", 50)  // TBD or by density - not size dependent
+        this.smooth_iter = new ParamInt(node, "Smoothness", 20)
+
+    }
+        
+    run() {
+        let in_mesh = this.in_mesh.get_const()
+        assert(in_mesh["get_bbox"] !== undefined, this, "Input does not define a bounding box")
+        let bbox = in_mesh.get_bbox()  // TBD cut into shape if shape allows that
+        assert(bbox !== null, this, "Object doesn't have content for a bounding box")
+
+        let dx = bbox.max_x - bbox.min_x, dy = bbox.max_y - bbox.min_y
+        let vtx = new TVtxArr(this.count.v * 2)
+
+        function nearest_neighbor_dist(of_px, of_py) {
+            var min_d = Number.MAX_VALUE
+            for(let vi = 0; vi < vtx.length; vi += 2) {
+                let px = vtx[vi], py = vtx[vi+1]
+                var d = dist(px, py, of_px, of_py)
+                if (d < min_d)
+                    min_d = d
+            }
+            return min_d
+        }        
+
+        let prng = new RandNumGen(this.seed.v)
+        let addi = 0
+        for(let pi = 0; pi < this.count.v; ++pi) {
+            let cand_x = null, cand_y, bestDistance = 0;
+            for (let ti = 0; ti < this.smooth_iter.v; ++ti) {
+                let x = prng.next() * dx + bbox.min_x
+                let y = prng.next() * dy + bbox.min_y
+                let d = nearest_neighbor_dist(x, y);
+                if (d > bestDistance) {
+                    bestDistance = d;
+                    cand_x = x; cand_y = y
+                }
+            }
+            vtx[addi++] = cand_x
+            vtx[addi++] = cand_y
+        }
+        
+        let r = new Mesh()
+        r.set_vtx(vtx)
+        this.out_mesh.set(r)
+        
+    }
 }

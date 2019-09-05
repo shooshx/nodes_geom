@@ -7,6 +7,8 @@ const MESH_TRI = 2
 
 const MESH_DISP = { vtx_radius: 5 }
 
+let TVtxArr = Float32Array
+let TIdxArr = Int16Array
 
 class Mesh extends PObject
 {
@@ -14,7 +16,7 @@ class Mesh extends PObject
         super()
         this.type = MESH_NOT_SET
         // vtx_color : Uint8Array
-        this.arrs = { vtx:new Float32Array(0), idx:new Int16Array(0) }
+        this.arrs = { vtx:new TVtxArr(0), idx:new TIdxArr(0) }
         this.tcache = { vtx:null, m:null }  // transformed cache
     }
 
@@ -47,6 +49,21 @@ class Mesh extends PObject
     
     transform(m) {
         this.transform_arr(m, this.arrs.vtx, this.arrs.vtx)
+    }
+
+    get_bbox() {
+        let vtx = this.arrs.vtx
+        if (vtx.length == 0)
+            return null
+        let min_x = Number.MAX_VALUE, max_x = -Number.MAX_VALUE, min_y = Number.MAX_VALUE, max_y = -Number.MAX_VALUE
+        for(let i = 0; i < vtx.length; i += 2) { 
+            let x = vtx[i], y = vtx[i+1]
+            if (x < min_x) min_x = x
+            if (x > max_x) max_x = x
+            if (y < min_y) min_y = y
+            if (y > max_y) max_y = y
+        }
+        return { min_x:min_x, max_x:max_x, min_y:min_y, max_y:max_y }
     }
 
     draw_vertices() {
