@@ -16,9 +16,20 @@ glm.setMatrixArrayType(Float64Array)
 
 var ctx_nodes, ctx_img
 
+const PRELOAD_IMAGES = [ "check_checked.png", "check_int.png", "check_none.png" ]
+var preloaded = []
+
+function preload_images() {
+    for(var name of PRELOAD_IMAGES) {
+        let img = new Image()
+        img.src = name
+        preloaded.push(img)
+    }
+}
 
 function page_onload()
 {
+    preload_images()
     nodes_view = new NodesView(canvas_nodes)
     image_view = new ImageView(canvas_image)
 

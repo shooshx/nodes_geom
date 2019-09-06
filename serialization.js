@@ -46,7 +46,8 @@ function load_program(sprog) {
         let n = add_node(sn.x, sn.y, sn.name, nodes_classes_by_name[sn.cls_name], nid)
         for(let p of n.parameters) {
             let sp = sn.params[p.label]
-            p.load(sp)
+            if (sp !== undefined)  // might be a new parameter that's not there
+                p.load(sp)
         }
     }
     let find_by_name = function (cont, name) {

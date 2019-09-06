@@ -3,7 +3,25 @@ class Parameter
 {
     constructor(node, label) {
         this.label = label
+        this.label_elem = null  // use for changing the label 
+        this.line_elem = null  // used for enable
+        this.enable = true
         node.parameters.push(this)
+        // don't save node, this param may go other places
+    }
+    set_label(text) {
+        this.label = text
+        if (this.label_elem !== null) // can be null if we call this before displaying elements
+            this.label_elem.innerText = text
+    }
+    set_enable(v) {
+        this.enable = v
+        if (this.line_elem !== null)
+            this.line_elem.classList.toggle("param_disabled", !this.enable)
+    }
+    init_enable() {
+        if (this.line_elem !== null && !this.enable)
+            this.line_elem.classList.toggle("param_disabled", !this.enable)
     }
 }
 
@@ -15,9 +33,19 @@ function add_param_line(parent) {
 }
 function add_param_label(line, text) {
     let e = document.createElement('span')
-    e.classList = ['param_label_pre']
-    e.innerText = text + ":"
+    if (text != null) {
+        e.innerText = text
+        e.className = 'param_label_pre'
+    }
+    else
+        e.className = 'param_label_pre_empty'
     line.appendChild(e)
+    if (text != null) {
+        let colon = document.createElement('span')
+        colon.className = 'param_label_colon'    
+        colon.innerText = ':'  // can't just concatenate this above since the label may change
+        line.append(colon)
+    }
     return e
 }
 function add_param_edit(line, value, set_func) {
@@ -40,6 +68,26 @@ function add_param_color(line, value, set_func) {
     ce.set_color(value, true)
     return ce.get_color().copy()
 }
+let checkbox_ids = 1
+function add_param_checkbox(line, label, value, set_func) {
+    let ein = document.createElement('input')
+    ein.type = 'checkbox'
+    ein.className = 'param_checkbox_input'
+    ein.id = 'p_chb_' + checkbox_ids
+    ein.checked = value
+    ein.addEventListener('change', function() { set_func(ein.checked) })
+    let edisp = document.createElement('label')
+    edisp.className = 'param_checkbox_disp'
+    edisp.setAttribute("for", ein.id)
+    let etext = document.createElement('label')
+    etext.className = 'param_checkbox_text'
+    etext.setAttribute("for", ein.id)
+    etext.innerText = label
+    line.append(ein)
+    line.append(edisp)
+    line.append(etext)
+    return etext
+}
 
 
 class ParamInt extends Parameter {
@@ -50,10 +98,30 @@ class ParamInt extends Parameter {
     save() { return {v:this.v}}
     load(v) { this.v = v.v }
     add_elems(parent) {
-        let line = add_param_line(parent)
-        add_param_label(line, this.label)
+        this.line_elem = add_param_line(parent)
+        this.label_elem = add_param_label(this.line_elem, this.label)
         let that = this
-        add_param_edit(line, this.v, function(v) { that.v = parseInt(v) }) // TBD enforce int with parsing
+        add_param_edit(this.line_elem, this.v, function(v) { that.v = parseInt(v) }) // TBD enforce int with parsing
+    }
+}
+
+class ParamBool extends Parameter {
+    constructor(node, label, start_v, change_func) {
+        super(node, label)
+        this.v = start_v
+        this.change_func = change_func
+    }
+    save() { return {v:this.v} }
+    load(v) { this.v = v.v }
+    add_elems(parent) {
+        this.line_elem = add_param_line(parent)
+        add_param_label(this.line_elem, null)  // empty space
+        let that = this
+        this.label_elem = add_param_checkbox(this.line_elem, this.label, this.v, function(v) { 
+            that.v = v; 
+            if (that.change_func) 
+                that.change_func(v) 
+        })
     }
 }
 
@@ -66,11 +134,11 @@ class ParamVec2 extends Parameter {
     save() { return {x:this.x, y:this.y} }
     load(v) { this.x=v.x; this.y=v.y }
     add_elems(parent) {
-        let line = add_param_line(parent)
-        add_param_label(line, this.label)
+        this.line_elem = add_param_line(parent)
+        this.label_elem = add_param_label(this.line_elem, this.label)
         let that = this
-        add_param_edit(line, this.x, function(v) { that.x = parseFloat(v) })
-        add_param_edit(line, this.y, function(v) { that.y = parseFloat(v) })
+        add_param_edit(this.line_elem, this.x, function(v) { that.x = parseFloat(v) })
+        add_param_edit(this.line_elem, this.y, function(v) { that.y = parseFloat(v) })
     }
 }
 
@@ -82,10 +150,10 @@ class ParamColor extends Parameter {
     save() { return this.v.hex }
     load(v) { this.v = ColorPicker.parse_hex(v) }
     add_elems(parent) {
-        let line = add_param_line(parent)
-        add_param_label(line, this.label)
+        this.line_elem = add_param_line(parent)
+        this.label_elem = add_param_label(this.line_elem, this.label)
         let that = this
-        this.v = add_param_color(line, this.v, function(v) { 
+        this.v = add_param_color(this.line_elem, this.v, function(v) { 
             if (that.v.hex == v.hex) 
                 return false; 
             that.v = v.copy() // make a copy so that this.v will be different object than the internal object
@@ -110,7 +178,7 @@ class ParamTransform extends Parameter {
         mat3.rotate(this.v, this.v, glm.toRadian(this.rotate))
         mat3.translate(this.v, this.v, this.translate)
     }
-    add_elems(parent) {
+    add_elems(parent) {  // TBD support enable
         let that = this
         let line1 = add_param_line(parent)
         add_param_label(line1, "Translate")
@@ -138,5 +206,6 @@ function show_params_of(node) {
     
     for(let p of node.parameters) {
         p.add_elems(div_params_list)
+        p.init_enable()
     }
 }

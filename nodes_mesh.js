@@ -179,12 +179,19 @@ class RandomPoints extends NodeCls
     static name() { return "Scatter" }
     constructor(node) {
         super()
+        let that = this
         this.in_mesh = new InTerminal(node, "in_mesh")
         this.out_mesh = new OutTerminal(node, "out_mesh")
         this.seed = new ParamInt(node, "Seed", 1)
+        this.by_density = new ParamBool(node, "Set Density", false, function(v) {
+            that.count.set_label(v ? "Max Count" : "Count")
+            that.density.set_enable(v)
+        })
+        this.density = new ParamInt(node, "Avg Distance", 5)
         this.count = new ParamInt(node, "Count", 50)  // TBD or by density - not size dependent
         this.smooth_iter = new ParamInt(node, "Smoothness", 20)
 
+        this.by_density.change_func() // enact the changes it does
     }
         
     run() {

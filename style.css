@@ -93,12 +93,25 @@ input {
 .param_line {
     padding: 5px 0 0 0;
 }
+.param_disabled {
+    opacity: 0.6;
+    pointer-events:none;
+}
 .param_label_pre {
     width: 120px;
     display: inline-block;
     text-align: right;
-    padding-right: 5px;
 }
+.param_label_colon {
+    padding-right: 2px;    
+}
+.param_label_pre_empty {
+    width: 120px;
+    display: inline-block;
+    text-align: right;    
+    padding-right: 11px;    
+}
+
 .param_input {
     background-color: #555;
     color: #fff;
@@ -109,4 +122,34 @@ input {
     padding: 0 5px;
     width: 25%;
     min-width: 100px;
+}
+.param_checkbox_input {
+    position: absolute;
+    z-index: -2;
+    opacity: 0;
+}
+.param_checkbox_disp {
+    width: 17px;
+    height: 17px;
+    margin: -4px 4px 0 2px;
+    vertical-align: middle;
+}
+
+.param_checkbox_input + .param_checkbox_disp {
+    background-image: url(check_none.png);
+    background-repeat: no-repeat;
+    display: inline-block;
+}
+.param_checkbox_input:checked + .param_checkbox_disp {
+    background-image: url(check_checked.png);
+}
+.param_checkbox_input:indeterminate + .param_checkbox_disp {
+    background-image: url(check_int.png);
+}
+.param_checkbox_input[disabled="true"] + .param_checkbox_disp {
+    filter: brightness(90%);
+}
+
+.param_checkbox_text {
+    display: inline-block;
 }
