@@ -17,13 +17,17 @@ class Mesh extends PObject
         this.type = MESH_NOT_SET
         // vtx_color : Uint8Array
         this.arrs = { vtx:new TVtxArr(0), idx:new TIdxArr(0) }
+        
         this.tcache = { vtx:null, m:null }  // transformed cache
+        this.lines_cache = null  // cache lines for stroke (so that every line be repeated twice
     }
 
     set(name, arr) {
         this.arrs[name] = arr
-        if (this.tcache[name] !== undefined)
+        if (name == "vtx" && this.tcache[name] !== undefined)
             this.tcache[name] = null  // invalidate
+        if (name == "idx")
+            this.lines_cache = null
     }
 
     set_type(v) { this.type = v }
@@ -90,10 +94,11 @@ class Mesh extends PObject
         ctx_img.stroke()       
     }
 
-    draw_poly() {
+
+    draw_poly_fill() {            
         let vtx = this.tcache.vtx
         let idxs = this.arrs.idx
-        ctx_img.lineWidth = 1
+        ctx_img.lineWidth = 0.5
         ctx_img.beginPath();
         let i = 0
         if (this.type == MESH_QUAD) {
@@ -108,7 +113,6 @@ class Mesh extends PObject
                 ctx_img.lineTo(vtx[idx], vtx[idx+1])
                 idx = idxs[i-4]<<1
                 ctx_img.lineTo(vtx[idx], vtx[idx+1])
-                ctx_img.stroke()
             }
         }
         else if (this.type == MESH_TRI) {
@@ -119,9 +123,11 @@ class Mesh extends PObject
                 ctx_img.lineTo(vtx[idx], vtx[idx+1])
                 idx = idxs[i++]<<1
                 ctx_img.lineTo(vtx[idx], vtx[idx+1])
-                ctx_img.stroke()
+                idx = idxs[i-3]<<1
+                ctx_img.lineTo(vtx[idx], vtx[idx+1])                
             }
         }
+        ctx_img.stroke()        
     }
     
     draw(m) {
@@ -134,7 +140,45 @@ class Mesh extends PObject
         }
 
         this.draw_vertices()
-        this.draw_poly()
+        this.draw_poly_fill()
     }
 }
 
+
+/*  make line segments, not really needed
+    draw_poly_stroke() {
+        if (this.type != MESH_TRI && this.type != MESH_QUAD)
+            return
+        let idx = this.arrs.idx
+        if (this.lines_cache === null) {
+            // upper bound to the number of lines is the the number of edges. it will be lower since the outer hull 
+            let vtx_visited = new Uint8Array(this.arrs.vtx.length)
+            let lines_idx = new Uint32Array(idx.length)
+            let ladd = 0
+            function check_add(a,b) {
+                if (vtx_visited[b] != 0)
+                    return
+                vtx_visited[b] = 1
+                lines_idx[ladd++] = a
+                lines_idx[ladd++] = b
+            }
+            for(let i = 0; i < idx.length; i += 3) {
+                check_add(idx[i], idx[i+1])
+                check_add(idx[i+1], idx[i+2])
+                check_add(idx[i+2], idx[i])
+            }
+            this.lines_cache = lines_idx.slice(0,ladd)
+            console.log("triangles-idx:" + idx.length + " lines-idx:" + ladd)
+        }
+
+        let lidx = this.lines_cache
+        let i = 0
+        while(i < lidx.length) {
+            let idx = lidx[i++]<<1
+            ctx_img.moveTo(vtx[idx], vtx[idx+1])
+            idx = idxs[i++]<<1
+            ctx_img.lineTo(vtx[idx], vtx[idx+1])
+        }
+
+    }
+*/

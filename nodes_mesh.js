@@ -173,8 +173,8 @@ function dist(ax, ay, bx, by) {
     return Math.sqrt(dx*dx+dy*dy)
 }
 
-
-class RandomPoints extends NodeCls
+// https://www.sidefx.com/docs/houdini/nodes/sop/scatter.html
+class NodeRandomPoints extends NodeCls
 {
     static name() { return "Scatter" }
     constructor(node) {
@@ -185,9 +185,9 @@ class RandomPoints extends NodeCls
         this.seed = new ParamInt(node, "Seed", 1)
         this.by_density = new ParamBool(node, "Set Density", false, function(v) {
             that.count.set_label(v ? "Max Count" : "Count")
-            that.density.set_enable(v)
+            that.min_dist.set_enable(v)
         })
-        this.density = new ParamInt(node, "Avg Distance", 5)
+        this.min_dist = new ParamFloat(node, "Min Distance", 0.02)
         this.count = new ParamInt(node, "Count", 50)  // TBD or by density - not size dependent
         this.smooth_iter = new ParamInt(node, "Smoothness", 20)
 
@@ -227,13 +227,37 @@ class RandomPoints extends NodeCls
                     cand_x = x; cand_y = y
                 }
             }
+            if (this.by_density.v && bestDistance < this.min_dist.v)
+                break;
             vtx[addi++] = cand_x
             vtx[addi++] = cand_y
+        }
+
+        if (addi < vtx.length) {
+            vtx = vtx.slice(0,addi)
         }
         
         let r = new Mesh()
         r.set_vtx(vtx)
         this.out_mesh.set(r)
         
+    }
+}
+
+
+class NodeTriangulate extends NodeCls
+{
+    static name() { return "Triangulate" }
+    constructor(node) {
+        super()
+        this.in_mesh = new InTerminal(node, "in_mesh")
+        this.out_mesh = new OutTerminal(node, "out_mesh")        
+    }
+    run() {
+        let mesh = this.in_mesh.get_mutable()
+        let d = new Delaunator(mesh.arrs.vtx)
+        mesh.arrs.idx = d.triangles
+        mesh.type = MESH_TRI
+        this.out_mesh.set(mesh)
     }
 }

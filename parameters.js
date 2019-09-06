@@ -75,7 +75,7 @@ function add_param_checkbox(line, label, value, set_func) {
     ein.className = 'param_checkbox_input'
     ein.id = 'p_chb_' + checkbox_ids
     ein.checked = value
-    ein.addEventListener('change', function() { set_func(ein.checked) })
+    ein.addEventListener('change', function() { set_func(ein.checked); trigger_frame_draw()})
     let edisp = document.createElement('label')
     edisp.className = 'param_checkbox_disp'
     edisp.setAttribute("for", ein.id)
@@ -105,6 +105,21 @@ class ParamInt extends Parameter {
     }
 }
 
+class ParamFloat extends Parameter {
+    constructor(node, label, start_v) {
+        super(node, label)
+        this.v = start_v
+    }
+    save() { return {v:this.v}}
+    load(v) { this.v = v.v }
+    add_elems(parent) {
+        this.line_elem = add_param_line(parent)
+        this.label_elem = add_param_label(this.line_elem, this.label)
+        let that = this
+        add_param_edit(this.line_elem, this.v, function(v) { that.v = parseFloat(v) }) // TBD enforce int with parsing
+    }
+}
+
 class ParamBool extends Parameter {
     constructor(node, label, start_v, change_func) {
         super(node, label)
@@ -112,7 +127,7 @@ class ParamBool extends Parameter {
         this.change_func = change_func
     }
     save() { return {v:this.v} }
-    load(v) { this.v = v.v }
+    load(v) { this.v = v.v; this.change_func(v) }
     add_elems(parent) {
         this.line_elem = add_param_line(parent)
         add_param_label(this.line_elem, null)  // empty space

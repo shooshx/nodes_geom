@@ -60,8 +60,6 @@ function setup_horz_splitter(container, p1, grip, p2, c2)
 }
 
 
-
-
 function setup_vert_splitter(container, p1, c1, grip, p2, c2)
 {
     var p1sz = Math.trunc(container.offsetWidth * main_view_state.split_1_h) - GRIP_WIDTH
@@ -403,11 +401,15 @@ class DisplayFlagProxy
     }
 }
 
-function image_panel_mouse_control()
+function setup_key_bindings()
 {
+    document.addEventListener("keypress", function(e) {
+        if (e.key == ' ') {
+            trigger_frame_draw()
+        }
+    })
 
 }
-
 
 
 

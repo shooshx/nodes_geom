@@ -2,10 +2,10 @@ GUI:
 - catch assert and show error on node   (!!)
 - save as
 - transform UI, for each node
-- parameter with drag and right button
+- parameter value change with drag and right button
 - before running - do type checking
-- round lines just before drawing to avoid thinning artifacts when zooming?
-- space forces redraw
+- Math.round lines just before drawing to avoid thinning artifacts when zooming?
+
 - template display
 
 ENGINE:
@@ -48,5 +48,8 @@ demo idea
 - robot hand with transformations
 - random points by texture
 - stuff for AxiDraw
+- function map with color gradient
+- function contours like in d3 example
 
 nice visualizations: https://bost.ocks.org/mike/algorithms/
+d3: https://github.com/d3/d3/wiki/Gallery

@@ -7,6 +7,7 @@
 <script src="parameters.js"></script>
 <script src="mesh.js"></script>
 <script src="serialization.js"></script>
+<script src="delaunator401.js"></script>
 <script src="nodes_mesh.js"></script>
 <script>
 "use strict"
@@ -57,6 +58,7 @@ function page_onload()
     panel_mouse_control(nodes_view, canvas_nodes)
     panel_mouse_control(image_view, canvas_image)
     panel_mouse_wheel(image_view, canvas_image)
+    setup_key_bindings()
 
     image_view.resize_redraw()
     
@@ -174,7 +176,8 @@ var nodes_classes = [
     //NodeGeomMerge, 
     NodeGroupObjects,
     NodeTransform,
-    RandomPoints,
+    NodeRandomPoints,
+    NodeTriangulate,
 ]
 var nodes_classes_by_name = {}
 for(let c of nodes_classes)
