@@ -146,7 +146,7 @@ function clear_outputs(prog) {
 }
 
 // called whenever the display needs to be updated to reflect a change
-function trigger_frame_draw() 
+function trigger_frame_draw(do_run) 
 {
     save_state()
     ctx_img.fillStyle = '#fff'
@@ -155,16 +155,19 @@ function trigger_frame_draw()
     if (program.display_node == null)
         return
 
-    clear_outputs(program)
-    run_nodes_tree(program.display_node)
+    let disp_obj = program.display_node.outputs[0].get_const()
+    if (do_run || disp_obj === null) {
+        clear_outputs(program)
+        run_nodes_tree(program.display_node)
+        disp_obj = program.display_node.outputs[0].get_const()
+    }
 
     //program.display_node.cls.run()
-    let disp_obj = program.display_node.outputs[0].get_const()
     assert(disp_obj !== null, program.display_node, "No output generated")
 
     disp_obj.draw(image_view.t_viewport)
-
 }
+
 
 
 

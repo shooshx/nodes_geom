@@ -171,7 +171,7 @@ class ImageView extends ViewBase
 
     pan_redraw() {
         calc_img_viewport()
-        trigger_frame_draw()        
+        trigger_frame_draw(false)        
     }
     resize_redraw() {
         this.pan_redraw()
@@ -405,7 +405,7 @@ function setup_key_bindings()
 {
     document.addEventListener("keypress", function(e) {
         if (e.key == ' ') {
-            trigger_frame_draw()
+            trigger_frame_draw(true)
         }
     })
 

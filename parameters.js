@@ -55,7 +55,7 @@ function add_param_edit(line, value, set_func) {
     e.spellcheck = 'false'
     e.value = value
     // TBD parse error
-    e.addEventListener("input", function() { set_func(e.value); trigger_frame_draw() })
+    e.addEventListener("input", function() { set_func(e.value); trigger_frame_draw(true) })
     line.appendChild(e)
     return e
 }
@@ -64,7 +64,7 @@ function add_param_color(line, value, set_func) {
     e.className = 'param_input'
     line.appendChild(e)
     // TBD move setting the func to be the last thing to avoid spurious triggers
-    let ce = ColorEditBox.create_at(e, 200, function(c) { if (set_func(c)) trigger_frame_draw() })
+    let ce = ColorEditBox.create_at(e, 200, function(c) { if (set_func(c)) trigger_frame_draw(true) })
     ce.set_color(value, true)
     return ce.get_color().copy()
 }
@@ -75,7 +75,7 @@ function add_param_checkbox(line, label, value, set_func) {
     ein.className = 'param_checkbox_input'
     ein.id = 'p_chb_' + checkbox_ids
     ein.checked = value
-    ein.addEventListener('change', function() { set_func(ein.checked); trigger_frame_draw()})
+    ein.addEventListener('change', function() { set_func(ein.checked); trigger_frame_draw(true)})
     let edisp = document.createElement('label')
     edisp.className = 'param_checkbox_disp'
     edisp.setAttribute("for", ein.id)

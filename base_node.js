@@ -278,8 +278,10 @@ class OutTerminal extends Terminal {
             this.h = new PWeakHandle(v)
     }
     get_const() {
+        if (this.h === null)
+            return null
         return this.h.get_const()
-    }    
+    }
     clear() {
         this.h = new PWeakHandle(null)
     }
@@ -500,7 +502,7 @@ function set_display_node(node) {
     if (node == program.display_node)
         return
     program.display_node = node
-    trigger_frame_draw()
+    trigger_frame_draw(false)
 }
 
 function find_node_obj(px, py) {
@@ -599,7 +601,7 @@ function add_line(line) {
     program.lines.push(line)
     line.from_term.lines.push(line)
     line.to_term.lines.push(line)
-    trigger_frame_draw()
+    trigger_frame_draw(true)
 }
 
 function delete_line(line) {

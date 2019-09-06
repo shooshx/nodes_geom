@@ -5,6 +5,7 @@ GUI:
 - parameter value change with drag and right button
 - before running - do type checking
 - Math.round lines just before drawing to avoid thinning artifacts when zooming?
+- progress bar for long run
 
 - template display
 
