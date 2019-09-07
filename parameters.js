@@ -25,12 +25,32 @@ class Parameter
     }
 }
 
-function add_param_line(parent) {
+function show_params_of(node) {
+    // clear children
+    let div_params_list = document.getElementById('div_params_list')
+    var cNode = div_params_list.cloneNode(false);
+    div_params_list.parentNode.replaceChild(cNode, div_params_list);
+    div_params_list = cNode
+    if (node === null)
+        return
+    
+    for(let p of node.parameters) {
+        p.add_elems(div_params_list)
+        p.init_enable()
+    }
+}
+
+
+function add_div(parent, cls) {
     let e = document.createElement("div");
-    e.classList = ['param_line']
+    if (cls !== undefined)
+        e.className = cls
     parent.appendChild(e)
     return e
 }
+function add_param_line(parent) { return add_div(parent, 'param_line') }
+function add_param_block(parent) { return add_div(parent, 'param_block') } // for multi-line params
+
 function add_param_label(line, text) {
     let e = document.createElement('span')
     if (text != null) {
@@ -209,18 +229,44 @@ class ParamTransform extends Parameter {
     }
 }
 
-
-function show_params_of(node) {
-    // clear children
-    let div_params_list = document.getElementById('div_params_list')
-    var cNode = div_params_list.cloneNode(false);
-    div_params_list.parentNode.replaceChild(cNode, div_params_list);
-    div_params_list = cNode
-    if (node === null)
-        return
-    
-    for(let p of node.parameters) {
-        p.add_elems(div_params_list)
-        p.init_enable()
+class ListParam extends Parameter {
+    constructor(node, label, values_per_entry, to_string) {
+        super(node, label)
+        this.to_string = to_string
+        this.values_per_entry = values_per_entry
+        this.lst = []  // flat list
+        this.elem_lst = []
+    }
+    add(v) {
+        console.assert(v.length == this.values_per_entry, "Unexpected number of values")
+        for(let vi = 0; vi < v.length; ++vi)
+            this.lst.push(v[vi])
+        this.add_entry_elems(v)
+    }
+    modify(index, v) { // index is already multiplied by values_per_entry
+        console.assert(v.length == this.values_per_entry, "Unexpected number of values")
+        console.assert(index < this.lst.length, "modify out of range")
+        for(let vi = 0; vi < v.length; ++vi)
+            this.lst[index + vi] = v[vi]
+        this.elem_lst[index / this.values_per_entry].innerText = this.to_string(v)
+    }
+    save() { return {lst:this.lst} }
+    load(v) { this.lst = v.lst }
+    add_elems(parent) {
+        this.line_elem = add_param_block(parent)
+        this.label_elem = add_div(this.line_elem, "param_list_title")
+        this.label_elem.innerText = this.label
+        let tmp = new Array(this.values_per_entry)
+        for(let i = 0; i < this.lst.length; i += this.values_per_entry) {
+            for(let vi = 0; vi < this.values_per_entry; ++vi)
+                tmp[vi] = this.lst[i + vi]
+            this.add_entry_elems(tmp)
+        }
+    }
+    add_entry_elems(v) {
+        let e = add_div(this.line_elem, "param_list_entry")
+        e.innerText = this.to_string(v)
+        this.elem_lst.push(e)
     }
 }
+

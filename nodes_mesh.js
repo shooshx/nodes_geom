@@ -24,7 +24,7 @@ class NodeGeomPrimitive extends NodeCls
     constructor(node) {
         super()
         this.out = new OutTerminal(node, "out_mesh")
-        this.size = new ParamVec2(node, "size", 0.5, 0.5)
+        this.size = new ParamVec2(node, "Size", 0.5, 0.5)
     }
     run() {
         let m = new Mesh()
@@ -37,6 +37,58 @@ class NodeGeomPrimitive extends NodeCls
     }
 }
 
+class PointSelectHandle
+{
+    constructor(list_param, index) {
+        this.list_param = list_param
+        this.index = index
+        image_view.selection_handles.push(this)
+        // TBD add offset
+    }
+    mousedown() {}
+    mouseup() {}
+    mousemove(dx,dy, vx,vy, ex,ey) {
+        let ti = image_view.epnt_to_model(ex, ey)
+        this.list_param.modify(this.index, ti)
+        trigger_frame_draw(true)
+    }
+
+}
+
+class NodeManualPoints extends NodeCls
+{
+    static name() { return "Manual_Points" }
+    constructor(node) {
+        super()
+        this.out = new OutTerminal(node, "out_mesh")
+        this.points = new ListParam(node, "Point List", 2, function(v) { return "(" + v[0].toFixed(3) + "," + v[1].toFixed(3) + ")" })
+    }
+    image_click(ex, ey) {
+        let ti = image_view.epnt_to_model(ex, ey)
+        this.points.add(ti)
+        trigger_frame_draw(true)
+    }
+    get_select_aggregator() {
+        // ...
+    }
+    image_find_obj(vx, vy, ex, ey) {
+        let [x,y] = image_view.epnt_to_model(ex, ey)
+        let lst = this.points.lst
+        let r = Math.max(5, MESH_DISP.vtx_radius) / image_view.viewport_zoom// if the disp radius gets lower, we still want it at reasonable value
+        for(let i = 0; i < lst.length; i += 2) {
+            if (m_dist(lst[i], lst[i+1], x, y) < r) {
+                return new PointSelectHandle(this.points, i)
+            }
+        }
+        return null
+    }
+    run() {
+        let m = new Mesh()
+        m.set_vtx(new TVtxArr(this.points.lst))
+        this.out.set(m)
+    }
+}
+
 class NodePointColor extends NodeCls
 {
     static name() { return "Point_Color" }
@@ -44,7 +96,7 @@ class NodePointColor extends NodeCls
         super()
         this.in_mesh = new InTerminal(node, "in_mesh")
         this.out_mesh = new OutTerminal(node, "out_mesh")
-        this.color = new ParamColor(node, "color", "#cccccc")
+        this.color = new ParamColor(node, "Color", "#cccccc")
     }
     run() {
         let mesh = this.in_mesh.get_mutable()
@@ -171,6 +223,9 @@ class RandNumGen
 function dist(ax, ay, bx, by) {
     var dx = ax - bx, dy = ay - by
     return Math.sqrt(dx*dx+dy*dy)
+}
+function m_dist(ax, ay, bx, by) {
+    return Math.max(Math.abs(ax - bx), Math.abs(ay - by))
 }
 
 // https://www.sidefx.com/docs/houdini/nodes/sop/scatter.html

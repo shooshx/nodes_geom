@@ -105,9 +105,12 @@ function calc_img_viewport() {
         image_view.margin_y = (canvas_image.height - canvas_image.width) / (canvas_image.width * 2)
         image_view.margin_x = 0
     }
-    mat3.scale(t_viewport, t_viewport, vec2.fromValues(f*image_view.zoom, f*image_view.zoom))
+    image_view.viewport_zoom = f*image_view.zoom // used for measuring radius of hit test in pixels
+    mat3.scale(t_viewport, t_viewport, vec2.fromValues(image_view.viewport_zoom, image_view.viewport_zoom))
     mat3.translate(t_viewport, t_viewport, vec2.fromValues(0.5 + image_view.margin_x + image_view.pan_x / f, 0.5 + image_view.margin_y + image_view.pan_y / f))        
 
+    image_view.t_inv_viewport = mat3.create()
+    mat3.invert(image_view.t_inv_viewport, t_viewport)
 }
 
 
@@ -175,6 +178,7 @@ function trigger_frame_draw(do_run)
 var nodes_classes = [
     //NodeTestDummy, 
     NodeGeomPrimitive, 
+    NodeManualPoints,
     NodePointColor, 
     //NodeGeomMerge, 
     NodeGroupObjects,

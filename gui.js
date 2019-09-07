@@ -116,10 +116,10 @@ class ViewBase
     }
 
     view_x(pageX) {
-        return pageX - nodes_view.rect.left - nodes_view.pan_x
+        return pageX - this.rect.left - this.pan_x
     }
     view_y(pageY) {
-        return pageY - nodes_view.rect.top - nodes_view.pan_y
+        return pageY - this.rect.top - this.pan_y
     }
     save() {
         return { pan_x:this.pan_x, pan_y:this.pan_y }
@@ -156,17 +156,18 @@ class ImageView extends ViewBase
         super()
         this.pan_x = 0
         this.pan_y = 0
-        this.find_obj = function() { return null }
-        this.unselect_all = function() {}
         this.context_menu = function() { return null }
         this.dismiss_popups = function() {}
 
         // viewport transform. don't use the canvas transform since we want stuff like vertex markers to remain the same size no matter what
-        this.t_viewport = null       
+        this.t_viewport = null
+        this.t_inv_viewport = null  
+        this.viewport_zoom = null // effective zoom of both the viewport transform and the mouse zoom
         // distance from the top or from the left of a the largest square that fits in the canvas. only one of these would be non-zero
         // used for centering the viewport
         this.margin_x = 0
-        this.margin_y = 0 
+        this.margin_y = 0
+        this.selection_handles = []
     }
 
     pan_redraw() {
@@ -176,6 +177,23 @@ class ImageView extends ViewBase
     resize_redraw() {
         this.pan_redraw()
     }
+    click(x, y) {
+        if (selected_node !== null && selected_node.cls["image_click"] !== undefined)
+            selected_node.cls.image_click(x, y)
+    }
+    find_obj(vx, vy, ex, ey) {
+        if (selected_node !== null && selected_node.cls["image_find_obj"] !== undefined)
+            return selected_node.cls.image_find_obj(vx, vy, ex, ey)
+        return null
+    }
+    epnt_to_model(ex, ey) {
+        let ti = vec2.create()
+        vec2.transformMat3(ti, vec2.fromValues(ex,ey), this.t_inv_viewport)        
+        return ti
+    }
+    unselect_all() {
+        this.selection_handles = []
+    }
 }
 
 let image_view = null
@@ -183,14 +201,15 @@ let image_view = null
 function panel_mouse_control(view, canvas) 
 {    
     var panning = false
-    var prev_x, prev_y
+    var prev_x, prev_y, down_x, down_y
     var hit = null
     var did_move = false  // used for detecting unselect
     
     canvas.addEventListener('mousedown', function(e) {
         if (e.buttons == 1) {
             prev_x = e.pageX; prev_y = e.pageY
-            hit = view.find_obj(view.view_x(e.pageX), view.view_y(e.pageY));
+            down_x = e.pageX; down_y = e.pageY
+            hit = view.find_obj(view.view_x(e.pageX), view.view_y(e.pageY), e.pageX, e.pageY);
             if (hit != null) {
                 console.log("hit ", hit)
                 hit.mousedown(e)
@@ -200,10 +219,22 @@ function panel_mouse_control(view, canvas)
             panning = true
         }
     });
+    canvas.addEventListener('mouseup', function(e) {
+        if (panning) {
+            var dx = Math.abs(e.pageX - down_x)
+            var dy = Math.abs(e.pageY - down_y)
+            if (dx + dy < 5) { // moved only a little
+                if (view.click) {
+                    // don't use view_x,view_y since the panning is already take into consideration in t_inv_viewport
+                    view.click(e.pageX, e.pageY) 
+                }
+            }
+        }
+    });
     document.addEventListener('mouseup', function() {
         panning = false;
         if (hit !== null)
-            hit.mouseup()  
+            hit.mouseup()  // commit line pending
         else if (!did_move)
             view.unselect_all(true)
         hit = null
@@ -223,7 +254,7 @@ function panel_mouse_control(view, canvas)
             view.pan_redraw()
         }
         else if (hit !== null) {
-            hit.mousemove(dx, dy, view.view_x(e.pageX), view.view_y(e.pageY))
+            hit.mousemove(dx, dy, view.view_x(e.pageX), view.view_y(e.pageY), e.pageX, e.pageY)
         }
     })
     
@@ -236,6 +267,8 @@ function panel_mouse_control(view, canvas)
     document.addEventListener('mousedown', function(e) {
         view.dismiss_popups()
     })
+
+
 }
 
 // https://github.com/jackmoore/wheelzoom/blob/master/wheelzoom.js
