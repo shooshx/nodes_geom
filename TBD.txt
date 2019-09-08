@@ -17,6 +17,7 @@ ENGINE:
 NODES:
 - mouse vertices - mesh
     - select with rectangle
+    - move them even after transform?
 - mouse polyline
 - Primitive Circle
 - color per vertex? for gradient

@@ -2,8 +2,12 @@
 
 class NodeCls {
     constructor() {
-
     }
+    // mouse interaction in image_view
+    image_click() {}
+    image_find_obj() { return null }
+    clear_selection() {}
+    draw_selection() {}
 }
 
 
@@ -39,18 +43,19 @@ class NodeGeomPrimitive extends NodeCls
 
 class PointSelectHandle
 {
-    constructor(list_param, index) {
+    constructor(list_param, index, ofnode) {
         this.list_param = list_param
         this.index = index
-        image_view.selection_handles.push(this)
+        this.ofnode = ofnode
         // TBD add offset
     }
-    mousedown() {}
+    mousedown() {
+        this.ofnode.selected_indices = [this.index]
+        trigger_frame_draw(false)
+    }
     mouseup() {}
     mousemove(dx,dy, vx,vy, ex,ey) {
-        let ti = image_view.epnt_to_model(ex, ey)
-        this.list_param.modify(this.index, ti)
-        trigger_frame_draw(true)
+        this.ofnode.move_selection(dx, dy)
     }
 
 }
@@ -62,14 +67,22 @@ class NodeManualPoints extends NodeCls
         super()
         this.out = new OutTerminal(node, "out_mesh")
         this.points = new ListParam(node, "Point List", 2, function(v) { return "(" + v[0].toFixed(3) + "," + v[1].toFixed(3) + ")" })
+        this.selected_indices = []
     }
     image_click(ex, ey) {
         let ti = image_view.epnt_to_model(ex, ey)
         this.points.add(ti)
         trigger_frame_draw(true)
     }
-    get_select_aggregator() {
-        // ...
+    move_selection(dx, dy) {
+        dx /= image_view.viewport_zoom
+        dy /= image_view.viewport_zoom
+        for(let vidx of this.selected_indices)
+            this.points.increment(vidx, [dx, dy])
+        trigger_frame_draw(true)
+    }
+    clear_selection() {
+        this.selected_indices = []
     }
     image_find_obj(vx, vy, ex, ey) {
         let [x,y] = image_view.epnt_to_model(ex, ey)
@@ -77,15 +90,20 @@ class NodeManualPoints extends NodeCls
         let r = Math.max(5, MESH_DISP.vtx_radius) / image_view.viewport_zoom// if the disp radius gets lower, we still want it at reasonable value
         for(let i = 0; i < lst.length; i += 2) {
             if (m_dist(lst[i], lst[i+1], x, y) < r) {
-                return new PointSelectHandle(this.points, i)
+                return new PointSelectHandle(this.points, i, this)
             }
         }
         return null
     }
     run() {
-        let m = new Mesh()
-        m.set_vtx(new TVtxArr(this.points.lst))
-        this.out.set(m)
+        let mesh = new Mesh()
+        mesh.set_vtx(new TVtxArr(this.points.lst))
+        this.out.set(mesh)
+    }
+    draw_selection(m) {
+        let mesh = this.out.get_const()
+        console.assert(mesh != null, "draw_selection with out null")
+        mesh.draw_selection(m, this.selected_indices)
     }
 }
 

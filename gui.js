@@ -167,7 +167,7 @@ class ImageView extends ViewBase
         // used for centering the viewport
         this.margin_x = 0
         this.margin_y = 0
-        this.selection_handles = []
+
     }
 
     pan_redraw() {
@@ -178,11 +178,11 @@ class ImageView extends ViewBase
         this.pan_redraw()
     }
     click(x, y) {
-        if (selected_node !== null && selected_node.cls["image_click"] !== undefined)
+        if (selected_node !== null)
             selected_node.cls.image_click(x, y)
     }
     find_obj(vx, vy, ex, ey) {
-        if (selected_node !== null && selected_node.cls["image_find_obj"] !== undefined)
+        if (selected_node !== null)
             return selected_node.cls.image_find_obj(vx, vy, ex, ey)
         return null
     }
@@ -192,8 +192,10 @@ class ImageView extends ViewBase
         return ti
     }
     unselect_all() {
-        this.selection_handles = []
+        if (selected_node !== null)
+            return selected_node.cls.clear_selection()        
     }
+
 }
 
 let image_view = null
@@ -220,7 +222,7 @@ function panel_mouse_control(view, canvas)
         }
     });
     canvas.addEventListener('mouseup', function(e) {
-        if (panning) {
+        if (panning) { // means there was no hit
             var dx = Math.abs(e.pageX - down_x)
             var dy = Math.abs(e.pageY - down_y)
             if (dx + dy < 5) { // moved only a little
@@ -236,7 +238,7 @@ function panel_mouse_control(view, canvas)
         if (hit !== null)
             hit.mouseup()  // commit line pending
         else if (!did_move)
-            view.unselect_all(true)
+            view.unselect_all(true) // click anywhere empty, without panning, just unselects the current selection (for nodes_view)
         hit = null
     });
     document.addEventListener('mousemove', function(e) {

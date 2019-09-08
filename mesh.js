@@ -5,7 +5,7 @@ const MESH_NOT_SET = 0
 const MESH_QUAD = 1
 const MESH_TRI = 2
 
-const MESH_DISP = { vtx_radius: 5 }
+const MESH_DISP = { vtx_radius: 5, vtx_sel_radius: 7 }
 
 let TVtxArr = Float32Array
 let TIdxArr = Int16Array
@@ -87,8 +87,9 @@ class Mesh extends PObject
         }
         ctx_img.beginPath();
         for(let i = 0; i < vtx.length; i += 2) {
-            ctx_img.moveTo(vtx[i] + MESH_DISP.vtx_radius, vtx[i+1])
-            ctx_img.arc(vtx[i], vtx[i+1], MESH_DISP.vtx_radius, 0, 2*Math.PI)
+            let x = vtx[i], y = vtx[i+1]
+            ctx_img.moveTo(x + MESH_DISP.vtx_radius, y)
+            ctx_img.arc(x, y, MESH_DISP.vtx_radius, 0, 2*Math.PI)
         }
         ctx_img.strokeStyle = "#000"
         ctx_img.stroke()       
@@ -130,7 +131,7 @@ class Mesh extends PObject
         ctx_img.stroke()        
     }
     
-    draw(m) {
+    ensure_tcache(m) {
         if (this.tcache.vtx === null) {
             this.tcache.vtx = new Float32Array(this.arrs.vtx)
             this.transform_arr(m, this.arrs.vtx, this.tcache.vtx)
@@ -138,9 +139,27 @@ class Mesh extends PObject
         else if (this.tcache.m === null || !mat3.equals(m, this.tcache.m)) {
             this.transform_arr(m, this.arrs.vtx, this.tcache.vtx)
         }
+    }
 
+    draw(m) {
+        this.ensure_tcache(m)
         this.draw_vertices()
         this.draw_poly_fill()
+    }
+
+    draw_selection(m, select_vindices) {
+        this.ensure_tcache(m)
+
+        let vtx = this.tcache.vtx
+        ctx_img.lineWidth = 2
+        ctx_img.beginPath();
+        for(let vidx of select_vindices) {
+            let x = vtx[vidx], y = vtx[vidx+1]
+            ctx_img.moveTo(x + MESH_DISP.vtx_sel_radius, y)
+            ctx_img.arc(x, y, MESH_DISP.vtx_sel_radius, 0, 2*Math.PI)
+        }
+        ctx_img.strokeStyle = "#FFBB55"
+        ctx_img.stroke()             
     }
 }
 

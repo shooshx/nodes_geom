@@ -165,10 +165,12 @@ function trigger_frame_draw(do_run)
         disp_obj = program.display_node.outputs[0].get_const()
     }
 
-    //program.display_node.cls.run()
     assert(disp_obj !== null, program.display_node, "No output generated")
 
     disp_obj.draw(image_view.t_viewport)
+
+    if (selected_node !== null)
+        selected_node.cls.draw_selection(image_view.t_viewport)    
 }
 
 

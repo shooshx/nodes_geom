@@ -243,12 +243,23 @@ class ListParam extends Parameter {
             this.lst.push(v[vi])
         this.add_entry_elems(v)
     }
+    reprint_line(vidx, v) {
+        this.elem_lst[vidx / this.values_per_entry].innerText = this.to_string(v)
+    }
     modify(index, v) { // index is already multiplied by values_per_entry
         console.assert(v.length == this.values_per_entry, "Unexpected number of values")
         console.assert(index < this.lst.length, "modify out of range")
         for(let vi = 0; vi < v.length; ++vi)
             this.lst[index + vi] = v[vi]
-        this.elem_lst[index / this.values_per_entry].innerText = this.to_string(v)
+        this.reprint_line(index, v)
+    }
+    increment(index, v) {
+        console.assert(v.length == this.values_per_entry, "Unexpected number of values")
+        console.assert(index < this.lst.length, "modify out of range")
+        for(let vi = 0; vi < v.length; ++vi) {
+            this.lst[index + vi] += v[vi]
+        }
+        this.reprint_line(index, this.lst.slice(index, index + this.values_per_entry))
     }
     save() { return {lst:this.lst} }
     load(v) { this.lst = v.lst }
