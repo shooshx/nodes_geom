@@ -161,11 +161,20 @@ function trigger_frame_draw(do_run)
     let disp_obj = program.display_node.outputs[0].get_const()
     if (do_run || disp_obj === null) {
         clear_outputs(program)
-        run_nodes_tree(program.display_node)
+        try {
+            run_nodes_tree(program.display_node)
+        }
+        catch(e) {
+            console.error(e)
+        }
         disp_obj = program.display_node.outputs[0].get_const()
     }
 
-    assert(disp_obj !== null, program.display_node, "No output generated")
+    if (disp_obj === null) {
+        //assert(disp_obj !== null, program.display_node, "No output generated")
+        console.error("no out")
+        return
+    }
 
     disp_obj.draw(image_view.t_viewport)
 

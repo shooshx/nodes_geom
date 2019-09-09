@@ -8,6 +8,7 @@ class NodeCls {
     image_find_obj() { return null }
     clear_selection() {}
     draw_selection() {}
+    selected_obj_name() { return null }
 }
 
 
@@ -84,10 +85,16 @@ class NodeManualPoints extends NodeCls
     clear_selection() {
         this.selected_indices = []
     }
+    selected_obj_name() { return (this.selected_indices.length > 0) ? "points" : null }
+    delete_selection() {
+        this.points.remove(this.selected_indices)
+        this.clear_selection()
+        trigger_frame_draw(true)
+    }
     image_find_obj(vx, vy, ex, ey) {
         let [x,y] = image_view.epnt_to_model(ex, ey)
         let lst = this.points.lst
-        let r = Math.max(5, MESH_DISP.vtx_radius) / image_view.viewport_zoom// if the disp radius gets lower, we still want it at reasonable value
+        let r = Math.max(7, MESH_DISP.vtx_radius) / image_view.viewport_zoom// if the disp radius gets lower, we still want it at reasonable value
         for(let i = 0; i < lst.length; i += 2) {
             if (m_dist(lst[i], lst[i+1], x, y) < r) {
                 return new PointSelectHandle(this.points, i, this)
@@ -328,6 +335,7 @@ class NodeTriangulate extends NodeCls
     }
     run() {
         let mesh = this.in_mesh.get_mutable()
+        assert(mesh !== null, this, "Missing input mesh")
         let d = new Delaunator(mesh.arrs.vtx)
         mesh.arrs.idx = d.triangles
         mesh.type = MESH_TRI

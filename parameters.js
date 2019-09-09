@@ -229,6 +229,14 @@ class ParamTransform extends Parameter {
     }
 }
 
+function cull_list(lst) {
+    let newlst = []
+    for(let v of lst) 
+        if (v !== undefined)
+            newlst.push(v) // don't want a list with holes    
+    return newlst
+}
+
 class ListParam extends Parameter {
     constructor(node, label, values_per_entry, to_string) {
         super(node, label)
@@ -261,12 +269,24 @@ class ListParam extends Parameter {
         }
         this.reprint_line(index, this.lst.slice(index, index + this.values_per_entry))
     }
+    remove(index_lst) { // need to remove a list since the indices will change if we remove one by one
+        for(let index of index_lst) {
+            console.assert(index < this.lst.length, "remove out of range")
+            for(let i = 0; i < this.values_per_entry; ++i)
+                delete this.lst[index+i]
+            let e = this.elem_lst[index / this.values_per_entry]
+            e.remove()
+            delete this.elem_lst[index / this.values_per_entry]
+        }
+        this.lst = cull_list(this.lst)
+        this.elem_lst = cull_list(this.elem_lst)
+    }
     save() { return {lst:this.lst} }
     load(v) { this.lst = v.lst }
     add_elems(parent) {
         this.line_elem = add_param_block(parent)
         this.label_elem = add_div(this.line_elem, "param_list_title")
-        this.label_elem.innerText = this.label
+        this.label_elem.innerText = this.label + ":"
         let tmp = new Array(this.values_per_entry)
         for(let i = 0; i < this.lst.length; i += this.values_per_entry) {
             for(let vi = 0; vi < this.values_per_entry; ++vi)

@@ -255,9 +255,13 @@ class InTerminal extends Terminal {
             this.h = new PHandle(v)
     }    
     get_const() {
+        if (this.h === null)
+            return null        
         return this.h.get_const()
     }
     get_mutable() {
+        if (this.h === null)
+            return null        
         return this.h.get_mutable()
     }
     clear() {
@@ -530,20 +534,10 @@ function find_node_obj(px, py) {
     return null
 }
 
-var last_nodes_ctx_menu = null;
-function nodes_dismiss_ctx_menu() {
-    if (last_nodes_ctx_menu != null) {
-        main_view.removeChild(last_nodes_ctx_menu)
-        last_nodes_ctx_menu = null
-    }
-}
-
 
 function nodes_context_menu(px, py, wx, wy) {
     let node = find_node_obj(px, py)
-    
-    nodes_dismiss_ctx_menu()
-        
+            
     if (node != null) {
         var opt = [{text:"Delete", func:function() { delete_node(node, true)} }]
     }
@@ -554,8 +548,8 @@ function nodes_context_menu(px, py, wx, wy) {
         var opt = clss
     }
     
-    last_nodes_ctx_menu = open_context_menu(opt, wx, wy, main_view, nodes_dismiss_ctx_menu)    
-    return last_nodes_ctx_menu
+    nodes_view.last_ctx_menu = open_context_menu(opt, wx, wy, main_view, ()=>{nodes_view.dismiss_ctx_menu()})    
+    return nodes_view.last_ctx_menu
 }
 
 function delete_node(node, redraw)
@@ -572,8 +566,10 @@ function delete_node(node, redraw)
             delete_line(t.lines[0])
     }
     
-    if (redraw)
+    if (redraw) {
         draw_nodes()
+        trigger_frame_draw(true)
+    }
 }
 
 

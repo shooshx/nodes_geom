@@ -113,6 +113,8 @@ class ViewBase
         this.pan_y = null
         this.zoom = 1
         this.rect = null
+
+        this.last_ctx_menu = null
     }
 
     view_x(pageX) {
@@ -127,6 +129,14 @@ class ViewBase
     load(s) {
         this.pan_x = parseInt(s.pan_x); this.pan_y = parseInt(s.pan_y)
     }
+
+    dismiss_ctx_menu() {
+        if (this.last_ctx_menu != null) {
+            main_view.removeChild(this.last_ctx_menu)
+        this.last_ctx_menu = null
+    }
+}
+
 }
 
 class NodesView extends ViewBase
@@ -143,7 +153,6 @@ class NodesView extends ViewBase
     }
 
     dismiss_popups() {
-        nodes_dismiss_ctx_menu()
         nodes_dismiss_name_input()
     }
 }
@@ -156,7 +165,6 @@ class ImageView extends ViewBase
         super()
         this.pan_x = 0
         this.pan_y = 0
-        this.context_menu = function() { return null }
         this.dismiss_popups = function() {}
 
         // viewport transform. don't use the canvas transform since we want stuff like vertex markers to remain the same size no matter what
@@ -196,6 +204,19 @@ class ImageView extends ViewBase
             return selected_node.cls.clear_selection()        
     }
 
+    context_menu(px, py, wx, wy) {
+        let opt = []
+        if (selected_node !== null) {
+            let sel_obj_name = selected_node.cls.selected_obj_name()
+            if (sel_obj_name !== null)
+                opt.push({text:"Delete " + sel_obj_name, func:function() { selected_node.cls.delete_selection()} })
+        }
+        opt.push({text:"Reset view", func:function() {}})
+        
+        this.last_ctx_menu = open_context_menu(opt, wx, wy, main_view, ()=>{ this.dismiss_ctx_menu() } )    
+        return this.last_ctx_menu
+    }
+    
 }
 
 let image_view = null
@@ -261,12 +282,14 @@ function panel_mouse_control(view, canvas)
     })
     
     canvas.addEventListener("contextmenu", function(e) {
+        view.dismiss_ctx_menu()
         let ctx = view.context_menu(view.view_x(e.pageX), view.view_y(e.pageY), e.pageX, e.pageY)
         if (ctx !== null)
             e.preventDefault()
         return false;
     })
     document.addEventListener('mousedown', function(e) {
+        view.dismiss_ctx_menu()
         view.dismiss_popups()
     })
 
