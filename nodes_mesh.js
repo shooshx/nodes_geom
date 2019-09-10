@@ -2,6 +2,7 @@
 
 class NodeCls {
     constructor() {
+        this.error = null
     }
     // mouse interaction in image_view
     image_click() {}
@@ -182,6 +183,7 @@ class NodeMeshMerge extends NodeCls
 // TBD: a slightly better way to do this is to own PHandle and have a custom clone
 //      that clones only objects with more than 1 refcount
 class PObjGroup extends PObject{
+    static name() { return "Group" }
     constructor() {
         super()
         this.v = []
@@ -336,6 +338,7 @@ class NodeTriangulate extends NodeCls
     run() {
         let mesh = this.in_mesh.get_mutable()
         assert(mesh !== null, this, "Missing input mesh")
+        assert(mesh.arrs !== undefined && mesh.arrs.vtx !== undefined, this, "Input doesn't have vertices. type: " + mesh.constructor.name())
         let d = new Delaunator(mesh.arrs.vtx)
         mesh.arrs.idx = d.triangles
         mesh.type = MESH_TRI

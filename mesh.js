@@ -12,6 +12,7 @@ let TIdxArr = Int16Array
 
 class Mesh extends PObject
 {
+    static name() { return "Mesh" }
     constructor() {
         super()
         this.type = MESH_NOT_SET

@@ -87,6 +87,7 @@ function clear_program() {
 
 
 function assert(cond, node, msg) {
+    console.assert(node !== undefined && msg !== undefined)
     if (!cond)
         throw { msg: msg, node:node }
 }
@@ -144,8 +145,18 @@ function run_nodes_tree(n) {
 
 function clear_outputs(prog) {
     for(let n of prog.nodes) {
-        n.outputs[0].clear() // first output is used as an indicator that the node has ran
+        // first output is used as an indicator that the node has ran
+        // but we need to clear them all so there won't be leftovers from last run
+        for(let t of n.terminals)
+            t.clear() 
+        n.cls.error = null
     }
+}
+
+function set_error(node, msg) {
+    if (node.error === null)
+        node.error = {msg:msg}
+    draw_nodes()
 }
 
 // called whenever the display needs to be updated to reflect a change
@@ -165,14 +176,17 @@ function trigger_frame_draw(do_run)
             run_nodes_tree(program.display_node)
         }
         catch(e) {
+            if (e.node === undefined)
+                throw e
+            set_error(e.node, e.msg)
             console.error(e)
         }
         disp_obj = program.display_node.outputs[0].get_const()
     }
 
     if (disp_obj === null) {
-        //assert(disp_obj !== null, program.display_node, "No output generated")
         console.error("no out")
+        set_error(program.display_node.cls, "No output generated")
         return
     }
 

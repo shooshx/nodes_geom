@@ -197,6 +197,8 @@ class PHandle {
         return copy
     }
     clear() {
+        if (this.p === null)
+            return
         this.p.refcount -= 1
         this.p = null
     }
@@ -265,7 +267,8 @@ class InTerminal extends Terminal {
         return this.h.get_mutable()
     }
     clear() {
-        this.h.clear()
+        if (this.h !== null)
+            this.h.clear()
     }    
 }
 
@@ -325,7 +328,8 @@ class InAttachMulti {
         return this.h.get_mutable()
     }
     clear() {
-        this.h.clear()
+        if (this.h !== null)
+            this.h.clear()
     }    
 }
 // elongated
@@ -347,11 +351,41 @@ class InTerminalMulti extends TerminalBase
     get_attachment() {
         return new InAttachMulti(this)
     }
+    clear() {
+        for(let line of this.lines)
+            line.to_term.clear()
+    }
 }
 
 
 const NODE_NAME_PROPS = { font:"14px Verdana", margin_top:3, margin_left:5, height:15}
 const NODE_FLAG_DISPLAY = {offset: 105, color: "#00A1F7" }
+
+
+function wrapText(context, text, x, center_y, maxWidth, lineHeight) {
+    var words = text.split(' ');
+    var line = '';
+    let lines = []
+    let y = 0
+    for(var n = 0; n < words.length; n++) {
+      var testLine = line + words[n] + ' ';
+      var metrics = context.measureText(testLine);
+      var testWidth = metrics.width;
+      if (testWidth > maxWidth && n > 0) {
+        lines.push({y:y,l:line})  
+        line = words[n] + ' ';
+        y += lineHeight;
+      }
+      else {
+        line = testLine;
+      }
+    }
+    lines.push({y:y,l:line})  
+    let start_y = center_y - lines.length * 0.5 * lineHeight
+    for(let l of lines)
+        context.fillText(l.l, x, start_y + l.y);
+  }
+  
 
 class Node {    
     constructor(x, y, name, cls, id) {
@@ -406,6 +440,21 @@ class Node {
     
     draw() {
         let px = this.px(), py = this.py()
+        if (this.cls.error !== null) {
+            ctx_nodes.beginPath();
+            ctx_nodes.arc(px, py + this.height*0.5, 40, 0, 2*Math.PI)
+            ctx_nodes.fillStyle = "#B10005"
+            ctx_nodes.fill()
+            ctx_nodes.strokeStyle = "#900000"
+            ctx_nodes.lineWidth = 5
+            ctx_nodes.stroke()
+            ctx_nodes.lineWidth = 1
+            ctx_nodes.font = "16px Verdana"
+            ctx_nodes.fillStyle = "#ffA0A0"
+            ctx_nodes.textAlign = "end"
+            wrapText(ctx_nodes, this.cls.error.msg, px, py + this.height*0.5, 150, 18)
+            ctx_nodes.textAlign = "start"
+        }
         ctx_nodes.beginPath();
         ctx_nodes.strokeStyle = "#000"
         rounded_rect(ctx_nodes, px, py, this.width, this.height, 5)
