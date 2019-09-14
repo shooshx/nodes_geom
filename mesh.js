@@ -154,7 +154,8 @@ class Mesh extends PObject
         let vtx = this.tcache.vtx
         ctx_img.lineWidth = 2
         ctx_img.beginPath();
-        for(let vidx of select_vindices) {
+        for(let idx of select_vindices) {
+            let vidx = idx * 2
             let x = vtx[vidx], y = vtx[vidx+1]
             ctx_img.moveTo(x + MESH_DISP.vtx_sel_radius, y)
             ctx_img.arc(x, y, MESH_DISP.vtx_sel_radius, 0, 2*Math.PI)

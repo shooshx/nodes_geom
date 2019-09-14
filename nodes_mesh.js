@@ -59,7 +59,23 @@ class PointSelectHandle
     mousemove(dx,dy, vx,vy, ex,ey) {
         this.ofnode.move_selection(dx, dy)
     }
+}
 
+class CoordListParam extends ListParam {
+    constructor(node, label, table) {
+        super(node, label, 2, table,  {cls:"param_monospace", to_string: function(v) { 
+            return "(" + v[0].toFixed(3) + "," + v[1].toFixed(3) + ")" 
+        }})
+    }
+    def_value() { return [0,0] }
+}
+class FloatListParam extends ListParam {
+    constructor(node, label, table) {
+        super(node, label, 1, table,  {cls:"param_monospace", to_string: function(v) { 
+            return v.toFixed(3)
+        }})
+    }
+    def_value() { return 0; }
 }
 
 class NodeManualPoints extends NodeCls
@@ -68,19 +84,26 @@ class NodeManualPoints extends NodeCls
     constructor(node) {
         super()
         this.out = new OutTerminal(node, "out_mesh")
-        this.points = new ListParam(node, "Point List", 2, function(v) { return "(" + v[0].toFixed(3) + "," + v[1].toFixed(3) + ")" })
-        this.selected_indices = []
+        this.table = new TableParam(node, "Point List")
+        this.points = new CoordListParam(node, "Coord", this.table)
+        this.dummy = new FloatListParam(node, "Dummy", this.table)
+
+        this.selected_indices = [] // point indices
+        this.pnt_attrs = [this.dummy]  // Param objets of additional attributes of each point other than it's coordinate
     }
     image_click(ex, ey) {
         let ti = image_view.epnt_to_model(ex, ey)
         this.points.add(ti)
+        for(let attr_param of this.pnt_attrs) {
+            attr_param.add(attr_param.def_value())
+        }
         trigger_frame_draw(true)
     }
     move_selection(dx, dy) {
         dx /= image_view.viewport_zoom
         dy /= image_view.viewport_zoom
-        for(let vidx of this.selected_indices)
-            this.points.increment(vidx, [dx, dy])
+        for(let idx of this.selected_indices)
+            this.points.increment(idx, [dx, dy])
         trigger_frame_draw(true)
     }
     clear_selection() {
@@ -89,6 +112,10 @@ class NodeManualPoints extends NodeCls
     selected_obj_name() { return (this.selected_indices.length > 0) ? "points" : null }
     delete_selection() {
         this.points.remove(this.selected_indices)
+        for(let attr_param of this.pnt_attrs) {
+            attr_param.remove(this.selected_indices)
+        }
+        this.table.remove(this.selected_indices)
         this.clear_selection()
         trigger_frame_draw(true)
     }
@@ -98,7 +125,7 @@ class NodeManualPoints extends NodeCls
         let r = Math.max(7, MESH_DISP.vtx_radius) / image_view.viewport_zoom// if the disp radius gets lower, we still want it at reasonable value
         for(let i = 0; i < lst.length; i += 2) {
             if (m_dist(lst[i], lst[i+1], x, y) < r) {
-                return new PointSelectHandle(this.points, i, this)
+                return new PointSelectHandle(this.points, i/2, this)
             }
         }
         return null

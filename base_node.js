@@ -505,6 +505,7 @@ class Node {
         selected_node = this
         draw_nodes() // need to paint the previous selected one
         show_params_of(this)
+        trigger_frame_draw(false) // if there was image display of the selected node, remove/update it (selected point)
     }
     
     set_name(name) {

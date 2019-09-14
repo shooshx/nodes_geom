@@ -40,11 +40,15 @@ function show_params_of(node) {
     }
 }
 
+function create_div(clss) {
+    let e = document.createElement("div");
+    if (clss !== undefined)
+        e.classList = clss.join(" ")
+    return e
+}
 
 function add_div(parent, cls) {
-    let e = document.createElement("div");
-    if (cls !== undefined)
-        e.className = cls
+    let e = create_div([cls])
     parent.appendChild(e)
     return e
 }
@@ -241,66 +245,146 @@ function cull_list(lst) {
 }
 
 class ListParam extends Parameter {
-    constructor(node, label, values_per_entry, to_string) {
+    constructor(node, label, values_per_entry, in_table, elem_prm) {
         super(node, label)
-        this.to_string = to_string
+        this.elem_prm = elem_prm
         this.values_per_entry = values_per_entry
         this.lst = []  // flat list
         this.elem_lst = []
+        this.table = in_table
+        in_table.register(this)  // columns are vertical, rows are horizontal
     }
-    add(v) {
-        console.assert(v.length == this.values_per_entry, "Unexpected number of values")
-        for(let vi = 0; vi < v.length; ++vi)
-            this.lst.push(v[vi])
-        this.add_entry_elems(v)
-    }
-    reprint_line(vidx, v) {
-        this.elem_lst[vidx / this.values_per_entry].innerText = this.to_string(v)
-    }
-    modify(index, v) { // index is already multiplied by values_per_entry
-        console.assert(v.length == this.values_per_entry, "Unexpected number of values")
-        console.assert(index < this.lst.length, "modify out of range")
-        for(let vi = 0; vi < v.length; ++vi)
-            this.lst[index + vi] = v[vi]
-        this.reprint_line(index, v)
-    }
-    increment(index, v) {
-        console.assert(v.length == this.values_per_entry, "Unexpected number of values")
-        console.assert(index < this.lst.length, "modify out of range")
-        for(let vi = 0; vi < v.length; ++vi) {
-            this.lst[index + vi] += v[vi]
+    add_elems(parent) {}
+    save() { return {lst:this.lst} }
+    load(v) { this.lst = v.lst }
+
+    add(v) { // for multiple lists in a table, needs to be called in the right order of the columns
+        if (v.length === undefined) {
+            console.assert(this.values_per_entry == 1, "Unexpected number of values")
+            this.lst.push(v)
         }
-        this.reprint_line(index, this.lst.slice(index, index + this.values_per_entry))
+        else {
+            console.assert(v.length == this.values_per_entry, "Unexpected number of values")
+            for(let vi = 0; vi < v.length; ++vi)
+                this.lst.push(v[vi])
+        }
+        let row_index = this.lst.length / this.values_per_entry - 1
+        let e = this.create_entry_elems(v)
+        this.table.push_elem_at(row_index, e)
     }
+    get_elem_at(row_index) {  // called repeated with incrementing index for populating the param
+        if (row_index == 0)  // iteration start
+            this.elem_lst = []
+        let vindex = row_index * this.values_per_entry
+        if (vindex >= this.lst.length) {// iteration end
+            console.assert(this.lst.length == this.elem_lst.length * this.values_per_entry, "unexpected number of elements")
+            return null
+        }
+        let v = []
+        for(let vi = 0; vi < this.values_per_entry; ++vi)
+            v[vi] = this.lst[row_index + vi]            
+        let e = this.create_entry_elems(v)
+        this.table.push_elem_at(row_index, e)
+        return e
+    }
+
+    create_entry_elems(v) {
+        let e = create_div(["param_list_cell", this.elem_prm.cls])
+        e.innerText = this.elem_prm.to_string(v)
+        this.elem_lst.push(e)
+        return e
+    }    
+
     remove(index_lst) { // need to remove a list since the indices will change if we remove one by one
         for(let index of index_lst) {
-            console.assert(index < this.lst.length, "remove out of range")
+            let vindex = index * this.values_per_entry
+            console.assert(vindex < this.lst.length, "remove out of range")
             for(let i = 0; i < this.values_per_entry; ++i)
-                delete this.lst[index+i]
-            let e = this.elem_lst[index / this.values_per_entry]
-            e.remove()
-            delete this.elem_lst[index / this.values_per_entry]
+                delete this.lst[vindex+i]
+            this.elem_lst[index].remove() // remove from DOM tree
+            delete this.elem_lst[index]  // make it undefined for later cull
         }
         this.lst = cull_list(this.lst)
         this.elem_lst = cull_list(this.elem_lst)
+        console.assert(this.lst.length == this.elem_lst.length * this.values_per_entry, "unexpected number of elements")
     }
-    save() { return {lst:this.lst} }
-    load(v) { this.lst = v.lst }
+
+    reprint_line(vidx, v) {
+        this.elem_lst[vidx / this.values_per_entry].innerText = this.elem_prm.to_string(v)
+    }
+
+    modify(index, v) { // index is already multiplied by values_per_entry
+        console.assert(v.length == this.values_per_entry, "Unexpected number of values")
+        let vindex = index * this.values_per_entry
+        console.assert(vindex < this.lst.length, "modify out of range")
+        for(let vi = 0; vi < v.length; ++vi)
+            this.lst[vindex + vi] = v[vi]
+        this.reprint_line(vindex, v)
+    }
+    increment(index, v) {
+        console.assert(v.length == this.values_per_entry, "Unexpected number of values")
+        let vindex = index * this.values_per_entry
+        console.assert(vindex < this.lst.length, "modify out of range")
+        for(let vi = 0; vi < v.length; ++vi) {
+            this.lst[vindex + vi] += v[vi]
+        }
+        this.reprint_line(vindex, this.lst.slice(vindex, vindex + this.values_per_entry))
+    }    
+}
+
+class TableParam extends Parameter {
+    constructor(node, label) {
+        super(node, label)
+        this.list_params = []  // registered ListParams
+        this.elem_rows = []  // entire row div
+    }
+    register(list_param) {
+        this.list_params.push(list_param)
+        return this.list_params.length - 1
+    }
+    push_elem_at(row, elem) {
+        console.assert(row <= this.elem_rows.length, "row index too high")
+        let row_elem = null
+        if (row == this.elem_rows.length) { // need to add a row
+            row_elem = add_div(this.line_elem, "param_list_row")
+            this.elem_rows.push(row_elem)
+        }
+        else 
+            row_elem = this.elem_rows[row]
+        row_elem.appendChild(elem)
+    }
+    save() { return null }
+    load(v) { }
+
+    remove(index_lst) { // need to remove a list since the indices will change if we remove one by one
+        for(let index of index_lst) {
+            console.assert(index < this.elem_rows.length, "table remove out of range")
+            this.elem_rows[index].remove()  // remove from DOM
+            delete this.elem_rows[index] // make undefined
+        }
+        this.elem_rows = cull_list(this.elem_rows)
+    }    
+
     add_elems(parent) {
         this.line_elem = add_param_block(parent)
         this.label_elem = add_div(this.line_elem, "param_list_title")
         this.label_elem.innerText = this.label + ":"
-        let tmp = new Array(this.values_per_entry)
-        for(let i = 0; i < this.lst.length; i += this.values_per_entry) {
-            for(let vi = 0; vi < this.values_per_entry; ++vi)
-                tmp[vi] = this.lst[i + vi]
-            this.add_entry_elems(tmp)
+
+        this.elem_rows = []
+        let row_index = 0
+        let done = false
+        while(!done) {
+            for(let lst_prm of this.list_params) {
+                let e = lst_prm.get_elem_at(row_index) // also pushs the element to the row
+                if (e === null) {
+                    done = true
+                    break
+                } 
+            }
+            row_index++;
         }
     }
-    add_entry_elems(v) {
-        let e = add_div(this.line_elem, "param_list_entry")
-        e.innerText = this.to_string(v)
-        this.elem_lst.push(e)
-    }
+
 }
+
 

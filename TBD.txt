@@ -1,5 +1,5 @@
 GUI:
-- color picker with alpha and null
+- color picker with null
 - image-view reset transform with context menu
 - save as
 - transform UI, for each node
@@ -8,6 +8,7 @@ GUI:
 - before running - do type checking
 - Math.round lines just before drawing to avoid thinning artifacts when zooming?
 - progress bar for long run
+- first node created with display flag (otherwise nothing is visible)
 
 - template display
 
