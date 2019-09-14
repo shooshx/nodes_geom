@@ -125,6 +125,13 @@ class NodePointColor extends NodeCls
         this.color = new ParamColor(node, "Color", "#cccccc")
     }
     run() {
+        if (this.color.v === null) {
+            let mesh = this.in_mesh.get_const()
+            assert(mesh, this, "missing in_mesh")
+            this.out_mesh.set(mesh)
+            return
+        }
+        
         let mesh = this.in_mesh.get_mutable()
         assert(mesh, this, "missing in_mesh")
         let prop = new Uint8Array(mesh.arrs.vtx.length * 1.5) // / 2 for (x,y) * 3 for (r,g,b)

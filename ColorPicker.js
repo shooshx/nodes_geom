@@ -74,24 +74,29 @@ function RGBtoHSV(r, g, b, into) {
 
 var MARGIN = 10
 var BAR_SZ = 18
-var BAR_SPACE = 3
+var BAR_SPACE = 3 // space between bar and square
 var ARROW_SZ = 5
+var ALPHA_BAR_WIDTH = BAR_SZ + BAR_SPACE
+const CHECKERS = { width:9, light:255, dark: 150 }
 
-function draw_chart(ctx, cfg, sel_col, sel_pos, presets) {
+function draw_chart(ctx, cfg, sel_col, sel_pos, presets, options) {
     ctx.fillStyle = "#bbb"
-    ctx.fillRect(0, 0, cfg.sz, cfg.sz);
+    let width = cfg.sz, height = cfg.sz
+    if (options.with_alpha)
+        width += ALPHA_BAR_WIDTH
+    ctx.fillRect(0, 0, width, height);
     
-    var id = ctx.getImageData(0, 0, cfg.sz, cfg.sz)
+    var id = ctx.getImageData(0, 0, width, height)
     var d = id.data;
     
-    var sq_sz = cfg.sz - MARGIN - MARGIN - BAR_SZ - BAR_SPACE
+    var sq_sz = height - MARGIN - MARGIN - BAR_SZ - BAR_SPACE
     cfg.sq_sz = sq_sz
     
     // square
     for(var x = 0; x < sq_sz; ++x) {
         for(var y = 0; y < sq_sz; ++y) {
             var rgb = HSVtoRGB(sel_col.h, x/sq_sz, (sq_sz-y)/sq_sz)
-            var i = ((x+MARGIN) + (y+MARGIN)*cfg.sz)*4
+            var i = ((x+MARGIN) + (y+MARGIN)*width)*4
             d[i] = rgb.r
             d[i+1] = rgb.g
             d[i+2] = rgb.b
@@ -104,7 +109,7 @@ function draw_chart(ctx, cfg, sel_col, sel_pos, presets) {
     for(var y = 0; y < sq_sz; ++y) {
         var rgb = HSVtoRGB(y/sq_sz, 1, 1)
         for(var x = 0; x < BAR_SZ; ++x) {
-            var i = ((x+cfg.bar_x) + (y+MARGIN)*cfg.sz)*4
+            var i = ((x+cfg.bar_x) + (y+MARGIN)*width)*4
             d[i] = rgb.r
             d[i+1] = rgb.g
             d[i+2] = rgb.b        
@@ -114,11 +119,31 @@ function draw_chart(ctx, cfg, sel_col, sel_pos, presets) {
     // square of selected color
     for(var x = 0; x < BAR_SZ; ++x) {
         for(var y = 0; y < BAR_SZ; ++y) {
-            var i = ((x+cfg.bar_x) + (y+cfg.bar_y)*cfg.sz)*4
+            var i = ((x+cfg.bar_x) + (y+cfg.bar_y)*width)*4
             d[i] = sel_col.r
             d[i+1] = sel_col.g
             d[i+2] = sel_col.b      
         }
+    }
+
+    if (options.with_alpha) {
+        cfg.alpha_bar_x = MARGIN+sq_sz+BAR_SPACE+BAR_SZ+BAR_SPACE
+        for(var y = 0; y < sq_sz; ++y) {
+            let alpha = 1 - y/(sq_sz-1)
+            let ch_y = Math.trunc(y / CHECKERS.width) % 2
+            for(var x = 0; x < BAR_SZ; ++x) {
+                let ch_x = Math.trunc(x / CHECKERS.width) % 2
+                let checkers = (ch_y == ch_x) ? CHECKERS.light : CHECKERS.dark
+                var i = ((x+cfg.alpha_bar_x) + (y+MARGIN)*width)*4
+                d[i] = sel_col.r*alpha + checkers*(1-alpha)
+                d[i+1] = sel_col.g*alpha + checkers*(1-alpha)
+                d[i+2] = sel_col.b*alpha + checkers*(1-alpha)
+            }
+        }        
+    }
+
+    if (options.with_null) {
+
     }
 
     ctx.putImageData(id, 0, 0)
@@ -135,13 +160,20 @@ function draw_chart(ctx, cfg, sel_col, sel_pos, presets) {
     ctx.fillStyle = is_dark(saturated_rgb) ? "#ffffff" : "#000000"
     ctx.beginPath()
     var mid_y = sel_pos.bar_y * sq_sz + MARGIN
-    
     ctx.moveTo(cfg.bar_x + ARROW_SZ, mid_y) // center
     ctx.lineTo(cfg.bar_x, mid_y - ARROW_SZ) // up
     ctx.lineTo(cfg.bar_x, mid_y + ARROW_SZ) // down
-    //ctx.lineTo(cfg.bar_x + ARROW_SZ, mid_y)
     ctx.fill();
-    
+
+    if (options.with_alpha) {
+        let alpha_mid_y = sel_pos.alpha_y * sq_sz + MARGIN
+        ctx.beginPath()
+        ctx.moveTo(cfg.alpha_bar_x + ARROW_SZ, alpha_mid_y) // center
+        ctx.lineTo(cfg.alpha_bar_x, alpha_mid_y - ARROW_SZ) // up
+        ctx.lineTo(cfg.alpha_bar_x, alpha_mid_y + ARROW_SZ) // down
+        ctx.fill();
+    }
+
     // preset squares
     ctx.lineWidth = 1
     ctx.strokeStyle = '#000'
@@ -188,57 +220,112 @@ function is_dark(c) {
     return lab_L(c) < 50
 }
 
-function make_hex(c) {
-    return "#" + (Number(c.r).toString(16).padStart(2,'0') + Number(c.g).toString(16).padStart(2,'0') + Number(c.b).toString(16).padStart(2,'0')).toUpperCase()
+function make_hex(c, force_no_alpha) {
+    if (c.alpha == 1 || force_no_alpha)
+        return "#" + (Number(c.r).toString(16).padStart(2,'0') + Number(c.g).toString(16).padStart(2,'0') + Number(c.b).toString(16).padStart(2,'0')).toUpperCase()
+    else
+        return "rgba(" + c.r + "," + c.g + "," + c.b + "," + c.alpha + ")"
 }
 
 function parse_hex(s) {
-    if (s[0] == '#')
-        s = s.substr(1)
-    if (s.length == 6)
-        return { r: parseInt(s.substr(0,2), 16), g: parseInt(s.substr(2,2), 16), b: parseInt(s.substr(4,2), 16) }
-    if (s.length == 3) {
-        return { r: parseInt(s[0]+s[0], 16), g: parseInt(s[1]+s[1], 16), b: parseInt(s[2]+s[2], 16) }
+    let ret = null
+    if (s === null)
+        return null
+    if (s[0] == 'r') {
+        if (s.substr(0,4) == 'rbg(') {
+            let sp = s.substr(4).split(',')
+            ret = { r: parseInt(sp[0]), g: parseInt(sp[1]), b: parseInt(sp[2]), alpha:1.0 }
+        }
+        if (s.substr(0,5) == 'rgba(') {
+            let sp = s.substr(5).split(',')
+            ret = { r: parseInt(sp[0]), g: parseInt(sp[1]), b: parseInt(sp[2]), alpha:parseFloat(sp[3]) }
+        }
     }
-    return null
+    else {
+        if (s[0] == '#')
+            s = s.substr(1)
+        if (s.length == 6)
+            ret = { r: parseInt(s.substr(0,2), 16), g: parseInt(s.substr(2,2), 16), b: parseInt(s.substr(4,2), 16), alpha:1 }
+        if (s.length == 3) {
+            ret =  { r: parseInt(s[0]+s[0], 16), g: parseInt(s[1]+s[1], 16), b: parseInt(s[2]+s[2], 16), alpha:1 }
+        }
+    }
+    if (ret != null && (isNaN(ret.r) || isNaN(ret.g) || isNaN(ret.b) || isNaN(ret.alpha)))
+        return null
+    return ret
 }
 
 function parse_hex_user(s) {
     let r = parse_hex(s)
+    if (r === null)
+        return null
     r.hex = make_hex(r)
     return r
 }
 
-function create_after(elem, sz, visible, onchange) {
-    return create_at(elem, addSiblingAfter, sz, visible, onchange)
+function create_after(elem, sz, visible, onchange, options) {
+    return create_at(elem, addSiblingAfter, sz, visible, onchange, options)
 }
-function create_as_child(elem, sz, visible, onchange) {
-    return create_at(elem, addTextChild, sz, visible, onchange)
+function create_as_child(elem, sz, visible, onchange, options) {
+    return create_at(elem, addTextChild, sz, visible, onchange, options)
 }
 
-function create_at(elem, add_func, sz, visible, onchange) 
+var CHECKERS_IMAGE = null
+
+function create_checkers_image(canvas, ctx) {
+    let orig_width = canvas.width, orig_height = canvas.height
+    let w = CHECKERS.width, l = CHECKERS.light, d = CHECKERS.dark
+    canvas.width = w*2
+    canvas.height = w*2
+    ctx.fillStyle = "rgb(" + l + "," + l + "," + l + ")"
+    ctx.fillRect(0,0,w*2,w*2)
+    ctx.fillStyle = "rgb(" + d + "," + d + "," + d + ")"
+    ctx.fillRect(0,0,w,w)
+    ctx.fillRect(w+1,w+1,w,w)
+    CHECKERS_IMAGE = canvas.toDataURL('PNG')
+    canvas.width = orig_width
+    canvas.height = orig_height
+}
+function get_checkers_image() {
+    return CHECKERS_IMAGE
+}
+
+// options: { with_alpha:true/false, with_null:true/false }
+function create_at(elem, add_func, sz, visible, onchange, options) 
 {
-    var txt = '<canvas width="SZ" height="SZ" STYLE></canvas>'.replace(/SZ/g, sz)
+    if (options === undefined)
+        options = {}
+    let width=sz, height=sz
+    if (options.with_alpha) 
+        width += ALPHA_BAR_WIDTH
+    
+    var txt = '<canvas width="WIDTH" height="HEIGHT" STYLE></canvas>'.replace(/WIDTH/g, width).replace(/HEIGHT/g, height)
                 .replace(/STYLE/g, visible ? '' : 'style="display:none;"')
     var canvas = add_func(elem, txt)
     canvas.style.borderRadius = "7px"
     canvas.tabIndex = 0  // make it focusable
     canvas.style.outline = "none"  // but don't put a focus border on it
     var ctx = canvas.getContext("2d")
+
+    if (options.with_alpha && CHECKERS_IMAGE === null) 
+        create_checkers_image(canvas, ctx) // for use in the html input element
+    
     var cfg = { sz:sz }
-    var sel_col = { h:0, s:0, v:0, r:0, g:0, b:0, hex:"", copy: function() {
-        return { r:this.r, g:this.g, b:this.b, hex:this.hex }
+    var sel_col = { h:0, s:0, v:0, r:0, g:0, b:0, alpha:1, hex:"", copy: function() {
+        return { r:this.r, g:this.g, b:this.b, hex:this.hex, alpha:this.alpha }
     }}
-    var sel_pos = { sq_x: 0, sq_y: 0, bar_y: 0 } // range:0-1
+    var sel_pos = { sq_x: 0, sq_y: 0, bar_y: 0, alpha_y: 0 } // range:0-1
     var presets = {}
     
     var col_from_pos = function() {
         sel_col.h = sel_pos.bar_y
         sel_col.s = sel_pos.sq_x
         sel_col.v = 1-sel_pos.sq_y
+        sel_col.alpha = Math.round((1-sel_pos.alpha_y)*100)/100
         HSVtoRGB(sel_col.h, sel_col.s, sel_col.v, sel_col)
         sel_col.is_dark = is_dark(sel_col);
         sel_col.hex = make_hex(sel_col)
+        sel_col.hex_no_alpha = make_hex(sel_col, true)
         if (onchange)
             onchange(sel_col)
     }
@@ -254,12 +341,16 @@ function create_at(elem, add_func, sz, visible, onchange)
             c = parse_hex(c)
         if (c === undefined || c == null)
             return
+        if (c.r == sel_col.r && c.g == sel_col.g && c.b == sel_col.b && c.alpha == sel_col.alpha)
+            return
         RGBtoHSV(c.r, c.g, c.b, sel_col)
         sel_col.r = c.r
         sel_col.g = c.g
         sel_col.b = c.b
+        sel_col.alpha = c.alpha
         sel_col.is_dark = is_dark(sel_col);
         sel_col.hex = make_hex(sel_col)
+        sel_col.hex_no_alpha = make_hex(sel_col, true)
         
         sel_pos.sq_x = sel_col.s
         sel_pos.sq_y = 1-sel_col.v
@@ -267,17 +358,18 @@ function create_at(elem, add_func, sz, visible, onchange)
             sel_pos.bar_y = sel_col.h 
         else  // get the hue value from the UI instead
             sel_col.h = sel_pos.bar_y
-        draw_chart(ctx, cfg, sel_col, sel_pos, presets)
+        draw_chart(ctx, cfg, sel_col, sel_pos, presets, options)
         if (do_onchange && onchange)
             onchange(sel_col)
     }
     
     col_from_pos()
-    draw_chart(ctx, cfg, sel_col, sel_pos, presets)
+    draw_chart(ctx, cfg, sel_col, sel_pos, presets, options)
 
     // handle color change by draggin gand clicking
     var square_capture = false;
     var bar_capture = false;
+    var alpha_capture = false;
     var mouse_act = function(e, isondown) {
         // if pressed, make sure it's pressed in us. If moving, make sure we're capturing it
         //console.log(canvas.id + "  capt=" + square_capture)
@@ -287,24 +379,32 @@ function create_at(elem, add_func, sz, visible, onchange)
         var rect = canvas.getBoundingClientRect();
         var x = e.clientX - rect.left;
         var y = e.clientY - rect.top;
-        
-        if (!bar_capture && (square_capture || (x > MARGIN && y > MARGIN && x < cfg.sq_sz+MARGIN && y < cfg.sq_sz+MARGIN))) {
+        var changed = false
+        if (!bar_capture && !alpha_capture && (square_capture || (x > MARGIN && y > MARGIN && x < cfg.sq_sz+MARGIN && y < cfg.sq_sz+MARGIN))) {
             if (isondown)
                 square_capture = true
             sel_pos.sq_x = clamp((x - MARGIN)/cfg.sq_sz)
             sel_pos.sq_y = clamp((y - MARGIN)/cfg.sq_sz)
-            col_from_pos()
-            draw_chart(ctx, cfg, sel_col, sel_pos, presets)
-            return true
+            changed = true
         }
         else if (bar_capture || (x > cfg.bar_x && y > MARGIN && x < cfg.bar_x + BAR_SZ && y < cfg.sq_sz+MARGIN)) {
             if (isondown)
                 bar_capture = true
             sel_pos.bar_y = clamp((y - MARGIN)/cfg.sq_sz)
-            col_from_pos()
-            draw_chart(ctx, cfg, sel_col, sel_pos, presets)
-            return true
+            changed = true
         }
+        else if (alpha_capture || (options.with_alpha && x > cfg.alpha_bar_x && y > MARGIN && x < cfg.alpha_bar_x + BAR_SZ && y < cfg.sq_sz+MARGIN)) {
+            if (isondown)
+                alpha_capture = true
+            sel_pos.alpha_y = clamp((y - MARGIN)/cfg.sq_sz)
+            changed = true
+        }
+
+        if (changed) {
+            col_from_pos()
+            draw_chart(ctx, cfg, sel_col, sel_pos, presets, options)
+        }
+        return changed
     }
     
     var mouse_move = function(e) {
@@ -313,6 +413,7 @@ function create_at(elem, add_func, sz, visible, onchange)
     document.addEventListener("mouseup", function(e) {
         square_capture = false;
         bar_capture = false;
+        alpha_capture = false;
         document.removeEventListener("mousemove", mouse_move)
         return true
     })
@@ -337,7 +438,7 @@ function create_at(elem, add_func, sz, visible, onchange)
         if (x > cfg.bar_x && y > cfg.bar_y && x < cfg.bar_x + BAR_SZ && y < cfg.bar_y + BAR_SZ) {
             presets[next_preset_to_set] = { hex:sel_col.hex, r:sel_col.r, g:sel_col.g, b:sel_col.b }
             next_preset_to_set = (next_preset_to_set + 1) % cfg.preset_count
-            draw_chart(ctx, cfg, sel_col, sel_pos, presets)
+            draw_chart(ctx, cfg, sel_col, sel_pos, presets, options)
         }
         // presets bar
         if (x > MARGIN && y > cfg.bar_y && x < cfg.sq_sz && y < cfg.bar_y + BAR_SZ) {
@@ -353,45 +454,50 @@ function create_at(elem, add_func, sz, visible, onchange)
     return { set_color:set_color, get_color:get_color, set_visible:set_visible, elem:canvas }
 }
 
-return { create_as_child:create_as_child, create_after:create_after, parse_hex:parse_hex_user }
+return { create_as_child:create_as_child, create_after:create_after, parse_hex:parse_hex_user, get_checkers_image:get_checkers_image }
 
 })();
 
 
 var ColorEditBox = (function(){
-
-function create_at(edit_elem, sz, onchange) 
+var DEBUG_NO_BLUR = false
+function create_at(edit_elem, sz, onchange, options) 
 {
     var picker = ColorPicker.create_after(edit_elem, sz, false, function(c) { 
         if (document.activeElement != edit_elem)
             edit_elem.value = c.hex  // change the text only if we're not editing
-        edit_elem.style.backgroundColor = c.hex
+        edit_elem.style.backgroundColor = c.hex_no_alpha
         edit_elem.style.color = c.is_dark ? "#fff" : "#000"
         if (onchange)
             onchange(c)
-    })
+    }, options)
     picker.elem.style.position = "fixed"
     var ed_rect = edit_elem.getBoundingClientRect()
     picker.elem.style.top = ed_rect.bottom + window.scrollY + 2 + "px"
     picker.elem.style.left = ed_rect.left + window.scrollX + "px"
+    edit_elem.spellcheck = false
     
     edit_elem.addEventListener("input", function() {
         picker.set_color(edit_elem.value, true)
     })
     
     edit_elem.addEventListener("focus", function() { picker.set_visible(true) })
-    edit_elem.addEventListener("blur", function(e) { 
-        if (e.relatedTarget !== picker.elem)  // if focus moved from the edit to something not the canvas, hide it
-            picker.set_visible(false) 
-    })
+    if (!DEBUG_NO_BLUR) {
+        edit_elem.addEventListener("blur", function(e) { 
+            if (e.relatedTarget !== picker.elem)  // if focus moved from the edit to something not the canvas, hide it
+                picker.set_visible(false) 
+        })
+    }
     
     picker.elem.addEventListener("focus", function() { 
         console.log("canvas-focus") 
     })
-    picker.elem.addEventListener("blur", function(e) { 
-        if (e.relatedTarget !== edit_elem)
-            picker.set_visible(false) 
-    })
+    if (!DEBUG_NO_BLUR) {
+        picker.elem.addEventListener("blur", function(e) { 
+            if (e.relatedTarget !== edit_elem)
+                picker.set_visible(false) 
+        })
+    }
     
     return picker
 }

@@ -1,5 +1,6 @@
 GUI:
-- catch assert and show error on node   (!!)
+- color picker with alpha and null
+- image-view reset transform with context menu
 - save as
 - transform UI, for each node
 - select objects with Ctrl, rectangle
@@ -9,6 +10,7 @@ GUI:
 - progress bar for long run
 
 - template display
+
 
 ENGINE:
 - too many triggers when clicking on display of points color
@@ -21,10 +23,11 @@ NODES:
 - mouse polyline
 - Primitive Circle
 - color per vertex? for gradient
-- triangulation
 - round edges
 - transform invert
 - single value input using a slider
+- interactive
+    mouse input
 
 - grid of points - actually divide
 

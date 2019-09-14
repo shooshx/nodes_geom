@@ -555,7 +555,7 @@ function set_display_node(node) {
     if (node == program.display_node)
         return
     program.display_node = node
-    trigger_frame_draw(false)
+    trigger_frame_draw(true)  // need to do run since the const output might have gotten changed
 }
 
 function find_node_obj(px, py) {

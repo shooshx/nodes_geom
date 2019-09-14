@@ -84,7 +84,7 @@ function add_param_color(line, value, set_func) {
     e.className = 'param_input'
     line.appendChild(e)
     // TBD move setting the func to be the last thing to avoid spurious triggers
-    let ce = ColorEditBox.create_at(e, 200, function(c) { if (set_func(c)) trigger_frame_draw(true) })
+    let ce = ColorEditBox.create_at(e, 200, function(c) { if (set_func(c)) trigger_frame_draw(true) }, {with_alpha:true})
     ce.set_color(value, true)
     return ce.get_color().copy()
 }
@@ -182,16 +182,19 @@ class ParamColor extends Parameter {
         super(node, label)
         this.v = ColorPicker.parse_hex(start_c_str)
     }
-    save() { return this.v.hex }
+    save() { return (this.v !== null) ? this.v.hex : null }
     load(v) { this.v = ColorPicker.parse_hex(v) }
     add_elems(parent) {
         this.line_elem = add_param_line(parent)
         this.label_elem = add_param_label(this.line_elem, this.label)
         let that = this
         this.v = add_param_color(this.line_elem, this.v, function(v) { 
-            if (that.v.hex == v.hex) 
-                return false; 
-            that.v = v.copy() // make a copy so that this.v will be different object than the internal object
+            if (that.v !== null && that.v.hex == v.hex) 
+                return false;
+            if (v === null)
+                that.v = null
+            else
+                that.v = v.copy() // make a copy so that this.v will be different object than the internal object
             return true
         })
     }
