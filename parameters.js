@@ -252,14 +252,14 @@ class ListParam extends Parameter {
         this.lst = []  // flat list
         this.elem_lst = []
         this.table = in_table
-        in_table.register(this)  // columns are vertical, rows are horizontal
+        this.column = in_table.register(this)  // columns are vertical, rows are horizontal
     }
     add_elems(parent) {}
     save() { return {lst:this.lst} }
     load(v) { this.lst = v.lst }
 
     add(v) { // for multiple lists in a table, needs to be called in the right order of the columns
-        if (v.length === undefined) {
+        if (v.length === undefined) { // support single value and list of values for vec
             console.assert(this.values_per_entry == 1, "Unexpected number of values")
             this.lst.push(v)
         }
@@ -268,9 +268,9 @@ class ListParam extends Parameter {
             for(let vi = 0; vi < v.length; ++vi)
                 this.lst.push(v[vi])
         }
-        let row_index = this.lst.length / this.values_per_entry - 1
+
         let e = this.create_entry_elems(v)
-        this.table.push_elem_at(row_index, e)
+        this.table.push_elem_at(this.column, e)
     }
     get_elem_at(row_index) {  // called repeated with incrementing index for populating the param
         if (row_index == 0)  // iteration start
@@ -281,15 +281,17 @@ class ListParam extends Parameter {
             return null
         }
         let v = []
-        for(let vi = 0; vi < this.values_per_entry; ++vi)
-            v[vi] = this.lst[row_index + vi]            
+        if (this.values_per_entry > 1)
+            for(let vi = 0; vi < this.values_per_entry; ++vi)
+                v[vi] = this.lst[row_index + vi]            
+        else
+            v = this.lst[row_index]
         let e = this.create_entry_elems(v)
-        this.table.push_elem_at(row_index, e)
         return e
     }
 
     create_entry_elems(v) {
-        let e = create_div(["param_list_cell", this.elem_prm.cls])
+        let e = create_div([this.elem_prm.cls])
         e.innerText = this.elem_prm.to_string(v)
         this.elem_lst.push(e)
         return e
@@ -336,55 +338,73 @@ class TableParam extends Parameter {
     constructor(node, label) {
         super(node, label)
         this.list_params = []  // registered ListParams
-        this.elem_rows = []  // entire row div
+        //this.elem_rows = []  // entire row div
+        this.elem_cols = []
     }
     register(list_param) {
         this.list_params.push(list_param)
         return this.list_params.length - 1
     }
-    push_elem_at(row, elem) {
-        console.assert(row <= this.elem_rows.length, "row index too high")
-        let row_elem = null
-        if (row == this.elem_rows.length) { // need to add a row
-            row_elem = add_div(this.line_elem, "param_list_row")
-            this.elem_rows.push(row_elem)
-        }
-        else 
-            row_elem = this.elem_rows[row]
-        row_elem.appendChild(elem)
+    push_elem_at(column, elem) {
+        console.assert(column <= this.elem_cols.length, "column index too high")
+        this.elem_cols[column].appendChild(elem)
     }
     save() { return null }
     load(v) { }
-
-    remove(index_lst) { // need to remove a list since the indices will change if we remove one by one
-        for(let index of index_lst) {
-            console.assert(index < this.elem_rows.length, "table remove out of range")
-            this.elem_rows[index].remove()  // remove from DOM
-            delete this.elem_rows[index] // make undefined
-        }
-        this.elem_rows = cull_list(this.elem_rows)
-    }    
 
     add_elems(parent) {
         this.line_elem = add_param_block(parent)
         this.label_elem = add_div(this.line_elem, "param_list_title")
         this.label_elem.innerText = this.label + ":"
 
-        this.elem_rows = []
-        let row_index = 0
-        let done = false
-        while(!done) {
-            for(let lst_prm of this.list_params) {
+        this.table_elem = add_div(this.line_elem)
+
+        this.elem_cols = []
+
+        for(let lst_prm of this.list_params) {
+            let column = add_div(this.table_elem, "param_table_column")
+            this.elem_cols.push(column)
+            let row_index = 0
+            while(true) {
                 let e = lst_prm.get_elem_at(row_index) // also pushs the element to the row
-                if (e === null) {
-                    done = true
+                if (e === null) 
                     break
-                } 
+                column.appendChild(e)
+                row_index++;
             }
-            row_index++;
+            let grip = add_div(column, "param_table_grip")
+            add_grip_handlers(grip, column)
+
         }
+
     }
 
 }
 
 
+function add_grip_handlers(grip, cell) {
+    var moving = false;
+    var startOffset;
+    var column_width;
+
+    grip.addEventListener('mousedown', function(e) {
+        moving = true;
+        startOffset = parseFloat(window.getComputedStyle(cell)["width"]) - e.pageX;
+    });
+
+    document.addEventListener('mousemove', function(e) {
+      if (moving) {
+            column_width = startOffset + e.pageX
+            cell.style.width = column_width + "px"
+            //for(var elemi in watch_expr_list)
+            //    watch_expr_list[elemi].style.width = watch_expr_size + 'px';
+
+            e.preventDefault(); // prevent selection action from messing it up
+
+      }
+    });
+
+    document.addEventListener('mouseup', function() {
+        moving = false;
+    });
+}

@@ -115,7 +115,6 @@ class NodeManualPoints extends NodeCls
         for(let attr_param of this.pnt_attrs) {
             attr_param.remove(this.selected_indices)
         }
-        this.table.remove(this.selected_indices)
         this.clear_selection()
         trigger_frame_draw(true)
     }
