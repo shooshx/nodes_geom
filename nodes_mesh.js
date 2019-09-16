@@ -81,10 +81,15 @@ class FloatListParam extends ListParam {
 function uint8arr_to_color(arr) {
     return {r:arr[0], g:arr[1], b:arr[2], alpha:arr[3]/255}
 }
+function color_to_uint8arr(c) {
+    return [c.r, c.g, c.b, c.alpha*255]
+}
 class ColorListParam extends ListParam {
     constructor(node, label, table) {
         super(node, label, 4, table, { create_elem: function(parent, start_val, changed_func) { 
-            add_param_color(parent, uint8arr_to_color(start_val), "param_table_input_color", changed_func)
+            add_param_color(parent, uint8arr_to_color(start_val), "param_table_input_color", function(c) {
+                changed_func(color_to_uint8arr(c))
+            })
         }})
     }
     def_value() { return [0xcc, 0xcc, 0xcc, 0xff] }

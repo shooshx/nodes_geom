@@ -472,16 +472,21 @@ function create_at(edit_elem, sz, onchange, options)
             onchange(c)
     }, options)
     picker.elem.style.position = "fixed"
-    var ed_rect = edit_elem.getBoundingClientRect()
-    picker.elem.style.top = ed_rect.bottom + window.scrollY + 2 + "px"
-    picker.elem.style.left = ed_rect.left + window.scrollX + "px"
     edit_elem.spellcheck = false
+    function position_to_edit_elem() {
+        var ed_rect = edit_elem.getBoundingClientRect()
+        picker.elem.style.top = ed_rect.bottom + window.scrollY + 2 + "px"
+        picker.elem.style.left = ed_rect.left + window.scrollX + "px"
+    }
     
     edit_elem.addEventListener("input", function() {
         picker.set_color(edit_elem.value, true)
     })
     
-    edit_elem.addEventListener("focus", function() { picker.set_visible(true) })
+    edit_elem.addEventListener("focus", function() { 
+        position_to_edit_elem(); 
+        picker.set_visible(true) 
+    })
     if (!DEBUG_NO_BLUR) {
         edit_elem.addEventListener("blur", function(e) { 
             if (e.relatedTarget !== picker.elem)  // if focus moved from the edit to something not the canvas, hide it

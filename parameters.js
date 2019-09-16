@@ -268,27 +268,29 @@ class ListParam extends Parameter {
             for(let vi = 0; vi < v.length; ++vi)
                 this.lst.push(v[vi])
         }
-
-        let e = this.create_entry_elems(v, this.table.get_column_elem(this.column))
+        let vindex = (this.lst.length - this.values_per_entry)
+        this.create_entry_elems(v, this.table.get_column_elem(this.column), vindex)
     }
-    add_column_elems(column) {
+    add_column_elems(column_elem) {
         this.elem_lst = []
-        for(let row_index = 0; row_index < this.lst.length; row_index += this.values_per_entry) {
+        for(let vindex = 0; vindex < this.lst.length; vindex += this.values_per_entry) {
             let v = []
             if (this.values_per_entry > 1)
                 for(let vi = 0; vi < this.values_per_entry; ++vi)
-                    v[vi] = this.lst[row_index + vi]            
+                    v[vi] = this.lst[vindex + vi]            
             else
-                v = this.lst[row_index]
-            let e = this.create_entry_elems(v, column)
+                v = this.lst[vindex]
+            let e = this.create_entry_elems(v, column_elem, vindex)
         }
     }
 
-    create_entry_elems(v, parent) {
+    create_entry_elems(v, parent, vindex) {
         let e
         if (this.elem_prm.create_elem !== undefined) {
-            e = this.elem_prm.create_elem(parent, v, function(v) {
-
+            e = this.elem_prm.create_elem(parent, v, (v) => {
+                console.assert(v.length == this.values_per_entry, "unexpected length of value")
+                for(let vi = 0; vi < this.values_per_entry; ++vi)
+                    this.lst[vindex + vi] = v[vi]
             })
         }
         else {
