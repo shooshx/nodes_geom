@@ -71,11 +71,23 @@ class CoordListParam extends ListParam {
 }
 class FloatListParam extends ListParam {
     constructor(node, label, table) {
-        super(node, label, 1, table,  {cls:"param_monospace", to_string: function(v) { 
+        super(node, label, 1, table,  { cls:"param_monospace", to_string: function(v) { 
             return v.toFixed(3)
         }})
     }
     def_value() { return 0; }
+}
+
+function uint8arr_to_color(arr) {
+    return {r:arr[0], g:arr[1], b:arr[2], alpha:arr[3]/255}
+}
+class ColorListParam extends ListParam {
+    constructor(node, label, table) {
+        super(node, label, 4, table, { create_elem: function(parent, start_val, changed_func) { 
+            add_param_color(parent, uint8arr_to_color(start_val), "param_table_input_color", changed_func)
+        }})
+    }
+    def_value() { return [0xcc, 0xcc, 0xcc, 0xff] }
 }
 
 class NodeManualPoints extends NodeCls
@@ -87,9 +99,10 @@ class NodeManualPoints extends NodeCls
         this.table = new TableParam(node, "Point List")
         this.points = new CoordListParam(node, "Coord", this.table)
         this.dummy = new FloatListParam(node, "Dummy", this.table)
+        this.color = new ColorListParam(node, "Color", this.table)
 
         this.selected_indices = [] // point indices
-        this.pnt_attrs = [this.dummy]  // Param objets of additional attributes of each point other than it's coordinate
+        this.pnt_attrs = [this.dummy, this.color]  // Param objets of additional attributes of each point other than it's coordinate
     }
     image_click(ex, ey) {
         let ti = image_view.epnt_to_model(ex, ey)

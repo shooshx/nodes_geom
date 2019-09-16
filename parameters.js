@@ -83,10 +83,10 @@ function add_param_edit(line, value, set_func) {
     line.appendChild(e)
     return e
 }
-function add_param_color(line, value, set_func) {
+function add_param_color(line, value, cls, set_func) {
     let e = document.createElement('input')
-    e.className = 'param_input'
-    line.appendChild(e)
+    e.className = cls
+    line.appendChild(e) // must have parent
     // TBD move setting the func to be the last thing to avoid spurious triggers
     let ce = ColorEditBox.create_at(e, 200, function(c) { if (set_func(c)) trigger_frame_draw(true) }, {with_alpha:true})
     ce.set_color(value, true)
@@ -192,7 +192,7 @@ class ParamColor extends Parameter {
         this.line_elem = add_param_line(parent)
         this.label_elem = add_param_label(this.line_elem, this.label)
         let that = this
-        this.v = add_param_color(this.line_elem, this.v, function(v) { 
+        this.v = add_param_color(this.line_elem, this.v, 'param_input', function(v) { 
             if (that.v !== null && that.v.hex == v.hex) 
                 return false;
             if (v === null)
@@ -269,30 +269,33 @@ class ListParam extends Parameter {
                 this.lst.push(v[vi])
         }
 
-        let e = this.create_entry_elems(v)
-        this.table.push_elem_at(this.column, e)
+        let e = this.create_entry_elems(v, this.table.get_column_elem(this.column))
     }
-    get_elem_at(row_index) {  // called repeated with incrementing index for populating the param
-        if (row_index == 0)  // iteration start
-            this.elem_lst = []
-        let vindex = row_index * this.values_per_entry
-        if (vindex >= this.lst.length) {// iteration end
-            console.assert(this.lst.length == this.elem_lst.length * this.values_per_entry, "unexpected number of elements")
-            return null
+    add_column_elems(column) {
+        this.elem_lst = []
+        for(let row_index = 0; row_index < this.lst.length; row_index += this.values_per_entry) {
+            let v = []
+            if (this.values_per_entry > 1)
+                for(let vi = 0; vi < this.values_per_entry; ++vi)
+                    v[vi] = this.lst[row_index + vi]            
+            else
+                v = this.lst[row_index]
+            let e = this.create_entry_elems(v, column)
         }
-        let v = []
-        if (this.values_per_entry > 1)
-            for(let vi = 0; vi < this.values_per_entry; ++vi)
-                v[vi] = this.lst[row_index + vi]            
-        else
-            v = this.lst[row_index]
-        let e = this.create_entry_elems(v)
-        return e
     }
 
-    create_entry_elems(v) {
-        let e = create_div([this.elem_prm.cls])
-        e.innerText = this.elem_prm.to_string(v)
+    create_entry_elems(v, parent) {
+        let e
+        if (this.elem_prm.create_elem !== undefined) {
+            e = this.elem_prm.create_elem(parent, v, function(v) {
+
+            })
+        }
+        else {
+            e = create_div([this.elem_prm.cls])
+            e.innerText = this.elem_prm.to_string(v)
+            parent.appendChild(e)
+        }
         this.elem_lst.push(e)
         return e
     }    
@@ -345,9 +348,9 @@ class TableParam extends Parameter {
         this.list_params.push(list_param)
         return this.list_params.length - 1
     }
-    push_elem_at(column, elem) {
+    get_column_elem(column) {
         console.assert(column <= this.elem_cols.length, "column index too high")
-        this.elem_cols[column].appendChild(elem)
+        return this.elem_cols[column]
     }
     save() { return null }
     load(v) { }
@@ -364,17 +367,9 @@ class TableParam extends Parameter {
         for(let lst_prm of this.list_params) {
             let column = add_div(this.table_elem, "param_table_column")
             this.elem_cols.push(column)
-            let row_index = 0
-            while(true) {
-                let e = lst_prm.get_elem_at(row_index) // also pushs the element to the row
-                if (e === null) 
-                    break
-                column.appendChild(e)
-                row_index++;
-            }
+            lst_prm.add_column_elems(column)
             let grip = add_div(column, "param_table_grip")
             add_grip_handlers(grip, column)
-
         }
 
     }
