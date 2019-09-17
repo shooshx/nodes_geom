@@ -9,6 +9,7 @@
 <script src="serialization.js"></script>
 <script src="delaunator401.js"></script>
 <script src="nodes_mesh.js"></script>
+<script src="nodes_webgl.js"></script>
 <script>
 "use strict"
 
@@ -219,6 +220,7 @@ var nodes_classes = [
     NodeTransform,
     NodeRandomPoints,
     NodeTriangulate,
+    NodeShader,
 ]
 var nodes_classes_by_name = {}
 for(let c of nodes_classes)
@@ -229,5 +231,5 @@ for(let c of nodes_classes)
 <link rel="stylesheet" type="text/css" href="style.css">
 
 </head>
-<body onload=page_onload()><div id="main_view"><div id="image_panel"><canvas id="canvas_image" width="100" height="100"></canvas></div><div id="image_splitter" class="splitter"></div><div id="edit_panel"><div id="edit_params"><div id="div_params_list"></div></div><div id="edit_splitter" class="splitter"></div><div id="edit_nodes"><canvas id="canvas_nodes" width="100" height="100"></div></div></div></body>
+<body onload=page_onload()><div id="main_view"><div id="image_panel"><canvas id="canvas_image" width="100" height="100"></canvas><canvas id="canvas_webgl" width="100" height="100"></canvas></div><div id="image_splitter" class="splitter"></div><div id="edit_panel"><div id="edit_params"><div id="div_params_list"></div></div><div id="edit_splitter" class="splitter"></div><div id="edit_nodes"><canvas id="canvas_nodes" width="100" height="100"></div></div></div></body>
 </html>

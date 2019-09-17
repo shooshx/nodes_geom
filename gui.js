@@ -8,6 +8,8 @@ const MIN_PANEL_SIZE = 10
 function recalc_canvases_rects() {
     nodes_view.rect = canvas_nodes.getBoundingClientRect();
     image_view.rect = canvas_image.getBoundingClientRect();
+    canvas_webgl.width = canvas_image.width
+    canvas_webgl.height = canvas_image.height
 }
 
 var main_view_state = {

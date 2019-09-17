@@ -15,7 +15,7 @@ input {
     top: 0;
     left: 0;
     right: 0;
-    overflow: hidden; /* needed for some strangeness that creates a scrollbar randomally when resizing */
+   /* TEMP WEBGL overflow: hidden; /* needed for some strangeness that creates a scrollbar randomally when resizing */
 }
 
 #image_panel {
@@ -215,4 +215,9 @@ input {
     top: 0;
     cursor: col-resize;
     z-index: 1;  /* don't put z-index in cell to avoid it being above it for some reason */
+}
+
+#canvas_webgl{ 
+    border: solid 1px;
+    display: none;
 }
