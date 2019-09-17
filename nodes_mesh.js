@@ -87,9 +87,10 @@ function color_to_uint8arr(c) {
 class ColorListParam extends ListParam {
     constructor(node, label, table) {
         super(node, label, 4, table, { create_elem: function(parent, start_val, changed_func) { 
-            add_param_color(parent, uint8arr_to_color(start_val), "param_table_input_color", function(c) {
+            let [col,elem] = add_param_color(parent, uint8arr_to_color(start_val), "param_table_input_color", function(c) {
                 changed_func(color_to_uint8arr(c))
             })
+            return elem
         }})
     }
     def_value() { return [0xcc, 0xcc, 0xcc, 0xff] }
@@ -104,7 +105,7 @@ class NodeManualPoints extends NodeCls
         this.table = new TableParam(node, "Point List")
         this.points = new CoordListParam(node, "Coord", this.table)
         this.dummy = new FloatListParam(node, "Dummy", this.table)
-        this.color = new ColorListParam(node, "Color", this.table)
+        this.color = new ColorListParam(node, "Point Color", this.table)
 
         this.selected_indices = [] // point indices
         this.pnt_attrs = [this.dummy, this.color]  // Param objets of additional attributes of each point other than it's coordinate
@@ -150,6 +151,9 @@ class NodeManualPoints extends NodeCls
     run() {
         let mesh = new Mesh()
         mesh.set_vtx(new TVtxArr(this.points.lst))
+        for (let attr of this.pnt_attrs) {
+            mesh.set(attr.label, attr.lst)
+        }
         this.out.set(mesh)
     }
     draw_selection(m) {
@@ -178,11 +182,12 @@ class NodePointColor extends NodeCls
         
         let mesh = this.in_mesh.get_mutable()
         assert(mesh, this, "missing in_mesh")
-        let prop = new Uint8Array(mesh.arrs.vtx.length * 1.5) // / 2 for (x,y) * 3 for (r,g,b)
-        for(let i = 0; i < prop.length; i += 3) {
+        let prop = new Uint8Array(mesh.arrs.vtx.length / 2 * 4) // / 2 for (x,y) * 4 for (r,g,b)
+        for(let i = 0; i < prop.length; i += 4) {
             prop[i] = this.color.v.r
             prop[i+1] = this.color.v.g
             prop[i+2] = this.color.v.b
+            prop[i+3] = this.color.v.alpha
         }
         mesh.set_vtx_color(prop)
         this.out_mesh.set(mesh)

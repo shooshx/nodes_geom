@@ -10,6 +10,15 @@ const MESH_DISP = { vtx_radius: 5, vtx_sel_radius: 7 }
 let TVtxArr = Float32Array
 let TIdxArr = Int16Array
 
+function normalize_attr_name(s) {
+    let r = s.toLowerCase().replace(' ', '_')
+    if (r == "point_color")
+        return "vtx_color"
+    if (r == "coord")
+        return "vtx"
+    return r
+}
+
 class Mesh extends PObject
 {
     static name() { return "Mesh" }
@@ -24,6 +33,7 @@ class Mesh extends PObject
     }
 
     set(name, arr) {
+        name = normalize_attr_name(name)
         this.arrs[name] = arr
         if (name == "vtx" && this.tcache[name] !== undefined)
             this.tcache[name] = null  // invalidate
@@ -74,10 +84,11 @@ class Mesh extends PObject
     draw_vertices() {
         let vtx = this.tcache.vtx
         if (this.arrs.vtx_color !== undefined) {
+            console.assert(this.arrs.vtx_color.length / 4 == this.arrs.vtx.length / 2, "unexpected size of vtx_color")
             for(let i = 0; i < vtx.length; i += 2) {
                 ctx_img.beginPath();
                 ctx_img.arc(vtx[i], vtx[i+1], MESH_DISP.vtx_radius, 0, 2*Math.PI)
-                let vidx = i*3
+                let vidx = i/2*4
                 ctx_img.fillStyle = "rgb(" + this.arrs.vtx_color[vidx] + "," + this.arrs.vtx_color[vidx+1] + "," + this.arrs.vtx_color[vidx+2]+ ")"
                 ctx_img.fill()
             }

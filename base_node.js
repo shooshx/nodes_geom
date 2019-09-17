@@ -202,6 +202,9 @@ class PHandle {
         this.p.refcount -= 1
         this.p = null
     }
+    is_null() {
+        return this.p == null
+    }
 }
 
 function clone(obj) {
@@ -251,6 +254,8 @@ class InTerminal extends Terminal {
         this.h = null
     }
     set(v) {
+        assert(this.h === null || this.h.is_null(), this.owner.cls, "too many lines connected to input " + this.name)
+
         if (v.constructor === PHandle || v.constructor === PWeakHandle)
             this.h = new PHandle(v.p) // copy ctor
         else            
@@ -455,6 +460,7 @@ class Node {
             wrapText(ctx_nodes, this.cls.error.msg, px, py + this.height*0.5, 150, 18)
             ctx_nodes.textAlign = "start"
         }
+        // main rect
         ctx_nodes.beginPath();
         ctx_nodes.strokeStyle = "#000"
         rounded_rect(ctx_nodes, px, py, this.width, this.height, 5)
@@ -462,6 +468,7 @@ class Node {
         ctx_nodes.fill()
         ctx_nodes.stroke() 
 
+        // debug rect
         //ctx_nodes.strokeStyle = "#f00"
         //ctx_nodes.strokeRect(this.tx + nodes_view.pan_x, this.ty + nodes_view.pan_y, this.twidth, this.theight)
         //ctx_nodes.strokeStyle = "#000"
@@ -621,8 +628,6 @@ function delete_node(node, redraw)
         trigger_frame_draw(true)
     }
 }
-
-
 
 
 function add_node(x, y, name, cls, id) 

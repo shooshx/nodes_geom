@@ -90,7 +90,7 @@ function add_param_color(line, value, cls, set_func) {
     // TBD move setting the func to be the last thing to avoid spurious triggers
     let ce = ColorEditBox.create_at(e, 200, function(c) { if (set_func(c)) trigger_frame_draw(true) }, {with_alpha:true})
     ce.set_color(value, true)
-    return ce.get_color().copy()
+    return [ce.get_color().copy(), e]
 }
 let checkbox_ids = 1
 function add_param_checkbox(line, label, value, set_func) {
@@ -192,7 +192,7 @@ class ParamColor extends Parameter {
         this.line_elem = add_param_line(parent)
         this.label_elem = add_param_label(this.line_elem, this.label)
         let that = this
-        this.v = add_param_color(this.line_elem, this.v, 'param_input', function(v) { 
+        [this.v, elem] = add_param_color(this.line_elem, this.v, 'param_input', function(v) { 
             if (that.v !== null && that.v.hex == v.hex) 
                 return false;
             if (v === null)
@@ -291,6 +291,7 @@ class ListParam extends Parameter {
                 console.assert(v.length == this.values_per_entry, "unexpected length of value")
                 for(let vi = 0; vi < this.values_per_entry; ++vi)
                     this.lst[vindex + vi] = v[vi]
+                trigger_frame_draw(true)
             })
         }
         else {
