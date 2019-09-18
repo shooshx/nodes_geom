@@ -307,8 +307,8 @@ function create_at(elem, add_func, sz, visible, onchange, options)
     canvas.style.outline = "none"  // but don't put a focus border on it
     var ctx = canvas.getContext("2d")
 
-    if (options.with_alpha && CHECKERS_IMAGE === null) 
-        create_checkers_image(canvas, ctx) // for use in the html input element
+    //if (options.with_alpha && CHECKERS_IMAGE === null) 
+    //    create_checkers_image(canvas, ctx) // for use in the html input element
     
     var cfg = { sz:sz }
     var sel_col = { h:0, s:0, v:0, r:0, g:0, b:0, alpha:1, hex:"", copy: function() {

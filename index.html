@@ -99,21 +99,44 @@ function calc_img_viewport() {
     image_view.t_viewport = t_viewport
 
     if (canvas_image.width > canvas_image.height) {
-        var f = canvas_image.height
-        image_view.margin_x = (canvas_image.width - canvas_image.height) / (canvas_image.height * 2)
+        var f = canvas_image.height*0.5  // half since I want the viewport to be size 2x2
+        image_view.margin_x = (canvas_image.width - canvas_image.height) / (canvas_image.height )
         image_view.margin_y = 0
     }
     else {
-        var f = canvas_image.width
-        image_view.margin_y = (canvas_image.height - canvas_image.width) / (canvas_image.width * 2)
+        var f = canvas_image.width*0.5
+        image_view.margin_y = (canvas_image.height - canvas_image.width) / (canvas_image.width )
         image_view.margin_x = 0
     }
     image_view.viewport_zoom = f*image_view.zoom // used for measuring radius of hit test in pixels
     mat3.scale(t_viewport, t_viewport, vec2.fromValues(image_view.viewport_zoom, image_view.viewport_zoom))
-    mat3.translate(t_viewport, t_viewport, vec2.fromValues(0.5 + image_view.margin_x + image_view.pan_x / f, 0.5 + image_view.margin_y + image_view.pan_y / f))        
+    mat3.translate(t_viewport, t_viewport, vec2.fromValues(1 + image_view.margin_x + image_view.pan_x / f, 1 + image_view.margin_y + image_view.pan_y / f))        
 
     image_view.t_inv_viewport = mat3.create()
     mat3.invert(image_view.t_inv_viewport, t_viewport)
+
+    // webgl space transform (without to pixels scale)
+    let t_viewspace = mat3.create()
+    image_view.t_viewspace = t_viewspace
+
+    let ratio = canvas_image.width / canvas_image.height
+    let zx, zy
+    if (ratio > 1) {
+        zx = image_view.zoom / ratio; zy = image_view.zoom
+    }
+    else {
+        zx = image_view.zoom; zy = image_view.zoom * ratio
+    }
+    mat3.scale(t_viewspace, t_viewspace, vec2.fromValues(zx , zy))
+    // some magic I figured out using https://mycurvefit.com/ fitting with y=a+b/x and checking the offsets as a function of the zoom
+    // don't know why this works.
+    let fix_factor = 1 - (1/image_view.zoom)
+    let margin_x_fix = image_view.margin_x - (image_view.margin_x/image_view.zoom)
+    let margin_y_fix = image_view.margin_y - (image_view.margin_y/image_view.zoom)
+    mat3.translate(t_viewspace, t_viewspace, vec2.fromValues( margin_x_fix + image_view.pan_x / f + fix_factor, 
+                                                              margin_y_fix + image_view.pan_y / f + fix_factor)) 
+    //console.log(image_view.zoom, image_view.pan_x / f + fix_factor)
+    //console.log(image_view.margin_x)
 }
 
 

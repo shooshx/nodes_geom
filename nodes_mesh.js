@@ -158,7 +158,8 @@ class NodeManualPoints extends NodeCls
     }
     draw_selection(m) {
         let mesh = this.out.get_const()
-        console.assert(mesh != null, "draw_selection with out null")
+        if (mesh === null)
+            return // might be it's not connected so it doesn't have output
         mesh.draw_selection(m, this.selected_indices)
     }
 }

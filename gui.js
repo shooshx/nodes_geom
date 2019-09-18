@@ -177,7 +177,7 @@ class ImageView extends ViewBase
         // used for centering the viewport
         this.margin_x = 0
         this.margin_y = 0
-
+        this.t_viewspace = null // like viewport but without scale to pixel space, for webgl
     }
 
     pan_redraw() {
@@ -301,7 +301,7 @@ function panel_mouse_control(view, canvas)
 // https://github.com/jackmoore/wheelzoom/blob/master/wheelzoom.js
 function panel_mouse_wheel(view, canvas)
 {
-    const zoom_factor = 0.10
+    const zoom_factor = 1.10
 
     var mindim = Math.min(canvas.width, canvas.height)
     var bgWidth = mindim;
@@ -312,16 +312,14 @@ function panel_mouse_wheel(view, canvas)
         let bgPosX = view.pan_x * view.zoom
         let bgPosY = view.pan_y * view.zoom
 
-        var deltaY = 0;
         e.preventDefault();
+        var deltaY = 0;
         if (e.deltaY) { // FireFox 17+ (IE9+, Chrome 31+?)
             deltaY = e.deltaY;
         } else if (e.wheelDelta) {
             deltaY = -e.wheelDelta;
         }
-        // As far as I know, there is no good cross-browser way to get the cursor position relative to the event target.
-        // We have to calculate the target element's position relative to the document, and subtrack that from the
-        // cursor's position relative to the document.
+
         var rect = canvas.getBoundingClientRect();
         var offsetX = e.pageX - rect.left - window.pageXOffset;
         var offsetY = e.pageY - rect.top - window.pageYOffset;
@@ -334,11 +332,11 @@ function panel_mouse_wheel(view, canvas)
         var bgRatioY = bgCursorY/bgHeight;
         // Update the bg size:
         if (deltaY < 0) {
-            bgWidth += bgWidth*zoom_factor;
-            bgHeight += bgHeight*zoom_factor;
+            bgWidth *= zoom_factor;
+            bgHeight *= zoom_factor;
         } else {
-            bgWidth -= bgWidth*zoom_factor;
-            bgHeight -= bgHeight*zoom_factor;
+            bgWidth /= zoom_factor;
+            bgHeight /= zoom_factor;
         }
 
         // Take the percent offset and apply it to the new size:
