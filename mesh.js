@@ -9,6 +9,7 @@ const MESH_DISP = { vtx_radius: 5, vtx_sel_radius: 7 }
 
 let TVtxArr = Float32Array
 let TIdxArr = Int16Array
+let TColorArr = Uint8Array
 
 function normalize_attr_name(s) {
     let r = s.toLowerCase().replace(' ', '_')
@@ -29,22 +30,23 @@ class Mesh extends PObject
         this.arrs = { vtx:new TVtxArr(0), idx:new TIdxArr(0) }
         
         this.tcache = { vtx:null, m:null }  // transformed cache
-        this.lines_cache = null  // cache lines for stroke (so that every line be repeated twice
+        //this.lines_cache = null  // cache lines for stroke (so that every line be repeated twice
+        this.glbufs = { vtx:null, idx:null } // TBD - clone?
     }
 
-    set(name, arr) {
+    set(name, arr, num_elems, need_normalize) {
         name = normalize_attr_name(name)
+        arr.made_glbuf = false 
+        arr.num_elems = num_elems || false // will be undefined for indices
+        arr.need_normalize = need_normalize || false // true for color that needs to go from int to float [0,1]
         this.arrs[name] = arr
         if (name == "vtx" && this.tcache[name] !== undefined)
             this.tcache[name] = null  // invalidate
-        if (name == "idx")
-            this.lines_cache = null
+        //if (name == "idx")
+        //    this.lines_cache = null
     }
 
     set_type(v) { this.type = v }
-    set_vtx(arr) { this.set("vtx", arr)  }
-    set_idx(arr) {  this.set("idx", arr) }
-    set_vtx_color(arr) { this.set("vtx_color", arr) }
 
     get_sizes() {
         let r = { type: this.type, arrs:{} }       
@@ -60,6 +62,7 @@ class Mesh extends PObject
             to[i]   = m[0] * x + m[3] * y + m[6];
             to[i+1] = m[1] * x + m[4] * y + m[7];            
         }
+        to.made_glbuf = false
     }
     
     transform(m) {
@@ -108,7 +111,7 @@ class Mesh extends PObject
     }
 
 
-    draw_poly_fill() {            
+    draw_poly_stroke() {            
         let vtx = this.tcache.vtx
         let idxs = this.arrs.idx
         ctx_img.lineWidth = 0.5
@@ -116,28 +119,19 @@ class Mesh extends PObject
         let i = 0
         if (this.type == MESH_QUAD) {
             while(i < idxs.length) {
-                let idx = idxs[i++]<<1
-                ctx_img.moveTo(vtx[idx], vtx[idx+1])
-                idx = idxs[i++]<<1
-                ctx_img.lineTo(vtx[idx], vtx[idx+1])
-                idx = idxs[i++]<<1
-                ctx_img.lineTo(vtx[idx], vtx[idx+1])
-                idx = idxs[i++]<<1
-                ctx_img.lineTo(vtx[idx], vtx[idx+1])
-                idx = idxs[i-4]<<1
-                ctx_img.lineTo(vtx[idx], vtx[idx+1])
+                let idx = idxs[i++]<<1; ctx_img.moveTo(vtx[idx], vtx[idx+1])
+                idx = idxs[i++]<<1; ctx_img.lineTo(vtx[idx], vtx[idx+1])
+                idx = idxs[i++]<<1; ctx_img.lineTo(vtx[idx], vtx[idx+1])
+                idx = idxs[i++]<<1; ctx_img.lineTo(vtx[idx], vtx[idx+1])
+                idx = idxs[i-4]<<1; ctx_img.lineTo(vtx[idx], vtx[idx+1])
             }
         }
         else if (this.type == MESH_TRI) {
             while(i < idxs.length) {
-                let idx = idxs[i++]<<1
-                ctx_img.moveTo(vtx[idx], vtx[idx+1])
-                idx = idxs[i++]<<1
-                ctx_img.lineTo(vtx[idx], vtx[idx+1])
-                idx = idxs[i++]<<1
-                ctx_img.lineTo(vtx[idx], vtx[idx+1])
-                idx = idxs[i-3]<<1
-                ctx_img.lineTo(vtx[idx], vtx[idx+1])                
+                let idx = idxs[i++]<<1; ctx_img.moveTo(vtx[idx], vtx[idx+1])
+                idx = idxs[i++]<<1; ctx_img.lineTo(vtx[idx], vtx[idx+1])
+                idx = idxs[i++]<<1; ctx_img.lineTo(vtx[idx], vtx[idx+1])
+                idx = idxs[i-3]<<1; ctx_img.lineTo(vtx[idx], vtx[idx+1])                
             }
         }
         ctx_img.stroke()        
@@ -156,7 +150,7 @@ class Mesh extends PObject
     draw(m) {
         this.ensure_tcache(m)
         this.draw_vertices()
-        this.draw_poly_fill()
+        this.draw_poly_stroke()
     }
 
     draw_selection(m, select_vindices) {
@@ -174,8 +168,67 @@ class Mesh extends PObject
         ctx_img.strokeStyle = "#FFBB55"
         ctx_img.stroke()             
     }
+
+    make_buffers() {
+        for(let name in this.arrs) {
+            if (!this.glbufs[name]) {
+                this.glbufs[name] = gl.createBuffer()
+                this.arrs[name].made_buf = false
+            }
+            if (!this.arrs[name].made_buf) {
+                let data_from = (name == "vtx") ? this.tcache : this.arrs
+                let bind_point = (name == 'idx') ? gl.ELEMENT_ARRAY_BUFFER : gl.ARRAY_BUFFER
+                    
+                gl.bindBuffer(bind_point, this.glbufs[name]);
+                gl.bufferData(bind_point, data_from[name], gl.STATIC_DRAW);
+                this.arrs[name].made_buf = true
+            }
+        }     
+    }
+
+    // program_attr makes name to index
+    gl_draw(m, program_attr) 
+    { 
+        this.ensure_tcache(m)  // TBD another cache?
+        this.make_buffers()
+
+        for(let attr_name in program_attr) {
+            let attr_buf = this.glbufs[attr_name]
+            if (!attr_buf) {
+                if (attr_name.substr(0,2) == 'a_') {
+                    attr_name = attr_name.substr(2)
+                    attr_buf = this.glbufs[attr_name]
+                }
+            }
+            let attr_idx = program_attr[attr_name]
+            let arr = this.arrs[attr_name]
+            if (!attr_buf) {
+                gl.disableVertexAttribArray(attr_idx)
+            }
+            else {
+                gl.bindBuffer(gl.ARRAY_BUFFER, this.glbufs[attr_name]);
+                gl.enableVertexAttribArray(attr_idx);
+                gl.vertexAttribPointer(attr_idx, arr.num_elems, arr_gl_type(arr), arr.need_normalize, 0, 0); 
+            }
+        }
+
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.glbufs.idx);
+        gl.drawElements(gl.TRIANGLES, this.arrs.idx.length, arr_gl_type(this.arrs.idx), 0);
+    }
 }
 
+function arr_gl_type(arr) {
+    let ctor = arr.constructor
+    if (ctor === Float32Array)
+        return gl.FLOAT
+    if (ctor === Uint8Array || ctor === Uint8ClampedArray)
+        return gl.UNSIGNED_BYTE
+    if (ctor === Uint32Array)
+        return gl.UNSIGNED_INT
+    if (ctor === Uint16Array)
+        return gl.UNSIGNED_SHORT
+    throw "unexpected array type"
+}
 
 /*  make line segments, not really needed
     draw_poly_stroke() {

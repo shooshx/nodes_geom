@@ -1,4 +1,5 @@
 GUI:
+- mesh clone with buffers???
 - color picker with null
 - image-view reset transform with context menu
 - save as

@@ -36,8 +36,8 @@ class NodeGeomPrimitive extends NodeCls
         let m = new Mesh()
         // center at 0,0
         let hx = this.size.x * 0.5, hy = this.size.y * 0.5
-        m.set_vtx(new TVtxArr([-hx, -hy, hx, -hy, hx, hy, -hx, hy]))
-        m.set_idx(new TIdxArr([0, 1, 2, 3]))
+        m.set('vtx', new TVtxArr([-hx, -hy, hx, -hy, hx, hy, -hx, hy]), 2)
+        m.set('idx', new TIdxArr([0, 1, 2, 3]))
         m.set_type(MESH_QUAD)
         this.out.set(m)
     }
@@ -63,17 +63,19 @@ class PointSelectHandle
 
 class CoordListParam extends ListParam {
     constructor(node, label, table) {
-        super(node, label, 2, table,  {cls:"param_monospace", to_string: function(v) { 
+        super(node, label, 2, table, TVtxArr, {cls:"param_monospace", to_string: function(v) { 
             return "(" + v[0].toFixed(3) + "," + v[1].toFixed(3) + ")" 
         }})
+        this.need_normalize = false  // not really needed for coordinates but just for remembering
     }
     def_value() { return [0,0] }
 }
 class FloatListParam extends ListParam {
     constructor(node, label, table) {
-        super(node, label, 1, table,  { cls:"param_monospace", to_string: function(v) { 
+        super(node, label, 1, table, Float32Array, { cls:"param_monospace", to_string: function(v) { 
             return v.toFixed(3)
         }})
+        this.need_normalize = false
     }
     def_value() { return 0; }
 }
@@ -86,12 +88,13 @@ function color_to_uint8arr(c) {
 }
 class ColorListParam extends ListParam {
     constructor(node, label, table) {
-        super(node, label, 4, table, { create_elem: function(parent, start_val, changed_func) { 
+        super(node, label, 4, table, TColorArr, { create_elem: function(parent, start_val, changed_func) { 
             let [col,elem] = add_param_color(parent, uint8arr_to_color(start_val), "param_table_input_color", function(c) {
                 changed_func(color_to_uint8arr(c))
             })
             return elem
         }})
+        this.need_normalize = true
     }
     def_value() { return [0xcc, 0xcc, 0xcc, 0xff] }
 }
@@ -150,9 +153,9 @@ class NodeManualPoints extends NodeCls
     }
     run() {
         let mesh = new Mesh()
-        mesh.set_vtx(new TVtxArr(this.points.lst))
+        mesh.set('vtx', new TVtxArr(this.points.lst), 2)
         for (let attr of this.pnt_attrs) {
-            mesh.set(attr.label, attr.lst)
+            mesh.set(attr.label, attr.lst, attr.values_per_entry, attr.need_normalize)
         }
         this.out.set(mesh)
     }
@@ -190,7 +193,7 @@ class NodePointColor extends NodeCls
             prop[i+2] = this.color.v.b
             prop[i+3] = this.color.v.alpha
         }
-        mesh.set_vtx_color(prop)
+        mesh.set('vtx_color', prop, 4, true)
         this.out_mesh.set(mesh)
     }
 }
@@ -377,7 +380,7 @@ class NodeRandomPoints extends NodeCls
         }
         
         let r = new Mesh()
-        r.set_vtx(vtx)
+        r.set("vtx", vtx, 2)
         this.out_mesh.set(r)
         
     }

@@ -28,7 +28,12 @@ function save_state() {
                   main_view_s: main_view_state.save() }
 
     //console.log("SAVING: + ", JSON.stringify(state))
-    localStorage.setItem("state", JSON.stringify(state))
+    let json = JSON.stringify(state, function(k, v) {
+        if (ArrayBuffer.isView(v)) 
+            return Array.from(v);        
+        return v;
+    })
+    localStorage.setItem("state", json)
 }
 
 // -----------

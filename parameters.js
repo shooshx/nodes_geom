@@ -237,7 +237,7 @@ class ParamTransform extends Parameter {
 }
 
 function cull_list(lst) {
-    let newlst = []
+    let newlst = new lst.constructor()
     for(let v of lst) 
         if (v !== undefined)
             newlst.push(v) // don't want a list with holes    
@@ -245,29 +245,32 @@ function cull_list(lst) {
 }
 
 class ListParam extends Parameter {
-    constructor(node, label, values_per_entry, in_table, elem_prm) {
+    constructor(node, label, values_per_entry, in_table, lst_type, elem_prm) {
         super(node, label)
         this.elem_prm = elem_prm
         this.values_per_entry = values_per_entry
-        this.lst = []  // flat list
+        this.lst_type = lst_type
+        this.lst = new lst_type()  // flat list
         this.elem_lst = []
         this.table = in_table
         this.column = in_table.register(this)  // columns are vertical, rows are horizontal
     }
     add_elems(parent) {}
     save() { return {lst:this.lst} }
-    load(v) { this.lst = v.lst }
+    load(v) { 
+        this.lst = new this.lst_type(v.lst) 
+    }
 
     add(v) { // for multiple lists in a table, needs to be called in the right order of the columns
-        if (v.length === undefined) { // support single value and list of values for vec
-            console.assert(this.values_per_entry == 1, "Unexpected number of values")
-            this.lst.push(v)
-        }
-        else {
-            console.assert(v.length == this.values_per_entry, "Unexpected number of values")
-            for(let vi = 0; vi < v.length; ++vi)
-                this.lst.push(v[vi])
-        }
+        let av = v
+        if (v.length === undefined)  // support single value and list of values for vec
+            av = [v]
+        console.assert(av.length == this.values_per_entry, "Unexpected number of values")
+        let newlst = new this.lst_type(this.lst.length + av.length)
+        newlst.set(this.lst)
+        newlst.set(av, this.lst.length)
+        this.lst = newlst
+
         let vindex = (this.lst.length - this.values_per_entry)
         this.create_entry_elems(v, this.table.get_column_elem(this.column), vindex)
     }

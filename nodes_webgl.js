@@ -17,9 +17,11 @@ class Texture extends PObject
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.tex_obj, 0);
         //console.assert(gl.checkFramebufferStatus(gl.FRAMEBUFFER) == gl.FRAMEBUFFER_COMPLETE)
 
-        let pixels = new Uint8ClampedArray(this.tex_obj.width * this.tex_obj.height * 4)
-        let img_data = new ImageData(pixels, this.tex_obj.width, this.tex_obj.height)
+        //let pixels = new Uint8ClampedArray(this.tex_obj.width * this.tex_obj.height * 4) // problem in firefox
+        let pixels = new Uint8Array(this.tex_obj.width * this.tex_obj.height * 4)
         gl.readPixels(0, 0, this.tex_obj.width, this.tex_obj.height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+        let pixelsc = new Uint8ClampedArray(pixels)
+        let img_data = new ImageData(pixelsc, this.tex_obj.width, this.tex_obj.height)
         ctx_img.putImageData(img_data, 0, 0)
     }
 } 
@@ -36,9 +38,9 @@ class NodeShader extends NodeCls
         this.fragShader = null
         this.program = null
 
-        this.vao = null
         this.vtx_buf = null
         this.idx_buf = null
+        this.color_buf = null
         // it's ok for the texture to belong to this node since texture is const only so it won't be modified
         this.render_to_tex = null 
     }
@@ -46,9 +48,8 @@ class NodeShader extends NodeCls
         // TBD
     }
 
-    make_screen_texture() 
+    make_screen_texture(cw, ch) 
     {
-        const cw = canvas_image.width, ch = canvas_image.height
         if (this.render_to_tex !== null && this.render_to_tex.width == cw && this.render_to_tex.height == ch)
             return  // no need to regenerate it
         if (this.render_to_tex === null)
@@ -68,43 +69,30 @@ class NodeShader extends NodeCls
         if (gl === null)
             init_webgl()
         let mesh = this.in_mesh.get_const()
-        mesh.ensure_tcache(image_view.t_viewspace)  // TBD another cache?
         
         if (this.vtxShader === null)
             this.vtxShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
         var fragShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
         this.program = createProgram(gl, this.vtxShader, fragShader);
 
-        let a_position = gl.getAttribLocation(this.program, "a_position");
-        
-        if (this.vao === null)
-            this.vao = gl.createVertexArray();
-        gl.bindVertexArray(this.vao);
-
-        if (!this.vtx_buf )
-            this.vtx_buf  = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.vtx_buf );
-        gl.bufferData(gl.ARRAY_BUFFER, mesh.tcache.vtx, gl.STATIC_DRAW);
-
-        if (!mesh.arrs.idx.glbuf)
-            this.idx_buf = gl.createBuffer();
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.idx_buf);
-        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, mesh.arrs.idx, gl.STATIC_DRAW);
-
-        gl.enableVertexAttribArray(a_position);
-        gl.vertexAttribPointer(a_position, 2, gl.FLOAT, false, 0, 0); 
-
+        this.program.attrs = {}
+        for(let attr_name of ["vtx", "vtx_color"])
+            this.program.attrs[attr_name] = gl.getAttribLocation(this.program, attr_name);
+    
         // draw
         gl.viewport(0, 0, canvas_image.width, canvas_image.height);
-        gl.clearColor(0, 0, 0, 0);
-        gl.clear(gl.COLOR_BUFFER_BIT);
 
         gl.useProgram(this.program);
 
-        this.make_screen_texture()
+        this.make_screen_texture(canvas_image.width, canvas_image.height)
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.render_to_tex, 0);
 
-        gl.drawElements(gl.TRIANGLES, mesh.arrs.idx.length, gl.UNSIGNED_INT, 0);
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+
+        mesh.gl_draw(image_view.t_viewspace, this.program.attrs)
+
+
         this.out_tex.set(new Texture(this.render_to_tex))
     }
 }
@@ -114,23 +102,29 @@ class NodeShader extends NodeCls
 
 var vertexShaderSource = `#version 300 es
 
-in vec4 a_position;
-out vec2 coord;
+in vec4 vtx;
+in vec4 vtx_color;
+
+out vec2 v_coord;
+out vec4 v_color;
 
 void main() {
-    coord = a_position.xy;
-    gl_Position = a_position;
+    v_coord = vtx.xy;
+    v_color = vtx_color;
+    gl_Position = vtx;
 }
 `;
 
 var fragmentShaderSource = `#version 300 es
 precision mediump float;
 
-in vec2 coord;
+in vec2 v_coord;
+in vec4 v_color;
 out vec4 outColor;
 
 void main() {
-    outColor = vec4(abs(coord.x), abs(coord.y), 1, 1);
+    outColor = v_color;
+    //outColor = vec4(abs(v_coord.x), abs(v_coord.y), 1, 1);
     //outColor = vec4(1, 0, 0.5, 1);
 }
 `;
@@ -171,4 +165,14 @@ function init_webgl() {
 
     gl.my_fb = gl.createFramebuffer();
     gl.bindFramebuffer(gl.FRAMEBUFFER, gl.my_fb);
+
+    // create a depth renderbuffer
+   // gl.my_depthBuffer = gl.createRenderbuffer();
+   // gl.bindRenderbuffer(gl.RENDERBUFFER, gl.my_depthBuffer);
+    
+        // make a depth buffer and the same size as the targetTexture
+       // gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, canvas_image.width, canvas_image.height);
+       // gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, gl.my_depthBuffer);
+
+
 }
