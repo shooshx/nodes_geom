@@ -200,6 +200,8 @@ class PHandle {
         if (this.p === null)
             return
         this.p.refcount -= 1
+        if (this.p.refcount == 0 && this.p.destructor)
+            this.p.destructor()
         this.p = null
     }
     is_null() {
@@ -212,7 +214,10 @@ function clone(obj) {
         return obj;    
     if (obj.BYTES_PER_ELEMENT !== undefined) { // it's a typed array 
         return new obj.constructor(obj)
-    }    
+    }
+    if (obj.constructor === WebGLBuffer) {
+        return null // gl buffers can't be cloned
+    }
     let n = new obj.constructor()
     for(let k in obj) {
         n[k] = clone(obj[k])
@@ -615,6 +620,8 @@ function delete_node(node, redraw)
         nodes_unselect_all(false)
     if (program.display_node == node) 
         set_display_node(null)
+    if (node.destructor)
+        node.destructor()
     var index = program.nodes.indexOf(node);
     program.nodes.splice(index, 1);        
     delete program.nodes_map[node.id];

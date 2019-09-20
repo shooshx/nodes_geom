@@ -266,6 +266,7 @@ class NodeGroupObjects extends NodeCls {
         super()
         this.in_m = new InTerminalMulti(node, "in_multi_mesh")
         this.out = new OutTerminal(node, "out_mesh")
+        //this.order = new InputOrderParam(node, "Order", this.in_m)
     }
     run() {
         let r = new PObjGroup()
@@ -400,8 +401,8 @@ class NodeTriangulate extends NodeCls
         assert(mesh !== null, this, "Missing input mesh")
         assert(mesh.arrs !== undefined && mesh.arrs.vtx !== undefined, this, "Input doesn't have vertices. type: " + mesh.constructor.name())
         let d = new Delaunator(mesh.arrs.vtx)
-        mesh.arrs.idx = d.triangles
-        mesh.type = MESH_TRI
+        mesh.set('idx', d.triangles)
+        mesh.set_type(MESH_TRI)
         this.out_mesh.set(mesh)
     }
 }

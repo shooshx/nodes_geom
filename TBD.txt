@@ -1,5 +1,5 @@
 GUI:
-- mesh clone with buffers???
+
 - color picker with null
 - image-view reset transform with context menu
 - save as
@@ -15,6 +15,7 @@ GUI:
 
 
 ENGINE:
+- distribute output only to active lines!!
 - too many triggers when clicking on display of points color
 - display options show only vtx,stroke or fill, per node, visible only when on display
 

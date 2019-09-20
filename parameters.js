@@ -7,7 +7,7 @@ class Parameter
         this.line_elem = null  // used for enable
         this.enable = true
         node.parameters.push(this)
-        // don't save node, this param may go other places
+        this.owner = node
     }
     set_label(text) {
         this.label = text
@@ -25,6 +25,21 @@ class Parameter
     }
 }
 
+// if the text of one of the labels is too long, fix the length of all of them
+function fix_label_lengths(parameters) {
+    let max_width = 0
+    for(let p of parameters) {
+        if (p.label_elem && p.label_elem.scrollWidth > p.label_elem.offsetWidth) {
+            max_width = Math.max(max_width, p.label_elem.scrollWidth + 5)
+        }
+    }
+    if (max_width != 0) {
+        for(let p of parameters) {
+            p.label_elem.style.width = max_width + "px"
+        }
+    }
+}
+
 function show_params_of(node) {
     // clear children
     let div_params_list = document.getElementById('div_params_list')
@@ -38,8 +53,20 @@ function show_params_of(node) {
         p.add_elems(div_params_list)
         p.init_enable()
     }
+    fix_label_lengths(node.parameters)
 }
 
+function create_elem(elem_type, clss) {
+    let e = document.createElement(elem_type);
+    if (clss !== undefined)
+        e.classList = clss.join(" ")
+    return e
+}
+function add_elem(parent, elem_type, cls) {
+    let e = create_elem(elem_type, [cls])
+    parent.appendChild(e)
+    return e
+}
 function create_div(clss) {
     let e = document.createElement("div");
     if (clss !== undefined)
@@ -63,6 +90,7 @@ function add_param_label(line, text) {
     }
     else
         e.className = 'param_label_pre_empty'
+
     line.appendChild(e)
     if (text != null) {
         let colon = document.createElement('span')
@@ -111,6 +139,12 @@ function add_param_checkbox(line, label, value, set_func) {
     line.append(edisp)
     line.append(etext)
     return etext
+}
+function add_push_btn(parent, label, onclick) {
+    let btn = add_div(parent, "param_btn")
+    btn.innerText = label
+    btn.addEventListener("click", onclick)
+    return btn
 }
 
 
@@ -377,9 +411,7 @@ class TableParam extends Parameter {
             let grip = add_div(column, "param_table_grip")
             add_grip_handlers(grip, column)
         }
-
     }
-
 }
 
 
@@ -392,19 +424,81 @@ function add_grip_handlers(grip, cell) {
         moving = true;
         startOffset = parseFloat(window.getComputedStyle(cell)["width"]) - e.pageX;
     });
-
     document.addEventListener('mousemove', function(e) {
       if (moving) {
             column_width = startOffset + e.pageX
             cell.style.width = column_width + "px"
-            //for(var elemi in watch_expr_list)
-            //    watch_expr_list[elemi].style.width = watch_expr_size + 'px';
-
             e.preventDefault(); // prevent selection action from messing it up
-
       }
     });
+    document.addEventListener('mouseup', function() {
+        moving = false;
+    });
+}
 
+
+class TextBlockParam extends Parameter 
+{
+    constructor(node, label) {
+        super(node, label)
+        this.text_dialog = null
+        this.text_input = null
+    }
+    save() { return null }
+    load(v) { }
+
+    add_elems(parent) {
+        this.line_elem = add_param_line(parent)
+        this.label_elem = add_param_label(this.line_elem, this.label) // TBD hack need more space to spell "Fragment Shader" this should be automatic
+        add_push_btn(this.line_elem, "Edit...", () => {
+            if (this.text_dialog.style.display == '') // toggle
+                this.text_dialog.style.display = 'none'
+            else
+                this.text_dialog.style.display = ''
+        })
+        this.text_dialog = add_div(parent, "param_text_dlg")
+        this.text_dialog.style.display = 'none'
+        let title_line = add_div(this.text_dialog, "param_text_title")
+        title_line.innerText = this.owner.name + " - " + this.label
+        let close_btn = add_div(title_line, "param_text_close_btn")
+        this.text_input = add_elem(this.text_dialog, "textarea", "param_text_area")
+
+        let left_bottom_resize = add_div(this.text_dialog, "param_text_resize_lb")
+
+        add_move_handlers(title_line, (dx, dy) => {
+            let curstyle = window.getComputedStyle(this.text_dialog)
+            this.text_dialog.style.left = parseInt(curstyle.left) + dx + "px"
+            this.text_dialog.style.top = parseInt(curstyle.top) + dy + "px"
+        })
+        add_move_handlers(left_bottom_resize, (dx,dy) => {
+            let curstyle = window.getComputedStyle(this.text_dialog)
+            this.text_dialog.style.width = parseInt(curstyle.width) + dx + "px"
+            this.text_dialog.style.height = parseInt(curstyle.height) + dy + "px"
+        })
+        close_btn.addEventListener('click', () => {
+            this.text_dialog.style.display = 'none'
+        })
+    }
+}
+
+function add_move_handlers(grip, func) {
+    var moving = false;
+    var prevx, prevy;
+
+    grip.addEventListener('mousedown', function(e) {
+        moving = true;
+        prevx = e.pageX; prevy = e.pageY
+    });
+    document.addEventListener('mousemove', function(e) {
+        if (!moving) 
+            return
+        e.preventDefault(); // prevent selection action from messing it up
+        let dx = e.pageX - prevx, dy = e.pageY - prevy
+        if (dx == 0 && dy == 0)
+            return
+        func(dx, dy)
+        prevx = e.pageX; prevy = e.pageY
+    });
     document.addEventListener('mouseup', function() {
         moving = false;
     });

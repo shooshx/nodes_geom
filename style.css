@@ -104,6 +104,7 @@ input {
     width: 120px;
     display: inline-block;
     text-align: right;
+    white-space: nowrap;
 }
 .param_label_colon {
     padding-right: 2px;    
@@ -139,15 +140,15 @@ input {
     vertical-align: middle;
 }
 .param_checkbox_input + .param_checkbox_disp {
-    background-image: url(check_none.png);
+    background-image: url(img/check_none.png);
     background-repeat: no-repeat;
     display: inline-block;
 }
 .param_checkbox_input:checked + .param_checkbox_disp {
-    background-image: url(check_checked.png);
+    background-image: url(img/check_checked.png);
 }
 .param_checkbox_input:indeterminate + .param_checkbox_disp {
-    background-image: url(check_int.png);
+    background-image: url(img/check_int.png);
 }
 .param_checkbox_input[disabled="true"] + .param_checkbox_disp {
     filter: brightness(90%);
@@ -220,4 +221,73 @@ input {
 #canvas_webgl{ 
     border: solid 1px;
     display: none;
+}
+
+.param_btn {
+    display: inline-block;
+    cursor: pointer;
+    border-radius: 3px;
+    background-image: linear-gradient(to bottom, #808080, #707070);
+    width: 100px;
+    text-align: center;
+    height: 25px;
+    line-height: 25px;
+}
+.param_btn:hover {
+    background-image: linear-gradient(to bottom, #909090, #808080);  
+}
+.param_btn:active {
+    background-image: linear-gradient(to bottom, #9090d0, #8080d0); 
+}
+
+.param_text_dlg {
+    position: fixed;
+    width: 600px;
+    left: calc( 50% - 300px );
+    height: 600px;
+    border-radius: 10px;
+    background-color: #5a5a5a;
+    border: solid #333 2px;
+    box-sizing: border-box;
+    top: 70px;
+}
+.param_text_resize_lb {
+    position: absolute;
+    width:35px;
+    height:35px;
+    right:-2px;
+    bottom:-2px;
+    /*background-color:#ff0;*/
+    cursor: nw-resize;
+}
+.param_text_area {
+    margin: 5px;
+    height: calc( 100% - 10px - 21px);
+    width: calc( 100% - 10px );
+    box-sizing: border-box;
+    background-color: #888;
+    color: #fff;
+    font-family: monospace;
+    font-size: 15px;  
+    resize: none;
+    outline: none; /* don't show focus border */
+}
+.param_text_title {
+    margin: 0 0 0 7px;
+    height: 21px;
+    line-height: 21px; 
+    cursor: move;   
+}
+.param_text_close_btn {
+    position: absolute;
+    right: 0;
+    top: 0;    
+    width: 24px;
+    height: 21px;
+    margin: 2px 3px 0 0;
+    background-image: url(img/gray_ex.png);
+    cursor: auto;
+}
+.param_text_close_btn:hover {
+    background-image: url(img/red_ex.png)
 }

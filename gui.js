@@ -182,7 +182,7 @@ class ImageView extends ViewBase
 
     pan_redraw() {
         calc_img_viewport()
-        trigger_frame_draw(false)        
+        trigger_frame_draw(true) // false)  needs to be true for texturs to redraw
     }
     resize_redraw() {
         this.pan_redraw()
@@ -236,7 +236,7 @@ function panel_mouse_control(view, canvas)
             down_x = e.pageX; down_y = e.pageY
             hit = view.find_obj(view.view_x(e.pageX), view.view_y(e.pageY), e.pageX, e.pageY);
             if (hit != null) {
-                console.log("hit ", hit)
+                //console.log("hit ", hit)
                 hit.mousedown(e)
                 return
             }

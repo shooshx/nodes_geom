@@ -19,7 +19,9 @@ glm.setMatrixArrayType(Float64Array)
 
 var ctx_nodes, ctx_img
 
-const PRELOAD_IMAGES = [ "check_checked.png", "check_int.png", "check_none.png" ]
+const PRELOAD_IMAGES = [ "img/check_checked.png", "img/check_int.png", "img/check_none.png",
+                         "img/red_ex.png", "img/gray_ex.png",   
+                        ]
 var preloaded = []
 
 function preload_images() {
@@ -156,7 +158,7 @@ function run_nodes_tree(n) {
     n.cls.run()
     // distribute outputs to all connected inputs so that all references of an object will be known
     for(let out_t of n.outputs) {  
-        for(let line of out_t.lines) {
+        for(let line of out_t.lines) { // TBD - only active lines!
             line.to_term.set(line.from_term.get_const())
         }
     }

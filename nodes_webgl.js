@@ -9,9 +9,7 @@ class Texture extends PObject
         super()
         this.tex_obj = tex_obj
     }
-    destructor() {
-        // TBD
-    }
+    // no need for destructor, the texture is owned by the NodeShader that created it
 
     draw(m) {
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.tex_obj, 0);
@@ -33,19 +31,18 @@ class NodeShader extends NodeCls
         super()
         this.in_mesh = new InTerminal(node, "in_mesh")
         this.out_tex = new OutTerminal(node, "out_texture")
+        this.vtx_text = new TextBlockParam(node, "Vertex Shader")
+        this.frag_text = new TextBlockParam(node, "Fragment Shader")
 
-        this.vtxShader = null
-        this.fragShader = null
         this.program = null
-
-        this.vtx_buf = null
-        this.idx_buf = null
-        this.color_buf = null
         // it's ok for the texture to belong to this node since texture is const only so it won't be modified
         this.render_to_tex = null 
     }
     destructtor() {
-        // TBD
+        if (this.program)
+            gl.deleteProgram(this.program)
+        if (this.render_to_tex)
+            gl.deleteTexture(this.render_to_tex)
     }
 
     make_screen_texture(cw, ch) 
@@ -70,10 +67,7 @@ class NodeShader extends NodeCls
             init_webgl()
         let mesh = this.in_mesh.get_const()
         
-        if (this.vtxShader === null)
-            this.vtxShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
-        var fragShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
-        this.program = createProgram(gl, this.vtxShader, fragShader);
+        this.program = createProgram(gl, vertexShaderSource, fragmentShaderSource);
 
         this.program.attrs = {}
         for(let attr_name of ["vtx", "vtx_color"])
@@ -143,18 +137,22 @@ function createShader(gl, type, source) {
     return undefined;
 }
 
-function createProgram(gl, vertexShader, fragmentShader) {
-    var program = gl.createProgram();
-    gl.attachShader(program, vertexShader);
-    gl.attachShader(program, fragmentShader);
-    gl.linkProgram(program);
-    var success = gl.getProgramParameter(program, gl.LINK_STATUS);
-    if (success) {
-        return program;
-    }
+function createProgram(gl, vtxSource, fragSource) {
+    let vtxShader = createShader(gl, gl.VERTEX_SHADER, vtxSource);
+    let fragShader = createShader(gl, gl.FRAGMENT_SHADER, fragSource);
 
-    console.log(gl.getProgramInfoLog(program));  // eslint-disable-line
-    gl.deleteProgram(program);
+    var program = gl.createProgram();
+    gl.attachShader(program, vtxShader);
+    gl.attachShader(program, fragShader);
+    gl.linkProgram(program);
+    gl.deleteShader(vtxShader)  // mark for deletion once the program is deleted
+    gl.deleteShader(fragShader) 
+    var success = gl.getProgramParameter(program, gl.LINK_STATUS);
+    if (!success) {
+        console.log(gl.getProgramInfoLog(program));  // eslint-disable-line
+        gl.deleteProgram(program);
+    }
+    return program;
 }
 
 function init_webgl() {
