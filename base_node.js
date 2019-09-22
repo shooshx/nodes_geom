@@ -94,6 +94,7 @@ class Line {
     }
 }
 
+// does just the graphics
 class TerminalBase {
     constructor(name, in_node, is_input) {
         this.name = name
@@ -102,6 +103,7 @@ class TerminalBase {
         this.line_pending = null
         this.lines = []
         this.node = in_node
+        this.is_input = is_input
         if (is_input)
             in_node.inputs.push(this)
         else
@@ -109,8 +111,6 @@ class TerminalBase {
     }
     
     move_with_owner(is_input) {
-        if (is_input !== undefined)
-            this.is_input = is_input
         this.cx = this.owner.x + this.offset  // center
         if (this.is_input)
             this.cy = this.owner.y - TERM_RADIUS - TERM_MARGIN_Y
@@ -399,25 +399,27 @@ function wrapText(context, text, x, center_y, maxWidth, lineHeight) {
 
 class Node {    
     constructor(x, y, name, cls, id) {
+        this.rename_observers = []
+
         this.x = x
         this.y = y
         this.width = NODE_WIDTH
         this.height = 30
         this.set_name(name)
         this.color = "#ccc"
-        this.id = id
+        this.id = id  // used for identification in the program and serialization
 
         // calculated data members
         this.parameters = []
         this.inputs = []
         this.outputs = [] 
         this.cls = new cls(this)
-        this.make_term_offset(this.inputs, true)
-        this.make_term_offset(this.outputs, false)
+        this.make_term_offset(this.inputs)
+        this.make_term_offset(this.outputs)
         this.terminals = this.inputs.concat(this.outputs)
     }
    
-    make_term_offset(lst, is_input) {
+    make_term_offset(lst) {
         if (lst.length == 1) {
             lst[0].offset = this.width / 2
         }
@@ -431,7 +433,7 @@ class Node {
         }
         for(let t of lst) {
             t.owner = this
-            t.move_with_owner(is_input)
+            t.move_with_owner()
         }        
     }
     
@@ -524,6 +526,8 @@ class Node {
         this.name = name
         ctx_nodes.font = NODE_NAME_PROPS.font
         this.name_measure = ctx_nodes.measureText(this.name)
+        for(let ob of this.rename_observers)
+            ob(this.name)
         
         this.recalc_bounding_box() 
     }
@@ -606,7 +610,7 @@ function nodes_context_menu(px, py, wx, wy) {
     else {
         let clss = []
         for(let c of nodes_classes)
-            clss.push( {text: c.name(), func:function() { add_node(px, py, null, c); draw_nodes() } } )
+            clss.push( {text: c.name(), func:function() { program.add_node(px, py, null, c); draw_nodes() } } )
         var opt = clss
     }
     
@@ -637,23 +641,7 @@ function delete_node(node, redraw)
 }
 
 
-function add_node(x, y, name, cls, id) 
-{
-    if (name === null) {
-        if (program.names_indices[cls.name()] === undefined)
-            program.names_indices[cls.name()] = 1
-        else
-            program.names_indices[cls.name()]++
-        name = cls.name().toLowerCase() + "_" + program.names_indices[cls.name()]
-    }
-    if (id === null || id === undefined) {
-        id = program.next_node_id++ 
-    }
-    var node = new Node(x, y, name, cls, id)
-    program.nodes_map[node.id] = node
-    program.nodes.push(node)
-    return node
-}
+
 
 function add_line(line) {
     program.lines.push(line)

@@ -17,8 +17,8 @@
    inkscape:version="0.92.3 (2405546, 2018-03-11)"
    sodipodi:docname="red_ex.svg"
    inkscape:export-filename="C:\Projects\nodes_geom\img\red_ex.png"
-   inkscape:export-xdpi="121.5996"
-   inkscape:export-ydpi="121.5996">
+   inkscape:export-xdpi="121.26316"
+   inkscape:export-ydpi="121.26316">
   <defs
      id="defs4" />
   <sodipodi:namedview
@@ -29,7 +29,7 @@
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
      inkscape:zoom="31.582846"
-     inkscape:cx="11.342384"
+     inkscape:cx="5.78557"
      inkscape:cy="12.185501"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
@@ -52,7 +52,7 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title></dc:title>
+        <dc:title />
       </cc:Work>
     </rdf:RDF>
   </metadata>

@@ -73,20 +73,44 @@ function page_onload()
     calc_img_viewport()
 }
 
+class Program {
+    constructor() {
+        this.nodes = [] // nodes in an array for iteration
+        this.nodes_map = {}  // node-id to node 
+        this.lines = []
+        this.display_node = null
+        // map node cls name to the next index a node of this class is going to get
+        this.names_indices = {}
+        this.next_node_id = 1
+    }
+
+    add_node(x, y, name, cls, id) 
+    {
+        if (name === null) {
+            if (this.names_indices[cls.name()] === undefined)
+                this.names_indices[cls.name()] = 1
+            else
+                this.names_indices[cls.name()]++
+            name = cls.name().toLowerCase().replace(' ','_') + "_" + this.names_indices[cls.name()]
+        }
+        if (id === null || id === undefined) {
+            id = this.next_node_id++ 
+        }
+        else {
+            console.assert(this.nodes_map[id] === undefined, "node-id already exists")
+        }
+        var node = new Node(x, y, name, cls, id)
+        this.nodes_map[node.id] = node
+        this.nodes.push(node)
+        return node
+    }    
+}
 
 var program = null
 
 
 function clear_program() {
-    program = {
-        nodes: [], // nodes in an array for iteration
-        nodes_map: {},  // node-id to node 
-        lines: [],
-        display_node: null,
-        // map node cls name to the next index a node of this class is going to get
-        names_indices: {},
-        next_node_id: 1
-    }
+    program = new Program()
 }
 
 
@@ -247,6 +271,7 @@ var nodes_classes = [
     NodeRandomPoints,
     NodeTriangulate,
     NodeShader,
+    PointGradFill,
 ]
 var nodes_classes_by_name = {}
 for(let c of nodes_classes)

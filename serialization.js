@@ -48,11 +48,17 @@ function load_program(sprog) {
     for(let nid_s in sprog.nodes) {
         let nid = parseInt(nid_s)
         let sn = sprog.nodes[nid]
-        let n = add_node(sn.x, sn.y, sn.name, nodes_classes_by_name[sn.cls_name], nid)
+        let n = program.add_node(sn.x, sn.y, sn.name, nodes_classes_by_name[sn.cls_name], nid)
         for(let p of n.parameters) {
             let sp = sn.params[p.label]
-            if (sp !== undefined)  // might be a new parameter that's not there
-                p.load(sp)
+            if (sp !== undefined) { // might be a new parameter that's not there
+                try {
+                    p.load(sp)
+                }
+                catch (e) {
+                    console.error("Failed load of parameter", p.label, "in node", sn.name)
+                }
+            }
         }
     }
     let find_by_name = function (cont, name) {

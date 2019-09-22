@@ -62,6 +62,7 @@ demo idea
 - stuff for AxiDraw
 - function map with color gradient
 - function contours like in d3 example
+- star field screen saver
 
 nice visualizations: https://bost.ocks.org/mike/algorithms/
 d3: https://github.com/d3/d3/wiki/Gallery

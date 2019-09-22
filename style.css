@@ -236,11 +236,12 @@ input {
 .param_btn:hover {
     background-image: linear-gradient(to bottom, #909090, #808080);  
 }
-.param_btn:active {
+.param_btn:active , .param_checkbox_input:checked+.param_btn {
     background-image: linear-gradient(to bottom, #9090d0, #8080d0); 
 }
 
-.param_text_dlg {
+
+.dlg {
     position: fixed;
     width: 600px;
     left: calc( 50% - 300px );
@@ -251,7 +252,7 @@ input {
     box-sizing: border-box;
     top: 70px;
 }
-.param_text_resize_lb {
+.dlg_resize_rb {
     position: absolute;
     width:35px;
     height:35px;
@@ -260,25 +261,59 @@ input {
     /*background-color:#ff0;*/
     cursor: nw-resize;
 }
+.dlg_resize_lb {
+    position: absolute;
+    width:35px;
+    height:35px;
+    left:-2px;
+    bottom:-2px;
+    /*background-color:#ff0;*/
+    cursor: ne-resize;
+}
+.dlg_resize_r {
+    position: absolute;
+    width: 7px;
+    height: 100%;
+    right: -2px;
+    top: 0;
+    cursor: w-resize;
+}
+.dlg_resize_l {
+    position: absolute;
+    width: 7px;
+    height: 100%;
+    left: -2px;
+    top: 0;
+    cursor: w-resize;
+}
+.dlg_resize_b {
+    position: absolute;
+    width: 100%;
+    height: 7px;
+    bottom: -2px;
+    cursor: s-resize;
+}
 .param_text_area {
     margin: 5px;
     height: calc( 100% - 10px - 21px);
     width: calc( 100% - 10px );
     box-sizing: border-box;
-    background-color: #888;
+    background-color: #686868;
     color: #fff;
     font-family: monospace;
     font-size: 15px;  
     resize: none;
     outline: none; /* don't show focus border */
 }
-.param_text_title {
+.dlg_title {
     margin: 0 0 0 7px;
     height: 21px;
     line-height: 21px; 
-    cursor: move;   
+    cursor: move;
+    overflow: hidden;
+    white-space: nowrap;
 }
-.param_text_close_btn {
+.dlg_close_btn {
     position: absolute;
     right: 0;
     top: 0;    
@@ -288,6 +323,6 @@ input {
     background-image: url(img/gray_ex.png);
     cursor: auto;
 }
-.param_text_close_btn:hover {
+.dlg_close_btn:hover {
     background-image: url(img/red_ex.png)
 }

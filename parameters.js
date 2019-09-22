@@ -122,22 +122,16 @@ function add_param_color(line, value, cls, set_func) {
 }
 let checkbox_ids = 1
 function add_param_checkbox(line, label, value, set_func) {
-    let ein = document.createElement('input')
+    let ein = add_elem(line, 'input', 'param_checkbox_input')
     ein.type = 'checkbox'
-    ein.className = 'param_checkbox_input'
-    ein.id = 'p_chb_' + checkbox_ids
+    ein.id = 'p_chb_' + checkbox_ids++
     ein.checked = value
     ein.addEventListener('change', function() { set_func(ein.checked); trigger_frame_draw(true)})
-    let edisp = document.createElement('label')
-    edisp.className = 'param_checkbox_disp'
+    let edisp = add_elem(line, 'label', 'param_checkbox_disp')
     edisp.setAttribute("for", ein.id)
-    let etext = document.createElement('label')
-    etext.className = 'param_checkbox_text'
+    let etext = add_elem(line, 'label', 'param_checkbox_text')
     etext.setAttribute("for", ein.id)
     etext.innerText = label
-    line.append(ein)
-    line.append(edisp)
-    line.append(etext)
     return etext
 }
 function add_push_btn(parent, label, onclick) {
@@ -145,6 +139,17 @@ function add_push_btn(parent, label, onclick) {
     btn.innerText = label
     btn.addEventListener("click", onclick)
     return btn
+}
+function add_checkbox_btn(parent, label, value, onchange) {
+    let ein = add_elem(parent, 'input', 'param_checkbox_input')
+    ein.type = 'checkbox'
+    ein.id = 'p_chb_' + checkbox_ids++
+    ein.checked = value
+    ein.addEventListener('change', function() { onchange(ein.checked); })
+    let btn = add_elem(parent, 'label', 'param_btn')
+    btn.setAttribute("for", ein.id)
+    btn.innerText = label
+    return [ein, btn]
 }
 
 
@@ -441,44 +446,105 @@ class TextBlockParam extends Parameter
 {
     constructor(node, label) {
         super(node, label)
-        this.text_dialog = null
+        this.dlg = null
+        this.dlg_elem = null
         this.text_input = null
+        this.dlg_rect = null
+        this.text = ""
+        node.rename_observers.push((name)=>{
+            this.dlg.set_title(this.title())
+        })
     }
-    save() { return null }
-    load(v) { }
+    save() { return { dlg_rect: this.dlg_rect, text:this.text } }
+    load(v) { this.text = v.text; this.dlg_rect = v.dlg_rect; }
+    
+    title() { return this.owner.name + " - " + this.label }
+    set_text(v) { this.text = v }
 
     add_elems(parent) {
         this.line_elem = add_param_line(parent)
         this.label_elem = add_param_label(this.line_elem, this.label) // TBD hack need more space to spell "Fragment Shader" this should be automatic
-        add_push_btn(this.line_elem, "Edit...", () => {
-            if (this.text_dialog.style.display == '') // toggle
-                this.text_dialog.style.display = 'none'
-            else
-                this.text_dialog.style.display = ''
-        })
-        this.text_dialog = add_div(parent, "param_text_dlg")
-        this.text_dialog.style.display = 'none'
-        let title_line = add_div(this.text_dialog, "param_text_title")
-        title_line.innerText = this.owner.name + " - " + this.label
-        let close_btn = add_div(title_line, "param_text_close_btn")
-        this.text_input = add_elem(this.text_dialog, "textarea", "param_text_area")
+        this.dlg = create_dialog(parent, this.title(), true, this.dlg_rect, (visible)=>{ edit_btn.checked = visible })
+        this.dlg_elem = this.dlg.elem, this.dlg_rect = this.dlg.rect
+        let [edit_btn, edit_disp] = add_checkbox_btn(this.line_elem, "Edit...", this.dlg.rect.visible, this.dlg.set_visible)
 
-        let left_bottom_resize = add_div(this.text_dialog, "param_text_resize_lb")
-
-        add_move_handlers(title_line, (dx, dy) => {
-            let curstyle = window.getComputedStyle(this.text_dialog)
-            this.text_dialog.style.left = parseInt(curstyle.left) + dx + "px"
-            this.text_dialog.style.top = parseInt(curstyle.top) + dy + "px"
-        })
-        add_move_handlers(left_bottom_resize, (dx,dy) => {
-            let curstyle = window.getComputedStyle(this.text_dialog)
-            this.text_dialog.style.width = parseInt(curstyle.width) + dx + "px"
-            this.text_dialog.style.height = parseInt(curstyle.height) + dy + "px"
-        })
-        close_btn.addEventListener('click', () => {
-            this.text_dialog.style.display = 'none'
-        })
+        this.text_input = add_elem(this.dlg_elem, "textarea", "param_text_area")
+        this.text_input.spellcheck = false
+        this.text_input.value = this.text
+        this.text_input.addEventListener("input", ()=>{ this.text = this.text_input.value }) // TBD save and trigger draw after timeout
+        //this.text_input.value = this.text        
     }
+}
+
+
+function create_dialog(parent, title, resizable, rect, visible_changed)
+{
+    let dlg = add_div(parent, "dlg")
+    if (!rect)
+        rect = {left:null, top:null, width:null, height:null, visible:false}
+    dlg.style.display = 'none'
+
+    let title_line = add_div(dlg, "dlg_title")
+    title_line.innerText = title
+    let close_btn = add_div(title_line, "dlg_close_btn")
+    close_btn.addEventListener('click', () => {
+        rect.visible = false
+        if (visible_changed)
+            visible_changed(rect.visible)
+        repos()
+    })
+    let set_visible = (v) => {
+        rect.visible = v;
+        repos()
+    }
+    let set_title = (v) => {
+        title_line.innerText = v
+    }
+
+    let repos = () => {
+        if (rect.left !== null) {
+            dlg.style.left = rect.left + "px"
+            dlg.style.top =  rect.top + "px"
+        }
+        if (rect.width !== null) {
+            rect.width = Math.max(rect.width, 150)
+            rect.height = Math.max(rect.height, 150)
+            dlg.style.width = rect.width + "px"
+            dlg.style.height = rect.height + "px"
+        }
+        dlg.style.display = rect.visible ? '' : 'none'
+    }
+    repos()
+
+    if (resizable) {
+        let r_resize = add_div(dlg, "dlg_resize_r")
+        let l_resize = add_div(dlg, "dlg_resize_l")
+        let b_resize = add_div(dlg, "dlg_resize_b")
+
+        let rb_resize = add_div(dlg, "dlg_resize_rb")
+        let lb_resize = add_div(dlg, "dlg_resize_lb")
+
+        let move_func = (dx, dy) => {
+            let curstyle = window.getComputedStyle(dlg)
+            rect.left = parseInt(curstyle.left) + dx
+            rect.top = parseInt(curstyle.top) + dy
+            repos()
+        }
+        let resize_func =  (dx,dy) => {
+            let curstyle = window.getComputedStyle(dlg)
+            rect.width = parseInt(curstyle.width) + dx
+            rect.height = parseInt(curstyle.height) + dy            
+            repos()
+        }
+        add_move_handlers(title_line, move_func)
+        add_move_handlers(rb_resize, resize_func)
+        add_move_handlers(lb_resize, (dx, dy)=>{resize_func(-dx,dy); move_func(dx,0)})
+        add_move_handlers(r_resize, (dx, dy)=>{resize_func(dx, 0)})
+        add_move_handlers(l_resize, (dx, dy)=>{resize_func(-dx, 0); move_func(dx, 0)})
+        add_move_handlers(b_resize, (dx, dy)=>{resize_func(0, dy)})
+    }
+
+    return {elem:dlg, rect:rect, set_visible:set_visible, set_title:set_title}
 }
 
 function add_move_handlers(grip, func) {

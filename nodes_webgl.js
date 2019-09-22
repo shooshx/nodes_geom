@@ -13,7 +13,7 @@ class Texture extends PObject
 
     draw(m) {
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.tex_obj, 0);
-        //console.assert(gl.checkFramebufferStatus(gl.FRAMEBUFFER) == gl.FRAMEBUFFER_COMPLETE)
+        //console.assert(gl.checkFramebufferStatus(gl.FRAMEBUFFER) == gl.FRAMEBUFFER_COMPLETE) //slows things down
 
         //let pixels = new Uint8ClampedArray(this.tex_obj.width * this.tex_obj.height * 4) // problem in firefox
         let pixels = new Uint8Array(this.tex_obj.width * this.tex_obj.height * 4)
@@ -23,6 +23,58 @@ class Texture extends PObject
         ctx_img.putImageData(img_data, 0, 0)
     }
 } 
+
+function createShader(gl, type, source) {
+    var shader = gl.createShader(type);
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+    var success = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
+    if (success) {
+        return shader;
+    }
+
+    console.log(gl.getShaderInfoLog(shader));  // eslint-disable-line
+    gl.deleteShader(shader);
+    return undefined;
+}
+
+function createProgram(gl, vtxSource, fragSource) {
+    let vtxShader = createShader(gl, gl.VERTEX_SHADER, vtxSource);
+    let fragShader = createShader(gl, gl.FRAGMENT_SHADER, fragSource);
+    if (!vtxShader || !fragShader)
+        return null // TBD integrate error message
+
+    var program = gl.createProgram();
+    gl.attachShader(program, vtxShader);
+    gl.attachShader(program, fragShader);
+    gl.linkProgram(program);
+    gl.deleteShader(vtxShader)  // mark for deletion once the program is deleted
+    gl.deleteShader(fragShader) 
+    var success = gl.getProgramParameter(program, gl.LINK_STATUS);
+    if (!success) {
+        console.log(gl.getProgramInfoLog(program));  // eslint-disable-line
+        gl.deleteProgram(program);
+    }
+    return program;
+}
+
+function init_webgl() {
+    gl = canvas_webgl.getContext("webgl2");
+    if (!gl) {
+        return;
+    }
+
+    gl.my_fb = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, gl.my_fb);
+
+    // create a depth renderbuffer
+   // gl.my_depthBuffer = gl.createRenderbuffer();
+   // gl.bindRenderbuffer(gl.RENDERBUFFER, gl.my_depthBuffer);
+    
+        // make a depth buffer and the same size as the targetTexture
+       // gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, canvas_image.width, canvas_image.height);
+       // gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, gl.my_depthBuffer);
+}
 
 class NodeShader extends NodeCls
 {
@@ -67,7 +119,8 @@ class NodeShader extends NodeCls
             init_webgl()
         let mesh = this.in_mesh.get_const()
         
-        this.program = createProgram(gl, vertexShaderSource, fragmentShaderSource);
+        this.program = createProgram(gl, this.vtx_text.text, this.frag_text.text);
+        assert(this.program, this, "failed to compile shaders")
 
         this.program.attrs = {}
         for(let attr_name of ["vtx", "vtx_color"])
@@ -91,7 +144,40 @@ class NodeShader extends NodeCls
     }
 }
 
+function copy_members(from, to, names) {
+    for(let name of names)
+        to[name] = function(){ return from[name].apply(from, arguments) }
+}
 
+class TerminalProxy extends Terminal
+{
+    constructor(node, wterm) {
+        super(wterm.name, node, wterm.is_input)
+        copy_members(wterm, this, ["set", "get_const", "get_mutable", "clear"])
+    }
+}
+
+
+class PointGradFill extends NodeCls
+{
+    static name() { return "Point Gradient Fill" }
+    constructor(node) {
+        super()
+        this.prog = new Program()
+        this.shader_node = this.prog.add_node(0, 0, null, NodeShader, null)
+        this.in_mesh = new TerminalProxy(node, this.shader_node.cls.in_mesh)
+        this.out_tex = new TerminalProxy(node, this.shader_node.cls.out_tex)
+
+        this.shader_node.cls.vtx_text.set_text(vertexShaderSource)
+        this.shader_node.cls.frag_text.set_text(fragmentShaderSource)
+    }
+    destructtor() {
+        this.shader_node.cls.destructtor()
+    }
+    run() {
+        this.shader_node.cls.run()
+    }
+}
 
 
 var vertexShaderSource = `#version 300 es
@@ -123,54 +209,3 @@ void main() {
 }
 `;
 
-function createShader(gl, type, source) {
-    var shader = gl.createShader(type);
-    gl.shaderSource(shader, source);
-    gl.compileShader(shader);
-    var success = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
-    if (success) {
-        return shader;
-    }
-
-    console.log(gl.getShaderInfoLog(shader));  // eslint-disable-line
-    gl.deleteShader(shader);
-    return undefined;
-}
-
-function createProgram(gl, vtxSource, fragSource) {
-    let vtxShader = createShader(gl, gl.VERTEX_SHADER, vtxSource);
-    let fragShader = createShader(gl, gl.FRAGMENT_SHADER, fragSource);
-
-    var program = gl.createProgram();
-    gl.attachShader(program, vtxShader);
-    gl.attachShader(program, fragShader);
-    gl.linkProgram(program);
-    gl.deleteShader(vtxShader)  // mark for deletion once the program is deleted
-    gl.deleteShader(fragShader) 
-    var success = gl.getProgramParameter(program, gl.LINK_STATUS);
-    if (!success) {
-        console.log(gl.getProgramInfoLog(program));  // eslint-disable-line
-        gl.deleteProgram(program);
-    }
-    return program;
-}
-
-function init_webgl() {
-    gl = canvas_webgl.getContext("webgl2");
-    if (!gl) {
-        return;
-    }
-
-    gl.my_fb = gl.createFramebuffer();
-    gl.bindFramebuffer(gl.FRAMEBUFFER, gl.my_fb);
-
-    // create a depth renderbuffer
-   // gl.my_depthBuffer = gl.createRenderbuffer();
-   // gl.bindRenderbuffer(gl.RENDERBUFFER, gl.my_depthBuffer);
-    
-        // make a depth buffer and the same size as the targetTexture
-       // gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, canvas_image.width, canvas_image.height);
-       // gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, gl.my_depthBuffer);
-
-
-}
