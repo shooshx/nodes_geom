@@ -186,7 +186,7 @@ class NodePointColor extends NodeCls
         
         let mesh = this.in_mesh.get_mutable()
         assert(mesh, this, "missing in_mesh")
-        let prop = new Uint8Array(mesh.arrs.vtx.length / 2 * 4) // / 2 for (x,y) * 4 for (r,g,b)
+        let prop = new TColorArr(mesh.vtx_count() * 4) //  * 4 for (r,g,b,alpha)
         for(let i = 0; i < prop.length; i += 4) {
             prop[i] = this.color.v.r
             prop[i+1] = this.color.v.g
@@ -339,6 +339,7 @@ class NodeRandomPoints extends NodeCls
         
     run() {
         let in_mesh = this.in_mesh.get_const()
+        assert(in_mesh !== null, this, "No mesh input")
         assert(in_mesh["get_bbox"] !== undefined, this, "Input does not define a bounding box")
         let bbox = in_mesh.get_bbox()  // TBD cut into shape if shape allows that
         assert(bbox !== null, this, "Object doesn't have content for a bounding box")
@@ -405,4 +406,49 @@ class NodeTriangulate extends NodeCls
         mesh.set_type(MESH_TRI)
         this.out_mesh.set(mesh)
     }
+}
+
+class NodeSampleAttribute extends NodeCls
+{
+    static name() { return "Sample Attribute" }
+    constructor(node) {
+        super()
+        this.in_mesh = new InTerminal(node, "in_mesh")
+        this.in_tex = new InTerminal(node, "in_tex")
+        this.out_mesh = new OutTerminal(node, "out_mesh")        
+    }
+    run() {
+        let tex = this.in_tex.get_const()
+        assert(tex !== null, this, "Missing input image")
+        let mesh = this.in_mesh.get_mutable()
+        assert(mesh !== null, this, "Missing input points")
+
+        // need to move the mesh vertices to the texture space
+        mesh.ensure_tcache(image_view.t_viewspace)
+        let prop = new TColorArr(mesh.vtx_count() * 4)
+
+        // see https://www.khronos.org/opengl/wiki/Vertex_Post-Processing#Viewport_transform
+        // from Xw = (w/2)*Xp + (w/2) 
+        let w = tex.width()
+        let wf = w/2
+        let hf = tex.height()/2
+        let pixels = tex.get_pixels()
+
+        for(let i = 0, vtxi = 0; i < prop.length; i += 4, vtxi += 2) {
+            let x = mesh.tcache.vtx[vtxi]
+            let y = mesh.tcache.vtx[vtxi+1]
+            x = Math.round(wf*x + wf)
+            y = Math.round(hf*y + wf)
+            let pidx = (y*w + x)*4
+
+            prop[i] = pixels[pidx]
+            prop[i+1] = pixels[pidx+1]
+            prop[i+2] = pixels[pidx+2]
+            prop[i+3] = pixels[pidx+3]
+        }
+        mesh.set('vtx_color', prop, 4, true)
+
+        this.out_mesh.set(mesh)
+    }
+
 }

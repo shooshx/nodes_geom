@@ -58,6 +58,7 @@ class Mesh extends PObject
     }
 
     set_type(v) { this.type = v }
+    vtx_count() { return this.arrs.vtx.length / 2 } // 2 for (x,y)
 
     get_sizes() {
         let r = { type: this.type, arrs:{} }       

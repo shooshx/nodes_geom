@@ -1,11 +1,11 @@
 GUI:
-
+- !!! param panel overflow
 - color picker with null
 - image-view reset transform with context menu
 - save as
 - transform UI, for each node
 - select objects with Ctrl, rectangle
-- parameter value change with drag and right button
+- parameter value change with drag and right button like in houdini
 - before running - do type checking
 - Math.round lines just before drawing to avoid thinning artifacts when zooming?
 - progress bar for long run
@@ -21,16 +21,37 @@ ENGINE:
 
 NODES:
 - mouse vertices - mesh
+    - !!!! delete points doesn't work
+    - !!!! delete point from list
+    - !!!! points drag not according to zoom
     - select with rectangle
     - move them even after transform?
+    - edit coords with input
 - mouse polyline
+- polyline fill
 - Primitive Circle
-- color per vertex? for gradient
+- attribute sample
+    color
+    point size sample from image
+- Manual points
+    point size
 - round edges
 - transform invert
 - single value input using a slider
+- random points
+    too slow - add KdTree
 - interactive
     mouse input
+- GLSL node
+    https://ace.c9.io/#nav=embedding 
+    https://stackoverflow.com/questions/27531860/how-to-highlight-a-certain-line-in-ace-editor
+    title of window with different color for fragment and vertex shaders
+    tabbed view?
+- point size to path circle
+- *** bitmap from file with upload to imgur
+- bitmap trace
+    potrace -  https://github.com/kilobtye/potrace/blob/master/potrace.js
+        http://potrace.sourceforge.net/  
 
 - grid of points - actually divide
 
@@ -47,13 +68,17 @@ try for changing pivot T1 * Tp1 * R * Tp1' = T2 * Tp2 * R * Tp
 
 
 
-NOVE-VIEW
+NODE-VIEW
 - arrow heads
 - better lines
 - delete lines
-- hover tooltip on terminals
 - don't allow connect more than one thing into an input, unless it's a multi-input
+- terminal color according to type
 
+
+DISCOVERABILITY
+- hover tooltip on terminals
+- detailed explanation about a node when selecting it in a tooltip and in the params
 
 demo idea
 - random points with random colors that make a field of polygons, animated to move slightly

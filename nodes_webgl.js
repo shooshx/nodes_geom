@@ -8,16 +8,26 @@ class Texture extends PObject
     constructor(tex_obj) {
         super()
         this.tex_obj = tex_obj
+        this.pixels = null
     }
+    width() { return this.tex_obj.width }
+    height() { return this.tex_obj.height }
     // no need for destructor, the texture is owned by the NodeShader that created it
+
+    get_pixels() {
+        if (this.pixels === null) {
+            //let pixels = new Uint8ClampedArray(this.tex_obj.width * this.tex_obj.height * 4) // problem in firefox
+            this.pixels = new Uint8Array(this.tex_obj.width * this.tex_obj.height * 4)
+            gl.readPixels(0, 0, this.tex_obj.width, this.tex_obj.height, gl.RGBA, gl.UNSIGNED_BYTE, this.pixels);
+        }
+        return this.pixels
+    }
 
     draw(m) {
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.tex_obj, 0);
         //console.assert(gl.checkFramebufferStatus(gl.FRAMEBUFFER) == gl.FRAMEBUFFER_COMPLETE) //slows things down
 
-        //let pixels = new Uint8ClampedArray(this.tex_obj.width * this.tex_obj.height * 4) // problem in firefox
-        let pixels = new Uint8Array(this.tex_obj.width * this.tex_obj.height * 4)
-        gl.readPixels(0, 0, this.tex_obj.width, this.tex_obj.height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+        let pixels = this.get_pixels()
         let pixelsc = new Uint8ClampedArray(pixels)
         let img_data = new ImageData(pixelsc, this.tex_obj.width, this.tex_obj.height)
         ctx_img.putImageData(img_data, 0, 0)
@@ -168,20 +178,7 @@ class PointGradFill extends NodeCls
         this.in_mesh = new TerminalProxy(node, this.shader_node.cls.in_mesh)
         this.out_tex = new TerminalProxy(node, this.shader_node.cls.out_tex)
 
-        this.shader_node.cls.vtx_text.set_text(vertexShaderSource)
-        this.shader_node.cls.frag_text.set_text(fragmentShaderSource)
-    }
-    destructtor() {
-        this.shader_node.cls.destructtor()
-    }
-    run() {
-        this.shader_node.cls.run()
-    }
-}
-
-
-var vertexShaderSource = `#version 300 es
-
+        this.shader_node.cls.vtx_text.set_text(`#version 300 es
 in vec4 vtx;
 in vec4 vtx_color;
 
@@ -193,9 +190,8 @@ void main() {
     v_color = vtx_color;
     gl_Position = vtx;
 }
-`;
-
-var fragmentShaderSource = `#version 300 es
+`)
+        this.shader_node.cls.frag_text.set_text( `#version 300 es
 precision mediump float;
 
 in vec2 v_coord;
@@ -204,8 +200,14 @@ out vec4 outColor;
 
 void main() {
     outColor = v_color;
-    //outColor = vec4(abs(v_coord.x), abs(v_coord.y), 1, 1);
-    //outColor = vec4(1, 0, 0.5, 1);
 }
-`;
+`)
+    }
+    destructtor() {
+        this.shader_node.cls.destructtor()
+    }
+    run() {
+        this.shader_node.cls.run()
+    }
+}
 
