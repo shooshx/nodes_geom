@@ -466,10 +466,132 @@ function setup_key_bindings()
             trigger_frame_draw(true)
         }
     })
-
 }
 
 
+function create_dialog(parent, title, resizable, rect, visible_changed)
+{
+    let dlg = add_div(parent, "dlg")
+    if (!rect)
+        rect = {left:null, top:null, width:null, height:null, visible:false}
+    dlg.style.display = 'none'
+
+    let title_line = add_div(dlg, "dlg_title")
+    title_line.innerText = title
+    let close_btn = add_div(title_line, "dlg_close_btn")
+    close_btn.addEventListener('click', () => {
+        rect.visible = false
+        if (visible_changed)
+            visible_changed(rect.visible)
+        repos()
+    })
+    let set_visible = (v) => {
+        rect.visible = v;
+        repos()
+    }
+    let set_title = (v) => {
+        title_line.innerText = v
+    }
+
+    let repos = () => {
+        if (rect.left) {
+            dlg.style.left = rect.left + "px"
+            dlg.style.top =  rect.top + "px"
+        }
+        if (rect.width) {
+            rect.width = Math.max(rect.width, 150)
+            rect.height = Math.max(rect.height, 150)
+            dlg.style.width = rect.width + "px"
+            dlg.style.height = rect.height + "px"
+        }
+        dlg.style.display = rect.visible ? '' : 'none'
+    }
+    repos()
+
+    if (resizable) {
+        let r_resize = add_div(dlg, "dlg_resize_r")
+        let l_resize = add_div(dlg, "dlg_resize_l")
+        let b_resize = add_div(dlg, "dlg_resize_b")
+
+        let rb_resize = add_div(dlg, "dlg_resize_rb")
+        let lb_resize = add_div(dlg, "dlg_resize_lb")
+
+        let move_func = (dx, dy) => {
+            let curstyle = window.getComputedStyle(dlg)
+            rect.left = parseInt(curstyle.left) + dx
+            rect.top = parseInt(curstyle.top) + dy
+            repos()
+        }
+        let resize_func =  (dx,dy) => {
+            let curstyle = window.getComputedStyle(dlg)
+            rect.width = parseInt(curstyle.width) + dx
+            rect.height = parseInt(curstyle.height) + dy            
+            repos()
+        }
+        add_move_handlers(title_line, move_func)
+        add_move_handlers(rb_resize, resize_func)
+        add_move_handlers(lb_resize, (dx, dy)=>{resize_func(-dx,dy); move_func(dx,0)})
+        add_move_handlers(r_resize, (dx, dy)=>{resize_func(dx, 0)})
+        add_move_handlers(l_resize, (dx, dy)=>{resize_func(-dx, 0); move_func(dx, 0)})
+        add_move_handlers(b_resize, (dx, dy)=>{resize_func(0, dy)})
+    }
+
+    return {elem:dlg, rect:rect, set_visible:set_visible, set_title:set_title}
+}
+
+function add_move_handlers(grip, func) {
+    var moving = false;
+    var prevx, prevy;
+
+    grip.addEventListener('mousedown', function(e) {
+        moving = true;
+        prevx = e.pageX; prevy = e.pageY
+    });
+    document.addEventListener('mousemove', function(e) {
+        if (!moving) 
+            return
+        e.preventDefault(); // prevent selection action from messing it up
+        let dx = e.pageX - prevx, dy = e.pageY - prevy
+        if (dx == 0 && dy == 0)
+            return
+        func(dx, dy)
+        prevx = e.pageX; prevy = e.pageY
+    });
+    document.addEventListener('mouseup', function() {
+        moving = false;
+    });
+}
+
+function save_as(parent) {
+    let rect = {visible:true}
+    let close_action = ()=> { parent.removeChild(dlg.elem)}
+    let dlg = create_dialog(parent, "Save As...", false, rect, close_action)
+    dlg.elem.classList.add('dlg_save_as')
+    let label = add_div(dlg.elem, "dlg_label")
+    label.innerText = "Select a name to save as:"
+    let input = add_elem(dlg.elem, "input", "dlg_text_input")
+    input.type = "text"
+    input.spellcheck = false
+    add_push_btn(dlg.elem, "Save", ()=> {})
+    add_push_btn(dlg.elem, "Cancel", close_action)
+}
+
+function create_top_menu(parent) {
+    let menu_btn = add_div(parent, ['top_menu', 'top_menu_file'])
+    menu_btn.innerText = "File"
+    let cs = window.getComputedStyle(menu_btn)
+    let open_menus = []
+    function dismiss_menus() {
+        for(let m of open_menus)
+            parent.removeChild(m)
+        open_menus.length = 0
+    }
+    menu_btn.addEventListener('click', ()=> {
+        let opt = [{text:"Save As...", func:function() { save_as(parent) }}]
+        let menu = open_context_menu(opt, parseInt(cs.left), menu_btn.offsetHeight, parent, ()=>{ dismiss_menus() } )
+        open_menus.push(menu)     
+    })
+}
 
 
 

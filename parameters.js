@@ -8,6 +8,7 @@ class Parameter
         this.enable = true
         node.parameters.push(this)
         this.owner = node
+        this.dirty = true  // was it changed since the last run?
     }
     set_label(text) {
         this.label = text
@@ -75,7 +76,9 @@ function create_div(clss) {
 }
 
 function add_div(parent, cls) {
-    let e = create_div([cls])
+    if (!Array.isArray(cls))
+        cls = [cls]
+    let e = create_div(cls)
     parent.appendChild(e)
     return e
 }
@@ -164,7 +167,7 @@ class ParamInt extends Parameter {
         this.line_elem = add_param_line(parent)
         this.label_elem = add_param_label(this.line_elem, this.label)
         let that = this
-        add_param_edit(this.line_elem, this.v, function(v) { that.v = parseInt(v) }) // TBD enforce int with parsing
+        add_param_edit(this.line_elem, this.v, function(v) { that.v = parseInt(v); this.dirty = true }) // TBD enforce int with parsing
     }
 }
 
@@ -179,7 +182,7 @@ class ParamFloat extends Parameter {
         this.line_elem = add_param_line(parent)
         this.label_elem = add_param_label(this.line_elem, this.label)
         let that = this
-        add_param_edit(this.line_elem, this.v, function(v) { that.v = parseFloat(v) }) // TBD enforce int with parsing
+        add_param_edit(this.line_elem, this.v, function(v) { that.v = parseFloat(v); this.dirty = true }) // TBD enforce int with parsing
     }
 }
 
@@ -190,13 +193,13 @@ class ParamBool extends Parameter {
         this.change_func = change_func
     }
     save() { return {v:this.v} }
-    load(v) { this.v = v.v; this.change_func(v) }
+    load(v) { this.v = v.v; this.change_func(v)  }
     add_elems(parent) {
         this.line_elem = add_param_line(parent)
         add_param_label(this.line_elem, null)  // empty space
-        let that = this
-        this.label_elem = add_param_checkbox(this.line_elem, this.label, this.v, function(v) { 
+        this.label_elem = add_param_checkbox(this.line_elem, this.label, this.v, (v) => { 
             that.v = v; 
+            this.dirty = true
             if (that.change_func) 
                 that.change_func(v) 
         })
@@ -214,9 +217,8 @@ class ParamVec2 extends Parameter {
     add_elems(parent) {
         this.line_elem = add_param_line(parent)
         this.label_elem = add_param_label(this.line_elem, this.label)
-        let that = this
-        add_param_edit(this.line_elem, this.x, function(v) { that.x = parseFloat(v) })
-        add_param_edit(this.line_elem, this.y, function(v) { that.y = parseFloat(v) })
+        add_param_edit(this.line_elem, this.x, (v) => { this.x = parseFloat(v); this.dirty = true })
+        add_param_edit(this.line_elem, this.y, (v) => { this.y = parseFloat(v); this.dirty = true })
     }
 }
 
@@ -238,6 +240,7 @@ class ParamColor extends Parameter {
                 that.v = null
             else
                 that.v = v.copy() // make a copy so that this.v will be different object than the internal object
+            this.dirty = true
             return true
         })
     }
@@ -258,6 +261,7 @@ class ParamTransform extends Parameter {
         mat3.scale(this.v, this.v, this.scale)
         mat3.rotate(this.v, this.v, glm.toRadian(this.rotate))
         mat3.translate(this.v, this.v, this.translate)
+        this.dirty = true
     }
     add_elems(parent) {  // TBD support enable
         let that = this
@@ -296,9 +300,7 @@ class ListParam extends Parameter {
     }
     add_elems(parent) {}
     save() { return {lst:this.lst} }
-    load(v) { 
-        this.lst = new this.lst_type(v.lst) 
-    }
+    load(v) { this.lst = new this.lst_type(v.lst) }
 
     add(v) { // for multiple lists in a table, needs to be called in the right order of the columns
         let av = v
@@ -309,6 +311,7 @@ class ListParam extends Parameter {
         newlst.set(this.lst)
         newlst.set(av, this.lst.length)
         this.lst = newlst
+        this.dirty = true
 
         let vindex = (this.lst.length - this.values_per_entry)
         this.create_entry_elems(v, this.table.get_column_elem(this.column), vindex)
@@ -355,6 +358,7 @@ class ListParam extends Parameter {
             delete this.elem_lst[index]  // make it undefined for later cull
         }
         this.lst = cull_list(this.lst)
+        this.dirty = true
         this.elem_lst = cull_list(this.elem_lst)
         console.assert(this.lst.length == this.elem_lst.length * this.values_per_entry, "unexpected number of elements")
     }
@@ -369,6 +373,7 @@ class ListParam extends Parameter {
         console.assert(vindex < this.lst.length, "modify out of range")
         for(let vi = 0; vi < v.length; ++vi)
             this.lst[vindex + vi] = v[vi]
+        this.dirty = true
         this.reprint_line(vindex, v)
     }
     increment(index, v) {
@@ -378,6 +383,7 @@ class ListParam extends Parameter {
         for(let vi = 0; vi < v.length; ++vi) {
             this.lst[vindex + vi] += v[vi]
         }
+        this.dirty = true
         this.reprint_line(vindex, this.lst.slice(vindex, vindex + this.values_per_entry))
     }    
 }
@@ -459,7 +465,7 @@ class TextBlockParam extends Parameter
     load(v) { this.text = v.text; this.dlg_rect = v.dlg_rect; }
     
     title() { return this.owner.name + " - " + this.label }
-    set_text(v) { this.text = v }
+    set_text(v) { this.text = v; this.dirty = true }
 
     add_elems(parent) {
         this.line_elem = add_param_line(parent)
@@ -471,101 +477,9 @@ class TextBlockParam extends Parameter
         this.text_input = add_elem(this.dlg_elem, "textarea", "param_text_area")
         this.text_input.spellcheck = false
         this.text_input.value = this.text
-        this.text_input.addEventListener("input", ()=>{ this.text = this.text_input.value }) // TBD save and trigger draw after timeout
+        this.text_input.addEventListener("input", ()=>{ this.text = this.text_input.value; this.dirty = true }) // TBD save and trigger draw after timeout
         //this.text_input.value = this.text        
     }
 }
 
 
-function create_dialog(parent, title, resizable, rect, visible_changed)
-{
-    let dlg = add_div(parent, "dlg")
-    if (!rect)
-        rect = {left:null, top:null, width:null, height:null, visible:false}
-    dlg.style.display = 'none'
-
-    let title_line = add_div(dlg, "dlg_title")
-    title_line.innerText = title
-    let close_btn = add_div(title_line, "dlg_close_btn")
-    close_btn.addEventListener('click', () => {
-        rect.visible = false
-        if (visible_changed)
-            visible_changed(rect.visible)
-        repos()
-    })
-    let set_visible = (v) => {
-        rect.visible = v;
-        repos()
-    }
-    let set_title = (v) => {
-        title_line.innerText = v
-    }
-
-    let repos = () => {
-        if (rect.left !== null) {
-            dlg.style.left = rect.left + "px"
-            dlg.style.top =  rect.top + "px"
-        }
-        if (rect.width !== null) {
-            rect.width = Math.max(rect.width, 150)
-            rect.height = Math.max(rect.height, 150)
-            dlg.style.width = rect.width + "px"
-            dlg.style.height = rect.height + "px"
-        }
-        dlg.style.display = rect.visible ? '' : 'none'
-    }
-    repos()
-
-    if (resizable) {
-        let r_resize = add_div(dlg, "dlg_resize_r")
-        let l_resize = add_div(dlg, "dlg_resize_l")
-        let b_resize = add_div(dlg, "dlg_resize_b")
-
-        let rb_resize = add_div(dlg, "dlg_resize_rb")
-        let lb_resize = add_div(dlg, "dlg_resize_lb")
-
-        let move_func = (dx, dy) => {
-            let curstyle = window.getComputedStyle(dlg)
-            rect.left = parseInt(curstyle.left) + dx
-            rect.top = parseInt(curstyle.top) + dy
-            repos()
-        }
-        let resize_func =  (dx,dy) => {
-            let curstyle = window.getComputedStyle(dlg)
-            rect.width = parseInt(curstyle.width) + dx
-            rect.height = parseInt(curstyle.height) + dy            
-            repos()
-        }
-        add_move_handlers(title_line, move_func)
-        add_move_handlers(rb_resize, resize_func)
-        add_move_handlers(lb_resize, (dx, dy)=>{resize_func(-dx,dy); move_func(dx,0)})
-        add_move_handlers(r_resize, (dx, dy)=>{resize_func(dx, 0)})
-        add_move_handlers(l_resize, (dx, dy)=>{resize_func(-dx, 0); move_func(dx, 0)})
-        add_move_handlers(b_resize, (dx, dy)=>{resize_func(0, dy)})
-    }
-
-    return {elem:dlg, rect:rect, set_visible:set_visible, set_title:set_title}
-}
-
-function add_move_handlers(grip, func) {
-    var moving = false;
-    var prevx, prevy;
-
-    grip.addEventListener('mousedown', function(e) {
-        moving = true;
-        prevx = e.pageX; prevy = e.pageY
-    });
-    document.addEventListener('mousemove', function(e) {
-        if (!moving) 
-            return
-        e.preventDefault(); // prevent selection action from messing it up
-        let dx = e.pageX - prevx, dy = e.pageY - prevy
-        if (dx == 0 && dy == 0)
-            return
-        func(dx, dy)
-        prevx = e.pageX; prevy = e.pageY
-    });
-    document.addEventListener('mouseup', function() {
-        moving = false;
-    });
-}

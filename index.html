@@ -58,6 +58,7 @@ function page_onload()
     
     setup_vert_splitter(main_view, image_panel, canvas_image, image_splitter, edit_panel, canvas_nodes)
     setup_horz_splitter(edit_panel, edit_params, edit_splitter, edit_nodes, canvas_nodes)
+    create_top_menu(main_view)
     
     panel_mouse_control(nodes_view, canvas_nodes)
     panel_mouse_control(image_view, canvas_image)
@@ -169,44 +170,74 @@ function calc_img_viewport() {
 
 
 function run_nodes_tree(n) {
-    if (n.outputs[0].get_const() !== null)
+    console.assert(n.node_dirty !== null)
+    if (!n.node_dirty)
         return
     // all inputs    
     for(let inp_t of n.inputs) {  
         // all lines going into an input
         for(let line of inp_t.lines) {
             run_nodes_tree(line.from_term.node)
-            // out-terminals pass data to in-terminals automatically
         }
     }
     n.cls.run()
+    n.node_dirty = false // it finished running so it didn't throw and exception
     // distribute outputs to all connected inputs so that all references of an object will be known
     for(let out_t of n.outputs) {  
         for(let line of out_t.lines) { // TBD - only active lines!
             line.to_term.set(line.from_term.get_const())
         }
     }
-    // clear all inputs so that they won't take up references
+    // clear all inputs of the node that just ran so that they won't take up references
     for(let inp_t of n.inputs) {
         for(let line of inp_t.lines) {
             line.to_term.clear()
         }
     }
-
 }
 
 function clear_outputs(prog) {
     let had_errors = false
     for(let n of prog.nodes) {
-        // first output is used as an indicator that the node has ran
+        // set the indicator that the node needs to run
+        n.node_dirty = true
         // but we need to clear them all so there won't be leftovers from last run
         for(let t of n.terminals)
             t.clear() 
+        // also clear errors
         had_errors |= (n.cls.error !== null)
         n.cls.error = null
     }
     if (had_errors)
         draw_nodes()
+}
+
+// first mark all flags as null so we know who we already visited
+function mark_dirty_all_null(prog) {
+    for(let n of prog.nodes) {
+        n.node_dirty = null
+    } 
+}
+
+// go up the tree to find from what point things start to be dirty and need to be re-run
+// when a node is found to be dirty (by its parameters), everything under it is also dirty
+function mark_dirty_tree(n) {
+    if (n.node_dirty !== null) // already been here
+        return n.node_dirty
+    // all inputs
+    for(let inp_t of n.inputs) {  
+        // all lines going into an input
+        for(let line of inp_t.lines) {
+            // if any of the higher nodes is dirty, we're dirty as well
+            if (mark_dirty_tree(line.from_term.node)) {
+                n.node_dirty = true
+                return true
+            }
+        }
+    }
+    let this_dirty = n.has_dirty_params()
+    n.node_dirty = this_dirty
+    return this_dirty
 }
 
 // happens when calling run(), clears every iteration
@@ -231,6 +262,8 @@ function trigger_frame_draw(do_run)
     let disp_obj = program.display_node.outputs[0].get_const()
     if (do_run || disp_obj === null) {
         clear_outputs(program)
+        //mark_dirty_all_null(program)
+        //mark_dirty_tree(program.display_node)
         try {
             run_nodes_tree(program.display_node)
         }

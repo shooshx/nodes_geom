@@ -417,6 +417,7 @@ class Node {
         this.make_term_offset(this.inputs)
         this.make_term_offset(this.outputs)
         this.terminals = this.inputs.concat(this.outputs)
+        this.node_dirty = true  // means it needs a call to run() to refresh its output according to updated parameters and inputs
     }
    
     make_term_offset(lst) {

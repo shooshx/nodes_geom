@@ -1,8 +1,9 @@
 "use strict"
 
 class NodeCls {
-    constructor() {
+    constructor(node) {
         this.error = null
+        this.node = node
     }
     // mouse interaction in image_view
     image_click() {}
@@ -16,7 +17,7 @@ class NodeCls {
 class NodeTestDummy extends NodeCls {
     static name() { return "Test_Dummy" }
     constructor(node) {
-        super()
+        super(node)
         this.in_1 = new InTerminal(node, "in_1")
         this.in_2 = new InTerminal(node, "in_2")
         this.out = new OutTerminal(node, "out")
@@ -28,7 +29,7 @@ class NodeGeomPrimitive extends NodeCls
 {
     static name() { return "Geom_Primitive" }
     constructor(node) {
-        super()
+        super(node)
         this.out = new OutTerminal(node, "out_mesh")
         this.size = new ParamVec2(node, "Size", 0.5, 0.5)
     }
@@ -103,7 +104,7 @@ class NodeManualPoints extends NodeCls
 {
     static name() { return "Manual_Points" }
     constructor(node) {
-        super()
+        super(node)
         this.out = new OutTerminal(node, "out_mesh")
         this.table = new TableParam(node, "Point List")
         this.points = new CoordListParam(node, "Coord", this.table)
@@ -171,7 +172,7 @@ class NodePointColor extends NodeCls
 {
     static name() { return "Point_Color" }
     constructor(node) {
-        super()
+        super(node)
         this.in_mesh = new InTerminal(node, "in_mesh")
         this.out_mesh = new OutTerminal(node, "out_mesh")
         this.color = new ParamColor(node, "Color", "#cccccc")
@@ -202,7 +203,7 @@ class NodeMeshMerge extends NodeCls
 {
     static name() { return "Mesh_Merge" }
     constructor(node) {
-        super()
+        super(node)
         this.in_m = new InTerminalMulti(node, "in_multi_mesh")
         this.out = new OutTerminal(node, "out_mesh")
     }
@@ -263,7 +264,7 @@ class PObjGroup extends PObject{
 class NodeGroupObjects extends NodeCls {
     static name() { return "Group_Objects" }
     constructor(node) {
-        super()
+        super(node)
         this.in_m = new InTerminalMulti(node, "in_multi_mesh")
         this.out = new OutTerminal(node, "out_mesh")
         //this.order = new InputOrderParam(node, "Order", this.in_m)
@@ -282,7 +283,7 @@ class NodeTransform extends NodeCls
 {
     static name() { return "Transform" }
     constructor(node) {
-        super()
+        super(node)
         this.in = new InTerminal(node, "input")
         this.out = new OutTerminal(node, "output")
         this.transform = new ParamTransform(node, "transform")
@@ -321,7 +322,7 @@ class NodeRandomPoints extends NodeCls
 {
     static name() { return "Scatter" }
     constructor(node) {
-        super()
+        super(node)
         let that = this
         this.in_mesh = new InTerminal(node, "in_mesh")
         this.out_mesh = new OutTerminal(node, "out_mesh")
@@ -393,7 +394,7 @@ class NodeTriangulate extends NodeCls
 {
     static name() { return "Triangulate" }
     constructor(node) {
-        super()
+        super(node)
         this.in_mesh = new InTerminal(node, "in_mesh")
         this.out_mesh = new OutTerminal(node, "out_mesh")        
     }
@@ -412,7 +413,7 @@ class NodeSampleAttribute extends NodeCls
 {
     static name() { return "Sample Attribute" }
     constructor(node) {
-        super()
+        super(node)
         this.in_mesh = new InTerminal(node, "in_mesh")
         this.in_tex = new InTerminal(node, "in_tex")
         this.out_mesh = new OutTerminal(node, "out_mesh")        

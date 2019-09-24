@@ -90,7 +90,7 @@ class NodeShader extends NodeCls
 {
     static name() { return "Shader" }
     constructor(node) {
-        super()
+        super(node)
         this.in_mesh = new InTerminal(node, "in_mesh")
         this.out_tex = new OutTerminal(node, "out_texture")
         this.vtx_text = new TextBlockParam(node, "Vertex Shader")
@@ -172,7 +172,7 @@ class PointGradFill extends NodeCls
 {
     static name() { return "Point Gradient Fill" }
     constructor(node) {
-        super()
+        super(node)
         this.prog = new Program()
         this.shader_node = this.prog.add_node(0, 0, null, NodeShader, null)
         this.in_mesh = new TerminalProxy(node, this.shader_node.cls.in_mesh)

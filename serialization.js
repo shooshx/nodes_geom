@@ -23,6 +23,7 @@ function save_program() {
 }
 
 function save_state() {
+    return
     let state = { program: save_program(),
                   nodes_view: nodes_view.save(), 
                   main_view_s: main_view_state.save() }
@@ -54,6 +55,7 @@ function load_program(sprog) {
             if (sp !== undefined) { // might be a new parameter that's not there
                 try {
                     p.load(sp)
+                    p.dirty = true
                 }
                 catch (e) {
                     console.error("Failed load of parameter", p.label, "in node", sn.name)

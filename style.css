@@ -232,6 +232,7 @@ input {
     text-align: center;
     height: 25px;
     line-height: 25px;
+    color: #fff;
 }
 .param_btn:hover {
     background-image: linear-gradient(to bottom, #909090, #808080);  
@@ -312,6 +313,7 @@ input {
     cursor: move;
     overflow: hidden;
     white-space: nowrap;
+    color: #fff;
 }
 .dlg_close_btn {
     position: absolute;
@@ -325,4 +327,40 @@ input {
 }
 .dlg_close_btn:hover {
     background-image: url(img/red_ex.png)
+}
+.dlg_label {
+    margin-top: 10px;
+    text-align: center;
+    color: #fff;
+}
+
+.top_menu {
+    position: absolute;
+    top: 0;
+    background-color: #656565;
+    padding: 0 0 2px 0;
+    border-radius: 0 0 6px 6px;
+    border: solid 2px #7d7d7d;
+    color: #fff;
+    line-height: 140%;
+    width: 40px;
+    text-align: center;
+}
+.top_menu:hover {  
+    background-color: #888888;    
+}
+.top_menu_file {
+    left: 10px;
+}
+
+.dlg_save_as {
+    width: 230px;
+    height: 120px;
+}
+.dlg_text_input {
+    margin: 5px;
+}
+
+.dlg_save_as > .param_btn {
+    margin: 5px;
 }

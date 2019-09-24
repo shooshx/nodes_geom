@@ -40,6 +40,7 @@ NODES:
 - single value input using a slider
 - random points
     too slow - add KdTree
+    !!! cache result unless there's a change in seed
 - interactive
     mouse input
 - GLSL node
@@ -53,7 +54,7 @@ NODES:
     potrace -  https://github.com/kilobtye/potrace/blob/master/potrace.js
         http://potrace.sourceforge.net/  
 
-- grid of points - actually divide
+- !!! grid of points - actually divide
 
 - random points  - https://www.sidefx.com/docs/houdini/nodes/sop/scatter.html
     on a surface
