@@ -368,7 +368,10 @@ function open_context_menu(options, wx, wy, parent_elem, dismiss_func)
 {
     let text = "<div class='ctx_menu'>"
     for(let opt of options) {
-        text += "<div class='ctx_menu_opt'>" + opt.text + "</div>"
+        if (opt.text == '-') 
+            text += "<hr class='ctx_menu_sep'>"
+        else
+            text += "<div class='ctx_menu_opt'>" + opt.text + "</div>"
     }
     text += "</div>" 
     
@@ -426,9 +429,8 @@ class NameInput
         input.addEventListener('mousedown', function(e) {
             e.stopPropagation()            
         })
-        let that = this
-        input.addEventListener('input', function() {
-            that.node.set_name(input.value)
+        input.addEventListener('input', ()=>{
+            this.node.set_name(input.value)
             draw_nodes()
         })
         last_name_input = this
@@ -569,10 +571,23 @@ function save_as(parent) {
     dlg.elem.classList.add('dlg_save_as')
     let label = add_div(dlg.elem, "dlg_label")
     label.innerText = "Select a name to save as:"
-    let input = add_elem(dlg.elem, "input", "dlg_text_input")
-    input.type = "text"
-    input.spellcheck = false
-    add_push_btn(dlg.elem, "Save", ()=> {})
+    let name_input = add_elem(dlg.elem, "input", "dlg_text_input")
+    name_input.type = "text"
+    name_input.spellcheck = false
+    add_push_btn(dlg.elem, "Save", ()=> {
+        let name = name_input.value
+        if (name.length == 0) {
+            console.error("Can't save with empty name")
+            return
+        }
+        if (user_saved_programs[name]) {
+            console.error("Name already exists " + name)
+            return
+        }
+        user_saved_programs[name] = save_program_json()
+        save_state()
+        close_action()
+    })
     add_push_btn(dlg.elem, "Cancel", close_action)
 }
 
@@ -587,7 +602,11 @@ function create_top_menu(parent) {
         open_menus.length = 0
     }
     menu_btn.addEventListener('click', ()=> {
-        let opt = [{text:"Save As...", func:function() { save_as(parent) }}]
+        let opt = [{text:"Save As...", func:function() { save_as(parent) }}, {text:'-'}]
+        for(let up_name in user_saved_programs) {
+            let up = user_saved_programs[up_name]
+            opt.push({text:up_name, func:function() { load_prog_json(up) }})
+        }
         let menu = open_context_menu(opt, parseInt(cs.left), menu_btn.offsetHeight, parent, ()=>{ dismiss_menus() } )
         open_menus.push(menu)     
     })

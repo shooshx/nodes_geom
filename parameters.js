@@ -166,8 +166,7 @@ class ParamInt extends Parameter {
     add_elems(parent) {
         this.line_elem = add_param_line(parent)
         this.label_elem = add_param_label(this.line_elem, this.label)
-        let that = this
-        add_param_edit(this.line_elem, this.v, function(v) { that.v = parseInt(v); this.dirty = true }) // TBD enforce int with parsing
+        add_param_edit(this.line_elem, this.v, (v)=>{ this.v = parseInt(v); this.dirty = true }) // TBD enforce int with parsing
     }
 }
 
@@ -181,8 +180,7 @@ class ParamFloat extends Parameter {
     add_elems(parent) {
         this.line_elem = add_param_line(parent)
         this.label_elem = add_param_label(this.line_elem, this.label)
-        let that = this
-        add_param_edit(this.line_elem, this.v, function(v) { that.v = parseFloat(v); this.dirty = true }) // TBD enforce int with parsing
+        add_param_edit(this.line_elem, this.v, (v)=>{ this.v = parseFloat(v); this.dirty = true }) // TBD enforce int with parsing
     }
 }
 
@@ -198,10 +196,10 @@ class ParamBool extends Parameter {
         this.line_elem = add_param_line(parent)
         add_param_label(this.line_elem, null)  // empty space
         this.label_elem = add_param_checkbox(this.line_elem, this.label, this.v, (v) => { 
-            that.v = v; 
+            this.v = v; 
             this.dirty = true
-            if (that.change_func) 
-                that.change_func(v) 
+            if (this.change_func) 
+                this.change_func(v) 
         })
     }
 }
@@ -232,14 +230,13 @@ class ParamColor extends Parameter {
     add_elems(parent) {
         this.line_elem = add_param_line(parent)
         this.label_elem = add_param_label(this.line_elem, this.label)
-        let that = this
-        [this.v, elem] = add_param_color(this.line_elem, this.v, 'param_input', function(v) { 
-            if (that.v !== null && that.v.hex == v.hex) 
+        [this.v, elem] = add_param_color(this.line_elem, this.v, 'param_input', (v)=>{ 
+            if (this.v !== null && this.v.hex == v.hex) 
                 return false;
             if (v === null)
-                that.v = null
+                this.v = null
             else
-                that.v = v.copy() // make a copy so that this.v will be different object than the internal object
+                this.v = v.copy() // make a copy so that this.v will be different object than the internal object
             this.dirty = true
             return true
         })
@@ -264,18 +261,17 @@ class ParamTransform extends Parameter {
         this.dirty = true
     }
     add_elems(parent) {  // TBD support enable
-        let that = this
         let line1 = add_param_line(parent)
         add_param_label(line1, "Translate")
-        add_param_edit(line1, this.translate[0], function(v) { that.translate[0] = v; that.calc_mat() })
-        add_param_edit(line1, this.translate[1], function(v) { that.translate[1] = v; that.calc_mat()})
+        add_param_edit(line1, this.translate[0], (v)=>{ this.translate[0] = v; this.calc_mat() })
+        add_param_edit(line1, this.translate[1], (v)=>{ this.translate[1] = v; this.calc_mat()})
         let line2 = add_param_line(parent)
         add_param_label(line2, "Rotate")
-        add_param_edit(line2, this.rotate, function(v) { that.rotate = v; that.calc_mat()})
+        add_param_edit(line2, this.rotate, (v)=>{ this.rotate = v; this.calc_mat()})
         let line3 = add_param_line(parent)
         add_param_label(line3, "Scale")
-        add_param_edit(line3, this.scale[0], function(v) { that.scale[0] = v; that.calc_mat()})
-        add_param_edit(line3, this.scale[1], function(v) { that.scale[1] = v; that.calc_mat()})
+        add_param_edit(line3, this.scale[0], (v)=>{ this.scale[0] = v; this.calc_mat()})
+        add_param_edit(line3, this.scale[1], (v)=>{ this.scale[1] = v; this.calc_mat()})
     }
 }
 

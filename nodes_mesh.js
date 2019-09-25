@@ -32,6 +32,7 @@ class NodeGeomPrimitive extends NodeCls
         super(node)
         this.out = new OutTerminal(node, "out_mesh")
         this.size = new ParamVec2(node, "Size", 0.5, 0.5)
+        this.last
     }
     run() {
         let m = new Mesh()
@@ -323,13 +324,12 @@ class NodeRandomPoints extends NodeCls
     static name() { return "Scatter" }
     constructor(node) {
         super(node)
-        let that = this
         this.in_mesh = new InTerminal(node, "in_mesh")
         this.out_mesh = new OutTerminal(node, "out_mesh")
         this.seed = new ParamInt(node, "Seed", 1)
-        this.by_density = new ParamBool(node, "Set Density", false, function(v) {
-            that.count.set_label(v ? "Max Count" : "Count")
-            that.min_dist.set_enable(v)
+        this.by_density = new ParamBool(node, "Set Density", false, (v)=>{
+            this.count.set_label(v ? "Max Count" : "Count")
+            this.min_dist.set_enable(v)
         })
         this.min_dist = new ParamFloat(node, "Min Distance", 0.02)
         this.count = new ParamInt(node, "Count", 50)  // TBD or by density - not size dependent

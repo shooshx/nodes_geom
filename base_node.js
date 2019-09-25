@@ -609,7 +609,7 @@ function nodes_context_menu(px, py, wx, wy) {
         var opt = [{text:"Delete", func:function() { delete_node(node, true)} }]
     }
     else {
-        let clss = []
+        let clss = [{text:"Clear", func:()=>{ clear_program(); draw_nodes() } }, {text:"-"}]
         for(let c of nodes_classes)
             clss.push( {text: c.name(), func:function() { program.add_node(px, py, null, c); draw_nodes() } } )
         var opt = clss

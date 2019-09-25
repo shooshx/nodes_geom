@@ -74,6 +74,9 @@ input {
 .ctx_menu_opt:hover {  
     background-color: #888888;
 }
+.ctx_menu_sep {
+    margin: 3px;
+}
 
 .node_name_edit {
     position: absolute;
@@ -359,6 +362,7 @@ input {
 }
 .dlg_text_input {
     margin: 5px;
+
 }
 
 .dlg_save_as > .param_btn {

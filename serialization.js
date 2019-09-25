@@ -22,18 +22,38 @@ function save_program() {
     return sprog
 }
 
-function save_state() {
-    return
-    let state = { program: save_program(),
-                  nodes_view: nodes_view.save(), 
-                  main_view_s: main_view_state.save() }
-
-    //console.log("SAVING: + ", JSON.stringify(state))
-    let json = JSON.stringify(state, function(k, v) {
+function json_stringify(obj) {
+    let json = JSON.stringify(obj, function(k, v) {
         if (ArrayBuffer.isView(v)) 
             return Array.from(v);        
         return v;
     })
+    return json
+}
+
+function save_program_json() {
+    let sprog = save_program()
+    return json_stringify(sprog)
+}
+
+function load_prog_json(prog_s) {
+    let prog = JSON.parse(prog_s)
+    load_program(prog)
+    draw_nodes()
+    trigger_frame_draw(true)
+}
+
+var user_saved_programs = {}
+
+function save_state() {
+    let state = { program: save_program(),
+                  nodes_view: nodes_view.save(), 
+                  main_view_s: main_view_state.save(),
+                  user_saved_progs: user_saved_programs
+                }
+
+    //console.log("SAVING: + ", JSON.stringify(state))
+    let json = json_stringify(state)
     localStorage.setItem("state", json)
 }
 
@@ -86,6 +106,13 @@ function load_state() {
     let state = JSON.parse(state_s)
     main_view_state.load(state.main_view_s)
     nodes_view.load(state.nodes_view)
-    load_program(state.program)
+    if (state.user_saved_progs)
+        user_saved_programs = state.user_saved_progs
+    try {
+        load_program(state.program) 
+    }
+    catch(e) {
+        console.error("Failed loading current program")
+    }
 
 }
