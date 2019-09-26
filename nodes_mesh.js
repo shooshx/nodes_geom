@@ -11,6 +11,11 @@ class NodeCls {
     clear_selection() {}
     draw_selection() {}
     selected_obj_name() { return null }
+
+    // nodes that depends on the viewport should implement and dirty themselves
+    dirty_viewport() {}
+    get_error() { return this.error }
+    clear_error() { this.error = null }
 }
 
 

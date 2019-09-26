@@ -106,6 +106,7 @@ class NodeShader extends NodeCls
         if (this.render_to_tex)
             gl.deleteTexture(this.render_to_tex)
     }
+    dirty_viewport() { this.node.self_dirty = true }
 
     make_screen_texture(cw, ch) 
     {
@@ -128,6 +129,7 @@ class NodeShader extends NodeCls
         if (gl === null)
             init_webgl()
         let mesh = this.in_mesh.get_const()
+        assert(mesh !== null, this, "empty input")
         
         this.program = createProgram(gl, this.vtx_text.text, this.frag_text.text);
         assert(this.program, this, "failed to compile shaders")
@@ -171,6 +173,7 @@ class TerminalProxy extends Terminal
 class PointGradFill extends NodeCls
 {
     static name() { return "Point Gradient Fill" }
+    dirty_viewport() { this.node.self_dirty = true }
     constructor(node) {
         super(node)
         this.prog = new Program()
@@ -208,6 +211,12 @@ void main() {
     }
     run() {
         this.shader_node.cls.run()
+    }
+    get_error() {
+        return this.shader_node.cls.get_error()
+    }
+    clear_error() {
+        this.shader_node.cls.clear_error()
     }
 }
 

@@ -17,7 +17,7 @@ var main_view_state = {
     split_2_v: 0.35,
 
     save: function() { return { split_1_h: this.split_1_h, split_2_v: this.split_2_v } },
-    load: function(v) { this.split_1_h = parseFloat(v.split_1_h); this.split_2_v = parseFloat(v.split_2_v) }
+    load: function(v) { this.split_1_h = parseFloat(v.split_1_h) || 0.6; this.split_2_v = parseFloat(v.split_2_v) || 0.35}
 }
 
 function setup_horz_splitter(container, p1, grip, p2, c2)
@@ -465,7 +465,8 @@ function setup_key_bindings()
 {
     document.addEventListener("keypress", function(e) {
         if (e.key == ' ') {
-            trigger_frame_draw(true)
+            // if ctrl is pressed, do a full clear and run, otherwise do a normal run with caches
+            trigger_frame_draw(true, e.ctrlKey)
         }
     })
 }

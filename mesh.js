@@ -12,7 +12,7 @@ let TIdxArr = Int16Array
 let TColorArr = Uint8Array
 
 function normalize_attr_name(s) {
-    let r = s.toLowerCase().replace(' ', '_')
+    let r = s.toLowerCase().replace(/\s/g, '_')
     if (r == "point_color")
         return "vtx_color"
     if (r == "coord")
@@ -158,8 +158,10 @@ class Mesh extends PObject
         else if (this.tcache.m === null || !mat3.equals(m, this.tcache.m)) {
             do_trans = true
         }
-        if (do_trans)
+        if (do_trans) {
             this.transform_arr(m, this.arrs.vtx, this.tcache.vtx)
+            this.meta['vtx'].made_glbuf = false
+        }
     }
 
     draw(m) {

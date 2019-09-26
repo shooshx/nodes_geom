@@ -232,6 +232,12 @@ class PWeakHandle {
     get_const() {
         return this.p
     }
+    clear() {
+        this.p = null
+    }
+    is_null() {
+        return this.p == null
+    }    
 }
 
 
@@ -253,18 +259,26 @@ class Terminal extends TerminalBase
 
 }
 
+// inputs by default have a weak handle that can be upgraded to a counting handle
+// if a mutable object is needed
 class InTerminal extends Terminal {
     constructor(in_node, name) {
         super(name, in_node, true)
         this.h = null
+        // an input terminal gets dirty when it's being set a new value.
+        // this may be the only indication that a node is dirty if we changed a upper node when it was visible
+        // and the dirtyness did not propogate down
+        //   unset when cleaning the entire node
+        this.dirty = true
     }
     set(v) {
         assert(this.h === null || this.h.is_null(), this.owner.cls, "too many lines connected to input " + this.name)
 
         if (v.constructor === PHandle || v.constructor === PWeakHandle)
-            this.h = new PHandle(v.p) // copy ctor
+            this.h = new PWeakHandle(v.p) // copy ctor
         else            
-            this.h = new PHandle(v)
+            this.h = new PWeakHandle(v)
+        this.dirty = true
     }    
     get_const() {
         if (this.h === null)
@@ -274,6 +288,8 @@ class InTerminal extends Terminal {
     get_mutable() {
         if (this.h === null)
             return null        
+        if (this.h.constructor === PWeakHandle) // need upgrade
+            this.h = new PHandle(this.h.p)
         return this.h.get_mutable()
     }
     clear() {
@@ -282,6 +298,8 @@ class InTerminal extends Terminal {
     }    
 }
 
+// outputs are by default owning because they are going to need this object
+// as a cache for the next frame
 class OutTerminal extends Terminal {
     constructor(in_node, name) {
         super(name, in_node, false)
@@ -290,17 +308,23 @@ class OutTerminal extends Terminal {
     set(v) {
         // and also save a wear-ref to it so that display would work 
         if (v.constructor === PHandle || v.constructor === PWeakHandle)
-            this.h = new PWeakHandle(v.p) // copy ctor
+            this.h = new PHandle(v.p) // copy ctor
         else            
-            this.h = new PWeakHandle(v)
+            this.h = new PHandle(v)
     }
     get_const() {
         if (this.h === null)
             return null
         return this.h.get_const()
     }
+    get_mutable() {
+        if (this.h === null)
+            return null        
+        return this.h.get_mutable()
+    }    
     clear() {
-        this.h = new PWeakHandle(null)
+        if (this.h !== null)
+            this.h.clear()
     }
 }
 
@@ -417,7 +441,18 @@ class Node {
         this.make_term_offset(this.inputs)
         this.make_term_offset(this.outputs)
         this.terminals = this.inputs.concat(this.outputs)
-        this.node_dirty = true  // means it needs a call to run() to refresh its output according to updated parameters and inputs
+
+        // controls caching
+        // means it needs a call to run() to refresh its output according to updated parameters and inputs
+        // this member is managed by the engine in its scan for dirty subtrees. should not be set by the node itself        
+        this._node_dirty = true 
+        // indication for the engine traversal of this node.
+        // if the engine visited this node it means it doesn't need to distribute it's output to connections
+        // I keep track of that since it's useful to know (and check) that any input is only being set once in a run
+        this._visited = false
+        // should be set by the node if anything happened that dirtied itss state (that is not a parameter)
+        // used for viewport dependent nodes when viewport changes
+        this.self_dirty = false 
     }
    
     make_term_offset(lst) {
@@ -453,7 +488,7 @@ class Node {
     
     draw() {
         let px = this.px(), py = this.py()
-        if (this.cls.error !== null) {
+        if (this.cls.get_error() !== null) {
             ctx_nodes.beginPath();
             ctx_nodes.arc(px, py + this.height*0.5, 40, 0, 2*Math.PI)
             ctx_nodes.fillStyle = "#B10005"
@@ -465,7 +500,7 @@ class Node {
             ctx_nodes.font = "16px Verdana"
             ctx_nodes.fillStyle = "#ffA0A0"
             ctx_nodes.textAlign = "end"
-            wrapText(ctx_nodes, this.cls.error.msg, px, py + this.height*0.5, 150, 18)
+            wrapText(ctx_nodes, this.cls.get_error().msg, px, py + this.height*0.5, 150, 18)
             ctx_nodes.textAlign = "start"
         }
         // main rect
@@ -556,6 +591,26 @@ class Node {
     
     mousedown() {
         this.select()
+    }
+
+    has_anything_dirty() {
+        if (this.self_dirty)
+            return true
+        for(let p of this.parameters)
+            if (p.dirty)
+                return true
+        for(let t of this.inputs) 
+            if (t.dirty)
+                return true
+        return false
+    }
+    clear_dirty() {
+        this._node_dirty = false
+        this.self_dirty = false
+        for(let p of this.parameters)
+            p.dirty = false
+        for(let t of this.inputs) 
+            t.dirty = false
     }
     
 }

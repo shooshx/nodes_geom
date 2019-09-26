@@ -329,9 +329,11 @@ class ListParam extends Parameter {
         let e
         if (this.elem_prm.create_elem !== undefined) {
             e = this.elem_prm.create_elem(parent, v, (v) => {
+                // change that come from the input element in the list
                 console.assert(v.length == this.values_per_entry, "unexpected length of value")
                 for(let vi = 0; vi < this.values_per_entry; ++vi)
                     this.lst[vindex + vi] = v[vi]
+                this.dirty = true
                 trigger_frame_draw(true)
             })
         }
@@ -363,6 +365,7 @@ class ListParam extends Parameter {
         this.elem_lst[vidx / this.values_per_entry].innerText = this.elem_prm.to_string(v)
     }
 
+    // for changes that come from user interaction in the image_canvas
     modify(index, v) { // index is already multiplied by values_per_entry
         console.assert(v.length == this.values_per_entry, "Unexpected number of values")
         let vindex = index * this.values_per_entry
