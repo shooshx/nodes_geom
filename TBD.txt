@@ -10,7 +10,7 @@ GUI:
 - Math.round lines just before drawing to avoid thinning artifacts when zooming?
 - progress bar for long run
 - first node created with display flag (otherwise nothing is visible)
-
+- fix jumping of splits on load
 - template display
 
 

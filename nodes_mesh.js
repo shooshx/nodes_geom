@@ -14,6 +14,7 @@ class NodeCls {
 
     // nodes that depends on the viewport should implement and dirty themselves
     dirty_viewport() {}
+
     get_error() { return this.error }
     clear_error() { this.error = null }
 }
@@ -444,7 +445,7 @@ class NodeSampleAttribute extends NodeCls
             let x = mesh.tcache.vtx[vtxi]
             let y = mesh.tcache.vtx[vtxi+1]
             x = Math.round(wf*x + wf)
-            y = Math.round(hf*y + wf)
+            y = Math.round(hf*y + hf)
             let pidx = (y*w + x)*4
 
             prop[i] = pixels[pidx]
