@@ -140,7 +140,7 @@ class Program {
         this.obj_map[uid] = line
         line.from_term.lines.push(line)
         line.to_term.lines.push(line)
-        line.to_term.dirty = true
+        line.to_term.set_dirty() // need function so that it will work for multi in as well
         trigger_frame_draw(true)
     }
 }

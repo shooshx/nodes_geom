@@ -1,7 +1,7 @@
 GUI:
 - color picker with null
 - image-view reset transform with context menu
-
+- BUG: resize the window beyond the size of the nodes panel moves it
 - select nodes with Ctrl, rectangle (display params of multiple nodes at once?)
 - parameter value change with drag and right button like in houdini
 - before running - do type checking

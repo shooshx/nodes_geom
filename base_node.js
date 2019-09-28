@@ -347,7 +347,10 @@ class InTerminal extends Terminal {
     clear() {
         if (this.h !== null)
             this.h.clear()
-    }    
+    }
+    set_dirty() {
+        this.dirty = true
+    } 
 }
 
 // outputs are by default owning because they are going to need this object
@@ -416,13 +419,17 @@ class InAttachMulti {
     clear() {
         if (this.h !== null)
             this.h.clear()
-    }    
+    }
+    set_dirty() {
+        this.owner_term.dirty = true
+    }
 }
 // elongated
 class InTerminalMulti extends TerminalBase
 {
     constructor(in_node, name) {
         super(name, in_node, true)
+        this.dirty = true
     }
     draw() {
         rounded_rect(ctx_nodes, this.px() - TERM_MULTI_HWIDTH, this.py() - TERM_RADIUS, TERM_MULTI_HWIDTH*2, 2*TERM_RADIUS, TERM_RADIUS)
