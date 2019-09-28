@@ -30,29 +30,6 @@ function draw_curve(ctx, cpnts) {
         ctx.lineTo(cpnts[i], cpnts[i+1])
 }
 
-// normal canvas line is antialiased so we can't use it for identifying objects by color
-// filling the line with rectangles seem to be fast and good enough
-function draw_curve_crisp(ctx, cpnts, r, color) {
-    ctx.fillStyle = color
-    let p0_x = Math.round(cpnts[0]), p0_y = Math.round(cpnts[1])
-    let sz = 2*r+1
-    for(let i = 2; i < cpnts.length; i += 2) {
-        let p1_x = Math.round(cpnts[i]), p1_y = Math.round(cpnts[i+1])
-        let dx = p1_x - p0_x, dy = p1_y - p0_y
-        let adx = Math.abs(dx), ady=Math.abs(dy)
-        if (adx+ady > r) {
-            let f = Math.round(Math.max(adx/r, ady/r))+1
-            let ddx = dx/f, ddy = dy/f
-            for(let j = 1; j < f; ++j) {
-                let x = p1_x + ddx*j, y = p1_y + ddy*j
-                ctx.fillRect(x-r, y-r, sz, sz)
-            }
-        }
-        ctx.fillRect(p1_x-r, p1_y-r, sz, sz)
-        p0_x = p1_x; p0_y = p1_y
-    }
-}
-
 const LINE_ARROW = {out:7, back:14}
 
 function connector_line(fx, fy, fxoffset, tx, ty, txoffset, free, uid) { // from, to
@@ -104,8 +81,12 @@ function connector_line(fx, fy, fxoffset, tx, ty, txoffset, free, uid) { // from
     ctx_nodes.stroke()
 
     if (uid !== undefined) {
-        draw_curve_crisp(ctx_nd_shadow, cpnts, 5, color_from_uid(uid)) 
-
+        //draw_curve_crisp(ctx_nd_shadow, cpnts, 5, "#ffff00") //color_from_uid(uid)) 
+        ctx_nd_shadow.beginPath()
+        draw_curve(ctx_nd_shadow, cpnts)
+        ctx_nd_shadow.lineWidth = 11
+        ctx_nd_shadow.strokeStyle = color_from_uid(uid)
+        ctx_nd_shadow.stroke()
     }
 }
 
@@ -115,10 +96,13 @@ function zero_pad_hex2(n) {
     return n.toString(16)
 }
 function color_from_uid(uid) {
-    return "#" + zero_pad_hex2(uid & 0xff) + zero_pad_hex2((uid >> 8) & 0xff) + zero_pad_hex2((uid >> 16) & 0xff)
+    console.assert(uid < 0xfffff)
+    return "#" + zero_pad_hex2(uid & 0xff) + zero_pad_hex2((uid >> 8) & 0xff) + 'f' + ((uid >> 16) & 0xf)
 }
 function uid_from_color(c) {
-    return c & 0xffffff
+    if ((c & 0xf00000) != 0xf00000)
+        return null // result of antialiasing, not a real color
+    return c & 0xfffff
 }
 
 function round_to(x, v) {
@@ -725,7 +709,7 @@ function find_node_obj(px, py, cvs_x, cvs_y) {
     let shadow_val = new Uint32Array(shadow_col.buffer)[0]
     let obj_id = uid_from_color(shadow_val)
     console.log("obj",obj_id)
-    if (obj_id != 0) {
+    if (obj_id != 0 && obj_id !== null) {
         let obj = program.obj_map[obj_id]
         console.assert(obj !== undefined, "can't find object with id " + obj_id)
         return obj
