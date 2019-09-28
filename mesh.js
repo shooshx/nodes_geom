@@ -81,7 +81,7 @@ class Mesh extends PObject
         this.transform_arr(m, this.arrs.vtx, this.arrs.vtx)
     }
 
-    get_bbox() {
+    get_bbox() { // TBD can cache this
         let vtx = this.arrs.vtx
         if (vtx.length == 0)
             return null
@@ -104,7 +104,7 @@ class Mesh extends PObject
                 ctx_img.beginPath();
                 ctx_img.arc(vtx[i], vtx[i+1], MESH_DISP.vtx_radius, 0, 2*Math.PI)
                 let vidx = i/2*4
-                ctx_img.fillStyle = "rgb(" + this.arrs.vtx_color[vidx] + "," + this.arrs.vtx_color[vidx+1] + "," + this.arrs.vtx_color[vidx+2]+ ")"
+                ctx_img.fillStyle = "rgba(" + this.arrs.vtx_color[vidx] + "," + this.arrs.vtx_color[vidx+1] + "," + this.arrs.vtx_color[vidx+2] + "," + (this.arrs.vtx_color[vidx+3]/255) + ")"
                 ctx_img.fill()
             }
             ctx_img.lineWidth = 0.5

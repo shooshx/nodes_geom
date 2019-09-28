@@ -703,12 +703,14 @@ function add_line(line) {
     program.lines.push(line)
     line.from_term.lines.push(line)
     line.to_term.lines.push(line)
+    line.to_term.dirty = true
     trigger_frame_draw(true)
 }
 
 function delete_line(line) {
     line.from_term.lines.splice(line.from_term.lines.indexOf(line), 1)
     line.to_term.lines.splice(line.to_term.lines.indexOf(line), 1)
+    line.to_term.dirty = true
     program.lines.splice(program.lines.indexOf(line), 1)
 }
 

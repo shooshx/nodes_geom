@@ -196,7 +196,7 @@ class ImageView extends ViewBase
             return selected_node.cls.image_find_obj(vx, vy, ex, ey)
         return null
     }
-    epnt_to_model(ex, ey) {
+    epnt_to_model(ex, ey) { // takes coord from mouse event
         let ti = vec2.create()
         vec2.transformMat3(ti, vec2.fromValues(ex,ey), this.t_inv_viewport)        
         return ti
@@ -234,10 +234,12 @@ function panel_mouse_control(view, canvas)
         if (e.buttons == 1) {
             prev_x = e.pageX; prev_y = e.pageY
             down_x = e.pageX; down_y = e.pageY
-            hit = view.find_obj(view.view_x(e.pageX), view.view_y(e.pageY), e.pageX, e.pageY);
+            let vx=view.view_x(e.pageX), vy=view.view_y(e.pageY)
+            hit = view.find_obj(vx, vy, e.pageX, e.pageY);
             if (hit != null) {
                 //console.log("hit ", hit)
-                hit.mousedown(e)
+                // passing e to potentiall stop propogation
+                hit.mousedown(e, vx, vy) 
                 return
             }
             did_move = false
@@ -267,15 +269,13 @@ function panel_mouse_control(view, canvas)
     document.addEventListener('mousemove', function(e) {
         var dx = e.pageX - prev_x
         var dy = e.pageY - prev_y
-        dx /= view.zoom
-        dy /= view.zoom
         prev_x = e.pageX, prev_y = e.pageY
         if (dx == 0 && dy == 0) 
             return
         did_move = true
         if (panning) {
-            view.pan_x += dx
-            view.pan_y += dy
+            view.pan_x += dx / view.zoom
+            view.pan_y += dy / view.zoom
             view.pan_redraw()
         }
         else if (hit !== null) {

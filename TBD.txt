@@ -1,8 +1,6 @@
 GUI:
-- !!! param panel overflow
 - color picker with null
 - image-view reset transform with context menu
-- save as
 - transform UI, for each node
 - select objects with Ctrl, rectangle
 - parameter value change with drag and right button like in houdini
@@ -15,15 +13,12 @@ GUI:
 
 
 ENGINE:
-- distribute output only to active lines!!
 - too many triggers when clicking on display of points color
 - display options show only vtx,stroke or fill, per node, visible only when on display
 
 NODES:
 - mouse vertices - mesh
-    - !!!! delete points doesn't work
-    - !!!! delete point from list
-    - !!!! points drag not according to zoom
+    - delete point from list
     - select with rectangle
     - move them even after transform?
     - edit coords with input
@@ -40,7 +35,6 @@ NODES:
 - single value input using a slider
 - random points
     too slow - add KdTree
-    !!! cache result unless there's a change in seed
 - interactive
     mouse input
 - GLSL node
@@ -55,6 +49,8 @@ NODES:
         http://potrace.sourceforge.net/  
 
 - !!! grid of points - actually divide
+- delete points outside a shape
+- convex hull
 
 - random points  - https://www.sidefx.com/docs/houdini/nodes/sop/scatter.html
     on a surface

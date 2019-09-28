@@ -108,7 +108,7 @@ function add_param_edit(line, value, set_func) {
     e.className = 'param_input'
     e.type = 'text'
     e.spellcheck = 'false'
-    e.value = value
+    e.value = toFixedMag(value)
     // TBD parse error
     e.addEventListener("input", function() { set_func(e.value); trigger_frame_draw(true) })
     line.appendChild(e)
@@ -153,6 +153,17 @@ function add_checkbox_btn(parent, label, value, onchange) {
     btn.setAttribute("for", ein.id)
     btn.innerText = label
     return [ein, btn]
+}
+
+class ParamSeparator extends Parameter {
+    constructor(node) {
+        super(node, null)
+    }
+    save() { return null }
+    load(v) {}
+    add_elems(parent) {
+        add_elem(parent, "hr", "param_separator")
+    }
 }
 
 
@@ -243,6 +254,14 @@ class ParamColor extends Parameter {
     }
 }
 
+function toFixedMag(f) {
+    if (Math.abs(f) < 1e-13)
+        return "0"
+    let af = Math.min(Math.round(Math.log10(Math.abs(f))), -3)
+    return f.toFixed(-af)
+}
+
+
 class ParamTransform extends Parameter {
     constructor(node, label) {
         super(node, label)
@@ -250,28 +269,157 @@ class ParamTransform extends Parameter {
         this.rotate = 0
         this.scale = vec2.fromValues(1,1)
         this.v = mat3.create()
+        
+        this.elems = {tx:null, ty:null, r:null, sx:null, sy:null }
+        this.dial = null
     }
     save() { return {t:this.translate, r:this.rotate, s:this.scale} }
     load(v) { this.translate[0] = v.t[0]; this.translate[1] = v.t[1]; this.rotate = v.r; this.scale[0] = v.s[0]; this.scale[1] = v.s[1]; this.calc_mat() }
     calc_mat() {
         mat3.identity(this.v)
-        mat3.scale(this.v, this.v, this.scale)
-        mat3.rotate(this.v, this.v, glm.toRadian(this.rotate))
         mat3.translate(this.v, this.v, this.translate)
+        mat3.rotate(this.v, this.v, glm.toRadian(this.rotate))
+        mat3.scale(this.v, this.v, this.scale)
         this.dirty = true
     }
     add_elems(parent) {  // TBD support enable
         let line1 = add_param_line(parent)
         add_param_label(line1, "Translate")
-        add_param_edit(line1, this.translate[0], (v)=>{ this.translate[0] = v; this.calc_mat() })
-        add_param_edit(line1, this.translate[1], (v)=>{ this.translate[1] = v; this.calc_mat()})
+        this.elems.tx = add_param_edit(line1, this.translate[0], (v)=>{ this.translate[0] = parseFloat(v); this.calc_mat() })
+        this.elems.ty = add_param_edit(line1, this.translate[1], (v)=>{ this.translate[1] = parseFloat(v); this.calc_mat()})
         let line2 = add_param_line(parent)
         add_param_label(line2, "Rotate")
-        add_param_edit(line2, this.rotate, (v)=>{ this.rotate = v; this.calc_mat()})
+        this.elems.r = add_param_edit(line2, this.rotate, (v)=>{ this.rotate = parseFloat(v); this.calc_mat()})
         let line3 = add_param_line(parent)
         add_param_label(line3, "Scale")
-        add_param_edit(line3, this.scale[0], (v)=>{ this.scale[0] = v; this.calc_mat()})
-        add_param_edit(line3, this.scale[1], (v)=>{ this.scale[1] = v; this.calc_mat()})
+        this.elems.sx = add_param_edit(line3, this.scale[0], (v)=>{ this.scale[0] = parseFloat(v); this.calc_mat()})
+        this.elems.sy = add_param_edit(line3, this.scale[1], (v)=>{ this.scale[1] = parseFloat(v); this.calc_mat()})
+    }
+    repaint_elems() {
+        this.elems.tx.value = toFixedMag(this.translate[0])
+        this.elems.ty.value = toFixedMag(this.translate[1])
+        this.elems.r.value = toFixedMag(this.rotate)
+        this.elems.sx.value = toFixedMag(this.scale[0])
+        this.elems.sy.value = toFixedMag(this.scale[1])
+    }
+    move(dx, dy) {
+        this.translate[0] += dx; 
+        this.translate[1] += dy; 
+        this.calc_mat(); 
+        this.repaint_elems()
+    }
+    do_rotate(d_angle) {
+        this.rotate += d_angle;
+        if (this.rotate > 360)  this.rotate -= 360
+        if (this.rotate < 0) this.rotate += 360
+        this.calc_mat(); 
+        this.repaint_elems()
+    }
+    draw_dial(cx, cy) {
+        if (this.dial === null)
+            this.dial = new TransformDial(this)
+        this.dial.set_center(cx, cy)
+        this.dial.draw()
+        return this.dial
+    }
+}
+
+class DialMoveHandle {
+    constructor(param, do_x, do_y) {
+        this.param = param
+        this.do_x = do_x; this.do_y = do_y
+    }
+    mousedown() {}
+    mouseup() {}
+    mousemove(dx,dy, vx,vy, ex,ey) {
+        dx /= image_view.viewport_zoom
+        dy /= image_view.viewport_zoom        
+        this.param.move(this.do_x ? dx : 0, this.do_y ? dy: 0)
+        trigger_frame_draw(true)
+    }
+}
+
+class DialRotHandle {
+    constructor(param, cx,cy) {
+        this.param = param
+        this.cx = cx; this.cy = cy
+    }
+    mousedown(e, vx,vy) {
+        this.prev_angle = Math.atan2(vy-this.cy, vx-this.cx) * 180 / Math.PI
+        //console.log("start-angle", this.start_angle)
+    }
+    mouseup() {}
+    mousemove(dx,dy, vx,vy, ex,ey) {
+        let angle = Math.atan2(vy-this.cy, vx-this.cx) * 180 / Math.PI
+        let d_angle = angle - this.prev_angle
+        if (d_angle > 180) d_angle -= 360
+        if (d_angle < -180) d_angle += 360
+        //console.log("angle", angle - this.prev_angle)
+        this.param.do_rotate(d_angle)
+        this.prev_angle = angle
+        trigger_frame_draw(true)
+    }
+}
+
+function closed_line(ctx, ln) {
+    ctx.moveTo(ln[0], ln[1])
+    for(let i = 2; i < ln.length; i += 2)
+        ctx.lineTo(ln[i], ln[i+1])
+    ctx.lineTo(ln[0], ln[1])
+}
+
+const SQ_HALF = 0.70710678118
+
+class TransformDial {
+    constructor(param, move_rect) {
+        this.param = param
+        this.cx = null; this.cy = null
+    }
+    set_center(cx, cy) { 
+        this.cx = cx; this.cy = cy
+        this.mv = {x:cx - 20, y:cy - 20, w:40, h:40}
+        // up arrow
+        this.uab = {x:this.cx-8, y:this.cy-25, bw:16, bh:20, tw:10, th:40} // bw=baseWidth, bh=baseHeight, tw=topWidth, th=topHeight
+        // right arrow
+        this.rab = {x:this.cx+25, y:this.cy-8, bw:16, bh:20, tw:10, th:40}
+        this.rot = {r0:60, r1:75, a0:-0.4*Math.PI, a1:-0.1*Math.PI}
+    }
+    find_obj(ex, ey) { // event coords
+        let mv = this.mv, uab = this.uab, rab = this.rab, rot=this.rot
+        if (ex >= mv.x && ey >= mv.y && ex <= mv.x + mv.w && ey <= mv.y + mv.h)
+            return new DialMoveHandle(this.param, true, true)
+        if (ex >= uab.x && ex <= uab.x+uab.bw && ey >= uab.y-uab.th && ey <= uab.y)
+            return new DialMoveHandle(this.param, false, true)
+        if (ex >= rab.x && ex < rab.x+rab.th && ey >= rab.y && ey <= rab.y+rab.bw)
+            return new DialMoveHandle(this.param, true, false)
+        let tcx = ex-this.cx, tcy = ey-this.cy
+        let de = Math.sqrt(tcx*tcx + tcy*tcy), ang = Math.atan2(ey-this.cy, ex-this.cx)
+        if (de >= rot.r0 && de <= rot.r1 && ang >= rot.a0 && ang <= rot.a1)
+            return new DialRotHandle(this.param, this.cx, this.cy)
+        return null
+    }
+    draw() {
+        ctx_img.beginPath()
+        // square
+        let mv = this.mv, uab = this.uab, rab = this.rab, rot=this.rot
+        closed_line(ctx_img, [mv.x,mv.y, mv.x+mv.w,mv.y, mv.x+mv.w,mv.y+mv.h, mv.x,mv.y+mv.h])
+        // up arrow
+        closed_line(ctx_img, [uab.x,uab.y, uab.x,uab.y-uab.bh, uab.x-uab.tw,uab.y-uab.bh, this.cx,uab.y-uab.th,
+                              uab.x+uab.tw+uab.bw,uab.y-uab.bh, uab.x+uab.bw,uab.y-uab.bh, uab.x+uab.bw,uab.y])
+        // right arrow
+        closed_line(ctx_img, [rab.x,rab.y, rab.x+rab.bh,rab.y, rab.x+rab.bh,rab.y-rab.tw, rab.x+rab.th,this.cy,
+                              rab.x+rab.bh,rab.y+rab.tw+rab.bw, rab.x+rab.bh,rab.y+rab.bw, rab.x,rab.y+rab.bw])
+        // rotate circle
+        ctx_img.moveTo(this.cx+rot.r1*Math.cos(rot.a0),this.cy+rot.r1*Math.sin(rot.a0))
+        ctx_img.arc(this.cx,this.cy, rot.r0, rot.a0, rot.a1)
+        ctx_img.arc(this.cx,this.cy, rot.r1, rot.a1, rot.a0, true)
+
+        ctx_img.strokeStyle = '#ffff00'
+        ctx_img.lineWidth = 3
+        ctx_img.stroke()
+        ctx_img.lineWidth = 1
+        ctx_img.strokeStyle = '#ff0000'
+        ctx_img.stroke()
     }
 }
 
@@ -312,8 +460,8 @@ class ListParam extends Parameter {
         let vindex = (this.lst.length - this.values_per_entry)
         this.create_entry_elems(v, this.table.get_column_elem(this.column), vindex)
     }
-    add_column_elems(column_elem) {
-        this.elem_lst = []
+
+    for_values(func) {
         for(let vindex = 0; vindex < this.lst.length; vindex += this.values_per_entry) {
             let v = []
             if (this.values_per_entry > 1)
@@ -321,8 +469,12 @@ class ListParam extends Parameter {
                     v[vi] = this.lst[vindex + vi]            
             else
                 v = this.lst[vindex]
-            let e = this.create_entry_elems(v, column_elem, vindex)
+            func(v, vindex)
         }
+    }
+    add_column_elems(column_elem) {
+        this.elem_lst = []
+        this.for_values((v, vindex)=>{ this.create_entry_elems(v, column_elem, vindex) })
     }
 
     create_entry_elems(v, parent, vindex) {
@@ -338,7 +490,8 @@ class ListParam extends Parameter {
             })
         }
         else {
-            e = create_div([this.elem_prm.cls])
+            let clss = this.elem_prm.get_clss ? this.elem_prm.get_clss(vindex / this.values_per_entry) : [this.elem_prm.cls]
+            e = create_div(clss)
             e.innerText = this.elem_prm.to_string(v)
             parent.appendChild(e)
         }
@@ -347,22 +500,39 @@ class ListParam extends Parameter {
     }    
 
     remove(index_lst) { // need to remove a list since the indices will change if we remove one by one
+        let tmplst = Array.from(this.lst) // for removing put it in a normal array (can't remove from typed array or set to undefined in there)
+        let tmplen = tmplst.length
         for(let index of index_lst) {
             let vindex = index * this.values_per_entry
             console.assert(vindex < this.lst.length, "remove out of range")
             for(let i = 0; i < this.values_per_entry; ++i)
-                delete this.lst[vindex+i]
+                delete tmplst[vindex+i]
+            tmplen -= this.values_per_entry
             this.elem_lst[index].remove() // remove from DOM tree
             delete this.elem_lst[index]  // make it undefined for later cull
         }
-        this.lst = cull_list(this.lst)
+
+        this.lst = new this.lst.constructor(tmplen)
+        let addi = 0
+        for(let v of tmplst) 
+            if (v !== undefined)
+                this.lst[addi++] = v
         this.dirty = true
+
         this.elem_lst = cull_list(this.elem_lst)
         console.assert(this.lst.length == this.elem_lst.length * this.values_per_entry, "unexpected number of elements")
     }
 
     reprint_line(vidx, v) {
-        this.elem_lst[vidx / this.values_per_entry].innerText = this.elem_prm.to_string(v)
+        let idx = vidx / this.values_per_entry
+        let elem = this.elem_lst[idx]
+        if (this.elem_prm.get_clss)
+            elem.classList = this.elem_prm.get_clss(idx).join(" ")
+        elem.innerText = this.elem_prm.to_string(v)
+    }
+
+    reprint_all_lines() {
+        this.for_values((v, vindex)=>{ this.reprint_line(vindex, v) })
     }
 
     // for changes that come from user interaction in the image_canvas

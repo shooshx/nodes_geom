@@ -37,7 +37,8 @@ input {
     height: 200px;
     width: 100%;
     background-color: #312F31;
-    color: #fff;    
+    color: #fff;  
+    overflow: auto;  
 }
 
 .splitter {
@@ -102,6 +103,10 @@ input {
 .param_disabled {
     opacity: 0.6;
     pointer-events:none;
+}
+.param_separator {
+    margin: 8px 4px 4px 4px;
+    border-style: none;    /* just space, no line */
 }
 .param_label_pre {
     width: 120px;
@@ -200,8 +205,10 @@ input {
     width: calc( 100% - 5px);;
     min-width: 100px;
     overflow-x: hidden;
-    box-sizing: border-box;
-    
+    box-sizing: border-box;   
+}
+.param_list_selected_line {
+    color: #ffff00
 }
 
 .param_table_column {

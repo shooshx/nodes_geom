@@ -38,16 +38,30 @@ class NodeGeomPrimitive extends NodeCls
         super(node)
         this.out = new OutTerminal(node, "out_mesh")
         this.size = new ParamVec2(node, "Size", 0.5, 0.5)
-        this.last
+        new ParamSeparator(node)
+        this.transform = new ParamTransform(node, "Transform")
     }
     run() {
-        let m = new Mesh()
+        let mesh = new Mesh()
         // center at 0,0
         let hx = this.size.x * 0.5, hy = this.size.y * 0.5
-        m.set('vtx', new TVtxArr([-hx, -hy, hx, -hy, hx, hy, -hx, hy]), 2)
-        m.set('idx', new TIdxArr([0, 1, 2, 3]))
-        m.set_type(MESH_QUAD)
-        this.out.set(m)
+        mesh.set('vtx', new TVtxArr([-hx, -hy, hx, -hy, hx, hy, -hx, hy]), 2)
+        mesh.set('idx', new TIdxArr([0, 1, 2, 3]))
+        mesh.set_type(MESH_QUAD)
+        mesh.transform(this.transform.v)
+        this.out.set(mesh)
+    }
+    draw_selection(m) {
+        let mesh = this.out.get_const()
+        if (mesh === null)
+            return // might be it's not connected so it doesn't have output
+        let bbox = mesh.get_bbox()
+        let center = vec2.fromValues((bbox.min_x + bbox.max_x) * 0.5, (bbox.min_y + bbox.max_y) * 0.5)
+        vec2.transformMat3(center, center, m)
+        this.transform.draw_dial(center[0], center[1])
+    }    
+    image_find_obj(vx, vy, ex, ey) {
+        return this.transform.dial.find_obj(ex, ey)
     }
 }
 
@@ -60,7 +74,7 @@ class PointSelectHandle
         // TBD add offset
     }
     mousedown() {
-        this.ofnode.selected_indices = [this.index]
+        this.ofnode.set_selection(this.index) 
         trigger_frame_draw(false)
     }
     mouseup() {}
@@ -70,10 +84,17 @@ class PointSelectHandle
 }
 
 class CoordListParam extends ListParam {
-    constructor(node, label, table) {
-        super(node, label, 2, table, TVtxArr, {cls:"param_monospace", to_string: function(v) { 
+    constructor(node, label, table, selected_indices) {
+        super(node, label, 2, table, TVtxArr, {cls:"param_monospace", to_string: (v)=>{ 
             return "(" + v[0].toFixed(3) + "," + v[1].toFixed(3) + ")" 
-        }})
+        }, 
+        get_clss: (index)=>{
+            let r = ["param_monospace"]
+            if (selected_indices.indexOf(index) != -1)
+                r.push("param_list_selected_line")
+            return r
+        }
+        })
         this.need_normalize = false  // not really needed for coordinates but just for remembering
     }
     def_value() { return [0,0] }
@@ -112,13 +133,14 @@ class NodeManualPoints extends NodeCls
     static name() { return "Manual_Points" }
     constructor(node) {
         super(node)
+        this.selected_indices = [] // point indices
+
         this.out = new OutTerminal(node, "out_mesh")
         this.table = new TableParam(node, "Point List")
-        this.points = new CoordListParam(node, "Coord", this.table)
+        this.points = new CoordListParam(node, "Coord", this.table, this.selected_indices)
         this.dummy = new FloatListParam(node, "Dummy", this.table)
         this.color = new ColorListParam(node, "Point Color", this.table)
 
-        this.selected_indices = [] // point indices
         this.pnt_attrs = [this.dummy, this.color]  // Param objets of additional attributes of each point other than it's coordinate
     }
     image_click(ex, ey) {
@@ -137,7 +159,13 @@ class NodeManualPoints extends NodeCls
         trigger_frame_draw(true)
     }
     clear_selection() {
-        this.selected_indices = []
+        this.selected_indices.length = 0 // don't recreate the array since there's reference from the CoordListParam
+        this.points.reprint_all_lines()
+    }
+    set_selection(idx) {
+        this.selected_indices.length = 0
+        this.selected_indices.push(idx)
+        this.points.reprint_all_lines()
     }
     selected_obj_name() { return (this.selected_indices.length > 0) ? "points" : null }
     delete_selection() {

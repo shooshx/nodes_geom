@@ -195,7 +195,7 @@ function run_nodes_tree(n) {
     // distribute outputs to all connected inputs so that all references of an object will be known
     //   still need to do that even if not dirty since inputs are cleared
     for(let out_t of n.outputs) {  
-        for(let line of out_t.lines) { // TBD - only active lines!
+        for(let line of out_t.lines) { 
             line.to_term.set(line.from_term.get_const())
         }
     }

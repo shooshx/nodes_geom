@@ -224,7 +224,7 @@ function make_hex(c, force_no_alpha) {
     if (c.alpha == 1 || force_no_alpha)
         return "#" + (Number(c.r).toString(16).padStart(2,'0') + Number(c.g).toString(16).padStart(2,'0') + Number(c.b).toString(16).padStart(2,'0')).toUpperCase()
     else
-        return "rgba(" + c.r + "," + c.g + "," + c.b + "," + c.alpha + ")"
+        return "rgba(" + c.r + "," + c.g + "," + c.b + "," + c.alpha.toFixed(2) + ")"
 }
 
 function parse_hex(s) {
@@ -305,6 +305,7 @@ function create_at(elem, add_func, sz, visible, onchange, options)
     canvas.style.borderRadius = "7px"
     canvas.tabIndex = 0  // make it focusable
     canvas.style.outline = "none"  // but don't put a focus border on it
+    canvas.style.zIndex = 100  // don't allow other stuff from around to change the cursor
     var ctx = canvas.getContext("2d")
 
     //if (options.with_alpha && CHECKERS_IMAGE === null) 
@@ -358,6 +359,7 @@ function create_at(elem, add_func, sz, visible, onchange, options)
             sel_pos.bar_y = sel_col.h 
         else  // get the hue value from the UI instead
             sel_col.h = sel_pos.bar_y
+        sel_pos.alpha_y = 1-sel_col.alpha
         draw_chart(ctx, cfg, sel_col, sel_pos, presets, options)
         if (do_onchange && onchange)
             onchange(sel_col)
