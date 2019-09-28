@@ -2,7 +2,7 @@
 
 function save_program() {
     let sprog = { nodes: {}, lines:[], 
-        next_node_id: program.next_node_id, 
+        next_node_id: program.next_obj_id, 
         names_idx_s: program.names_indices,
         display_node_id: (program.display_node == null) ? null : program.display_node.id
     }
@@ -17,7 +17,8 @@ function save_program() {
         let from_term = line.from_term.get_attachee()
         let to_term = line.to_term.get_attachee()
         sprog.lines.push({ from_name: from_term.name, from_id: from_term.owner.id,
-                           to_name:   to_term.name,   to_id: to_term.owner.id })
+                           to_name:   to_term.name,   to_id: to_term.owner.id,
+                           uid: line.uid })
     }
     return sprog
 }
@@ -37,6 +38,7 @@ function save_program_json() {
 }
 
 function load_prog_json(prog_s) {
+    
     let prog = JSON.parse(prog_s)
     load_program(prog)
     draw_nodes()
@@ -51,6 +53,9 @@ function save_state() {
                   main_view_s: main_view_state.save(),
                   user_saved_progs: user_saved_programs
                 }
+    let color_pre = ColorPicker.get_presets()
+    if (Object.keys(color_pre).length > 0)
+        state.color_presets = color_pre
 
     //console.log("SAVING: + ", JSON.stringify(state))
     let json = json_stringify(state)
@@ -59,10 +64,12 @@ function save_state() {
 
 // -----------
 
-function load_program(sprog) {
-
+function load_program(sprog) 
+{
+    nodes_unselect_all(false)
     clear_program()
-    program.next_node_id = parseInt(sprog.next_node_id)
+    
+    program.next_obj_id = parseInt(sprog.next_node_id)
     for(let n in sprog.names_indices)
         program.names_indices[n] = parseInt(sprog.names_idx_s[n])
 
@@ -90,12 +97,16 @@ function load_program(sprog) {
         return null
     }
     for(let sl of sprog.lines) {
-        let from_term = find_by_name(program.nodes_map[sl.from_id].terminals, sl.from_name)
-        let to_term = find_by_name(program.nodes_map[sl.to_id].terminals, sl.to_name)
-        add_line(new Line(from_term.get_attachment(), to_term.get_attachment()))
+        let from_node = program.obj_map[sl.from_id]
+        console.assert(from_node.constructor === Node)
+        let from_term = find_by_name(from_node.terminals, sl.from_name)
+        let to_node = program.obj_map[sl.to_id]
+        console.assert(to_node.constructor === Node)
+        let to_term = find_by_name(to_node.terminals, sl.to_name)
+        program.add_line(new Line(from_term.get_attachment(), to_term.get_attachment()), sl.uid)
     }
 
-    program.display_node = (sprog.display_node_id == null) ? null : program.nodes_map[sprog.display_node_id]
+    program.display_node = (sprog.display_node_id == null) ? null : program.obj_map[sprog.display_node_id]
 }
 
 function load_state() {
@@ -108,6 +119,9 @@ function load_state() {
     nodes_view.load(state.nodes_view)
     if (state.user_saved_progs)
         user_saved_programs = state.user_saved_progs
+    if (state.color_presets)
+        ColorPicker.set_presets(state.color_presets)
+
     try {
         load_program(state.program) 
     }

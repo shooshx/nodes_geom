@@ -15,7 +15,7 @@ input {
     top: 0;
     left: 0;
     right: 0;
-   overflow: hidden; /* needed for some strangeness that creates a scrollbar randomally when resizing */
+    overflow: hidden; /* needed for some strangeness that creates a scrollbar randomally when resizing */
 }
 
 #image_panel {
@@ -231,6 +231,13 @@ input {
 #canvas_webgl{ 
     border: solid 1px;
     display: none;
+}
+#canvas_nd_shadow {
+    border: solid 1px;
+    display: none;
+}
+#canvas_image {
+    /*display: none; /*TEMP*/
 }
 
 .param_btn {

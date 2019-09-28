@@ -20,26 +20,24 @@ var main_view_state = {
     load: function(v) { this.split_1_h = parseFloat(v.split_1_h) || 0.6; this.split_2_v = parseFloat(v.split_2_v) || 0.35}
 }
 
-function setup_horz_splitter(container, p1, grip, p2, c2)
+function setup_horz_splitter(container, grip, resize1, resize2) //p1, , p2, c2)
 {    
     var p1_height = Math.trunc(container.offsetHeight * main_view_state.split_2_v) - GRIP_WIDTH
     var resize = function() {
-        p1.style.height = p1_height + "px"
+        resize1(null, p1_height)
         var p2_height = container.offsetHeight - p1_height - GRIP_WIDTH
-        p2.style.height = p2_height + "px"
-        c2.height = p2_height
-        c2.do_draw()
+        resize2(null, p2_height)
         recalc_canvases_rects()
     }
     resize()
     window.addEventListener('resize', resize);
  
     var moving = false;
-    var startOffset;
+    var lastY;
     
     grip.addEventListener('mousedown', function(e) {
         moving = true;
-        startOffset = p1.offsetHeight - e.pageY;
+        lastY = e.pageY;
     });
     document.addEventListener('mouseup', function() {
         moving = false;
@@ -47,13 +45,12 @@ function setup_horz_splitter(container, p1, grip, p2, c2)
 
     document.addEventListener('mousemove', function(e) {
       if (moving && e.pageY > MIN_PANEL_SIZE && e.pageY < container.offsetHeight - MIN_PANEL_SIZE) {
-          p1_height = startOffset + e.pageY
-          p1.style.height = p1_height + 'px';
+          p1_height += e.pageY - lastY
+          lastY = e.pageY
+          resize1(null, p1_height)
           var p2_height = container.offsetHeight - p1_height - GRIP_WIDTH
-          p2.style.height = p2_height + "px"
-          c2.height = p2_height
+          resize2(null, p2_height)
           main_view_state.split_2_v = (p1_height + GRIP_WIDTH) / container.offsetHeight
-          c2.do_draw()
           e.preventDefault(); // prevent selection action from messing it up
           recalc_canvases_rects()
       }
@@ -62,30 +59,27 @@ function setup_horz_splitter(container, p1, grip, p2, c2)
 }
 
 
-function setup_vert_splitter(container, p1, c1, grip, p2, c2)
+function setup_vert_splitter(container, grip, resize1, resize2) //p1, c1, grip, p2, c2)
 {
     var p1sz = Math.trunc(container.offsetWidth * main_view_state.split_1_h) - GRIP_WIDTH
     
     var resize = function() {
-        p1.style.width = p1sz + "px"
-        c1.width = p1sz
-        c1.height = container.offsetHeight // Assumes image canvas takes the whole height
-        c1.do_draw()
+        resize1(p1sz, container.offsetHeight)
+
         var p2sz = container.offsetWidth - p1sz - GRIP_WIDTH
-        p2.style.width = p2sz + "px"
-        c2.width = p2sz
-        c2.do_draw()
+        resize2(p2sz, null)
+
         recalc_canvases_rects()
     }
     resize()
     window.addEventListener('resize', resize);
 
     var moving = false;
-    var startOffset;
+    var lastX;
     
     grip.addEventListener('mousedown', function(e) {
         moving = true;
-        startOffset = p1.offsetWidth - e.pageX;
+        lastX = e.pageX;
     });
     document.addEventListener('mouseup', function() {
         moving = false;
@@ -93,15 +87,12 @@ function setup_vert_splitter(container, p1, c1, grip, p2, c2)
 
     document.addEventListener('mousemove', function(e) {
       if (moving && e.pageX > MIN_PANEL_SIZE && e.pageX < container.offsetWidth - MIN_PANEL_SIZE) {
-          p1sz = startOffset + e.pageX
-          p1.style.width = p1sz + 'px';
-          c1.width = p1sz
-          c1.do_draw()
+          p1sz += e.pageX - lastX
+          lastX = e.pageX
+          resize1(p1sz, null)
           var p2sz = container.offsetWidth - p1sz - GRIP_WIDTH
-          p2.style.width = p2sz + "px"
-          c2.width = p2sz
+          resize2(p2sz)
           main_view_state.split_1_h = (p1sz + GRIP_WIDTH) / container.offsetWidth
-          c2.do_draw()
           e.preventDefault(); // prevent selection action from messing it up
           recalc_canvases_rects()
       }
@@ -279,13 +270,15 @@ function panel_mouse_control(view, canvas)
             view.pan_redraw()
         }
         else if (hit !== null) {
-            hit.mousemove(dx, dy, view.view_x(e.pageX), view.view_y(e.pageY), e.pageX, e.pageY)
+            let cvs_x = e.pageX - view.rect.left, cvs_y = e.pageY - view.rect.top
+            hit.mousemove(dx, dy, view.view_x(e.pageX), view.view_y(e.pageY), e.pageX, e.pageY, cvs_x, cvs_y)
         }
     })
     
     canvas.addEventListener("contextmenu", function(e) {
         view.dismiss_ctx_menu()
-        let ctx = view.context_menu(view.view_x(e.pageX), view.view_y(e.pageY), e.pageX, e.pageY)
+        let cvs_x = e.pageX - view.rect.left, cvs_y = e.pageY - view.rect.top // relative to canvas
+        let ctx = view.context_menu(view.view_x(e.pageX), view.view_y(e.pageY), e.pageX, e.pageY, cvs_x, cvs_y)
         if (ctx !== null)
             e.preventDefault()
         return false;
@@ -432,6 +425,10 @@ class NameInput
         input.addEventListener('input', ()=>{
             this.node.set_name(input.value)
             draw_nodes()
+        })
+        input.addEventListener("keypress", function(e) {
+            if (e.keyCode == 13)
+                nodes_dismiss_name_input()
         })
         last_name_input = this
     }

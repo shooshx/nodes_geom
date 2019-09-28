@@ -1,8 +1,8 @@
 GUI:
 - color picker with null
 - image-view reset transform with context menu
-- transform UI, for each node
-- select objects with Ctrl, rectangle
+
+- select nodes with Ctrl, rectangle (display params of multiple nodes at once?)
 - parameter value change with drag and right button like in houdini
 - before running - do type checking
 - Math.round lines just before drawing to avoid thinning artifacts when zooming?
@@ -18,12 +18,14 @@ ENGINE:
 
 NODES:
 - mouse vertices - mesh
-    - delete point from list
+    - delete point from list control
     - select with rectangle
     - move them even after transform?
     - edit coords with input
 - mouse polyline
 - polyline fill
+    Path2D
+    https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths
 - Primitive Circle
 - attribute sample
     color
@@ -35,6 +37,7 @@ NODES:
 - single value input using a slider
 - random points
     too slow - add KdTree
+    exact shape, not bbox
 - interactive
     mouse input
 - GLSL node
@@ -48,7 +51,7 @@ NODES:
     potrace -  https://github.com/kilobtye/potrace/blob/master/potrace.js
         http://potrace.sourceforge.net/  
 
-- !!! grid of points - actually divide
+- !!! grid of points - actually divide?
 - delete points outside a shape
 - convex hull
 
@@ -66,9 +69,7 @@ try for changing pivot T1 * Tp1 * R * Tp1' = T2 * Tp2 * R * Tp
 
 
 NODE-VIEW
-- arrow heads
-- better lines
-- delete lines
+- better lines the go up
 - don't allow connect more than one thing into an input, unless it's a multi-input
 - terminal color according to type
 

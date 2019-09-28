@@ -2,6 +2,7 @@
 <head>
 <meta charset="utf-8"/>
 <script src="gl-matrix.js"></script>
+<script src="line_curve_calc.js"></script>
 <script src="ColorPicker.js"></script>
 <script src="base_node.js"></script>
 <script src="gui.js"></script>
@@ -18,6 +19,7 @@ var vec2 = glMatrix.vec2, mat3 = glMatrix.mat3, glm = glMatrix.glMatrix
 glm.setMatrixArrayType(Float64Array)
 
 var ctx_nodes, ctx_img
+var ctx_nd_shadow // the canvas_nd_shadow is auxilary for the canvas_nodes for identifying objects
 
 const PRELOAD_IMAGES = [ "img/check_checked.png", "img/check_int.png", "img/check_none.png",
                          "img/red_ex.png", "img/gray_ex.png",   
@@ -32,6 +34,36 @@ function preload_images() {
     }
 }
 
+function _resize_img_panel(w, h) {
+    if (w !== null) {
+        image_panel.style.width = w + "px"
+        canvas_image.width = w
+    }
+    if (h !== null)
+        canvas_image.height = h // Assumes image canvas takes the whole height
+    image_view.resize_redraw()
+}
+function _resize_edit_panel(w, h) {
+    if (w !== null) {
+        edit_panel.style.width = w + "px"
+        canvas_nodes.width = w
+        canvas_nd_shadow.width = w
+    }
+    draw_nodes()    
+}
+function _resize_edit_param(w, h) {
+    if (h !== null)
+        edit_params.style.height = h + 'px';
+}
+function _resize_nodes_panel(w, h) {
+    if (h !== null) {
+        edit_nodes.style.height = h + "px"
+        canvas_nodes.height = h
+        canvas_nd_shadow.height = h
+    }
+    draw_nodes()              
+}
+
 function page_onload()
 {
     preload_images()
@@ -39,14 +71,8 @@ function page_onload()
     image_view = new ImageView(canvas_image)
 
     ctx_nodes = canvas_nodes.getContext('2d')
+    ctx_nd_shadow = canvas_nd_shadow.getContext('2d', {alpha: false})
     ctx_img = canvas_image.getContext('2d')
-    
-    canvas_nodes.do_draw = function() {
-        draw_nodes()
-    }
-    canvas_image.do_draw = function() {
-        image_view.resize_redraw()
-    }
     
     clear_program()
     try {
@@ -56,8 +82,8 @@ function page_onload()
         console.error("failed load " + e)
     }
     
-    setup_vert_splitter(main_view, image_panel, canvas_image, image_splitter, edit_panel, canvas_nodes)
-    setup_horz_splitter(edit_panel, edit_params, edit_splitter, edit_nodes, canvas_nodes)
+    setup_vert_splitter(main_view, image_splitter, _resize_img_panel, _resize_edit_panel)
+    setup_horz_splitter(edit_panel, edit_splitter, _resize_edit_param, _resize_nodes_panel)
     create_top_menu(main_view)
     
     panel_mouse_control(nodes_view, canvas_nodes)
@@ -77,12 +103,12 @@ function page_onload()
 class Program {
     constructor() {
         this.nodes = [] // nodes in an array for iteration
-        this.nodes_map = {}  // node-id to node 
+        this.obj_map = {}  // node-id to node 
         this.lines = []
         this.display_node = null
         // map node cls name to the next index a node of this class is going to get
         this.names_indices = {}
-        this.next_node_id = 1
+        this.next_obj_id = 1
     }
 
     add_node(x, y, name, cls, id) 
@@ -95,15 +121,27 @@ class Program {
             name = cls.name().toLowerCase().replace(' ','_') + "_" + this.names_indices[cls.name()]
         }
         if (id === null || id === undefined) {
-            id = this.next_node_id++ 
+            id = this.next_obj_id++ 
         }
         else {
-            console.assert(this.nodes_map[id] === undefined, "node-id already exists")
+            console.assert(this.obj_map[id] === undefined, "node-id already exists")
         }
         var node = new Node(x, y, name, cls, id)
-        this.nodes_map[node.id] = node
+        this.obj_map[node.id] = node
         this.nodes.push(node)
         return node
+    }
+
+    add_line(line, uid) {
+        this.lines.push(line)
+        if (uid === null || uid === undefined)
+            uid = this.next_obj_id++ 
+        line.uid = uid
+        this.obj_map[uid] = line
+        line.from_term.lines.push(line)
+        line.to_term.lines.push(line)
+        line.to_term.dirty = true
+        trigger_frame_draw(true)
     }
 }
 
@@ -349,5 +387,5 @@ for(let c of nodes_classes)
 <link rel="stylesheet" type="text/css" href="style.css">
 
 </head>
-<body onload=page_onload()><div id="main_view"><div id="image_panel"><canvas id="canvas_image" width="100" height="100"></canvas><canvas id="canvas_webgl" width="100" height="100"></canvas></div><div id="image_splitter" class="splitter"></div><div id="edit_panel"><div id="edit_params"><div id="div_params_list"></div></div><div id="edit_splitter" class="splitter"></div><div id="edit_nodes"><canvas id="canvas_nodes" width="100" height="100"></div></div></div></body>
+<body onload=page_onload()><div id="main_view"><div id="image_panel"><canvas id="canvas_image" width="100" height="100"></canvas><canvas id="canvas_webgl" width="100" height="100"></canvas></div><div id="image_splitter" class="splitter"></div><div id="edit_panel"><div id="edit_params"><div id="div_params_list"></div></div><div id="edit_splitter" class="splitter"></div><div id="edit_nodes"><canvas id="canvas_nodes" width="100" height="100"></canvas></div></div></div><canvas id="canvas_nd_shadow" width="100" height="100"></canvas></body>
 </html>

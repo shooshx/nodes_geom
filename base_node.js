@@ -24,34 +24,102 @@ function connector_line_s(fx, fy, tx, ty) { // from, to
     ctx_nodes.stroke()    
 }
 
+function draw_curve(ctx, cpnts) {
+    ctx.moveTo(cpnts[0], cpnts[1])
+    for(let i=2; i<cpnts.length; i+=2)
+        ctx.lineTo(cpnts[i], cpnts[i+1])
+}
 
-function connector_line(fx, fy, fxoffset, tx, ty, txoffset, free) { // from, to
-    ctx_nodes.beginPath()
+// normal canvas line is antialiased so we can't use it for identifying objects by color
+// filling the line with rectangles seem to be fast and good enough
+function draw_curve_crisp(ctx, cpnts, r, color) {
+    ctx.fillStyle = color
+    let p0_x = Math.round(cpnts[0]), p0_y = Math.round(cpnts[1])
+    let sz = 2*r+1
+    for(let i = 2; i < cpnts.length; i += 2) {
+        let p1_x = Math.round(cpnts[i]), p1_y = Math.round(cpnts[i+1])
+        let dx = p1_x - p0_x, dy = p1_y - p0_y
+        let adx = Math.abs(dx), ady=Math.abs(dy)
+        if (adx+ady > r) {
+            let f = Math.round(Math.max(adx/r, ady/r))+1
+            let ddx = dx/f, ddy = dy/f
+            for(let j = 1; j < f; ++j) {
+                let x = p1_x + ddx*j, y = p1_y + ddy*j
+                ctx.fillRect(x-r, y-r, sz, sz)
+            }
+        }
+        ctx.fillRect(p1_x-r, p1_y-r, sz, sz)
+        p0_x = p1_x; p0_y = p1_y
+    }
+}
+
+const LINE_ARROW = {out:7, back:14}
+
+function connector_line(fx, fy, fxoffset, tx, ty, txoffset, free, uid) { // from, to
     fx += nodes_view.pan_x, tx += nodes_view.pan_x
     fy += nodes_view.pan_y, ty += nodes_view.pan_y
-    ctx_nodes.moveTo(fx, fy)
     let dy = ty - fy, dx = tx - fx
-    if (ty - 2*TERM_RADIUS -5 > fy || Math.sqrt(dx*dx+dy*dy) < 70 || free) {// going down or very short
-        ctx_nodes.bezierCurveTo(fx + dx*0.1, fy + dy*0.58, tx - dx*0.1, ty - dy*0.58,  tx, ty)
+    let cpnts;
+    if (ty - 2*TERM_RADIUS -5 > fy || Math.sqrt(dx*dx+dy*dy) < 70 || free) {// going down or very short        
+        cpnts = getCurvePoints([fx,fy, 
+                                    fx+dx*0.16, fy+dy*0.3, 
+                                    tx-dx*0.16, ty-dy*0.3,  
+                                    tx, ty])
     }
     else {
         if (tx > fx) {
             // go over the upper left corner of destination and under lower right corner of source
             let pnts = [fx, fy, fx + NODE_WIDTH-fxoffset, fy + TERM_RADIUS, tx-txoffset, ty - TERM_RADIUS - 5, tx, ty]
-            curve(ctx_nodes, pnts, 0.5)
+            cpnts = getCurvePoints(pnts, 0.5)
         }
         else {
             let pnts = [fx, fy, fx - fxoffset, fy + TERM_RADIUS, tx+NODE_WIDTH-txoffset, ty - TERM_RADIUS - 5, tx, ty]
-            curve(ctx_nodes, pnts)
+            cpnts = getCurvePoints(pnts)
         }
         
     }
 
+    ctx_nodes.beginPath()
+    draw_curve(ctx_nodes, cpnts)
+
+    {
+        let arrow_at = Math.round(cpnts.length*0.6*0.5)*2
+        let ac1_x = cpnts[arrow_at], ac1_y = cpnts[arrow_at+1], ac2_x = cpnts[arrow_at+2], ac2_y = cpnts[arrow_at+3]
+        let dx = ac2_x-ac1_x, dy=ac2_y-ac1_y
+        let len = Math.sqrt(dx*dx+dy*dy)
+        dx /= len; dy /= len
+        let pdx = -dy, pdy = dx
+        let p1_x = ac2_x - pdx*LINE_ARROW.out -dx*LINE_ARROW.back
+        let p1_y = ac2_y - pdy*LINE_ARROW.out -dy*LINE_ARROW.back
+        let p2_x = ac2_x + pdx*LINE_ARROW.out -dx*LINE_ARROW.back
+        let p2_y = ac2_y + pdy*LINE_ARROW.out -dy*LINE_ARROW.back
+
+        ctx_nodes.moveTo(p1_x, p1_y)
+        ctx_nodes.lineTo(ac2_x, ac2_y)
+        ctx_nodes.lineTo(p2_x, p2_y)
+    }
+
     ctx_nodes.strokeStyle = "#aaa"
     ctx_nodes.lineWidth = 1.5
-    ctx_nodes.stroke()    
+    ctx_nodes.stroke()
+
+    if (uid !== undefined) {
+        draw_curve_crisp(ctx_nd_shadow, cpnts, 5, color_from_uid(uid)) 
+
+    }
 }
 
+function zero_pad_hex2(n) {
+    if (n <= 0xf)
+        return '0' + n.toString(16)
+    return n.toString(16)
+}
+function color_from_uid(uid) {
+    return "#" + zero_pad_hex2(uid & 0xff) + zero_pad_hex2((uid >> 8) & 0xff) + zero_pad_hex2((uid >> 16) & 0xff)
+}
+function uid_from_color(c) {
+    return c & 0xffffff
+}
 
 function round_to(x, v) {
     return Math.round(x / v) * v
@@ -74,10 +142,10 @@ function rounded_rect(ctx, x, y, width, height, r) {
     rounded_rect_f(ctx, x, y, width, height, r,r,r,r);
 }
 
-
 class Line {
-    constructor(from_term, to_term) {
+    constructor(from_term, to_term, uid) {
         console.assert(to_term.is_input !== undefined, "unexpected undefined")
+        this.uid = null
         if (!to_term.is_input) {
             this.from_term = to_term
             this.to_term = from_term
@@ -90,7 +158,7 @@ class Line {
     
     draw() {
         connector_line(this.from_term.center_x(), this.from_term.center_y(), this.from_term.center_offset(),
-                       this.to_term.center_x(), this.to_term.center_y(), this.to_term.center_offset(), false)
+                       this.to_term.center_x(), this.to_term.center_y(), this.to_term.center_offset(), false, this.uid)
     }
 }
 
@@ -138,8 +206,8 @@ class TerminalBase {
     get_attachment() { return this }// useful in multi
     get_attachee() { return this }    
     
-    mousemove(dx, dy, px, py) {
-        let linkto = find_node_obj(px, py)
+    mousemove(dx, dy, px, py, ex, ey, cvs_x, cvs_y) {
+        let linkto = find_node_obj(px, py, cvs_x, cvs_y)
         this.line_pending = null
         draw_nodes()
         if (linkto === this) { // should not connect to itself
@@ -158,7 +226,7 @@ class TerminalBase {
     }
     mouseup() {
         if (this.line_pending !== null) {
-            add_line(this.line_pending)
+            program.add_line(this.line_pending)
             this.line_pending = null
         }
 
@@ -631,7 +699,7 @@ function set_display_node(node) {
     trigger_frame_draw(true)  // need to do run since the const output might have gotten changed
 }
 
-function find_node_obj(px, py) {
+function find_node_obj(px, py, cvs_x, cvs_y) {
     for(let n of program.nodes) {
         // in this node (including terminals) ?
         if (px < n.tx || px > n.tx + n.twidth || py < n.ty || py >  n.ty + n.theight) {
@@ -651,23 +719,36 @@ function find_node_obj(px, py) {
         if (px > n.x + n.width && px < n.x + n.width + n.name_measure.width + NODE_NAME_PROPS.margin_left && py >= n.y && py <= n.y + NODE_NAME_PROPS.height) {
             return new NameInput(n, edit_nodes)
         }
-        
     }
+
+    let shadow_col = ctx_nd_shadow.getImageData(cvs_x, cvs_y, 1, 1).data
+    let shadow_val = new Uint32Array(shadow_col.buffer)[0]
+    let obj_id = uid_from_color(shadow_val)
+    console.log("obj",obj_id)
+    if (obj_id != 0) {
+        let obj = program.obj_map[obj_id]
+        console.assert(obj !== undefined, "can't find object with id " + obj_id)
+        return obj
+    }
+
     return null
 }
 
 
-function nodes_context_menu(px, py, wx, wy) {
-    let node = find_node_obj(px, py)
-            
-    if (node != null) {
-        var opt = [{text:"Delete", func:function() { delete_node(node, true)} }]
+function nodes_context_menu(px, py, wx, wy, cvs_x, cvs_y) {
+    let obj = find_node_obj(px, py, cvs_x, cvs_y)
+    
+    let opt
+    if (obj != null) {
+        if (obj.constructor === Node)
+            opt = [{text:"Delete Node", func:function() { delete_node(obj, true)} }]
+        if (obj.constructor === Line)
+            opt = [{text:"Delete Line", func:function() { delete_line(obj, true)} }]
     }
     else {
-        let clss = [{text:"Clear", func:()=>{ clear_program(); draw_nodes() } }, {text:"-"}]
+        opt = [{text:"Clear", func:()=>{ clear_program(); draw_nodes() } }, {text:"-"}]
         for(let c of nodes_classes)
-            clss.push( {text: c.name(), func:function() { program.add_node(px, py, null, c); draw_nodes() } } )
-        var opt = clss
+            opt.push( {text: c.name(), func:function() { program.add_node(px, py, null, c); draw_nodes() } } )
     }
     
     nodes_view.last_ctx_menu = open_context_menu(opt, wx, wy, main_view, ()=>{nodes_view.dismiss_ctx_menu()})    
@@ -684,10 +765,10 @@ function delete_node(node, redraw)
         node.destructor()
     var index = program.nodes.indexOf(node);
     program.nodes.splice(index, 1);        
-    delete program.nodes_map[node.id];
+    delete program.obj_map[node.id];
     for(let t of node.terminals) {
         while(t.lines.length > 0)
-            delete_line(t.lines[0])
+            delete_line(t.lines[0], false)
     }
     
     if (redraw) {
@@ -697,21 +778,15 @@ function delete_node(node, redraw)
 }
 
 
-
-
-function add_line(line) {
-    program.lines.push(line)
-    line.from_term.lines.push(line)
-    line.to_term.lines.push(line)
-    line.to_term.dirty = true
-    trigger_frame_draw(true)
-}
-
-function delete_line(line) {
+function delete_line(line, redraw) {
     line.from_term.lines.splice(line.from_term.lines.indexOf(line), 1)
     line.to_term.lines.splice(line.to_term.lines.indexOf(line), 1)
     line.to_term.dirty = true
     program.lines.splice(program.lines.indexOf(line), 1)
+    if (redraw) {
+        draw_nodes()
+        trigger_frame_draw(true)
+    }
 }
 
 const NODES_GRID_SIZE = 50
@@ -724,6 +799,9 @@ function draw_nodes()
     ctx_nodes.fillStyle = '#312F31'
     ctx_nodes.fillRect(0, 0, canvas_nodes.width, canvas_nodes.height)
     ctx_nodes.textBaseline = "top"
+
+    ctx_nd_shadow.fillStyle = "#000"
+    ctx_nd_shadow.fillRect(0, 0, canvas_nd_shadow.width, canvas_nd_shadow.height)
     
     const left = -nodes_view.pan_x, top = -nodes_view.pan_y
     const right = canvas_nodes.width - nodes_view.pan_x, bottom = canvas_nodes.height - nodes_view.pan_y

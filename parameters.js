@@ -103,12 +103,14 @@ function add_param_label(line, text) {
     }
     return e
 }
-function add_param_edit(line, value, set_func) {
+const ED_FLOAT=0
+const ED_INT=1
+function add_param_edit(line, value, type, set_func) {
     let e = document.createElement('input')
     e.className = 'param_input'
     e.type = 'text'
     e.spellcheck = 'false'
-    e.value = toFixedMag(value)
+    e.value = (type == ED_FLOAT) ? toFixedMag(value) : value
     // TBD parse error
     e.addEventListener("input", function() { set_func(e.value); trigger_frame_draw(true) })
     line.appendChild(e)
@@ -177,7 +179,7 @@ class ParamInt extends Parameter {
     add_elems(parent) {
         this.line_elem = add_param_line(parent)
         this.label_elem = add_param_label(this.line_elem, this.label)
-        add_param_edit(this.line_elem, this.v, (v)=>{ this.v = parseInt(v); this.dirty = true }) // TBD enforce int with parsing
+        add_param_edit(this.line_elem, this.v, ED_INT, (v)=>{ this.v = parseInt(v); this.dirty = true }) // TBD enforce int with parsing
     }
 }
 
@@ -191,7 +193,7 @@ class ParamFloat extends Parameter {
     add_elems(parent) {
         this.line_elem = add_param_line(parent)
         this.label_elem = add_param_label(this.line_elem, this.label)
-        add_param_edit(this.line_elem, this.v, (v)=>{ this.v = parseFloat(v); this.dirty = true }) // TBD enforce int with parsing
+        add_param_edit(this.line_elem, this.v, ED_FLOAT, (v)=>{ this.v = parseFloat(v); this.dirty = true }) // TBD enforce int with parsing
     }
 }
 
@@ -226,8 +228,8 @@ class ParamVec2 extends Parameter {
     add_elems(parent) {
         this.line_elem = add_param_line(parent)
         this.label_elem = add_param_label(this.line_elem, this.label)
-        add_param_edit(this.line_elem, this.x, (v) => { this.x = parseFloat(v); this.dirty = true })
-        add_param_edit(this.line_elem, this.y, (v) => { this.y = parseFloat(v); this.dirty = true })
+        add_param_edit(this.line_elem, this.x, ED_FLOAT, (v) => { this.x = parseFloat(v); this.dirty = true })
+        add_param_edit(this.line_elem, this.y, ED_FLOAT, (v) => { this.y = parseFloat(v); this.dirty = true })
     }
 }
 
@@ -241,7 +243,7 @@ class ParamColor extends Parameter {
     add_elems(parent) {
         this.line_elem = add_param_line(parent)
         this.label_elem = add_param_label(this.line_elem, this.label)
-        [this.v, elem] = add_param_color(this.line_elem, this.v, 'param_input', (v)=>{ 
+        let [v, elem] = add_param_color(this.line_elem, this.v, 'param_input', (v)=>{ 
             if (this.v !== null && this.v.hex == v.hex) 
                 return false;
             if (v === null)
@@ -251,6 +253,7 @@ class ParamColor extends Parameter {
             this.dirty = true
             return true
         })
+        this.v = v
     }
 }
 
@@ -285,15 +288,15 @@ class ParamTransform extends Parameter {
     add_elems(parent) {  // TBD support enable
         let line1 = add_param_line(parent)
         add_param_label(line1, "Translate")
-        this.elems.tx = add_param_edit(line1, this.translate[0], (v)=>{ this.translate[0] = parseFloat(v); this.calc_mat() })
-        this.elems.ty = add_param_edit(line1, this.translate[1], (v)=>{ this.translate[1] = parseFloat(v); this.calc_mat()})
+        this.elems.tx = add_param_edit(line1, this.translate[0], ED_FLOAT, (v)=>{ this.translate[0] = parseFloat(v); this.calc_mat() })
+        this.elems.ty = add_param_edit(line1, this.translate[1], ED_FLOAT, (v)=>{ this.translate[1] = parseFloat(v); this.calc_mat()})
         let line2 = add_param_line(parent)
         add_param_label(line2, "Rotate")
-        this.elems.r = add_param_edit(line2, this.rotate, (v)=>{ this.rotate = parseFloat(v); this.calc_mat()})
+        this.elems.r = add_param_edit(line2, this.rotate, ED_FLOAT, (v)=>{ this.rotate = parseFloat(v); this.calc_mat()})
         let line3 = add_param_line(parent)
         add_param_label(line3, "Scale")
-        this.elems.sx = add_param_edit(line3, this.scale[0], (v)=>{ this.scale[0] = parseFloat(v); this.calc_mat()})
-        this.elems.sy = add_param_edit(line3, this.scale[1], (v)=>{ this.scale[1] = parseFloat(v); this.calc_mat()})
+        this.elems.sx = add_param_edit(line3, this.scale[0], ED_FLOAT, (v)=>{ this.scale[0] = parseFloat(v); this.calc_mat()})
+        this.elems.sy = add_param_edit(line3, this.scale[1], ED_FLOAT, (v)=>{ this.scale[1] = parseFloat(v); this.calc_mat()})
     }
     repaint_elems() {
         this.elems.tx.value = toFixedMag(this.translate[0])

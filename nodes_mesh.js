@@ -227,7 +227,7 @@ class NodePointColor extends NodeCls
             prop[i] = this.color.v.r
             prop[i+1] = this.color.v.g
             prop[i+2] = this.color.v.b
-            prop[i+3] = this.color.v.alpha
+            prop[i+3] = this.color.v.alpha*255 // normalized back to 0-1 in mesh draw
         }
         mesh.set('vtx_color', prop, 4, true)
         this.out_mesh.set(mesh)

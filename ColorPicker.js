@@ -290,7 +290,9 @@ function get_checkers_image() {
     return CHECKERS_IMAGE
 }
 
-// options: { with_alpha:true/false, with_null:true/false }
+var GLOBAL_PRESETS = {}
+
+// options: { with_alpha:true/false, with_null:true/false, global_presets:true/false }
 function create_at(elem, add_func, sz, visible, onchange, options) 
 {
     if (options === undefined)
@@ -298,6 +300,8 @@ function create_at(elem, add_func, sz, visible, onchange, options)
     let width=sz, height=sz
     if (options.with_alpha) 
         width += ALPHA_BAR_WIDTH
+    if (options.global_presets !== false)
+        options.global_presets = true
     
     var txt = '<canvas width="WIDTH" height="HEIGHT" STYLE></canvas>'.replace(/WIDTH/g, width).replace(/HEIGHT/g, height)
                 .replace(/STYLE/g, visible ? '' : 'style="display:none;"')
@@ -316,7 +320,7 @@ function create_at(elem, add_func, sz, visible, onchange, options)
         return { r:this.r, g:this.g, b:this.b, hex:this.hex, alpha:this.alpha }
     }}
     var sel_pos = { sq_x: 0, sq_y: 0, bar_y: 0, alpha_y: 0 } // range:0-1
-    var presets = {}
+    var presets = options.global_presets ? GLOBAL_PRESETS : {}
     
     var col_from_pos = function() {
         sel_col.h = sel_pos.bar_y
@@ -428,7 +432,6 @@ function create_at(elem, add_func, sz, visible, onchange, options)
     }
 
     // handle presets click
-    var next_preset_to_set = 0
     canvas.onmouseup = function(e) {
         if (e.which != 1)
             return
@@ -438,8 +441,10 @@ function create_at(elem, add_func, sz, visible, onchange, options)
     
         // on selected color
         if (x > cfg.bar_x && y > cfg.bar_y && x < cfg.bar_x + BAR_SZ && y < cfg.bar_y + BAR_SZ) {
-            presets[next_preset_to_set] = { hex:sel_col.hex, r:sel_col.r, g:sel_col.g, b:sel_col.b }
-            next_preset_to_set = (next_preset_to_set + 1) % cfg.preset_count
+            if (presets.next_to_set === undefined)
+                presets.next_to_set = 0
+            presets[presets.next_to_set] = { hex:sel_col.hex, r:sel_col.r, g:sel_col.g, b:sel_col.b, alpha:sel_col.alpha }
+            presets.next_to_set = (presets.next_to_set + 1) % cfg.preset_count
             draw_chart(ctx, cfg, sel_col, sel_pos, presets, options)
         }
         // presets bar
@@ -456,7 +461,8 @@ function create_at(elem, add_func, sz, visible, onchange, options)
     return { set_color:set_color, get_color:get_color, set_visible:set_visible, elem:canvas }
 }
 
-return { create_as_child:create_as_child, create_after:create_after, parse_hex:parse_hex_user, get_checkers_image:get_checkers_image }
+return { create_as_child:create_as_child, create_after:create_after, parse_hex:parse_hex_user, get_checkers_image:get_checkers_image, 
+         get_presets:()=>{ return GLOBAL_PRESETS }, set_presets:(v)=>{ GLOBAL_PRESETS=v} }
 
 })();
 
@@ -497,7 +503,7 @@ function create_at(edit_elem, sz, onchange, options)
     }
     
     picker.elem.addEventListener("focus", function() { 
-        console.log("canvas-focus") 
+        //console.log("canvas-focus") 
     })
     if (!DEBUG_NO_BLUR) {
         picker.elem.addEventListener("blur", function(e) { 
