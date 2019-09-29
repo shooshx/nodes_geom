@@ -497,6 +497,7 @@ class Node {
         this.inputs = []
         this.outputs = [] 
         this.cls = new cls(this)
+        this.call_params_change() // set the enables or other changes that functions attached to params do
         this.make_term_offset(this.inputs)
         this.make_term_offset(this.outputs)
         this.terminals = this.inputs.concat(this.outputs)
@@ -672,6 +673,11 @@ class Node {
             t.dirty = false
     }
     
+    call_params_change() {
+        for(let p of this.parameters)
+            if (p.call_change)
+                p.call_change()
+    }
 }
 
 function nodes_unselect_all(redraw) {
@@ -715,7 +721,7 @@ function find_node_obj(px, py, cvs_x, cvs_y) {
     let shadow_col = ctx_nd_shadow.getImageData(cvs_x, cvs_y, 1, 1).data
     let shadow_val = new Uint32Array(shadow_col.buffer)[0]
     let obj_id = uid_from_color(shadow_val)
-    console.log("obj",obj_id)
+    //console.log("obj",obj_id)
     if (obj_id != 0 && obj_id !== null) {
         let obj = program.obj_map[obj_id]
         console.assert(obj !== undefined, "can't find object with id " + obj_id)
@@ -733,8 +739,10 @@ function nodes_context_menu(px, py, wx, wy, cvs_x, cvs_y) {
     if (obj != null) {
         if (obj.constructor === Node)
             opt = [{text:"Delete Node", func:function() { delete_node(obj, true)} }]
-        if (obj.constructor === Line)
+        else if (obj.constructor === Line)
             opt = [{text:"Delete Line", func:function() { delete_line(obj, true)} }]
+        else
+            return null
     }
     else {
         opt = [{text:"Clear", func:()=>{ clear_program(); draw_nodes() } }, {text:"-"}]
@@ -772,7 +780,7 @@ function delete_node(node, redraw)
 function delete_line(line, redraw) {
     line.from_term.lines.splice(line.from_term.lines.indexOf(line), 1)
     line.to_term.lines.splice(line.to_term.lines.indexOf(line), 1)
-    line.to_term.dirty = true
+    line.to_term.set_dirty(true)
     program.lines.splice(program.lines.indexOf(line), 1)
     if (redraw) {
         draw_nodes()

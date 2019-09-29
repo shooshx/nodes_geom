@@ -53,12 +53,19 @@ class Mesh extends PObject
                            }
         if (name == "vtx" && this.tcache[name] !== undefined)
             this.tcache[name] = null  // invalidate
-        //if (name == "idx")
-        //    this.lines_cache = null
     }
 
     set_type(v) { this.type = v }
     vtx_count() { return this.arrs.vtx.length / 2 } // 2 for (x,y)
+    face_count() {
+        if (this.arrs.idx === null || this.arrs.idx === undefined)
+            return 0
+        if (this.type == MESH_TRI)
+            return this.arrs.idx.length / 3
+        if (this.type == MESH_QUAD)
+            return this.arrs.idx.length / 4
+        return 0 // type not set
+    }
 
     get_sizes() {
         let r = { type: this.type, arrs:{} }       
@@ -99,12 +106,12 @@ class Mesh extends PObject
     draw_vertices() {
         let vtx = this.tcache.vtx
         if (this.arrs.vtx_color !== undefined) {
-            console.assert(this.arrs.vtx_color.length / 4 == this.arrs.vtx.length / 2, "unexpected size of vtx_color")
-            for(let i = 0; i < vtx.length; i += 2) {
+            let vcol = this.arrs.vtx_color
+            console.assert(vcol.length / 4 == this.arrs.vtx.length / 2, "unexpected size of vtx_color")
+            for(let i = 0, vidx = 0; i < vtx.length; i += 2, vidx += 4) {
                 ctx_img.beginPath();
                 ctx_img.arc(vtx[i], vtx[i+1], MESH_DISP.vtx_radius, 0, 2*Math.PI)
-                let vidx = i/2*4
-                ctx_img.fillStyle = "rgba(" + this.arrs.vtx_color[vidx] + "," + this.arrs.vtx_color[vidx+1] + "," + this.arrs.vtx_color[vidx+2] + "," + (this.arrs.vtx_color[vidx+3]/255) + ")"
+                ctx_img.fillStyle = "rgba(" + vcol[vidx] + "," + vcol[vidx+1] + "," + vcol[vidx+2] + "," + (vcol[vidx+3]/255) + ")"
                 ctx_img.fill()
             }
             ctx_img.lineWidth = 0.5
@@ -121,7 +128,6 @@ class Mesh extends PObject
         ctx_img.strokeStyle = "#000"
         ctx_img.stroke()       
     }
-
 
     draw_poly_stroke() {            
         let vtx = this.tcache.vtx
@@ -148,6 +154,41 @@ class Mesh extends PObject
         }
         ctx_img.stroke()        
     }
+
+    draw_poly_fill() {
+        let vtx = this.tcache.vtx
+        let idxs = this.arrs.idx
+        let fcol = this.arrs.face_color
+        ctx_img.lineWidth = 0.5
+        ctx_img.beginPath();
+        let i = 0, vidx = 0
+        if (this.type == MESH_QUAD) {
+            console.assert(fcol.length / 4 == idxs.length / 4, "unexpected size of face_color")
+            while(i < idxs.length) {
+                ctx_img.beginPath();
+                let idx = idxs[i++]<<1; ctx_img.moveTo(vtx[idx], vtx[idx+1])
+                idx = idxs[i++]<<1; ctx_img.lineTo(vtx[idx], vtx[idx+1])
+                idx = idxs[i++]<<1; ctx_img.lineTo(vtx[idx], vtx[idx+1])
+                idx = idxs[i++]<<1; ctx_img.lineTo(vtx[idx], vtx[idx+1])
+                idx = idxs[i-4]<<1; ctx_img.lineTo(vtx[idx], vtx[idx+1])
+                ctx_img.fillStyle = "rgba(" + fcol[vidx] + "," + fcol[vidx+1] + "," + fcol[vidx+2] + "," + (fcol[vidx+3]/255) + ")"
+                ctx_img.fill()
+                vidx += 4
+            }
+        }
+        else if (this.type == MESH_TRI) {
+            console.assert(fcol.length / 4 == idxs.length / 3, "unexpected size of face_color")
+            while(i < idxs.length) {
+                let idx = idxs[i++]<<1; ctx_img.moveTo(vtx[idx], vtx[idx+1])
+                idx = idxs[i++]<<1; ctx_img.lineTo(vtx[idx], vtx[idx+1])
+                idx = idxs[i++]<<1; ctx_img.lineTo(vtx[idx], vtx[idx+1])
+                idx = idxs[i-3]<<1; ctx_img.lineTo(vtx[idx], vtx[idx+1])
+                ctx_img.fillStyle = "rgba(" + fcol[vidx] + "," + fcol[vidx+1] + "," + fcol[vidx+2] + "," + (fcol[vidx+3]/255) + ")"
+                ctx_img.fill()
+                vidx += 4                           
+            }
+        }
+    }
     
     ensure_tcache(m) {
         let do_trans = false
@@ -166,8 +207,10 @@ class Mesh extends PObject
 
     draw(m) {
         this.ensure_tcache(m)
-        this.draw_vertices()
+        if (this.arrs.face_color) 
+            this.draw_poly_fill()
         this.draw_poly_stroke()
+        this.draw_vertices()
     }
 
     draw_selection(m, select_vindices) {
@@ -212,6 +255,7 @@ class Mesh extends PObject
         this.make_buffers()
 
         for(let attr_name in program_attr) {
+            console.assert(!attr_name.startsWith('face_'), "Face attributes can't be drawen with webgl")
             let attr_buf = this.glbufs[attr_name]
             if (!attr_buf) {
                 if (attr_name.substr(0,2) == 'a_') {

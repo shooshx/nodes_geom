@@ -15,6 +15,8 @@ GUI:
 ENGINE:
 - too many triggers when clicking on display of points color
 - display options show only vtx,stroke or fill, per node, visible only when on display
+- parser in parameter
+    - attributes in parameters?
 
 NODES:
 - mouse vertices - mesh
@@ -52,7 +54,7 @@ NODES:
         http://potrace.sourceforge.net/  
 
 - !!! grid of points - actually divide?
-- delete points outside a shape
+- delete points outside a shape (crop>)
 - convex hull
 
 - random points  - https://www.sidefx.com/docs/houdini/nodes/sop/scatter.html

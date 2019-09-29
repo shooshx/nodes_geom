@@ -24,6 +24,10 @@ class Parameter
         if (this.line_elem !== null && !this.enable)
             this.line_elem.classList.toggle("param_disabled", !this.enable)
     }
+    pset_dirty() { // p for parameter to differentiate it from the others
+        this.dirty = true
+        trigger_frame_draw(true)
+    }
 }
 
 // if the text of one of the labels is too long, fix the length of all of them
@@ -57,27 +61,25 @@ function show_params_of(node) {
     fix_label_lengths(node.parameters)
 }
 
-function create_elem(elem_type, clss) {
+function create_elem(elem_type, cls) {
     let e = document.createElement(elem_type);
-    if (clss !== undefined)
-        e.classList = clss.join(" ")
+    if (cls !== undefined) {
+        if (!Array.isArray(cls))
+            cls = [cls]
+        e.classList = cls.join(" ")
+    }
     return e
 }
 function add_elem(parent, elem_type, cls) {
-    let e = create_elem(elem_type, [cls])
+    let e = create_elem(elem_type, cls)
     parent.appendChild(e)
     return e
 }
-function create_div(clss) {
-    let e = document.createElement("div");
-    if (clss !== undefined)
-        e.classList = clss.join(" ")
-    return e
+function create_div(cls) {
+    return create_elem('div', cls)
 }
 
 function add_div(parent, cls) {
-    if (!Array.isArray(cls))
-        cls = [cls]
     let e = create_div(cls)
     parent.appendChild(e)
     return e
@@ -109,10 +111,10 @@ function add_param_edit(line, value, type, set_func) {
     let e = document.createElement('input')
     e.className = 'param_input'
     e.type = 'text'
-    e.spellcheck = 'false'
+    e.spellcheck = false
     e.value = (type == ED_FLOAT) ? toFixedMag(value) : value
     // TBD parse error
-    e.addEventListener("input", function() { set_func(e.value); trigger_frame_draw(true) })
+    e.addEventListener("input", function() { set_func(e.value); })
     line.appendChild(e)
     return e
 }
@@ -121,7 +123,7 @@ function add_param_color(line, value, cls, set_func) {
     e.className = cls
     line.appendChild(e) // must have parent
     // TBD move setting the func to be the last thing to avoid spurious triggers
-    let ce = ColorEditBox.create_at(e, 200, function(c) { if (set_func(c)) trigger_frame_draw(true) }, {with_alpha:true})
+    let ce = ColorEditBox.create_at(e, 200, function(c) { set_func(c) }, {with_alpha:true})
     ce.set_color(value, true)
     return [ce.get_color().copy(), e]
 }
@@ -131,7 +133,7 @@ function add_param_checkbox(line, label, value, set_func) {
     ein.type = 'checkbox'
     ein.id = 'p_chb_' + checkbox_ids++
     ein.checked = value
-    ein.addEventListener('change', function() { set_func(ein.checked); trigger_frame_draw(true)})
+    ein.addEventListener('change', function() { set_func(ein.checked); })
     let edisp = add_elem(line, 'label', 'param_checkbox_disp')
     edisp.setAttribute("for", ein.id)
     let etext = add_elem(line, 'label', 'param_checkbox_text')
@@ -156,6 +158,16 @@ function add_checkbox_btn(parent, label, value, onchange) {
     btn.innerText = label
     return [ein, btn]
 }
+function add_combobox(parent, opts, sel_idx, onchange) {
+    let se = add_elem(parent, 'select', ['param_select', 'param_input'])
+    for(let s of opts) {
+        let o = add_elem(se, 'option')
+        o.innerText = s
+    }
+    se.selectedIndex = sel_idx
+    se.addEventListener('change', function() { onchange(se.selectedIndex); })
+    return se
+}
 
 class ParamSeparator extends Parameter {
     constructor(node) {
@@ -179,7 +191,7 @@ class ParamInt extends Parameter {
     add_elems(parent) {
         this.line_elem = add_param_line(parent)
         this.label_elem = add_param_label(this.line_elem, this.label)
-        add_param_edit(this.line_elem, this.v, ED_INT, (v)=>{ this.v = parseInt(v); this.dirty = true }) // TBD enforce int with parsing
+        add_param_edit(this.line_elem, this.v, ED_INT, (v)=>{ this.v = parseInt(v); this.pset_dirty() }) // TBD enforce int with parsing
     }
 }
 
@@ -193,7 +205,7 @@ class ParamFloat extends Parameter {
     add_elems(parent) {
         this.line_elem = add_param_line(parent)
         this.label_elem = add_param_label(this.line_elem, this.label)
-        add_param_edit(this.line_elem, this.v, ED_FLOAT, (v)=>{ this.v = parseFloat(v); this.dirty = true }) // TBD enforce int with parsing
+        add_param_edit(this.line_elem, this.v, ED_FLOAT, (v)=>{ this.v = parseFloat(v); this.pset_dirty() }) // TBD enforce int with parsing
     }
 }
 
@@ -204,16 +216,20 @@ class ParamBool extends Parameter {
         this.change_func = change_func
     }
     save() { return {v:this.v} }
-    load(v) { this.v = v.v; this.change_func(v)  }
+    load(v) { this.v = v.v; this.call_change()  }
     add_elems(parent) {
         this.line_elem = add_param_line(parent)
         add_param_label(this.line_elem, null)  // empty space
         this.label_elem = add_param_checkbox(this.line_elem, this.label, this.v, (v) => { 
             this.v = v; 
-            this.dirty = true
+            this.pset_dirty()
             if (this.change_func) 
                 this.change_func(v) 
         })
+    }
+    call_change() {
+        if (this.change_func) 
+            this.change_func(this.v)
     }
 }
 
@@ -228,8 +244,8 @@ class ParamVec2 extends Parameter {
     add_elems(parent) {
         this.line_elem = add_param_line(parent)
         this.label_elem = add_param_label(this.line_elem, this.label)
-        add_param_edit(this.line_elem, this.x, ED_FLOAT, (v) => { this.x = parseFloat(v); this.dirty = true })
-        add_param_edit(this.line_elem, this.y, ED_FLOAT, (v) => { this.y = parseFloat(v); this.dirty = true })
+        add_param_edit(this.line_elem, this.x, ED_FLOAT, (v) => { this.x = parseFloat(v); this.pset_dirty() })
+        add_param_edit(this.line_elem, this.y, ED_FLOAT, (v) => { this.y = parseFloat(v); this.pset_dirty() })
     }
 }
 
@@ -245,13 +261,12 @@ class ParamColor extends Parameter {
         this.label_elem = add_param_label(this.line_elem, this.label)
         let [v, elem] = add_param_color(this.line_elem, this.v, 'param_input', (v)=>{ 
             if (this.v !== null && this.v.hex == v.hex) 
-                return false;
+                return;
             if (v === null)
                 this.v = null
             else
                 this.v = v.copy() // make a copy so that this.v will be different object than the internal object
-            this.dirty = true
-            return true
+            this.pset_dirty()
         })
         this.v = v
     }
@@ -283,7 +298,7 @@ class ParamTransform extends Parameter {
         mat3.translate(this.v, this.v, this.translate)
         mat3.rotate(this.v, this.v, glm.toRadian(this.rotate))
         mat3.scale(this.v, this.v, this.scale)
-        this.dirty = true
+        this.pset_dirty()
     }
     add_elems(parent) {  // TBD support enable
         let line1 = add_param_line(parent)
@@ -458,7 +473,7 @@ class ListParam extends Parameter {
         newlst.set(this.lst)
         newlst.set(av, this.lst.length)
         this.lst = newlst
-        this.dirty = true
+        this.pset_dirty()
 
         let vindex = (this.lst.length - this.values_per_entry)
         this.create_entry_elems(v, this.table.get_column_elem(this.column), vindex)
@@ -488,7 +503,7 @@ class ListParam extends Parameter {
                 console.assert(v.length == this.values_per_entry, "unexpected length of value")
                 for(let vi = 0; vi < this.values_per_entry; ++vi)
                     this.lst[vindex + vi] = v[vi]
-                this.dirty = true
+                this.pset_dirty()
                 trigger_frame_draw(true)
             })
         }
@@ -520,7 +535,7 @@ class ListParam extends Parameter {
         for(let v of tmplst) 
             if (v !== undefined)
                 this.lst[addi++] = v
-        this.dirty = true
+        this.pset_dirty()
 
         this.elem_lst = cull_list(this.elem_lst)
         console.assert(this.lst.length == this.elem_lst.length * this.values_per_entry, "unexpected number of elements")
@@ -545,7 +560,7 @@ class ListParam extends Parameter {
         console.assert(vindex < this.lst.length, "modify out of range")
         for(let vi = 0; vi < v.length; ++vi)
             this.lst[vindex + vi] = v[vi]
-        this.dirty = true
+        this.pset_dirty()
         this.reprint_line(vindex, v)
     }
     increment(index, v) {
@@ -555,7 +570,7 @@ class ListParam extends Parameter {
         for(let vi = 0; vi < v.length; ++vi) {
             this.lst[vindex + vi] += v[vi]
         }
-        this.dirty = true
+        this.pset_dirty()
         this.reprint_line(vindex, this.lst.slice(vindex, vindex + this.values_per_entry))
     }    
 }
@@ -637,11 +652,11 @@ class TextBlockParam extends Parameter
     load(v) { this.text = v.text; this.dlg_rect = v.dlg_rect; }
     
     title() { return this.owner.name + " - " + this.label }
-    set_text(v) { this.text = v; this.dirty = true }
+    set_text(v) { this.text = v; this.pset_dirty() }
 
     add_elems(parent) {
         this.line_elem = add_param_line(parent)
-        this.label_elem = add_param_label(this.line_elem, this.label) // TBD hack need more space to spell "Fragment Shader" this should be automatic
+        this.label_elem = add_param_label(this.line_elem, this.label)
         this.dlg = create_dialog(parent, this.title(), true, this.dlg_rect, (visible)=>{ edit_btn.checked = visible })
         this.dlg_elem = this.dlg.elem, this.dlg_rect = this.dlg.rect
         let [edit_btn, edit_disp] = add_checkbox_btn(this.line_elem, "Edit...", this.dlg.rect.visible, this.dlg.set_visible)
@@ -649,9 +664,23 @@ class TextBlockParam extends Parameter
         this.text_input = add_elem(this.dlg_elem, "textarea", "param_text_area")
         this.text_input.spellcheck = false
         this.text_input.value = this.text
-        this.text_input.addEventListener("input", ()=>{ this.text = this.text_input.value; this.dirty = true }) // TBD save and trigger draw after timeout
+        this.text_input.addEventListener("input", ()=>{ this.text = this.text_input.value; this.pset_dirty() }) // TBD save and trigger draw after timeout
         //this.text_input.value = this.text        
     }
 }
 
-
+class ParamSelect extends Parameter
+{
+    constructor(node, label, selected_idx, opts) {
+        super(node, label)
+        this.opts = opts
+        this.sel_idx = selected_idx
+    }
+    save() { return { sel_str: this.opts[this.sel_idx] } }
+    load(v) { this.sel_idx = this.opts.indexOf(v.sel_str); }
+    add_elems(parent) {
+        this.line_elem = add_param_line(parent)
+        this.label_elem = add_param_label(this.line_elem, this.label)
+        add_combobox(this.line_elem, this.opts, this.sel_idx, (v)=>{ this.sel_idx = v; this.pset_dirty() })
+    }
+}

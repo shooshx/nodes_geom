@@ -118,7 +118,7 @@ class Program {
                 this.names_indices[cls.name()] = 1
             else
                 this.names_indices[cls.name()]++
-            name = cls.name().toLowerCase().replace(' ','_') + "_" + this.names_indices[cls.name()]
+            name = cls.name().toLowerCase().replace(/\s/g,'_') + "_" + this.names_indices[cls.name()]
         }
         if (id === null || id === undefined) {
             id = this.next_obj_id++ 
@@ -367,8 +367,9 @@ function trigger_frame_draw(do_run, clear_all)
 var nodes_classes = [
     //NodeTestDummy, 
     NodeGeomPrimitive, 
+    GeomDivide,
     NodeManualPoints,
-    NodePointColor, 
+    NodeConstAttr, 
     //NodeGeomMerge, 
     NodeGroupObjects,
     NodeTransform,

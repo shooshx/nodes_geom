@@ -68,6 +68,7 @@ input {
     border: solid 2px #7d7d7d;
     color: #fff;
     line-height: 140%;
+    white-space: nowrap;
 }
 .ctx_menu_opt {  
     padding: 0 7px;
@@ -134,6 +135,8 @@ input {
     padding: 0 5px;
     width: 25%;
     min-width: 100px;
+    font-family: Verdana;
+    font-size: 13.3333px;        
 }
 
 .param_checkbox_input {
@@ -257,7 +260,9 @@ input {
 .param_btn:active , .param_checkbox_input:checked+.param_btn {
     background-image: linear-gradient(to bottom, #9090d0, #8080d0); 
 }
-
+.param_select {
+    font-size: 14px;
+}
 
 .dlg {
     position: fixed;

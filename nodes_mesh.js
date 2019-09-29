@@ -203,33 +203,52 @@ class NodeManualPoints extends NodeCls
     }
 }
 
-class NodePointColor extends NodeCls
+// TBD any attribute
+class NodeConstAttr extends NodeCls
 {
-    static name() { return "Point_Color" }
+    static name() { return "Const Attribute" }
     constructor(node) {
         super(node)
         this.in_mesh = new InTerminal(node, "in_mesh")
         this.out_mesh = new OutTerminal(node, "out_mesh")
+        this.bind_to = new ParamSelect(node, "Bind To", 0, ["Vertices", "Faces"]) // TBD also lines?
         this.color = new ParamColor(node, "Color", "#cccccc")
     }
     run() {
+        assert(this.bind_to.sel_idx != -1, this, "'Bind To' not set")
         if (this.color.v === null) {
             let mesh = this.in_mesh.get_const()
             assert(mesh, this, "missing in_mesh")
             this.out_mesh.set(mesh)
             return
         }
-        
-        let mesh = this.in_mesh.get_mutable()
+        let elem_num, attr_prefix;
+        let mesh = this.in_mesh.get_const()
         assert(mesh, this, "missing in_mesh")
-        let prop = new TColorArr(mesh.vtx_count() * 4) //  * 4 for (r,g,b,alpha)
+
+        if (this.bind_to.sel_idx == 1) { // check that the mesh has face to bind to, otherwise this is a noop
+            if (mesh.arrs.idx === null || mesh.arrs.idx === undefined || mesh.arrs.idx.length == 0) {
+                this.out_mesh.set(mesh)
+                return
+            }
+            elem_num = mesh.face_count()
+            attr_prefix = 'face_'
+        }
+        else {
+            elem_num = mesh.vtx_count()
+            attr_prefix = 'vtx_'
+        }
+        
+        mesh = this.in_mesh.get_mutable()            
+        
+        let prop = new TColorArr(elem_num * 4) //  * 4 for (r,g,b,alpha)
         for(let i = 0; i < prop.length; i += 4) {
             prop[i] = this.color.v.r
             prop[i+1] = this.color.v.g
             prop[i+2] = this.color.v.b
             prop[i+3] = this.color.v.alpha*255 // normalized back to 0-1 in mesh draw
         }
-        mesh.set('vtx_color', prop, 4, true)
+        mesh.set(attr_prefix + 'color', prop, 4, true)
         this.out_mesh.set(mesh)
     }
 }
@@ -366,10 +385,10 @@ class NodeRandomPoints extends NodeCls
             this.min_dist.set_enable(v)
         })
         this.min_dist = new ParamFloat(node, "Min Distance", 0.02)
-        this.count = new ParamInt(node, "Count", 50)  // TBD or by density - not size dependent
+        this.count = new ParamInt(node, "Count", 50)
         this.smooth_iter = new ParamInt(node, "Smoothness", 20)
 
-        this.by_density.change_func() // enact the changes it does
+        //this.by_density.change_func() // enact the changes it does
     }
         
     run() {
@@ -485,5 +504,79 @@ class NodeSampleAttribute extends NodeCls
 
         this.out_mesh.set(mesh)
     }
+}
 
+class GeomDivide extends NodeCls
+{
+    static name() { return "Divide" }
+    constructor(node) {
+        super(node)
+        this.in_mesh = new InTerminal(node, "in_mesh")
+        this.out_mesh = new OutTerminal(node, "out_mesh")
+        this.by_dist = new ParamBool(node, "Set approximate distance", false, (v)=>{
+            this.divisions.set_enable(!v)
+            this.distance.set_enable(v)
+        })
+        this.divisions = new ParamInt(node, "Divisions", 4)
+        this.distance = new ParamFloat(node, "Distance", 0.1)
+    }
+
+    divide_quad(mesh, out_vtx, out_idx, idx0, idx1, idx2, idx3) {
+        let vtx = mesh.arrs.vtx
+        let p0_x = vtx[idx0*2], p0_y = vtx[idx0*2+1]
+        let p1_x = vtx[idx1*2], p1_y = vtx[idx1*2+1]
+        let p3_x = vtx[idx3*2], p3_y = vtx[idx3*2+1]
+        let da_x = p1_x - p0_x, da_y = p1_y - p0_y // vector a from 0 to 1
+        let db_x = p3_x - p0_x, db_y = p3_y - p0_y // vector b from 0 to 3
+
+        let div_a, div_b;
+        if (!this.by_dist.v)
+            div_a = div_b = this.divisions.v;
+        else {
+            let dist = this.distance.v
+            assert(dist != 0, this, "Division by zero")
+            div_a = Math.round(Math.sqrt(da_x*da_x + da_y*da_y)/dist)
+            div_b = Math.round(Math.sqrt(db_x*db_x + db_y*db_y)/dist)
+        }
+        assert(div_a != 0 && div_b != 0, this, "Division by zero")
+        da_x /= div_a; da_y /= div_a
+        db_x /= div_b; db_y /= div_b
+
+        for(let bi = 0; bi <= div_b; ++bi) {
+            for(let ai = 0; ai <= div_a; ++ai) {
+                let np_x = p0_x + da_x*ai + db_x*bi
+                let np_y = p0_y + da_y*ai + db_y*bi
+                out_vtx.push(np_x, np_y)
+            }
+        }
+
+        // quads
+        let sz_a = div_a+1
+        for(let ai = 0; ai < div_a; ++ai) {
+            for(let bi = 0; bi < div_b; ++bi) {
+                let idx0 = ai+bi*sz_a
+                let idx1 = idx0+1
+                let idx2 = idx1+sz_a
+                let idx3 = idx0+sz_a
+                out_idx.push(idx0, idx1, idx2, idx3)
+            }
+        }
+    }
+
+    run() {
+        let mesh = this.in_mesh.get_const()
+        assert(mesh !== null, this, "Missing input points")
+        let out_vtx = [], out_idx = []
+        let idx = mesh.arrs.idx
+        if (mesh.type == MESH_QUAD) {
+            for(let i = 0; i < idx.length; i += 4) {
+                this.divide_quad(mesh, out_vtx, out_idx, idx[i], idx[i+1], idx[i+2], idx[i+3])
+            }
+            let out_mesh = new Mesh()
+            out_mesh.set('vtx', new Float32Array(out_vtx), 2, false)
+            out_mesh.set('idx', new Uint32Array(out_idx))
+            out_mesh.type = MESH_QUAD
+            this.out_mesh.set(out_mesh)
+        }
+    }
 }
