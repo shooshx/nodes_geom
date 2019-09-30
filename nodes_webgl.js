@@ -2,9 +2,10 @@
 
 var gl = null
 
-class Texture extends PObject
+// frame buffer is a texture that covers the canvas and only the canvas
+class FrameBuffer extends PObject
 {
-    static name() { return "Mesh" }
+    static name() { return "FrameBuffer" }
     constructor(tex_obj) {
         super()
         this.tex_obj = tex_obj
@@ -152,7 +153,7 @@ class NodeShader extends NodeCls
         mesh.gl_draw(image_view.t_viewspace, this.program.attrs)
 
 
-        this.out_tex.set(new Texture(this.render_to_tex))
+        this.out_tex.set(new FrameBuffer(this.render_to_tex))
     }
 }
 

@@ -24,9 +24,10 @@ class Parameter
         if (this.line_elem !== null && !this.enable)
             this.line_elem.classList.toggle("param_disabled", !this.enable)
     }
-    pset_dirty() { // p for parameter to differentiate it from the others
+    pset_dirty(draw=true) { // p for parameter to differentiate it from the others
         this.dirty = true
-        trigger_frame_draw(true)
+        if (draw)
+            trigger_frame_draw(true)
     }
 }
 
@@ -473,7 +474,7 @@ class ListParam extends Parameter {
         newlst.set(this.lst)
         newlst.set(av, this.lst.length)
         this.lst = newlst
-        this.pset_dirty()
+        this.pset_dirty(this.table === null) // if we're in a table, don't draw yet since not all the columns are set
 
         let vindex = (this.lst.length - this.values_per_entry)
         this.create_entry_elems(v, this.table.get_column_elem(this.column), vindex)

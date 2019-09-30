@@ -66,6 +66,11 @@ class Mesh extends PObject
             return this.arrs.idx.length / 4
         return 0 // type not set
     }
+    face_size() {
+        if (this.type == MESH_TRI) return 3
+        if (this.type == MESH_QUAD) return 4
+        return null
+    }
 
     get_sizes() {
         let r = { type: this.type, arrs:{} }       
@@ -152,6 +157,7 @@ class Mesh extends PObject
                 idx = idxs[i-3]<<1; ctx_img.lineTo(vtx[idx], vtx[idx+1])                
             }
         }
+        ctx_img.strokeStyle = "#000"
         ctx_img.stroke()        
     }
 
@@ -179,6 +185,7 @@ class Mesh extends PObject
         else if (this.type == MESH_TRI) {
             console.assert(fcol.length / 4 == idxs.length / 3, "unexpected size of face_color")
             while(i < idxs.length) {
+                ctx_img.beginPath();
                 let idx = idxs[i++]<<1; ctx_img.moveTo(vtx[idx], vtx[idx+1])
                 idx = idxs[i++]<<1; ctx_img.lineTo(vtx[idx], vtx[idx+1])
                 idx = idxs[i++]<<1; ctx_img.lineTo(vtx[idx], vtx[idx+1])

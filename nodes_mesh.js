@@ -204,50 +204,113 @@ class NodeManualPoints extends NodeCls
 }
 
 // TBD any attribute
-class NodeConstAttr extends NodeCls
+class NodeSetAttr extends NodeCls
 {
-    static name() { return "Const Attribute" }
+    static name() { return "Set Attribute" }
     constructor(node) {
         super(node)
         this.in_mesh = new InTerminal(node, "in_mesh")
+        this.in_source = new InTerminal(node, "attr_source")
         this.out_mesh = new OutTerminal(node, "out_mesh")
+        this.source_sel = new ParamSelect(node, "Source", 0, ["Constant", "Input"])
         this.bind_to = new ParamSelect(node, "Bind To", 0, ["Vertices", "Faces"]) // TBD also lines?
         this.color = new ParamColor(node, "Color", "#cccccc")
     }
+
+    prop_from_const(prop) {
+        let col = this.color.v
+        for(let i = 0; i < prop.length; i += 4) {
+            prop[i] = col.r
+            prop[i+1] = col.g
+            prop[i+2] = col.b
+            prop[i+3] = col.alpha*255 // normalized back to 0-1 in mesh draw
+        }
+    }
+
+    prop_from_input_framebuffer(prop, mesh, fb) {
+        mesh.ensure_tcache(image_view.t_viewspace)
+        let vtx = mesh.tcache.vtx
+        // see https://www.khronos.org/opengl/wiki/Vertex_Post-Processing#Viewport_transform
+        // from Xw = (w/2)*Xp + (w/2) 
+        let w = fb.width()
+        let wf = w/2
+        let hf = fb.height()/2
+        let pixels = fb.get_pixels()
+
+        let samp_vtx = (this.bind_to.sel_idx == 0)
+        let face_sz = mesh.face_size()
+        let vtxi = 0, idxi = 0
+        for(let i = 0; i < prop.length; i += 4) 
+        {
+            let x = 0, y = 0
+            if (samp_vtx) {
+                x = vtx[vtxi++]
+                y = vtx[vtxi++]
+            }
+            else { // sample at faces, at center of the face (average face points)
+                for(let fi = 0; fi < face_sz; ++fi) {
+                    let idx = mesh.arrs.idx[idxi++] * 2
+                    x += vtx[idx]
+                    y += vtx[idx+1]
+                }
+                x /= face_sz
+                y /= face_sz
+            }
+
+            x = Math.round(wf*x + wf)
+            y = Math.round(hf*y + hf)
+            let pidx = (y*w + x)*4
+
+            prop[i] = pixels[pidx]
+            prop[i+1] = pixels[pidx+1]
+            prop[i+2] = pixels[pidx+2]
+            prop[i+3] = pixels[pidx+3]
+        }
+    }
+
     run() {
         assert(this.bind_to.sel_idx != -1, this, "'Bind To' not set")
-        if (this.color.v === null) {
-            let mesh = this.in_mesh.get_const()
-            assert(mesh, this, "missing in_mesh")
-            this.out_mesh.set(mesh)
-            return
-        }
-        let elem_num, attr_prefix;
+        assert(this.source_sel.sel_idx != -1, this, "'Bind To' not set")
         let mesh = this.in_mesh.get_const()
         assert(mesh, this, "missing in_mesh")
 
-        if (this.bind_to.sel_idx == 1) { // check that the mesh has face to bind to, otherwise this is a noop
-            if (mesh.arrs.idx === null || mesh.arrs.idx === undefined || mesh.arrs.idx.length == 0) {
-                this.out_mesh.set(mesh)
-                return
-            }
+        if (this.source_sel.sel_idx == 0 && this.color.v === null) {
+            this.out_mesh.set(mesh)
+            return // TBD warning
+        }
+        let src = null
+        if (this.source_sel.sel_idx == 1) {
+            src = this.in_source.get_const()
+            assert(src !== null, this, "missing attribute source")
+            assert(src.constructor === FrameBuffer, this, "expected FrameBuffer as input") // for now
+        }
+
+        let elem_num, attr_prefix;
+        // check that the mesh has face to bind to, otherwise this is a noop
+        if (this.bind_to.sel_idx == 1) { 
             elem_num = mesh.face_count()
+            if (elem_num == 0) {
+                this.out_mesh.set(mesh)
+                return  // TBD warning
+            }
             attr_prefix = 'face_'
         }
         else {
             elem_num = mesh.vtx_count()
             attr_prefix = 'vtx_'
         }
-        
+
+
+        // commiting to work
         mesh = this.in_mesh.get_mutable()            
         
         let prop = new TColorArr(elem_num * 4) //  * 4 for (r,g,b,alpha)
-        for(let i = 0; i < prop.length; i += 4) {
-            prop[i] = this.color.v.r
-            prop[i+1] = this.color.v.g
-            prop[i+2] = this.color.v.b
-            prop[i+3] = this.color.v.alpha*255 // normalized back to 0-1 in mesh draw
+        if (this.source_sel.sel_idx == 0) // from const
+            this.prop_from_const(prop)
+        else { // from input
+            this.prop_from_input_framebuffer(prop, mesh, src)
         }
+
         mesh.set(attr_prefix + 'color', prop, 4, true)
         this.out_mesh.set(mesh)
     }
@@ -462,49 +525,6 @@ class NodeTriangulate extends NodeCls
     }
 }
 
-class NodeSampleAttribute extends NodeCls
-{
-    static name() { return "Sample Attribute" }
-    constructor(node) {
-        super(node)
-        this.in_mesh = new InTerminal(node, "in_mesh")
-        this.in_tex = new InTerminal(node, "in_tex")
-        this.out_mesh = new OutTerminal(node, "out_mesh")        
-    }
-    run() {
-        let tex = this.in_tex.get_const()
-        assert(tex !== null, this, "Missing input image")
-        let mesh = this.in_mesh.get_mutable()
-        assert(mesh !== null, this, "Missing input points")
-
-        // need to move the mesh vertices to the texture space
-        mesh.ensure_tcache(image_view.t_viewspace)
-        let prop = new TColorArr(mesh.vtx_count() * 4)
-
-        // see https://www.khronos.org/opengl/wiki/Vertex_Post-Processing#Viewport_transform
-        // from Xw = (w/2)*Xp + (w/2) 
-        let w = tex.width()
-        let wf = w/2
-        let hf = tex.height()/2
-        let pixels = tex.get_pixels()
-
-        for(let i = 0, vtxi = 0; i < prop.length; i += 4, vtxi += 2) {
-            let x = mesh.tcache.vtx[vtxi]
-            let y = mesh.tcache.vtx[vtxi+1]
-            x = Math.round(wf*x + wf)
-            y = Math.round(hf*y + hf)
-            let pidx = (y*w + x)*4
-
-            prop[i] = pixels[pidx]
-            prop[i+1] = pixels[pidx+1]
-            prop[i+2] = pixels[pidx+2]
-            prop[i+3] = pixels[pidx+3]
-        }
-        mesh.set('vtx_color', prop, 4, true)
-
-        this.out_mesh.set(mesh)
-    }
-}
 
 class GeomDivide extends NodeCls
 {
