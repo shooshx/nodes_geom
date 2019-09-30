@@ -232,7 +232,7 @@ class NodeSetAttr extends NodeCls
         let vtx = mesh.tcache.vtx
         // see https://www.khronos.org/opengl/wiki/Vertex_Post-Processing#Viewport_transform
         // from Xw = (w/2)*Xp + (w/2) 
-        let w = fb.width()
+        let w = fb.width(), h = fb.height()
         let wf = w/2
         let hf = fb.height()/2
         let pixels = fb.get_pixels()
@@ -259,6 +259,10 @@ class NodeSetAttr extends NodeCls
 
             x = Math.round(wf*x + wf)
             y = Math.round(hf*y + hf)
+            if (x < 0 || y < 0 || x >= w || y >= h) {
+                prop[i] = prop[i+1] = prop[i+2] = prop[i+3] = 0
+                continue
+            }
             let pidx = (y*w + x)*4
 
             prop[i] = pixels[pidx]

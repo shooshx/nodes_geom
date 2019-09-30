@@ -229,6 +229,7 @@ class PObject {
     constructor() {
         this.refcount = 0
     }
+    get_disp_params(disp_values) { return null }
 }
 class PHandle {
     constructor(obj) {
@@ -512,7 +513,10 @@ class Node {
         this._visited = false
         // should be set by the node if anything happened that dirtied itss state (that is not a parameter)
         // used for viewport dependent nodes when viewport changes
-        this.self_dirty = false 
+        this.self_dirty = false
+        // key-value of parameters for displaying any sort of object.
+        // kept per-node since every node can want something different
+        this.display_values = {}
     }
    
     make_term_offset(lst) {
@@ -610,8 +614,8 @@ class Node {
     }
     
     select() {
-        if (selected_node === this)
-            return
+        if (selected_node === this) 
+            return // already selected
         selected_node = this
         draw_nodes() // need to paint the previous selected one
         show_params_of(this)
@@ -687,6 +691,7 @@ function nodes_unselect_all(redraw) {
     if (redraw)
         draw_nodes()
     show_params_of(null)
+    trigger_frame_draw(false) // if there was something selected, undisplay it's selection in the image
 }
 
 function set_display_node(node) {

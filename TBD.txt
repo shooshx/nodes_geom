@@ -43,6 +43,9 @@ NODES:
 - interactive
     mouse input
 - GLSL node
+    - render not into a frame-buffer that covers all the canavas, but a buffer that can be placed and moved
+        (solves SetAttr sampling outside the screen so it doesn't have a color)
+        image content should not be dependent on zoom or pan...
     https://ace.c9.io/#nav=embedding 
     https://stackoverflow.com/questions/27531860/how-to-highlight-a-certain-line-in-ace-editor
     title of window with different color for fragment and vertex shaders
@@ -91,3 +94,6 @@ demo idea
 
 nice visualizations: https://bost.ocks.org/mike/algorithms/
 d3: https://github.com/d3/d3/wiki/Gallery
+
+nice reference images:
+https://society6.com/product/gray-polygon-background_stretched-canvas

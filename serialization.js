@@ -7,7 +7,7 @@ function save_program() {
         display_node_id: (program.display_node == null) ? null : program.display_node.id
     }
     for(let n of program.nodes) {
-        let sn = { params: {}, name:n.name, cls_name: n.cls.constructor.name(), x:n.x, y:n.y }
+        let sn = { params: {}, name:n.name, cls_name: n.cls.constructor.name(), x:n.x, y:n.y, disp_param:n.display_values }
         for(let p of n.parameters) {
             sn.params[p.label] = p.save()
         }        
@@ -89,6 +89,8 @@ function load_program(sprog)
                 }
             }
         }
+        if (sn.disp_param)
+            n.display_values = sn.disp_param
     }
     let find_by_name = function (cont, name) {
         for(let o of cont)

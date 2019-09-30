@@ -98,6 +98,9 @@ input {
 .param_line {
     padding: 5px 0 0 0;
 }
+.param_line:last-child {
+    padding-bottom: 5px;
+}
 .param_block {
     padding: 5px 0 0 0;
 }
@@ -387,3 +390,21 @@ input {
 .dlg_save_as > .param_btn {
     margin: 5px;
 }
+
+#div_display_params {
+    margin-top: 10px;
+    background-color: rgba(0,161,247,0.3);
+    position: relative;
+}
+#div_display_params:before {
+    position: absolute;
+    width: 20px;
+    content: "";
+    height: 100%;
+    display: inline-block;
+    background-color: #00A1F7;
+    border: solid 2px #000;
+    border-radius: 5px 0 0 5px;
+    box-sizing: border-box;
+}
+

@@ -6,7 +6,8 @@ class Parameter
         this.label_elem = null  // use for changing the label 
         this.line_elem = null  // used for enable
         this.enable = true
-        node.parameters.push(this)
+        if (node !== null) // will be null in DispParams
+            node.parameters.push(this)
         this.owner = node
         this.dirty = true  // was it changed since the last run?
     }
@@ -46,12 +47,16 @@ function fix_label_lengths(parameters) {
     }
 }
 
+function clear_elem(id) {
+    let e = document.getElementById(id)
+    var cNode = e.cloneNode(false);
+    e.parentNode.replaceChild(cNode, e);
+    return cNode    
+}
+
 function show_params_of(node) {
     // clear children
-    let div_params_list = document.getElementById('div_params_list')
-    var cNode = div_params_list.cloneNode(false);
-    div_params_list.parentNode.replaceChild(cNode, div_params_list);
-    div_params_list = cNode
+    let div_params_list = clear_elem('div_params_list')
     if (node === null)
         return
     
@@ -60,6 +65,16 @@ function show_params_of(node) {
         p.init_enable()
     }
     fix_label_lengths(node.parameters)
+}
+
+function show_display_params(obj, disp_node) {
+    let params = obj.get_disp_params(disp_node.display_values) // sets defaults if needed
+    let div_display_params = clear_elem('div_display_params')
+    if (params === null || disp_node === null || disp_node !== selected_node)
+        return
+    for(let p of params) {
+        p.add_elems(div_display_params)
+    }
 }
 
 function create_elem(elem_type, cls) {
@@ -232,6 +247,19 @@ class ParamBool extends Parameter {
         if (this.change_func) 
             this.change_func(this.v)
     }
+}
+
+function get_default(m, k, d) {
+    if (m[k] === undefined)
+        m[k] = d
+    return m[k]
+}
+
+class DispParamBool extends ParamBool {
+    constructor(disp_values, label, prop_name, start_v) {
+        super(null, label, get_default(disp_values, prop_name, start_v), (v)=>{disp_values[prop_name]=v; trigger_frame_draw()})
+    }
+    pset_dirty() {} // this override is needed to avoid draw triggers that mess with the controls
 }
 
 class ParamVec2 extends Parameter {

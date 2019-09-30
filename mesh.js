@@ -20,11 +20,14 @@ function normalize_attr_name(s) {
     return r
 }
 
+
+
 class Mesh extends PObject
 {
     static name() { return "Mesh" }
     constructor() {
         super()
+
         this.type = MESH_NOT_SET
         // vtx_color : Uint8Array
         this.arrs = { vtx:null, idx:null }
@@ -42,6 +45,13 @@ class Mesh extends PObject
                 gl.deleteBuffer(b)
             }
         }
+    }
+
+    get_disp_params(disp_values) {
+        return [ new DispParamBool(disp_values, "Show Vertices", 'show_vtx', true),
+                 new DispParamBool(disp_values, "Show Lines", 'show_lines', true),
+                 new DispParamBool(disp_values, "Show Faces", 'show_faces', true)
+                ]
     }
 
     set(name, arr, num_elems, need_normalize) {
@@ -146,7 +156,7 @@ class Mesh extends PObject
                 idx = idxs[i++]<<1; ctx_img.lineTo(vtx[idx], vtx[idx+1])
                 idx = idxs[i++]<<1; ctx_img.lineTo(vtx[idx], vtx[idx+1])
                 idx = idxs[i++]<<1; ctx_img.lineTo(vtx[idx], vtx[idx+1])
-                idx = idxs[i-4]<<1; ctx_img.lineTo(vtx[idx], vtx[idx+1])
+                ctx_img.closePath()
             }
         }
         else if (this.type == MESH_TRI) {
@@ -154,7 +164,7 @@ class Mesh extends PObject
                 let idx = idxs[i++]<<1; ctx_img.moveTo(vtx[idx], vtx[idx+1])
                 idx = idxs[i++]<<1; ctx_img.lineTo(vtx[idx], vtx[idx+1])
                 idx = idxs[i++]<<1; ctx_img.lineTo(vtx[idx], vtx[idx+1])
-                idx = idxs[i-3]<<1; ctx_img.lineTo(vtx[idx], vtx[idx+1])                
+                ctx_img.closePath()           
             }
         }
         ctx_img.strokeStyle = "#000"
@@ -162,23 +172,29 @@ class Mesh extends PObject
     }
 
     draw_poly_fill() {
+        let r = (v)=>{return v}
         let vtx = this.tcache.vtx
         let idxs = this.arrs.idx
         let fcol = this.arrs.face_color
-        ctx_img.lineWidth = 0.5
-        ctx_img.beginPath();
+        ctx_img.lineWidth = 1
+
         let i = 0, vidx = 0
         if (this.type == MESH_QUAD) {
             console.assert(fcol.length / 4 == idxs.length / 4, "unexpected size of face_color")
             while(i < idxs.length) {
                 ctx_img.beginPath();
-                let idx = idxs[i++]<<1; ctx_img.moveTo(vtx[idx], vtx[idx+1])
-                idx = idxs[i++]<<1; ctx_img.lineTo(vtx[idx], vtx[idx+1])
-                idx = idxs[i++]<<1; ctx_img.lineTo(vtx[idx], vtx[idx+1])
-                idx = idxs[i++]<<1; ctx_img.lineTo(vtx[idx], vtx[idx+1])
-                idx = idxs[i-4]<<1; ctx_img.lineTo(vtx[idx], vtx[idx+1])
-                ctx_img.fillStyle = "rgba(" + fcol[vidx] + "," + fcol[vidx+1] + "," + fcol[vidx+2] + "," + (fcol[vidx+3]/255) + ")"
+                let idx = idxs[i++]<<1; ctx_img.moveTo(r(vtx[idx]), r(vtx[idx+1]))
+                idx = idxs[i++]<<1; ctx_img.lineTo(r(vtx[idx]), r(vtx[idx+1]))
+                idx = idxs[i++]<<1; ctx_img.lineTo(r(vtx[idx]), r(vtx[idx+1]))
+                idx = idxs[i++]<<1; ctx_img.lineTo(r(vtx[idx]), r(vtx[idx+1]))
+                ctx_img.closePath()
+                //idx = idxs[i-4]<<1; ctx_img.lineTo(vtx[idx], vtx[idx+1])
+                let col = "rgba(" + fcol[vidx] + "," + fcol[vidx+1] + "," + fcol[vidx+2] + "," + (fcol[vidx+3]/255) + ")"
+                ctx_img.fillStyle = col
                 ctx_img.fill()
+                ctx_img.strokeStyle = col
+                ctx_img.stroke() // need to stroke as well as as fill to fix the stupid stitching bug caused by per-poly antialiasing 
+                                 // https://stackoverflow.com/questions/15631426/svg-fill-not-filling-boundary/15638764#comment22224474_15638764
                 vidx += 4
             }
         }
@@ -186,12 +202,16 @@ class Mesh extends PObject
             console.assert(fcol.length / 4 == idxs.length / 3, "unexpected size of face_color")
             while(i < idxs.length) {
                 ctx_img.beginPath();
-                let idx = idxs[i++]<<1; ctx_img.moveTo(vtx[idx], vtx[idx+1])
-                idx = idxs[i++]<<1; ctx_img.lineTo(vtx[idx], vtx[idx+1])
-                idx = idxs[i++]<<1; ctx_img.lineTo(vtx[idx], vtx[idx+1])
-                idx = idxs[i-3]<<1; ctx_img.lineTo(vtx[idx], vtx[idx+1])
-                ctx_img.fillStyle = "rgba(" + fcol[vidx] + "," + fcol[vidx+1] + "," + fcol[vidx+2] + "," + (fcol[vidx+3]/255) + ")"
+                let idx = idxs[i++]<<1; ctx_img.moveTo(r(vtx[idx]), r(vtx[idx+1]))
+                idx = idxs[i++]<<1; ctx_img.lineTo(r(vtx[idx]), r(vtx[idx+1]))
+                idx = idxs[i++]<<1; ctx_img.lineTo(r(vtx[idx]), r(vtx[idx+1]))
+                ctx_img.closePath()
+                //idx = idxs[i-3]<<1; ctx_img.lineTo(vtx[idx], vtx[idx+1])
+                let col = "rgba(" + fcol[vidx] + "," + fcol[vidx+1] + "," + fcol[vidx+2] + "," + (fcol[vidx+3]/255) + ")"
+                ctx_img.fillStyle = col
                 ctx_img.fill()
+                ctx_img.strokeStyle = col
+                ctx_img.stroke()
                 vidx += 4                           
             }
         }
@@ -212,12 +232,14 @@ class Mesh extends PObject
         }
     }
 
-    draw(m) {
+    draw(m, disp_values) {
         this.ensure_tcache(m)
-        if (this.arrs.face_color) 
+        if (disp_values.show_faces && this.arrs.face_color) 
             this.draw_poly_fill()
-        this.draw_poly_stroke()
-        this.draw_vertices()
+        if (disp_values.show_lines)
+            this.draw_poly_stroke()
+        if (disp_values.show_vtx)
+            this.draw_vertices()
     }
 
     draw_selection(m, select_vindices) {
