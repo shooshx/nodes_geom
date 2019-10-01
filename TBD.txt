@@ -1,20 +1,16 @@
 GUI:
 - color picker with null
-- image-view reset transform with context menu
 - BUG: resize the window beyond the size of the nodes panel moves it
-- select nodes with Ctrl, rectangle (display params of multiple nodes at once?)
+- select *nodes* with Ctrl, rectangle (display params of multiple nodes at once?)
 - parameter value change with drag and right button like in houdini
 - before running - do type checking
-- Math.round lines just before drawing to avoid thinning artifacts when zooming?
 - progress bar for long run
 - first node created with display flag (otherwise nothing is visible)
 - fix jumping of splits on load
 - template display
-
+- Math.round lines just before drawing to avoid thinning artifacts when zooming?
 
 ENGINE:
-- too many triggers when clicking on display of points color
-- display options show only vtx,stroke or fill, per node, visible only when on display
 - parser in parameter
     - attributes in parameters?
 
@@ -30,7 +26,6 @@ NODES:
     https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths
 - Primitive Circle
 - attribute sample
-    color
     point size sample from image
 - Manual points
     point size
@@ -39,9 +34,11 @@ NODES:
 - single value input using a slider
 - random points
     too slow - add KdTree
-    exact shape, not bbox
+    exact shape, not bbox (clip)
 - interactive
     mouse input
+- Group objects
+    display checkboxes
 - GLSL node
     - render not into a frame-buffer that covers all the canavas, but a buffer that can be placed and moved
         (solves SetAttr sampling outside the screen so it doesn't have a color)
@@ -55,9 +52,8 @@ NODES:
 - bitmap trace
     potrace -  https://github.com/kilobtye/potrace/blob/master/potrace.js
         http://potrace.sourceforge.net/  
-
-- !!! grid of points - actually divide?
 - delete points outside a shape (crop>)
+    node for clip using a path
 - convex hull
 
 - random points  - https://www.sidefx.com/docs/houdini/nodes/sop/scatter.html

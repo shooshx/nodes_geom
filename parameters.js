@@ -139,8 +139,7 @@ function add_param_color(line, value, cls, set_func) {
     e.className = cls
     line.appendChild(e) // must have parent
     // TBD move setting the func to be the last thing to avoid spurious triggers
-    let ce = ColorEditBox.create_at(e, 200, function(c) { set_func(c) }, {with_alpha:true})
-    ce.set_color(value, true)
+    let ce = ColorEditBox.create_at(e, 200, function(c) { set_func(c) }, {with_alpha:true}, value)
     return [ce.get_color().copy(), e]
 }
 let checkbox_ids = 1

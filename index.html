@@ -182,7 +182,7 @@ function calc_img_viewport() {
     image_view.t_inv_viewport = mat3.create()
     mat3.invert(image_view.t_inv_viewport, t_viewport)
 
-    // webgl space transform (without to pixels scale)
+    // ------ webgl space transform (without to pixels scale)
     let t_viewspace = mat3.create()
     image_view.t_viewspace = t_viewspace
 

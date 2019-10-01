@@ -263,11 +263,11 @@ function parse_hex_user(s) {
     return r
 }
 
-function create_after(elem, sz, visible, onchange, options) {
-    return create_at(elem, addSiblingAfter, sz, visible, onchange, options)
+function create_after(elem, sz, visible, onchange, options, start_value) {
+    return create_at(elem, addSiblingAfter, sz, visible, onchange, options, start_value)
 }
-function create_as_child(elem, sz, visible, onchange, options) {
-    return create_at(elem, addTextChild, sz, visible, onchange, options)
+function create_as_child(elem, sz, visible, onchange, options, start_value) {
+    return create_at(elem, addTextChild, sz, visible, onchange, options, start_value)
 }
 
 var CHECKERS_IMAGE = null
@@ -293,7 +293,7 @@ function get_checkers_image() {
 var GLOBAL_PRESETS = {}
 
 // options: { with_alpha:true/false, with_null:true/false, global_presets:true/false }
-function create_at(elem, add_func, sz, visible, onchange, options) 
+function create_at(elem, add_func, sz, visible, onchange, options, start_color) 
 {
     if (options === undefined)
         options = {}
@@ -366,11 +366,13 @@ function create_at(elem, add_func, sz, visible, onchange, options)
         sel_pos.alpha_y = 1-sel_col.alpha
         draw_chart(ctx, cfg, sel_col, sel_pos, presets, options)
         if (do_onchange && onchange)
-            onchange(sel_col)
+            onchange(sel_col, is_real_change)
     }
-    
-    col_from_pos()
-    draw_chart(ctx, cfg, sel_col, sel_pos, presets, options)
+
+    let is_real_change = false // used for making the change propogate only to the edit box
+    set_color(start_color || "#cccccc", true) // need to_change in order to update the attached edit input
+    is_real_change = true
+
 
     // handle color change by draggin gand clicking
     var square_capture = false;
@@ -469,16 +471,16 @@ return { create_as_child:create_as_child, create_after:create_after, parse_hex:p
 
 var ColorEditBox = (function(){
 var DEBUG_NO_BLUR = false
-function create_at(edit_elem, sz, onchange, options) 
+function create_at(edit_elem, sz, onchange, options, start_value) 
 {
-    var picker = ColorPicker.create_after(edit_elem, sz, false, function(c) { 
+    var picker = ColorPicker.create_after(edit_elem, sz, false, function(c, real_change=true) { 
         if (document.activeElement != edit_elem)
             edit_elem.value = c.hex  // change the text only if we're not editing
         edit_elem.style.backgroundColor = c.hex_no_alpha
         edit_elem.style.color = c.is_dark ? "#fff" : "#000"
-        if (onchange)
+        if (onchange && real_change)
             onchange(c)
-    }, options)
+    }, options, start_value)
     picker.elem.style.position = "fixed"
     edit_elem.spellcheck = false
     function position_to_edit_elem() {

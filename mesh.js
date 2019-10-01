@@ -195,6 +195,7 @@ class Mesh extends PObject
                 ctx_img.strokeStyle = col
                 ctx_img.stroke() // need to stroke as well as as fill to fix the stupid stitching bug caused by per-poly antialiasing 
                                  // https://stackoverflow.com/questions/15631426/svg-fill-not-filling-boundary/15638764#comment22224474_15638764
+                                 // This is still wrong if the fill has alpha
                 vidx += 4
             }
         }

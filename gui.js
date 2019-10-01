@@ -171,6 +171,13 @@ class ImageView extends ViewBase
         this.t_viewspace = null // like viewport but without scale to pixel space, for webgl
     }
 
+    reset_view() {
+        this.pan_x = 0
+        this.pan_y = 0
+        this.zoom = 1
+        this.pan_redraw()
+    }
+
     pan_redraw() {
         calc_img_viewport()
         trigger_frame_draw(true) // false)  needs to be true for texturs to redraw
@@ -204,7 +211,7 @@ class ImageView extends ViewBase
             if (sel_obj_name !== null)
                 opt.push({text:"Delete " + sel_obj_name, func:function() { selected_node.cls.delete_selection()} })
         }
-        opt.push({text:"Reset view", func:function() {}})
+        opt.push({text:"Reset view", func:function() { image_view.reset_view() }})
         
         this.last_ctx_menu = open_context_menu(opt, wx, wy, main_view, ()=>{ this.dismiss_ctx_menu() } )    
         return this.last_ctx_menu
@@ -296,7 +303,7 @@ function panel_mouse_wheel(view, canvas)
 {
     const zoom_factor = 1.10
 
-    var mindim = Math.min(canvas.width, canvas.height)
+    var mindim = 1 //Math.min(canvas.width, canvas.height)
     var bgWidth = mindim;
     var bgHeight = mindim;
 
@@ -321,23 +328,23 @@ function panel_mouse_wheel(view, canvas)
         var bgCursorX = offsetX - bgPosX;
         var bgCursorY = offsetY - bgPosY;
         // Use the previous offset to get the percent offset between the bg edge and cursor:
-        var bgRatioX = bgCursorX/bgWidth;
-        var bgRatioY = bgCursorY/bgHeight;
+        var bgRatioX = bgCursorX/view.zoom;
+        var bgRatioY = bgCursorY/view.zoom;
         // Update the bg size:
         if (deltaY < 0) {
-            bgWidth *= zoom_factor;
-            bgHeight *= zoom_factor;
+            view.zoom *= zoom_factor;
+
         } else {
-            bgWidth /= zoom_factor;
-            bgHeight /= zoom_factor;
+            view.zoom /= zoom_factor;
+
         }
 
         // Take the percent offset and apply it to the new size:
         //  from cursor back to corner
-        bgPosX = offsetX - (bgWidth * bgRatioX);
-        bgPosY = offsetY - (bgHeight * bgRatioY);
+        bgPosX = offsetX - (view.zoom * bgRatioX);
+        bgPosY = offsetY - (view.zoom * bgRatioY);
 
-        view.zoom = bgWidth / mindim;
+        //view.zoom = bgWidth;
         view.pan_x = bgPosX / view.zoom // don't know...
         view.pan_y = bgPosY / view.zoom
 
