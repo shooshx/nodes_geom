@@ -12,6 +12,7 @@
 <script src="delaunator401.js"></script>
 <script src="nodes_mesh.js"></script>
 <script src="nodes_webgl.js"></script>
+<script src="nodes_image.js"></script>
 <script>
 "use strict"
 
@@ -177,7 +178,9 @@ function calc_img_viewport() {
     }
     image_view.viewport_zoom = f*image_view.zoom // used for measuring radius of hit test in pixels
     mat3.scale(t_viewport, t_viewport, vec2.fromValues(image_view.viewport_zoom, image_view.viewport_zoom))
-    mat3.translate(t_viewport, t_viewport, vec2.fromValues(1 + image_view.margin_x + image_view.pan_x / f, 1 + image_view.margin_y + image_view.pan_y / f))        
+    mat3.translate(t_viewport, t_viewport, vec2.fromValues(1 + image_view.margin_x + image_view.pan_x / f, 1 + image_view.margin_y + image_view.pan_y / f))
+    t_viewport[6] = Math.round(t_viewport[6]) // need to make sure the translation is whole int so that image display would not be interpolated
+    t_viewport[7] = Math.round(t_viewport[7])
 
     image_view.t_inv_viewport = mat3.create()
     mat3.invert(image_view.t_inv_viewport, t_viewport)
@@ -383,6 +386,7 @@ var nodes_classes = [
     NodeTriangulate,
     NodeShader,
     PointGradFill,
+    NodeLoadImage,
 ]
 var nodes_classes_by_name = {}
 for(let c of nodes_classes)

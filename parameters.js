@@ -142,11 +142,11 @@ function add_param_color(line, value, cls, set_func) {
     let ce = ColorEditBox.create_at(e, 200, function(c) { set_func(c) }, {with_alpha:true}, value)
     return [ce.get_color().copy(), e]
 }
-let checkbox_ids = 1
+let g_input_ids = 1
 function add_param_checkbox(line, label, value, set_func) {
     let ein = add_elem(line, 'input', 'param_checkbox_input')
     ein.type = 'checkbox'
-    ein.id = 'p_chb_' + checkbox_ids++
+    ein.id = 'p_chb_' + g_input_ids++
     ein.checked = value
     ein.addEventListener('change', function() { set_func(ein.checked); })
     let edisp = add_elem(line, 'label', 'param_checkbox_disp')
@@ -165,7 +165,7 @@ function add_push_btn(parent, label, onclick) {
 function add_checkbox_btn(parent, label, value, onchange) {
     let ein = add_elem(parent, 'input', 'param_checkbox_input')
     ein.type = 'checkbox'
-    ein.id = 'p_chb_' + checkbox_ids++
+    ein.id = 'p_chb_' + g_input_ids++
     ein.checked = value
     ein.addEventListener('change', function() { onchange(ein.checked); })
     let btn = add_elem(parent, 'label', 'param_btn')
@@ -329,6 +329,7 @@ class ParamTransform extends Parameter {
         this.pset_dirty()
     }
     add_elems(parent) {  // TBD support enable
+        add_elem(parent, "hr", "param_separator")
         let line1 = add_param_line(parent)
         add_param_label(line1, "Translate")
         this.elems.tx = add_param_edit(line1, this.translate[0], ED_FLOAT, (v)=>{ this.translate[0] = parseFloat(v); this.calc_mat() })
@@ -367,6 +368,14 @@ class ParamTransform extends Parameter {
         this.dial.set_center(cx, cy)
         this.dial.draw()
         return this.dial
+    }
+    draw_dial_at_obj(obj, m) {
+        if (obj === null)
+            return // might be it's not connected so it doesn't have output
+        let bbox = obj.get_bbox()
+        let center = vec2.fromValues((bbox.min_x + bbox.max_x) * 0.5, (bbox.min_y + bbox.max_y) * 0.5)
+        vec2.transformMat3(center, center, m)
+        this.draw_dial(center[0], center[1])        
     }
 }
 
@@ -603,7 +612,7 @@ class ListParam extends Parameter {
     }    
 }
 
-class TableParam extends Parameter {
+class ParamTable extends Parameter {
     constructor(node, label) {
         super(node, label)
         this.list_params = []  // registered ListParams
@@ -663,7 +672,7 @@ function add_grip_handlers(grip, cell) {
 }
 
 
-class TextBlockParam extends Parameter 
+class ParamTextBlock extends Parameter 
 {
     constructor(node, label) {
         super(node, label)
@@ -710,5 +719,64 @@ class ParamSelect extends Parameter
         this.line_elem = add_param_line(parent)
         this.label_elem = add_param_label(this.line_elem, this.label)
         add_combobox(this.line_elem, this.opts, this.sel_idx, (v)=>{ this.sel_idx = v; this.pset_dirty() })
+    }
+}
+
+class ParamFileUpload extends Parameter
+{
+    constructor(node, label) {
+        super(node, label)
+        this.file = null
+    }
+    save() { return null }
+    load(v) {}
+    add_elems(parent) {
+        this.line_elem = add_param_line(parent)
+        this.label_elem = add_param_label(this.line_elem, this.label)
+        let fin = add_elem(this.line_elem, "input", "param_file_input")
+        fin.type = "file"
+        fin.id = "p_fl_" + g_input_ids++
+        let btn = add_elem(this.line_elem, "label", ["param_btn", "param_file_choose_btn"])
+        btn.innerText = "Choose File..."
+        btn.setAttribute("for", fin.id)
+        fin.addEventListener("change", ()=>{ 
+            this.file = fin.files[0]
+            filename.innerText = fin.files[0].name 
+            this.load_file(this.file)
+            //this.pset_dirty() - done only when everything is uploaded
+        })
+        let filename = add_div(this.line_elem, "param_file_show")
+        if (this.file !== null)
+            filename.innerText = this.file.name
+    }
+
+    load_file(file) {
+        let reader = new FileReader();
+        reader.onload = (e)=>{
+            this.load_url(e.target.result)
+        }
+        reader.onerror = (e)=>{
+            console.error(e)
+        }
+        reader.readAsDataURL(file);
+    }    
+}
+
+class ParamImageUpload extends ParamFileUpload
+{
+    constructor(node, label) {
+        super(node, label)
+        this.image = null
+    }
+    load_url(url) {
+        this.image = new Image()
+        this.image.onload = (e)=>{
+            this.pset_dirty()
+        }
+        this.image.onerror = (e)=>{
+            console.error("image-load-error")
+        }
+        this.image.crossOrigin = ''
+        this.image.src = url        
     }
 }

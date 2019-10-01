@@ -303,10 +303,6 @@ function panel_mouse_wheel(view, canvas)
 {
     const zoom_factor = 1.10
 
-    var mindim = 1 //Math.min(canvas.width, canvas.height)
-    var bgWidth = mindim;
-    var bgHeight = mindim;
-
     function onWarCanvasWheel(e) 
     {
         let bgPosX = view.pan_x * view.zoom
@@ -333,10 +329,8 @@ function panel_mouse_wheel(view, canvas)
         // Update the bg size:
         if (deltaY < 0) {
             view.zoom *= zoom_factor;
-
         } else {
             view.zoom /= zoom_factor;
-
         }
 
         // Take the percent offset and apply it to the new size:
@@ -344,7 +338,6 @@ function panel_mouse_wheel(view, canvas)
         bgPosX = offsetX - (view.zoom * bgRatioX);
         bgPosY = offsetY - (view.zoom * bgRatioY);
 
-        //view.zoom = bgWidth;
         view.pan_x = bgPosX / view.zoom // don't know...
         view.pan_y = bgPosY / view.zoom
 

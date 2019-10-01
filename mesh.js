@@ -99,10 +99,12 @@ class Mesh extends PObject
         to.made_glbuf = false
     }
     
+    // API
     transform(m) {
         this.transform_arr(m, this.arrs.vtx, this.arrs.vtx)
     }
 
+    // API
     get_bbox() { // TBD can cache this
         let vtx = this.arrs.vtx
         if (vtx.length == 0)
@@ -233,7 +235,10 @@ class Mesh extends PObject
         }
     }
 
+    // API
     draw(m, disp_values) {
+        if (!disp_values)
+            disp_values = { show_faces:true, show_lines:true, show_vtx:true } // hack for group to work
         this.ensure_tcache(m)
         if (disp_values.show_faces && this.arrs.face_color) 
             this.draw_poly_fill()

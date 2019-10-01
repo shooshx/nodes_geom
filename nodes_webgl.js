@@ -94,8 +94,8 @@ class NodeShader extends NodeCls
         super(node)
         this.in_mesh = new InTerminal(node, "in_mesh")
         this.out_tex = new OutTerminal(node, "out_texture")
-        this.vtx_text = new TextBlockParam(node, "Vertex Shader")
-        this.frag_text = new TextBlockParam(node, "Fragment Shader")
+        this.vtx_text = new ParamTextBlock(node, "Vertex Shader")
+        this.frag_text = new ParamTextBlock(node, "Fragment Shader")
 
         this.program = null
         // it's ok for the texture to belong to this node since texture is const only so it won't be modified

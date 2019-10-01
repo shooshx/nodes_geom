@@ -38,7 +38,6 @@ class NodeGeomPrimitive extends NodeCls
         super(node)
         this.out = new OutTerminal(node, "out_mesh")
         this.size = new ParamVec2(node, "Size", 0.5, 0.5)
-        new ParamSeparator(node)
         this.transform = new ParamTransform(node, "Transform")
     }
     run() {
@@ -52,13 +51,7 @@ class NodeGeomPrimitive extends NodeCls
         this.out.set(mesh)
     }
     draw_selection(m) {
-        let mesh = this.out.get_const()
-        if (mesh === null)
-            return // might be it's not connected so it doesn't have output
-        let bbox = mesh.get_bbox()
-        let center = vec2.fromValues((bbox.min_x + bbox.max_x) * 0.5, (bbox.min_y + bbox.max_y) * 0.5)
-        vec2.transformMat3(center, center, m)
-        this.transform.draw_dial(center[0], center[1])
+        this.transform.draw_dial_at_obj(this.out.get_const(), m)
     }    
     image_find_obj(vx, vy, ex, ey) {
         return this.transform.dial.find_obj(ex, ey)
@@ -83,7 +76,7 @@ class PointSelectHandle
     }
 }
 
-class CoordListParam extends ListParam {
+class ParamCoordList extends ListParam {
     constructor(node, label, table, selected_indices) {
         super(node, label, 2, table, TVtxArr, {cls:"param_monospace", to_string: (v)=>{ 
             return "(" + v[0].toFixed(3) + "," + v[1].toFixed(3) + ")" 
@@ -99,7 +92,7 @@ class CoordListParam extends ListParam {
     }
     def_value() { return [0,0] }
 }
-class FloatListParam extends ListParam {
+class ParamFloatList extends ListParam {
     constructor(node, label, table) {
         super(node, label, 1, table, Float32Array, { cls:"param_monospace", to_string: function(v) { 
             return v.toFixed(3)
@@ -115,7 +108,7 @@ function uint8arr_to_color(arr) {
 function color_to_uint8arr(c) {
     return [c.r, c.g, c.b, c.alpha*255]
 }
-class ColorListParam extends ListParam {
+class ParamColorList extends ListParam {
     constructor(node, label, table) {
         super(node, label, 4, table, TColorArr, { create_elem: function(parent, start_val, changed_func) { 
             let [col,elem] = add_param_color(parent, uint8arr_to_color(start_val), "param_table_input_color", function(c) {
@@ -136,10 +129,10 @@ class NodeManualPoints extends NodeCls
         this.selected_indices = [] // point indices
 
         this.out = new OutTerminal(node, "out_mesh")
-        this.table = new TableParam(node, "Point List")
-        this.points = new CoordListParam(node, "Coord", this.table, this.selected_indices)
-        this.dummy = new FloatListParam(node, "Dummy", this.table)
-        this.color = new ColorListParam(node, "Point Color", this.table)
+        this.table = new ParamTable(node, "Point List")
+        this.points = new ParamCoordList(node, "Coord", this.table, this.selected_indices)
+        this.dummy = new ParamFloatList(node, "Dummy", this.table)
+        this.color = new ParamColorList(node, "Point Color", this.table)
 
         this.pnt_attrs = [this.dummy, this.color]  // Param objets of additional attributes of each point other than it's coordinate
     }

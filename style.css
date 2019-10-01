@@ -254,8 +254,9 @@ input {
     width: 100px;
     text-align: center;
     height: 25px;
-    line-height: 25px;
+    line-height: 24px;
     color: #fff;
+    margin: 0 0 0 6px;
 }
 .param_btn:hover {
     background-image: linear-gradient(to bottom, #909090, #808080);  
@@ -265,6 +266,18 @@ input {
 }
 .param_select {
     font-size: 14px;
+}
+.param_file_input {
+    display: none;
+}
+.param_file_choose_btn {
+    width: 130px;
+}
+.param_file_show {
+    display: inline-block;
+    margin: 0 0 0 7px;
+    font-family: monospace;
+    font-size: 15px;    
 }
 
 .dlg {
