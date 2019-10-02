@@ -51,8 +51,9 @@ class NodeLoadImage extends NodeCls
     }
 
     run() {
-        assert(this.file_upload.image !== null, this, "No image uploaded")
-        let pimg = new PImage(this.file_upload.image)
+        let image = this.file_upload.get_image()
+        assert(image !== null, this, "No image uploaded")
+        let pimg = new PImage(image)
         pimg.transform(this.transform.v)
         this.out_img.set(pimg)
     }

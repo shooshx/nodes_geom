@@ -123,6 +123,7 @@ function add_param_label(line, text) {
 }
 const ED_FLOAT=0
 const ED_INT=1
+const ED_STR=2
 function add_param_edit(line, value, type, set_func) {
     let e = document.createElement('input')
     e.className = 'param_input'
@@ -726,10 +727,16 @@ class ParamFileUpload extends Parameter
 {
     constructor(node, label) {
         super(node, label)
-        this.file = null
+        this.file = null // file from file input, null if file came from a url
+        this.remote_url = null
+        this.remote_url_elem = null
     }
-    save() { return null }
-    load(v) {}
+    save() { return {rurl:this.remote_url} }
+    load(v) { 
+        this.remote_url = v.rurl 
+        if (this.remote_url.trim() != "")
+            this.load_url(this.remote_url)
+    }
     add_elems(parent) {
         this.line_elem = add_param_line(parent)
         this.label_elem = add_param_label(this.line_elem, this.label)
@@ -741,42 +748,110 @@ class ParamFileUpload extends Parameter
         btn.setAttribute("for", fin.id)
         fin.addEventListener("change", ()=>{ 
             this.file = fin.files[0]
-            filename.innerText = fin.files[0].name 
-            this.load_file(this.file)
-            //this.pset_dirty() - done only when everything is uploaded
+            fin.value = "" // make the input forget about this file so that the same filename can be uploaded again
+            filename_show.innerText = this.file.name 
+            this.read_file(this.file, true, (file, url)=>{ this.load_url(url) })
+            upload_btn.style.display = ""
+            // pset_dirty() done only when everything is loaded
         })
-        let filename = add_div(this.line_elem, "param_file_show")
+        let upload_btn = add_push_btn(this.line_elem, "Upload", ()=>{ // onclick 
+            this.read_file(this.file, false, (file, data)=> { this.upload_to_imgur(file, data)} ) 
+        })
+        upload_btn.style.display = "none"
+        let filename_show = add_div(this.line_elem, "param_file_show")
         if (this.file !== null)
-            filename.innerText = this.file.name
+            filename_show.innerText = this.file.name
+
+        let line2_elem = add_param_line(parent)
+        add_param_label(line2_elem, "Url")
+        this.remote_url_elem = add_param_edit(line2_elem, this.remote_url, ED_STR, (v)=>{ 
+            this.remote_url = v; 
+            this.file = null // the file in the file input is no longer relevant if we changed the url manually
+            this.filename_show = ""
+            this.load_url(v) 
+        })
+        this.remote_url_elem.classList.add("param_input_long")
     }
 
-    load_file(file) {
+    read_file(file, asurl, onload) {
         let reader = new FileReader();
         reader.onload = (e)=>{
-            this.load_url(e.target.result)
+            onload(file, e.target.result)
         }
         reader.onerror = (e)=>{
             console.error(e)
         }
-        reader.readAsDataURL(file);
-    }    
+        if (asurl)
+            reader.readAsDataURL(file);
+        else
+            reader.readAsArrayBuffer(file)
+    }
+
+    upload_to_imgur(file, data) {
+        var req = new XMLHttpRequest();
+        
+        req.onload = ()=>{
+            console.log(req.responseText)
+            var re = JSON.parse(req.responseText)
+            if (re.success != true || re.status != 200) {
+                console.error("Failed upload, " + re.status)
+                return
+            }
+            this.remote_url = re.data.link
+            this.remote_url_elem.value = this.remote_url
+            save_state()
+        }
+        req.onprogress = (e)=>{
+            if (e.total == 0)
+                return
+            var percentComplete = (e.loaded / e.total)*100; 
+            //editUploadProgress.value = percentComplete
+        }
+        if (req.upload) // in chrome there's a different progress listener
+            req.upload.onprogress = req.onprogress
+        req.onerror = (e)=>{
+            console.error(e)
+            //editUploadProgress.style.visibility = "hidden"
+        }
+    
+        req.open("POST", 'https://api.imgur.com/3/image', true)
+        req.setRequestHeader("Authorization", "Client-ID 559401233d3e1e6")
+        req.setRequestHeader("Accept", 'application/json')
+        req.setRequestHeader("Content-Type", file.type)
+        req.send(data)
+    }
+    
 }
+
 
 class ParamImageUpload extends ParamFileUpload
 {
     constructor(node, label) {
         super(node, label)
         this.image = null
+        this.last_error = null
     }
     load_url(url) {
-        this.image = new Image()
-        this.image.onload = (e)=>{
+        this.last_error = null
+        this.image = null
+        let newimage = new Image()
+        newimage.onload = (e)=>{
+            this.image = newimage
             this.pset_dirty()
         }
-        this.image.onerror = (e)=>{
-            console.error("image-load-error")
+        newimage.onerror = (e)=>{
+            this.last_error = "Failed to download URL"
+            console.error("Failed to download", e)
+            this.pset_dirty() // trigger a draw that will show this error
         }
-        this.image.crossOrigin = ''
-        this.image.src = url        
+        newimage.crossOrigin = ''
+        newimage.src = url        
+    }
+
+    get_image() {
+        if (this.image === null && this.last_error !== null)
+            assert(false, this.owner.cls, this.last_error)
+        return this.image
     }
 }
+

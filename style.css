@@ -141,6 +141,9 @@ input {
     font-family: Verdana;
     font-size: 13.3333px;        
 }
+.param_input_long {
+    width: 70%;
+}
 
 .param_checkbox_input {
     position: absolute;
