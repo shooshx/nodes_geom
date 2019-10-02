@@ -730,6 +730,7 @@ class ParamFileUpload extends Parameter
         this.file = null // file from file input, null if file came from a url
         this.remote_url = null
         this.remote_url_elem = null
+        this.upload_progress_elem = null
     }
     save() { return {rurl:this.remote_url} }
     load(v) { 
@@ -749,7 +750,7 @@ class ParamFileUpload extends Parameter
         fin.addEventListener("change", ()=>{ 
             this.file = fin.files[0]
             fin.value = "" // make the input forget about this file so that the same filename can be uploaded again
-            filename_show.innerText = this.file.name 
+            filename_show.textContent = this.file.name 
             this.read_file(this.file, true, (file, url)=>{ this.load_url(url) })
             upload_btn.style.display = ""
             // pset_dirty() done only when everything is loaded
@@ -757,10 +758,15 @@ class ParamFileUpload extends Parameter
         let upload_btn = add_push_btn(this.line_elem, "Upload", ()=>{ // onclick 
             this.read_file(this.file, false, (file, data)=> { this.upload_to_imgur(file, data)} ) 
         })
-        upload_btn.style.display = "none"
-        let filename_show = add_div(this.line_elem, "param_file_show")
+        let show_div = add_div(this.line_elem, "param_file_show_parent")
+        let filename_show = add_div(show_div, "param_file_show")
         if (this.file !== null)
-            filename_show.innerText = this.file.name
+            filename_show.textContent = this.file.name
+        else
+            upload_btn.style.display = "none"
+        this.upload_progress_elem = add_elem(show_div, "progress", "param_file_progress")
+        this.upload_progress_elem.max = 100
+        this.upload_progress_elem.value = 0
 
         let line2_elem = add_param_line(parent)
         add_param_label(line2_elem, "Url")
@@ -799,21 +805,25 @@ class ParamFileUpload extends Parameter
             }
             this.remote_url = re.data.link
             this.remote_url_elem.value = this.remote_url
+            this.upload_progress_elem.style.display = "none"
             save_state()
         }
         req.onprogress = (e)=>{
             if (e.total == 0)
                 return
             var percentComplete = (e.loaded / e.total)*100; 
-            //editUploadProgress.value = percentComplete
+            this.upload_progress_elem.value = percentComplete
         }
         if (req.upload) // in chrome there's a different progress listener
             req.upload.onprogress = req.onprogress
         req.onerror = (e)=>{
             console.error(e)
-            //editUploadProgress.style.visibility = "hidden"
+            this.upload_progress_elem.style.display = "none"
         }
     
+        this.upload_progress_elem.value = 0
+        this.upload_progress_elem.style.display = "initial"
+
         req.open("POST", 'https://api.imgur.com/3/image', true)
         req.setRequestHeader("Authorization", "Client-ID 559401233d3e1e6")
         req.setRequestHeader("Accept", 'application/json')
@@ -840,8 +850,8 @@ class ParamImageUpload extends ParamFileUpload
             this.pset_dirty()
         }
         newimage.onerror = (e)=>{
-            this.last_error = "Failed to download URL"
-            console.error("Failed to download", e)
+            this.last_error = "Failed download image from URL"
+            console.error("Failed to download image", e)
             this.pset_dirty() // trigger a draw that will show this error
         }
         newimage.crossOrigin = ''

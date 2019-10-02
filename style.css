@@ -39,6 +39,7 @@ input {
     background-color: #312F31;
     color: #fff;  
     overflow: auto;  
+    white-space: nowrap;
 }
 
 .splitter {
@@ -276,11 +277,35 @@ input {
 .param_file_choose_btn {
     width: 130px;
 }
+.param_file_show_parent {
+    position: relative;
+    display: inline-block;
+}
 .param_file_show {
     display: inline-block;
     margin: 0 0 0 7px;
     font-family: monospace;
-    font-size: 15px;    
+    font-size: 15px;   
+    line-height: 24px; 
+}
+.param_file_progress {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 200px;    
+    height: 24px;
+    display: none;
+    margin: 0 0 0 7px;
+    -webkit-appearance: none;
+}
+.param_file_progress::-webkit-progress-bar {
+    background-color: #bbb;
+    border-radius: 3px;
+    opacity:0.7;
+}
+.param_file_progress::-webkit-progress-value {
+    background-color: #8e8ef7;
+    border-radius: 3px;
 }
 
 .dlg {
