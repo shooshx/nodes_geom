@@ -304,7 +304,7 @@ class ParamColor extends Parameter {
 function toFixedMag(f) {
     if (Math.abs(f) < 1e-13)
         return "0"
-    let af = Math.min(Math.round(Math.log10(Math.abs(f))), -3)
+    let af = Math.min(Math.round(Math.log10(Math.abs(f)))-2, -3)
     return f.toFixed(-af)
 }
 
@@ -344,6 +344,8 @@ class ParamTransform extends Parameter {
         this.elems.sy = add_param_edit(line3, this.scale[1], ED_FLOAT, (v)=>{ this.scale[1] = parseFloat(v); this.calc_mat()})
     }
     repaint_elems() {
+        if (this.elems.tx === null) // not displayed yet
+            return
         this.elems.tx.value = toFixedMag(this.translate[0])
         this.elems.ty.value = toFixedMag(this.translate[1])
         this.elems.r.value = toFixedMag(this.rotate)
@@ -360,6 +362,12 @@ class ParamTransform extends Parameter {
         this.rotate += d_angle;
         if (this.rotate > 360)  this.rotate -= 360
         if (this.rotate < 0) this.rotate += 360
+        this.calc_mat(); 
+        this.repaint_elems()
+    }
+    set_scale(sx, sy) {
+        this.scale[0] = sx
+        this.scale[1] = sy
         this.calc_mat(); 
         this.repaint_elems()
     }
@@ -865,3 +873,18 @@ class ParamImageUpload extends ParamFileUpload
     }
 }
 
+// not really a parameter that holds a value. it's a button that shows in the parameters panel
+class ParamButton extends Parameter 
+{
+    constructor(node, label, onclick) {
+        super(node, label)
+        this.onclick = onclick
+    }
+    save() { return null }
+    load(v) { }
+    add_elems(parent) {
+        this.line_elem = add_param_line(parent)
+        add_param_label(this.line_elem, null)  // empty space
+        add_push_btn(this.line_elem, this.label, this.onclick)
+    }
+}

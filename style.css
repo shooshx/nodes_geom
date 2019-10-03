@@ -255,12 +255,13 @@ input {
     cursor: pointer;
     border-radius: 3px;
     background-image: linear-gradient(to bottom, #808080, #707070);
-    width: 100px;
     text-align: center;
     height: 25px;
     line-height: 24px;
     color: #fff;
-    margin: 0 0 0 6px;
+    margin: 0 0 0 3px;
+    padding: 0 10px 0 10px;
+    min-width: 70px;    
 }
 .param_btn:hover {
     background-image: linear-gradient(to bottom, #909090, #808080);  

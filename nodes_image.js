@@ -5,8 +5,8 @@ class PImage extends PObject
     constructor(js_img) {
         super()
         this.img = js_img
-        let hw = this.img.width * 0.5 / image_view.viewport_zoom // TBD this is wrong
-        let hh = this.img.height * 0.5 / image_view.viewport_zoom
+        let hw = this.img.width * 0.5 
+        let hh = this.img.height * 0.5
         this.top_left = vec2.fromValues(-hw,-hh)
         this.bottom_right = vec2.fromValues(hw,hh)
 
@@ -25,7 +25,7 @@ class PImage extends PObject
         ctx_img.restore()
     }
 
-    get_bbox() { // TBD wrong
+    get_bbox() { // TBD wrong (doesn't rotate)
         let tl = vec2.create(), br = vec2.create()
         vec2.transformMat3(tl, this.top_left, this.t_mat)
         vec2.transformMat3(br, this.bottom_right, this.t_mat)
@@ -44,10 +44,12 @@ class NodeLoadImage extends NodeCls
         this.file_upload = new ParamImageUpload(node, "File Upload")
         this.transform = new ParamTransform(node, "Transform")
         this.out_img = new OutTerminal(node, "out_img")
-
-        //let inv_vz = 
-        //this.transform.scale = vec2.fromValues(inv_vz,inv_vz)
-        //this.transform.calc_mat()
+        let zoom_fit_func = ()=>{
+            let inv_tz = 1/image_view.viewport_zoom
+            this.transform.set_scale(inv_tz, inv_tz)
+        }
+        this.zoom_fit = new ParamButton(node, "Zoom to fit viewport pixel size", zoom_fit_func)
+        zoom_fit_func() // fit to the viewport at the time the node is created
     }
 
     run() {
