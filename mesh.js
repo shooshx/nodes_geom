@@ -8,7 +8,7 @@ const MESH_TRI = 2
 const MESH_DISP = { vtx_radius: 5, vtx_sel_radius: 7 }
 
 let TVtxArr = Float32Array
-let TIdxArr = Int16Array
+let TIdxArr = Uint16Array
 let TColorArr = Uint8Array
 
 function normalize_attr_name(s) {
@@ -272,7 +272,7 @@ class Mesh extends PObject
                 //console.log("++",this.glbufs[name].buf_id)
                 this.meta[name].made_glbuf = false
             }
-            if (!this.meta[name].made_glbuf) {
+            if (this.meta[name] !== null && this.meta[name] !== undefined && !this.meta[name].made_glbuf) {
                 let data_from = (name == "vtx") ? this.tcache : this.arrs
                 let bind_point = (name == 'idx') ? gl.ELEMENT_ARRAY_BUFFER : gl.ARRAY_BUFFER
                     
@@ -286,6 +286,7 @@ class Mesh extends PObject
     // program_attr makes name to index
     gl_draw(m, program_attr) 
     { 
+        console.assert(this.type == MESH_TRI, "can't gl_draw non triangle mesh")
         this.ensure_tcache(m)  // TBD another cache?
         this.make_buffers()
 

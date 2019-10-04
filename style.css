@@ -249,6 +249,10 @@ input {
 #canvas_image {
     /*display: none; /*TEMP*/
 }
+#canvas_img_shadow {
+    border: solid 1px;
+    display: none;
+}
 
 .param_btn {
     display: inline-block;

@@ -220,15 +220,16 @@ class NodeSetAttr extends NodeCls
         }
     }
 
-    prop_from_input_framebuffer(prop, mesh, fb) {
-        mesh.ensure_tcache(image_view.t_viewspace)
+    prop_from_input_framebuffer(prop, mesh, src, transform, fb_viewport) {
+        mesh.ensure_tcache(transform)
         let vtx = mesh.tcache.vtx
+
         // see https://www.khronos.org/opengl/wiki/Vertex_Post-Processing#Viewport_transform
         // from Xw = (w/2)*Xp + (w/2) 
-        let w = fb.width(), h = fb.height()
+        let w = src.width(), h = src.height()
         let wf = w/2
-        let hf = fb.height()/2
-        let pixels = fb.get_pixels()
+        let hf = src.height()/2
+        let pixels = src.get_pixels()
 
         let samp_vtx = (this.bind_to.sel_idx == 0)
         let face_sz = mesh.face_size()
@@ -250,8 +251,14 @@ class NodeSetAttr extends NodeCls
                 y /= face_sz
             }
 
-            x = Math.round(wf*x + wf)
-            y = Math.round(hf*y + hf)
+            if (fb_viewport) {
+                x = Math.round(wf*x + wf)
+                y = Math.round(hf*y + hf)
+            }
+            else {
+                x = Math.round(x + wf)
+                y = Math.round(y + hf)
+            }
             if (x < 0 || y < 0 || x >= w || y >= h) {
                 prop[i] = prop[i+1] = prop[i+2] = prop[i+3] = 0
                 continue
@@ -279,7 +286,8 @@ class NodeSetAttr extends NodeCls
         if (this.source_sel.sel_idx == 1) {
             src = this.in_source.get_const()
             assert(src !== null, this, "missing attribute source")
-            assert(src.constructor === FrameBuffer, this, "expected FrameBuffer as input") // for now
+            assert(src.constructor === FrameBuffer || 
+                   src.constructor === PImage, this, "expected FrameBuffer or Image as input")
         }
 
         let elem_num, attr_prefix;
@@ -305,7 +313,16 @@ class NodeSetAttr extends NodeCls
         if (this.source_sel.sel_idx == 0) // from const
             this.prop_from_const(prop)
         else { // from input
-            this.prop_from_input_framebuffer(prop, mesh, src)
+            let transform, isfb = false
+            if (src.constructor === FrameBuffer) {
+                transform = image_view.t_viewspace
+                isfb = true
+            }
+            else if (src.constructor == PImage) {
+                transform = mat3.create()
+                mat3.invert(transform, src.t_mat) 
+            }
+            this.prop_from_input_framebuffer(prop, mesh, src, transform, isfb)
         }
 
         mesh.set(attr_prefix + 'color', prop, 4, true)
@@ -368,9 +385,10 @@ class PObjGroup extends PObject{
             obj.transform(m)
         }
     }
-    draw(m) {
-        for(let obj of this.v) {
-            obj.draw(m)
+    draw(m, display_values) {
+        console.assert(display_values.length == this.v.length, "display_values length mismatch")
+        for(let i in this.v) {
+            this.v[i].draw(m, display_values[i])
         }
     }
 }
@@ -384,9 +402,12 @@ class NodeGroupObjects extends NodeCls {
         //this.order = new InputOrderParam(node, "Order", this.in_m)
     }
     run() {
+        this.node.display_values = []
         let r = new PObjGroup()
         for(let line of this.in_m.lines) {
             r.v.push(line.to_term.get_const())
+            // gather the display nodes from the nodes that output the thing
+            this.node.display_values.push(line.from_term.owner.display_values) 
         }
         this.out.set(r)
     }

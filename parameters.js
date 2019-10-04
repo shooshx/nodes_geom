@@ -68,9 +68,11 @@ function show_params_of(node) {
 }
 
 function show_display_params(obj, disp_node) {
-    let params = obj.get_disp_params(disp_node.display_values) // sets defaults if needed
+    let params = null
+    if (disp_node && obj)
+        params = obj.get_disp_params(disp_node.display_values) // sets defaults if needed
     let div_display_params = clear_elem('div_display_params')
-    if (params === null || disp_node === null || disp_node !== selected_node)
+    if (obj === null || params === null || disp_node === null || disp_node !== selected_node)
         return
     for(let p of params) {
         p.add_elems(div_display_params)
@@ -743,7 +745,7 @@ class ParamFileUpload extends Parameter
     save() { return {rurl:this.remote_url} }
     load(v) { 
         this.remote_url = v.rurl 
-        if (this.remote_url.trim() != "")
+        if (this.remote_url !== null && this.remote_url.trim() != "")
             this.load_url(this.remote_url)
     }
     add_elems(parent) {

@@ -21,6 +21,7 @@ glm.setMatrixArrayType(Float64Array)
 
 var ctx_nodes, ctx_img
 var ctx_nd_shadow // the canvas_nd_shadow is auxilary for the canvas_nodes for identifying objects
+var ctx_img_shadow // canvas_img_shadow auxilary for canvas_image
 
 const PRELOAD_IMAGES = [ "img/check_checked.png", "img/check_int.png", "img/check_none.png",
                          "img/red_ex.png", "img/gray_ex.png",   
@@ -74,7 +75,7 @@ function page_onload()
     ctx_nodes = canvas_nodes.getContext('2d')
     ctx_nd_shadow = canvas_nd_shadow.getContext('2d', {alpha: false})
     ctx_img = canvas_image.getContext('2d')
-
+    ctx_img_shadow = canvas_img_shadow.getContext('2d')
     
     clear_program()
     try {
@@ -330,8 +331,10 @@ function trigger_frame_draw(do_run, clear_all=false)
     //ctx_img.fillStyle = 'rgba(0,0,0,0)'
     //ctx_img.fillRect(0, 0, canvas_image.width, canvas_image.height)
 
-    if (program.display_node == null)
+    if (program.display_node == null) {
+        show_display_params(null, null)
         return
+    }
 
     let got_error = false
     let disp_obj = program.display_node.outputs[0].get_const()
@@ -354,14 +357,14 @@ function trigger_frame_draw(do_run, clear_all=false)
         disp_obj = program.display_node.outputs[0].get_const()
     }
 
+    // do this before obj draw so that if there are missing display params, they'll get a default value
+    show_display_params(disp_obj, program.display_node) 
+
     if (disp_obj === null) {
         console.error("no out")
         set_error(program.display_node.cls, "No output generated")
         return
     }
-
-    // do this before obj draw so that if there are missing display params, they'll get a default value
-    show_display_params(disp_obj, program.display_node) 
 
     disp_obj.draw(image_view.t_viewport, program.display_node.display_values)
 
@@ -397,5 +400,5 @@ for(let c of nodes_classes)
 <link rel="stylesheet" type="text/css" href="style.css">
 
 </head>
-<body onload=page_onload()><div id="main_view"><div id="image_panel"><canvas id="canvas_image" width="100" height="100"></canvas><canvas id="canvas_webgl" width="100" height="100"></canvas></div><div id="image_splitter" class="splitter"></div><div id="edit_panel"><div id="edit_params"><div id="div_params_list"></div><div id="div_display_params"></div></div><div id="edit_splitter" class="splitter"></div><div id="edit_nodes"><canvas id="canvas_nodes" width="100" height="100"></canvas></div></div></div><canvas id="canvas_nd_shadow" width="100" height="100"></canvas></body>
+<body onload=page_onload()><div id="main_view"><div id="image_panel"><canvas id="canvas_image" width="100" height="100"></canvas><canvas id="canvas_webgl" width="100" height="100"></canvas><canvas id="canvas_img_shadow" width="100" height="100"></canvas></div><div id="image_splitter" class="splitter"></div><div id="edit_panel"><div id="edit_params"><div id="div_params_list"></div><div id="div_display_params"></div></div><div id="edit_splitter" class="splitter"></div><div id="edit_nodes"><canvas id="canvas_nodes" width="100" height="100"></canvas></div></div></div><canvas id="canvas_nd_shadow" width="100" height="100"></canvas></body>
 </html>

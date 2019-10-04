@@ -131,6 +131,7 @@ class NodeShader extends NodeCls
             init_webgl()
         let mesh = this.in_mesh.get_const()
         assert(mesh !== null, this, "empty input")
+        assert(mesh.type == MESH_TRI, this, "No triangle faces in input mesh")
         
         this.program = createProgram(gl, this.vtx_text.text, this.frag_text.text);
         assert(this.program, this, "failed to compile shaders")
@@ -151,7 +152,6 @@ class NodeShader extends NodeCls
         gl.clear(gl.COLOR_BUFFER_BIT);
 
         mesh.gl_draw(image_view.t_viewspace, this.program.attrs)
-
 
         this.out_tex.set(new FrameBuffer(this.render_to_tex))
     }

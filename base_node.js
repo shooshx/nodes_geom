@@ -391,6 +391,7 @@ class InAttachMulti {
         this.owner_term = owner_term
         this.lines = owner_term.lines  // needed by add_line
         this.is_input = owner_term.is_input // needed by Line ctor
+        //this.owner = owner_term.owner
         this.h = null
     }
     get_attachee() {
@@ -410,6 +411,7 @@ class InAttachMulti {
             this.h = new PHandle(v.p) // copy ctor
         else            
             this.h = new PHandle(v)
+        this.set_dirty()
     }    
     get_const() {
         return this.h.get_const()

@@ -11,6 +11,7 @@ class PImage extends PObject
         this.bottom_right = vec2.fromValues(hw,hh)
 
         this.t_mat = null
+        this.pixels = null
     }
     draw(m) {
         let tl = this.top_left, br = this.bottom_right
@@ -34,6 +35,17 @@ class PImage extends PObject
     transform(m) {
         this.t_mat = m     
     } 
+    width() { return this.img.width }
+    height() { return this.img.height }
+    get_pixels() {
+        if (this.pixels === null) {
+            canvas_img_shadow.width = this.img.width
+            canvas_img_shadow.height = this.img.height
+            ctx_img_shadow.drawImage(this.img, 0, 0, this.img.width, this.img.height);
+            this.pixels = ctx_img_shadow.getImageData(0, 0, this.img.width, this.img.height).data;
+        }
+        return this.pixels
+    }
 }
 
 class NodeLoadImage extends NodeCls
