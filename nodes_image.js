@@ -13,9 +13,12 @@ class PImage extends PObject
         this.t_mat = null
         this.pixels = null
     }
+    width() { return this.img.width }
+    height() { return this.img.height }
+    transform(m) { this.t_mat = m } 
+
     draw(m) {
         let tl = this.top_left, br = this.bottom_right
-
         let w_mat = mat3.create()
         mat3.multiply(w_mat, w_mat, m)
         mat3.multiply(w_mat, w_mat, this.t_mat)
@@ -32,11 +35,8 @@ class PImage extends PObject
         vec2.transformMat3(br, this.bottom_right, this.t_mat)
         return { min_x:tl[0], max_x:br[0], min_y:tl[1], max_y:br[1] }
     }
-    transform(m) {
-        this.t_mat = m     
-    } 
-    width() { return this.img.width }
-    height() { return this.img.height }
+
+
     get_pixels() {
         if (this.pixels === null) {
             canvas_img_shadow.width = this.img.width

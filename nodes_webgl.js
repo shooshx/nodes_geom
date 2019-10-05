@@ -2,17 +2,27 @@
 
 var gl = null
 
+
 // frame buffer is a texture that covers the canvas and only the canvas
 class FrameBuffer extends PObject
 {
     static name() { return "FrameBuffer" }
-    constructor(tex_obj) {
+    constructor(tex_obj, sz_x, sz_y) {
         super()
         this.tex_obj = tex_obj
+
+        let hw = sz_x * 0.5//this.tex_obj.width * 0.5 
+        let hh = sz_y * 0.5//this.tex_obj.height * 0.5
+        this.top_left = vec2.fromValues(-hw,-hh)
+        this.bottom_right = vec2.fromValues(hw,hh)
+
+        this.t_mat = null
         this.pixels = null
+        this.imgBitmap = null
     }
     width() { return this.tex_obj.width }
     height() { return this.tex_obj.height }
+    transform(m) { this.t_mat = m } 
     // no need for destructor, the texture is owned by the NodeShader that created it
 
     get_pixels() {
@@ -24,16 +34,80 @@ class FrameBuffer extends PObject
         return this.pixels
     }
 
-    draw(m) {
-        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.tex_obj, 0);
-        //console.assert(gl.checkFramebufferStatus(gl.FRAMEBUFFER) == gl.FRAMEBUFFER_COMPLETE) //slows things down
+    async draw(m) {
+        if (this.imgBitmap === null) {
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.tex_obj, 0);
+            //console.assert(gl.checkFramebufferStatus(gl.FRAMEBUFFER) == gl.FRAMEBUFFER_COMPLETE) //slows things down
 
-        let pixels = this.get_pixels()
-        let pixelsc = new Uint8ClampedArray(pixels)
-        let img_data = new ImageData(pixelsc, this.tex_obj.width, this.tex_obj.height)
-        ctx_img.putImageData(img_data, 0, 0)
+            // get the pixels from webgl
+            let pixels = this.get_pixels()
+            let pixelsc = new Uint8ClampedArray(pixels)
+            let img_data = new ImageData(pixelsc, this.tex_obj.width, this.tex_obj.height)
+            // draw the on the shadow canvas
+            this.imgBitmap = await createImageBitmap(img_data)
+        }
+        // copy from PImage
+        let tl = this.top_left, br = this.bottom_right
+        let w_mat = mat3.create()
+        mat3.multiply(w_mat, w_mat, m)
+        mat3.multiply(w_mat, w_mat, this.t_mat)
+
+        ctx_img.save()
+        ctx_img.setTransform(w_mat[0], w_mat[1], w_mat[3], w_mat[4], w_mat[6], w_mat[7])
+        ctx_img.drawImage(this.imgBitmap, tl[0], tl[1], br[0] - tl[0], br[1] - tl[1])
+        ctx_img.restore()        
     }
+
+    // copy from PImage
+    get_bbox() { // TBD wrong (doesn't rotate)
+        let tl = vec2.create(), br = vec2.create()
+        vec2.transformMat3(tl, this.top_left, this.t_mat)
+        vec2.transformMat3(br, this.bottom_right, this.t_mat)
+        return { min_x:tl[0], max_x:br[0], min_y:tl[1], max_y:br[1] }
+    }
+    
+    invalidate_img() {
+        this.imgBitmap = null
+    }
+    
 } 
+
+class CreateTexture extends NodeCls
+{
+    static name() { return "Create Pixel-Buffer" }
+    constructor(node) {
+        super(node)
+        this.out_tex = new OutTerminal(node, "out_tex")
+        this.size = new ParamVec2(node, "Size", 1, 1) // TBD connect these two optionally yo be the same ratio
+        this.resolution = new ParamVec2(node, "Resolution", 800, 800) // TBD VecInt
+        this.transform = new ParamTransform(node, "Transform")
+       // this.transform.set_scale(0.002, 0.002)
+    }
+    run() {
+        ensure_webgl()
+        let cw = this.resolution.x, ch = this.resolution.y
+        let tex = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, cw, ch, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        tex.width = cw
+        tex.height = ch
+        
+        // set the filtering so we don't need mips
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        let fb = new FrameBuffer(tex, this.size.x, this.size.y)
+        fb.transform(this.transform.v)
+        this.out_tex.set(fb)
+    }
+
+    draw_selection(m) {
+        this.transform.draw_dial_at_obj(this.out_tex.get_const(), m)
+    }    
+    image_find_obj(vx, vy, ex, ey) {
+        return this.transform.dial.find_obj(ex, ey)
+    }
+}
 
 function createShader(gl, type, source) {
     var shader = gl.createShader(type);
@@ -69,7 +143,9 @@ function createProgram(gl, vtxSource, fragSource) {
     return program;
 }
 
-function init_webgl() {
+function ensure_webgl() {
+    if (gl !== null)    
+        return
     gl = canvas_webgl.getContext("webgl2");
     if (!gl) {
         return;
@@ -93,21 +169,22 @@ class NodeShader extends NodeCls
     constructor(node) {
         super(node)
         this.in_mesh = new InTerminal(node, "in_mesh")
+        this.in_tex = new InTerminal(node, "in_tex")
         this.out_tex = new OutTerminal(node, "out_texture")
         this.vtx_text = new ParamTextBlock(node, "Vertex Shader")
         this.frag_text = new ParamTextBlock(node, "Fragment Shader")
 
         this.program = null
         // it's ok for the texture to belong to this node since texture is const only so it won't be modified
-        this.render_to_tex = null 
+        //this.render_to_tex = null 
     }
     destructtor() {
         if (this.program)
             gl.deleteProgram(this.program)
-        if (this.render_to_tex)
-            gl.deleteTexture(this.render_to_tex)
+        //if (this.render_to_tex)
+        //    gl.deleteTexture(this.render_to_tex)
     }
-    dirty_viewport() { this.node.self_dirty = true }
+    //dirty_viewport() { this.node.self_dirty = true }
 
     make_screen_texture(cw, ch) 
     {
@@ -127,11 +204,13 @@ class NodeShader extends NodeCls
     }
 
     run() {
-        if (gl === null)
-            init_webgl()
+        ensure_webgl()
         let mesh = this.in_mesh.get_const()
-        assert(mesh !== null, this, "empty input")
+        assert(mesh !== null, this, "missing input mesh") 
         assert(mesh.type == MESH_TRI, this, "No triangle faces in input mesh")
+
+        let tex = this.in_tex.get_const() // TBD wrong
+        assert(tex !== null, this, "missing input texture")
         
         this.program = createProgram(gl, this.vtx_text.text, this.frag_text.text);
         assert(this.program, this, "failed to compile shaders")
@@ -141,19 +220,26 @@ class NodeShader extends NodeCls
             this.program.attrs[attr_name] = gl.getAttribLocation(this.program, attr_name);
     
         // draw
-        gl.viewport(0, 0, canvas_image.width, canvas_image.height);
+        canvas_webgl.width = tex.width()
+        canvas_webgl.height = tex.height()
+        gl.viewport(0, 0, canvas_webgl.width, canvas_webgl.height);
 
         gl.useProgram(this.program);
 
-        this.make_screen_texture(canvas_image.width, canvas_image.height)
-        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.render_to_tex, 0);
+        //this.make_screen_texture(canvas_image.width, canvas_image.height)
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex.tex_obj, 0);
 
-        gl.clearColor(0, 0, 0, 0);
+        gl.clearColor(0.5, 0, 0, 1.0);
         gl.clear(gl.COLOR_BUFFER_BIT);
 
-        mesh.gl_draw(image_view.t_viewspace, this.program.attrs)
+        let transform = mat3.create()
+        mat3.invert(transform, tex.t_mat) 
+        let vt = image_view.t_viewspace
 
-        this.out_tex.set(new FrameBuffer(this.render_to_tex))
+        mesh.gl_draw(transform, this.program.attrs)
+        tex.invalidate_img()
+
+        this.out_tex.set(tex)
     }
 }
 
@@ -180,6 +266,7 @@ class PointGradFill extends NodeCls
         this.prog = new Program()
         this.shader_node = this.prog.add_node(0, 0, null, NodeShader, null)
         this.in_mesh = new TerminalProxy(node, this.shader_node.cls.in_mesh)
+        this.in_tex = new TerminalProxy(node, this.shader_node.cls.in_tex)
         this.out_tex = new TerminalProxy(node, this.shader_node.cls.out_tex)
 
         this.shader_node.cls.vtx_text.set_text(`#version 300 es
