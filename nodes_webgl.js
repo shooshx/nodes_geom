@@ -7,9 +7,10 @@ var gl = null
 class FrameBuffer extends PObject
 {
     static name() { return "FrameBuffer" }
-    constructor(tex_obj, sz_x, sz_y) {
+    constructor(tex_obj, sz_x, sz_y, smooth) {
         super()
         this.tex_obj = tex_obj
+        this.smooth = smooth
 
         let hw = sz_x * 0.5//this.tex_obj.width * 0.5 
         let hh = sz_y * 0.5//this.tex_obj.height * 0.5
@@ -53,6 +54,7 @@ class FrameBuffer extends PObject
         mat3.multiply(w_mat, w_mat, this.t_mat)
 
         ctx_img.save()
+        ctx_img.imageSmoothingEnabled = this.smooth
         ctx_img.setTransform(w_mat[0], w_mat[1], w_mat[3], w_mat[4], w_mat[6], w_mat[7])
         ctx_img.drawImage(this.imgBitmap, tl[0], tl[1], br[0] - tl[0], br[1] - tl[1])
         ctx_img.restore()        
@@ -68,6 +70,7 @@ class FrameBuffer extends PObject
     
     invalidate_img() {
         this.imgBitmap = null
+        this.pixels = null
     }
     
 } 
@@ -78,8 +81,9 @@ class CreateTexture extends NodeCls
     constructor(node) {
         super(node)
         this.out_tex = new OutTerminal(node, "out_tex")
-        this.size = new ParamVec2(node, "Size", 1, 1) // TBD connect these two optionally yo be the same ratio
-        this.resolution = new ParamVec2(node, "Resolution", 800, 800) // TBD VecInt
+        this.resolution = new ParamVec2Int(node, "Resolution", 800, 800) // TBD according to current viewport
+                                                                          // TBD connect this to transform zoom
+        this.smoothImage = new ParamBool(node, "Smooth Scaling", true)
         this.transform = new ParamTransform(node, "Transform")
        // this.transform.set_scale(0.002, 0.002)
     }
@@ -96,7 +100,7 @@ class CreateTexture extends NodeCls
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-        let fb = new FrameBuffer(tex, this.size.x, this.size.y)
+        let fb = new FrameBuffer(tex, 2, 2, this.smoothImage.v)
         fb.transform(this.transform.v)
         this.out_tex.set(fb)
     }
@@ -184,24 +188,6 @@ class NodeShader extends NodeCls
         //if (this.render_to_tex)
         //    gl.deleteTexture(this.render_to_tex)
     }
-    //dirty_viewport() { this.node.self_dirty = true }
-
-    make_screen_texture(cw, ch) 
-    {
-        if (this.render_to_tex !== null && this.render_to_tex.width == cw && this.render_to_tex.height == ch)
-            return  // no need to regenerate it
-        if (this.render_to_tex === null)
-            this.render_to_tex = gl.createTexture();
-        gl.bindTexture(gl.TEXTURE_2D, this.render_to_tex);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, cw, ch, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-        this.render_to_tex.width = cw
-        this.render_to_tex.height = ch
-        
-        // set the filtering so we don't need mips
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    }
 
     run() {
         ensure_webgl()
@@ -226,15 +212,14 @@ class NodeShader extends NodeCls
 
         gl.useProgram(this.program);
 
-        //this.make_screen_texture(canvas_image.width, canvas_image.height)
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex.tex_obj, 0);
 
-        gl.clearColor(0.5, 0, 0, 1.0);
+        gl.clearColor(0, 0, 0, 0);
         gl.clear(gl.COLOR_BUFFER_BIT);
 
         let transform = mat3.create()
         mat3.invert(transform, tex.t_mat) 
-        let vt = image_view.t_viewspace
+
 
         mesh.gl_draw(transform, this.program.attrs)
         tex.invalidate_img()
@@ -260,7 +245,6 @@ class TerminalProxy extends Terminal
 class PointGradFill extends NodeCls
 {
     static name() { return "Point Gradient Fill" }
-    dirty_viewport() { this.node.self_dirty = true }
     constructor(node) {
         super(node)
         this.prog = new Program()

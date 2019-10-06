@@ -280,6 +280,23 @@ class ParamVec2 extends Parameter {
     }
 }
 
+class ParamVec2Int extends Parameter {
+    constructor(node, label, start_x, start_y) {
+        super(node, label)
+        this.x = start_x
+        this.y = start_y
+    }
+    save() { return {x:this.x, y:this.y} }
+    load(v) { this.x=v.x; this.y=v.y }
+    add_elems(parent) {
+        this.line_elem = add_param_line(parent)
+        this.label_elem = add_param_label(this.line_elem, this.label)
+        add_param_edit(this.line_elem, this.x, ED_INT, (v) => { this.x = parseInt(v); this.pset_dirty() })
+        add_param_edit(this.line_elem, this.y, ED_INT, (v) => { this.y = parseInt(v); this.pset_dirty() })
+    }
+}
+
+
 class ParamColor extends Parameter {
     constructor(node, label, start_c_str) {
         super(node, label)

@@ -186,29 +186,6 @@ function calc_img_viewport() {
     image_view.t_inv_viewport = mat3.create()
     mat3.invert(image_view.t_inv_viewport, t_viewport)
 
-    // ------ webgl space transform (without to pixels scale)
-    let t_viewspace = mat3.create()
-    image_view.t_viewspace = t_viewspace
-
-    let ratio = canvas_image.width / canvas_image.height
-    let zx, zy
-    if (ratio > 1) {
-        zx = image_view.zoom / ratio; zy = image_view.zoom
-    }
-    else {
-        zx = image_view.zoom; zy = image_view.zoom * ratio
-    }
-    mat3.scale(t_viewspace, t_viewspace, vec2.fromValues(zx , zy))
-    // some magic I figured out using https://mycurvefit.com/ fitting with y=a+b/x and checking the offsets as a function of the zoom
-    // don't know why this works.
-    let fix_factor = 1 - (1/image_view.zoom)
-    let margin_x_fix = image_view.margin_x - (image_view.margin_x/image_view.zoom)
-    let margin_y_fix = image_view.margin_y - (image_view.margin_y/image_view.zoom)
-    mat3.translate(t_viewspace, t_viewspace, vec2.fromValues( margin_x_fix + image_view.pan_x / f + fix_factor, 
-                                                              margin_y_fix + image_view.pan_y / f + fix_factor)) 
-    //console.log(image_view.zoom, image_view.pan_x / f + fix_factor)
-    //console.log(image_view.margin_x)
-
     dirty_viewport_dependents()
 }
 
@@ -321,10 +298,14 @@ const RUN_NODE_CHANGED = 2
 // re-run everything
 const RUN_ALL = 3
 
+var in_draw = false
 
 // called whenever the display needs to be updated to reflect a change
 function trigger_frame_draw(do_run, clear_all=false) 
 {
+    if (in_draw)
+        return // avoid starting a call if the previous async call didn't finish yet (indicated several triggers from the same stack)
+    in_draw = true
     save_state()
     ctx_img.fillStyle = '#fff'
     ctx_img.fillRect(0, 0, canvas_image.width, canvas_image.height)
@@ -333,6 +314,7 @@ function trigger_frame_draw(do_run, clear_all=false)
 
     if (program.display_node == null) {
         show_display_params(null, null)
+        in_draw = false
         return
     }
 
@@ -348,8 +330,10 @@ function trigger_frame_draw(do_run, clear_all=false)
             run_nodes_tree(program.display_node)
         }
         catch(e) {
-            if (e.node_cls === undefined)
+            if (e.node_cls === undefined) {
+                in_draw = false
                 throw e
+            }
             set_error(e.node_cls, e.msg)
             console.error(e)
             got_error = true
@@ -363,14 +347,21 @@ function trigger_frame_draw(do_run, clear_all=false)
     if (disp_obj === null) {
         console.error("no out")
         set_error(program.display_node.cls, "No output generated")
+        in_draw = false
         return
     }
 
-    disp_obj.draw(image_view.t_viewport, program.display_node.display_values)
-
-    if (selected_node !== null) {
-        selected_node.cls.draw_selection(image_view.t_viewport)
+    let p = disp_obj.draw(image_view.t_viewport, program.display_node.display_values)
+    let finalize_draw = ()=>{
+        if (selected_node !== null) {
+            selected_node.cls.draw_selection(image_view.t_viewport)
+        }
+        in_draw = false
     }
+    if (p !== undefined)
+        p.then(finalize_draw)
+    else
+        finalize_draw()
 
 }
 

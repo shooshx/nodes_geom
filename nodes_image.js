@@ -2,13 +2,14 @@
 class PImage extends PObject
 {
     static name() { return "FrameBuffer" }
-    constructor(js_img) {
+    constructor(js_img, smooth) {
         super()
         this.img = js_img
         let hw = this.img.width * 0.5 
         let hh = this.img.height * 0.5
         this.top_left = vec2.fromValues(-hw,-hh)
         this.bottom_right = vec2.fromValues(hw,hh)
+        this.smooth = smooth
 
         this.t_mat = null
         this.pixels = null
@@ -25,6 +26,7 @@ class PImage extends PObject
 
         ctx_img.save()
         ctx_img.setTransform(w_mat[0], w_mat[1], w_mat[3], w_mat[4], w_mat[6], w_mat[7])
+        ctx_img.imageSmoothingEnabled = this.smooth
         ctx_img.drawImage(this.img, tl[0], tl[1], br[0] - tl[0], br[1] - tl[1])
         ctx_img.restore()
     }
@@ -54,6 +56,7 @@ class NodeLoadImage extends NodeCls
     constructor(node) {
         super(node)
         this.file_upload = new ParamImageUpload(node, "File Upload")
+        this.smooth_image = new ParamBool(node, "Smooth Scaling", true)
         this.transform = new ParamTransform(node, "Transform")
         this.out_img = new OutTerminal(node, "out_img")
         let zoom_fit_func = ()=>{
@@ -67,7 +70,7 @@ class NodeLoadImage extends NodeCls
     run() {
         let image = this.file_upload.get_image()
         assert(image !== null, this, "No image uploaded")
-        let pimg = new PImage(image)
+        let pimg = new PImage(image, this.smooth_image.v)
         pimg.transform(this.transform.v)
         this.out_img.set(pimg)
     }

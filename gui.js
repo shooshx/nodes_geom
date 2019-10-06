@@ -168,7 +168,6 @@ class ImageView extends ViewBase
         // used for centering the viewport
         this.margin_x = 0
         this.margin_y = 0
-        this.t_viewspace = null // like viewport but without scale to pixel space, for webgl
     }
 
     reset_view() {

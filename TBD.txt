@@ -15,6 +15,8 @@ ENGINE:
     - attributes in parameters?
 
 NODES:
+- any square (primitive, webgl, image)
+    dials for resizing
 - mouse vertices - mesh
     - delete point from list control
     - select with rectangle
@@ -25,6 +27,8 @@ NODES:
     Path2D
     https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths
 - Primitive Circle
+- Scatter (random points) BUG  
+    moving the input geom should not change everything (should be relative to the bbox?)
 - attribute sample
     point size sample from image
 - Manual points

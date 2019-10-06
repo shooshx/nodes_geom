@@ -313,15 +313,9 @@ class NodeSetAttr extends NodeCls
         if (this.source_sel.sel_idx == 0) // from const
             this.prop_from_const(prop)
         else { // from input
-            let transform, isfb = false
-            if (src.constructor === FrameBuffer) {
-                transform = image_view.t_viewspace
-                isfb = true
-            }
-            else if (src.constructor == PImage) {
-                transform = mat3.create()
-                mat3.invert(transform, src.t_mat) 
-            }
+            let isfb = (src.constructor === FrameBuffer)
+            let transform = mat3.create()
+            mat3.invert(transform, src.t_mat) 
             this.prop_from_input_framebuffer(prop, mesh, src, transform, isfb)
         }
 
@@ -385,10 +379,12 @@ class PObjGroup extends PObject{
             obj.transform(m)
         }
     }
-    draw(m, display_values) {
+    async draw(m, display_values) {
         console.assert(display_values.length == this.v.length, "display_values length mismatch")
         for(let i in this.v) {
-            this.v[i].draw(m, display_values[i])
+            let p = this.v[i].draw(m, display_values[i])
+            if (p !== undefined)
+                await p
         }
     }
 }
