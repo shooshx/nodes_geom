@@ -1,43 +1,18 @@
 
-class PImage extends PObject
+
+
+class PImage extends ImageBase
 {
     static name() { return "FrameBuffer" }
     constructor(js_img, smooth) {
-        super()
+        super(js_img.width, js_img.height, smooth)
         this.img = js_img
-        let hw = this.img.width * 0.5 
-        let hh = this.img.height * 0.5
-        this.top_left = vec2.fromValues(-hw,-hh)
-        this.bottom_right = vec2.fromValues(hw,hh)
-        this.smooth = smooth
-
-        this.t_mat = null
         this.pixels = null
     }
-    width() { return this.img.width }
-    height() { return this.img.height }
-    transform(m) { this.t_mat = m } 
 
     draw(m) {
-        let tl = this.top_left, br = this.bottom_right
-        let w_mat = mat3.create()
-        mat3.multiply(w_mat, w_mat, m)
-        mat3.multiply(w_mat, w_mat, this.t_mat)
-
-        ctx_img.save()
-        ctx_img.setTransform(w_mat[0], w_mat[1], w_mat[3], w_mat[4], w_mat[6], w_mat[7])
-        ctx_img.imageSmoothingEnabled = this.smooth
-        ctx_img.drawImage(this.img, tl[0], tl[1], br[0] - tl[0], br[1] - tl[1])
-        ctx_img.restore()
+        this.draw_image(this.img, m)
     }
-
-    get_bbox() { // TBD wrong (doesn't rotate)
-        let tl = vec2.create(), br = vec2.create()
-        vec2.transformMat3(tl, this.top_left, this.t_mat)
-        vec2.transformMat3(br, this.bottom_right, this.t_mat)
-        return { min_x:tl[0], max_x:br[0], min_y:tl[1], max_y:br[1] }
-    }
-
 
     get_pixels() {
         if (this.pixels === null) {

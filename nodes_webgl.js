@@ -2,29 +2,78 @@
 
 var gl = null
 
-
-// frame buffer is a texture that covers the canvas and only the canvas
-class FrameBuffer extends PObject
+class ImageBase extends PObject
 {
-    static name() { return "FrameBuffer" }
-    constructor(tex_obj, sz_x, sz_y, smooth) {
+    constructor(sz_x, sz_y, smooth) {
         super()
-        this.tex_obj = tex_obj
+        this.t_mat = null
         this.smooth = smooth
 
-        let hw = sz_x * 0.5//this.tex_obj.width * 0.5 
-        let hh = sz_y * 0.5//this.tex_obj.height * 0.5
+        let hw = sz_x * 0.5
+        let hh = sz_y * 0.5
         this.top_left = vec2.fromValues(-hw,-hh)
         this.bottom_right = vec2.fromValues(hw,hh)
-
-        this.t_mat = null
-        this.pixels = null
-        this.imgBitmap = null
     }
+
     width() { return this.tex_obj.width }
     height() { return this.tex_obj.height }
     transform(m) { this.t_mat = m } 
-    // no need for destructor, the texture is owned by the NodeShader that created it
+
+    draw_image(img_impl, m) {
+        let tl = this.top_left, br = this.bottom_right
+
+        let w_mat = mat3.create()
+        mat3.multiply(w_mat, w_mat, m)
+        mat3.multiply(w_mat, w_mat, this.t_mat)
+
+        ctx_img.save()
+        ctx_img.setTransform(w_mat[0], w_mat[1], w_mat[3], w_mat[4], w_mat[6], w_mat[7])
+        ctx_img.imageSmoothingEnabled = this.smooth
+        ctx_img.drawImage(img_impl, tl[0], tl[1], br[0] - tl[0], br[1] - tl[1])
+        ctx_img.restore()   
+    }
+
+    get_bbox() { // TBD wrong (doesn't rotate)
+        let tl = vec2.create(), br = vec2.create()
+        vec2.transformMat3(tl, this.top_left, this.t_mat)
+        vec2.transformMat3(br, this.bottom_right, this.t_mat)
+        return { min_x:tl[0], max_x:br[0], min_y:tl[1], max_y:br[1] }
+    }
+
+    draw_border(m) {
+        // we don't want to draw this under the canvas transform since that would also transform the line width
+        // need 4 points for the rect to make it rotate
+        let tl = vec2.clone(this.top_left), br = vec2.clone(this.bottom_right)
+        let tr = vec2.fromValues(br[0], tl[1]), bl = vec2.fromValues(tl[0], br[1])
+
+        let w_mat = mat3.create()
+        mat3.multiply(w_mat, w_mat, m)
+        mat3.multiply(w_mat, w_mat, this.t_mat)
+        vec2.transformMat3(tl, tl, w_mat)
+        vec2.transformMat3(tr, tr, w_mat)
+        vec2.transformMat3(bl, bl, w_mat)
+        vec2.transformMat3(br, br, w_mat)
+
+        ctx_img.beginPath()
+        closed_line(ctx_img, [tl[0],tl[1], tr[0],tr[1], br[0],br[1], bl[0],bl[1]])
+        ctx_img.strokeStyle = "#000"
+        ctx_img.lineWidth = 0.5
+        ctx_img.stroke()
+    }    
+}
+
+// frame buffer is a texture that covers the canvas and only the canvas
+class FrameBuffer extends ImageBase
+{
+    static name() { return "FrameBuffer" }
+    constructor(tex_obj, sz_x, sz_y, smooth) {
+        super(sz_x, sz_y, smooth)
+        this.tex_obj = tex_obj
+        this.pixels = null
+        this.imgBitmap = null
+    }
+
+    // TBDno need for destructor, the texture is owned by the NodeShader that created it
 
     get_pixels() {
         if (this.pixels === null) {
@@ -47,32 +96,14 @@ class FrameBuffer extends PObject
             // draw the on the shadow canvas
             this.imgBitmap = await createImageBitmap(img_data)
         }
-        // copy from PImage
-        let tl = this.top_left, br = this.bottom_right
-        let w_mat = mat3.create()
-        mat3.multiply(w_mat, w_mat, m)
-        mat3.multiply(w_mat, w_mat, this.t_mat)
 
-        ctx_img.save()
-        ctx_img.imageSmoothingEnabled = this.smooth
-        ctx_img.setTransform(w_mat[0], w_mat[1], w_mat[3], w_mat[4], w_mat[6], w_mat[7])
-        ctx_img.drawImage(this.imgBitmap, tl[0], tl[1], br[0] - tl[0], br[1] - tl[1])
-        ctx_img.restore()        
-    }
-
-    // copy from PImage
-    get_bbox() { // TBD wrong (doesn't rotate)
-        let tl = vec2.create(), br = vec2.create()
-        vec2.transformMat3(tl, this.top_left, this.t_mat)
-        vec2.transformMat3(br, this.bottom_right, this.t_mat)
-        return { min_x:tl[0], max_x:br[0], min_y:tl[1], max_y:br[1] }
+        this.draw_image(this.imgBitmap, m)
     }
     
     invalidate_img() {
         this.imgBitmap = null
         this.pixels = null
     }
-    
 } 
 
 class CreateTexture extends NodeCls
@@ -83,9 +114,16 @@ class CreateTexture extends NodeCls
         this.out_tex = new OutTerminal(node, "out_tex")
         this.resolution = new ParamVec2Int(node, "Resolution", 800, 800) // TBD according to current viewport
                                                                           // TBD connect this to transform zoom
+        let res_fit = ()=>{
+            let minp = Math.min(canvas_image.width, canvas_image.height)
+            // if it's scaled, the size in pixels need to adjust for that
+            let rx = minp * this.transform.scale[0], ry = minp * this.transform.scale[1]
+            this.resolution.set(rx, ry)
+        }
+        this.zoom_fit = new ParamButton(node, "Fit resolution to viewport", res_fit)
         this.smoothImage = new ParamBool(node, "Smooth Scaling", true)
         this.transform = new ParamTransform(node, "Transform")
-       // this.transform.set_scale(0.002, 0.002)
+        res_fit()
     }
     run() {
         ensure_webgl()
@@ -106,7 +144,9 @@ class CreateTexture extends NodeCls
     }
 
     draw_selection(m) {
-        this.transform.draw_dial_at_obj(this.out_tex.get_const(), m)
+        let tex = this.out_tex.get_const()
+        this.transform.draw_dial_at_obj(tex, m)
+        tex.draw_border(m)
     }    
     image_find_obj(vx, vy, ex, ey) {
         return this.transform.dial.find_obj(ex, ey)

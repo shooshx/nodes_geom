@@ -236,7 +236,7 @@ function panel_mouse_control(view, canvas)
             if (hit != null) {
                 //console.log("hit ", hit)
                 // passing e to potentiall stop propogation
-                hit.mousedown(e, vx, vy) 
+                hit.mousedown(e, vx, vy, e.pageX, e.pageY) 
                 return
             }
             did_move = false

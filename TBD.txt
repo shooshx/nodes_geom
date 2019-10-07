@@ -1,12 +1,12 @@
 GUI:
+- parameter value change with drag and right button like in houdini
+- before running - do type checking
 - color picker with null
 - BUG: resize the window beyond the size of the nodes panel moves it
 - select *nodes* with Ctrl, rectangle (display params of multiple nodes at once?)
-- parameter value change with drag and right button like in houdini
-- before running - do type checking
 - progress bar for long run
 - first node created with display flag (otherwise nothing is visible)
-- fix jumping of splits on load
+- fix jumping of splits on page load
 - template display
 - Math.round lines just before drawing to avoid thinning artifacts when zooming?
 
@@ -15,6 +15,9 @@ ENGINE:
     - attributes in parameters?
 
 NODES:
+- frame buffer
+    clone object
+    merge create and shader
 - any square (primitive, webgl, image)
     dials for resizing
 - mouse vertices - mesh

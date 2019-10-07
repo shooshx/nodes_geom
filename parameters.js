@@ -285,14 +285,23 @@ class ParamVec2Int extends Parameter {
         super(node, label)
         this.x = start_x
         this.y = start_y
+        this.elem_x = null; this.elem_y = null
     }
     save() { return {x:this.x, y:this.y} }
     load(v) { this.x=v.x; this.y=v.y }
     add_elems(parent) {
         this.line_elem = add_param_line(parent)
         this.label_elem = add_param_label(this.line_elem, this.label)
-        add_param_edit(this.line_elem, this.x, ED_INT, (v) => { this.x = parseInt(v); this.pset_dirty() })
-        add_param_edit(this.line_elem, this.y, ED_INT, (v) => { this.y = parseInt(v); this.pset_dirty() })
+        this.elem_x = add_param_edit(this.line_elem, this.x, ED_INT, (v) => { this.x = parseInt(v); this.pset_dirty() })
+        this.elem_y = add_param_edit(this.line_elem, this.y, ED_INT, (v) => { this.y = parseInt(v); this.pset_dirty() })
+    }
+    set(x, y) { 
+        this.x = Math.round(x); this.y = Math.round(y); 
+        this.pset_dirty() 
+        if (this.elem_x === null)
+            return
+        this.elem_x.value = this.x
+        this.elem_y.value = this.y
     }
 }
 
@@ -402,7 +411,7 @@ class ParamTransform extends Parameter {
             return // might be it's not connected so it doesn't have output
         let bbox = obj.get_bbox()
         let center = vec2.fromValues((bbox.min_x + bbox.max_x) * 0.5, (bbox.min_y + bbox.max_y) * 0.5)
-        vec2.transformMat3(center, center, m)
+        vec2.transformMat3(center, center, m) // to canvas coords
         this.draw_dial(center[0], center[1])        
     }
 }
@@ -427,17 +436,17 @@ class DialRotHandle {
         this.param = param
         this.cx = cx; this.cy = cy
     }
-    mousedown(e, vx,vy) {
-        this.prev_angle = Math.atan2(vy-this.cy, vx-this.cx) * 180 / Math.PI
-        //console.log("start-angle", this.start_angle)
+    mousedown(e, vx,vy, ex,ey) {
+        this.prev_angle = Math.atan2(ey-this.cy, ex-this.cx) * 180 / Math.PI
+        //console.log("start-angle", this.start_angle, this.cx, this.cy, '--', vx, vy)
     }
     mouseup() {}
     mousemove(dx,dy, vx,vy, ex,ey) {
-        let angle = Math.atan2(vy-this.cy, vx-this.cx) * 180 / Math.PI
+        let angle = Math.atan2(ey-this.cy, ex-this.cx) * 180 / Math.PI
         let d_angle = angle - this.prev_angle
         if (d_angle > 180) d_angle -= 360
         if (d_angle < -180) d_angle += 360
-        //console.log("angle", angle - this.prev_angle)
+        //console.log("angle", angle - this.prev_angle, this.cx, this.cy, '--', ex, ey)
         this.param.do_rotate(d_angle)
         this.prev_angle = angle
         trigger_frame_draw(true)
