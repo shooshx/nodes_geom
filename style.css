@@ -99,15 +99,16 @@ input {
 .param_line {
     padding: 5px 0 0 0;
 }
-.param_line:last-child {
-    padding-bottom: 5px;
-}
+
 .param_block {
     padding: 5px 0 0 0;
 }
 .param_disabled {
     opacity: 0.6;
     pointer-events:none;
+}
+.param_invisible {
+    display: none;
 }
 .param_separator {
     margin: 8px 4px 4px 4px;
@@ -140,7 +141,7 @@ input {
     width: 25%;
     min-width: 100px;
     font-family: Verdana;
-    font-size: 13.3333px;        
+    font-size: 14px;        
 }
 .param_input_long {
     width: 70%;
@@ -274,7 +275,6 @@ input {
     background-image: linear-gradient(to bottom, #9090d0, #8080d0); 
 }
 .param_select {
-    font-size: 14px;
 }
 .param_file_input {
     display: none;
@@ -441,6 +441,10 @@ input {
     margin-top: 10px;
     background-color: rgba(0,161,247,0.3);
     position: relative;
+    padding-bottom: 5px;    
+}
+#div_display_params:empty {
+    display:none;
 }
 #div_display_params:before {
     position: absolute;

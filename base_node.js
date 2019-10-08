@@ -331,7 +331,7 @@ class InTerminal extends Terminal {
             this.h = new PWeakHandle(v.p) // copy ctor
         else            
             this.h = new PWeakHandle(v)
-        this.dirty = true
+        this.tset_dirty(true)
     }    
     get_const() {
         if (this.h === null)
@@ -349,9 +349,12 @@ class InTerminal extends Terminal {
         if (this.h !== null)
             this.h.clear()
     }
-    set_dirty() {
-        this.dirty = true
-    } 
+    tset_dirty(v) {
+        this.dirty = v
+    }
+    is_dirty() {
+        return this.dirty
+    }
 }
 
 // outputs are by default owning because they are going to need this object
@@ -411,7 +414,7 @@ class InAttachMulti {
             this.h = new PHandle(v.p) // copy ctor
         else            
             this.h = new PHandle(v)
-        this.set_dirty()
+        this.tset_dirty(true)
     }    
     get_const() {
         return this.h.get_const()
@@ -423,8 +426,11 @@ class InAttachMulti {
         if (this.h !== null)
             this.h.clear()
     }
-    set_dirty() {
-        this.owner_term.dirty = true
+    tset_dirty(v) {
+        this.owner_term.tset_dirty(v)
+    }
+    is_dirty() {
+        return this.owner_term.is_dirty()
     }
 }
 // elongated
@@ -450,6 +456,12 @@ class InTerminalMulti extends TerminalBase
     clear() {
         for(let line of this.lines)
             line.to_term.clear()
+    }
+    tset_dirty(v) {
+        this.dirty = v
+    }
+    is_dirty() {
+        return this.dirty
     }
 }
 
@@ -480,8 +492,31 @@ function wrapText(context, text, x, center_y, maxWidth, lineHeight) {
     let start_y = center_y - lines.length * 0.5 * lineHeight
     for(let l of lines)
         context.fillText(l.l, x, start_y + l.y);
-  }
-  
+}
+
+class Evaluator {
+    eval() {
+        return 0
+    }
+}
+
+class StateAccess {
+    constructor(inputs) {
+        //keep track of what the currently parsed expression was looking up
+        // 0 - didn't lookup anything
+        // 1 - looked up a value that doesn't change for a frame
+        // 2 - looked up a value that does change
+        this.score = 0
+    }
+    // called right before parsing an expression
+    reset_check() {
+        this.score = 0
+    }
+    get_evaluator(name) {
+        this.score = 1
+        return new Evaluator()
+    }
+}
 
 class Node {    
     constructor(x, y, name, cls, id) {
@@ -519,6 +554,8 @@ class Node {
         // key-value of parameters for displaying any sort of object.
         // kept per-node since every node can want something different
         this.display_values = {}
+
+        this.state_access = new StateAccess(this.inputs)
     }
    
     make_term_offset(lst) {
@@ -666,7 +703,7 @@ class Node {
             if (p.dirty)
                 return true
         for(let t of this.inputs) 
-            if (t.dirty)
+            if (t.is_dirty())
                 return true
         return false
     }
@@ -676,7 +713,7 @@ class Node {
         for(let p of this.parameters)
             p.dirty = false
         for(let t of this.inputs) 
-            t.dirty = false
+            t.tset_dirty(false)
     }
     
     call_params_change() {
@@ -787,7 +824,7 @@ function delete_node(node, redraw)
 function delete_line(line, redraw) {
     line.from_term.lines.splice(line.from_term.lines.indexOf(line), 1)
     line.to_term.lines.splice(line.to_term.lines.indexOf(line), 1)
-    line.to_term.set_dirty(true)
+    line.to_term.tset_dirty(true)
     program.lines.splice(program.lines.indexOf(line), 1)
     if (redraw) {
         draw_nodes()

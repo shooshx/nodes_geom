@@ -6,10 +6,12 @@ class Parameter
         this.label_elem = null  // use for changing the label 
         this.line_elem = null  // used for enable
         this.enable = true
+        this.visible = true
         if (node !== null) // will be null in DispParams
             node.parameters.push(this)
         this.owner = node
         this.dirty = true  // was it changed since the last run?
+        this.change_func = null
     }
     set_label(text) {
         this.label = text
@@ -17,19 +19,36 @@ class Parameter
             this.label_elem.innerText = text
     }
     set_enable(v) {
+        if (this.enable == v)
+            return
         this.enable = v
         if (this.line_elem !== null)
             this.line_elem.classList.toggle("param_disabled", !this.enable)
     }
-    init_enable() {
-        if (this.line_elem !== null && !this.enable)
-            this.line_elem.classList.toggle("param_disabled", !this.enable)
+    set_visible(v) {
+        if (this.visible == v)
+            return
+        this.visible = v
+        if (this.line_elem !== null)
+            this.line_elem.classList.toggle("param_invisible", !this.visible)
+    }
+    init_enable_visible() {
+        if (this.line_elem !== null) {
+            if (!this.enable)
+                this.line_elem.classList.toggle("param_disabled", true)
+            if (!this.visible)
+                this.line_elem.classList.toggle("param_invisible", true)
+        }
     }
     pset_dirty(draw=true) { // p for parameter to differentiate it from the others
         this.dirty = true
         if (draw)
             trigger_frame_draw(true)
     }
+    call_change() { // reimplemet this if this.v is not the value
+        if (this.change_func) 
+            this.change_func(this.v)
+    }    
 }
 
 // if the text of one of the labels is too long, fix the length of all of them
@@ -62,11 +81,13 @@ function show_params_of(node) {
     
     for(let p of node.parameters) {
         p.add_elems(div_params_list)
-        p.init_enable()
+        p.init_enable_visible()
     }
     fix_label_lengths(node.parameters)
 }
 
+// display_values is held per-node and is a map of string to value
+// disp_params is produced by the object and holds how to display the params and it's default value
 function show_display_params(obj, disp_node) {
     let params = null
     if (disp_node && obj)
@@ -75,7 +96,8 @@ function show_display_params(obj, disp_node) {
     if (obj === null || params === null || disp_node === null || disp_node !== selected_node)
         return
     for(let p of params) {
-        p.add_elems(div_display_params)
+        if (p.add_elems) // the params of a group is an aggregate of it's members, it's not going to have that
+            p.add_elems(div_display_params)
     }
 }
 
@@ -213,7 +235,7 @@ class ParamInt extends Parameter {
     }
 }
 
-class ParamFloat extends Parameter {
+class ParamStr extends Parameter {
     constructor(node, label, start_v) {
         super(node, label)
         this.v = start_v
@@ -223,7 +245,27 @@ class ParamFloat extends Parameter {
     add_elems(parent) {
         this.line_elem = add_param_line(parent)
         this.label_elem = add_param_label(this.line_elem, this.label)
-        add_param_edit(this.line_elem, this.v, ED_FLOAT, (v)=>{ this.v = parseFloat(v); this.pset_dirty() }) // TBD enforce int with parsing
+        add_param_edit(this.line_elem, this.v, ED_STR, (v)=>{ this.v = v; this.pset_dirty() }) // TBD enforce int with parsing
+    }
+}
+
+class ParamFloat extends Parameter {
+    constructor(node, label, start_v) {
+        super(node, label)
+        this.v = start_v
+    }
+    save() { return {v:this.v}}
+    load(v) { this.peval(v.v) }
+    peval(v) {
+        this.e = ExprParser.eval(v, this.owner.state_access)
+        if (this.owner.state_access.score == 0) // depends on anything?
+            this.v = this.e.eval()
+        this.pset_dirty() 
+    }
+    add_elems(parent) {
+        this.line_elem = add_param_line(parent)
+        this.label_elem = add_param_label(this.line_elem, this.label)
+        add_param_edit(this.line_elem, this.v, ED_FLOAT, this.peval) 
     }
 }
 
@@ -240,14 +282,9 @@ class ParamBool extends Parameter {
         add_param_label(this.line_elem, null)  // empty space
         this.label_elem = add_param_checkbox(this.line_elem, this.label, this.v, (v) => { 
             this.v = v; 
+            this.call_change()
             this.pset_dirty()
-            if (this.change_func) 
-                this.change_func(v) 
         })
-    }
-    call_change() {
-        if (this.change_func) 
-            this.change_func(this.v)
     }
 }
 
@@ -745,18 +782,27 @@ class ParamTextBlock extends Parameter
 
 class ParamSelect extends Parameter
 {
-    constructor(node, label, selected_idx, opts) {
+    constructor(node, label, selected_idx, opts, change_func) {
         super(node, label)
         this.opts = opts
         this.sel_idx = selected_idx
+        this.change_func = change_func
     }
     save() { return { sel_str: this.opts[this.sel_idx] } }
     load(v) { this.sel_idx = this.opts.indexOf(v.sel_str); }
     add_elems(parent) {
         this.line_elem = add_param_line(parent)
         this.label_elem = add_param_label(this.line_elem, this.label)
-        add_combobox(this.line_elem, this.opts, this.sel_idx, (v)=>{ this.sel_idx = v; this.pset_dirty() })
+        add_combobox(this.line_elem, this.opts, this.sel_idx, (v)=>{ 
+            this.sel_idx = v; 
+            this.call_change()
+            this.pset_dirty() 
+        })
     }
+    call_change() { // reimplemet this if this.v is not the value
+        if (this.change_func) 
+            this.change_func(this.sel_idx)
+    }        
 }
 
 class ParamFileUpload extends Parameter

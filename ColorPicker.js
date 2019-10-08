@@ -316,7 +316,7 @@ function create_at(elem, add_func, sz, visible, onchange, options, start_color)
     //    create_checkers_image(canvas, ctx) // for use in the html input element
     
     var cfg = { sz:sz }
-    var sel_col = { h:0, s:0, v:0, r:0, g:0, b:0, alpha:1, hex:"", copy: function() {
+    var sel_col = { h:0, s:0, v:0, r:null, g:null, b:null, alpha:1, hex:"", copy: function() {
         return { r:this.r, g:this.g, b:this.b, hex:this.hex, alpha:this.alpha }
     }}
     var sel_pos = { sq_x: 0, sq_y: 0, bar_y: 0, alpha_y: 0 } // range:0-1

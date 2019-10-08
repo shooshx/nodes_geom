@@ -82,10 +82,11 @@ function load_program(sprog)
             if (sp !== undefined) { // might be a new parameter that's not there
                 try {
                     p.load(sp)
-                    p.dirty = true
+                    p.call_change()
+                    p.pset_dirty()
                 }
                 catch (e) {
-                    console.error("Failed load of parameter", p.label, "in node", sn.name)
+                    console.warning("Failed load of parameter", p.label, "in node", sn.name)
                 }
             }
         }

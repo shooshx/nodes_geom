@@ -58,7 +58,7 @@ class Mesh extends PObject
         name = normalize_attr_name(name)        
         this.arrs[name] = arr
         this.meta[name] = { made_glbuf: false,
-                            num_elems: num_elems || false, // count of numbers for each element. will be undefined for indices
+                            num_elems: num_elems || 1, // count of numbers for each element. will be undefined for indices
                             need_normalize: need_normalize || false // true for color that needs to go from int to float [0,1]
                            }
         if (name == "vtx" && this.tcache[name] !== undefined)
@@ -122,13 +122,19 @@ class Mesh extends PObject
 
     draw_vertices() {
         let vtx = this.tcache.vtx
+        let vtx_radius = null
+        if (this.arrs.vtx_radius !== undefined) {
+            vtx_radius = this.arrs.vtx_radius
+            dassert(vtx_radius.length == this.arrs.vtx.length / 2, "unexpected size of vtx_radius")
+        }
         if (this.arrs.vtx_color !== undefined) {
             let vcol = this.arrs.vtx_color
-            console.assert(vcol.length / 4 == this.arrs.vtx.length / 2, "unexpected size of vtx_color")
-            for(let i = 0, vidx = 0; i < vtx.length; i += 2, vidx += 4) {
+            dassert(vcol.length / 4 == this.arrs.vtx.length / 2, "unexpected size of vtx_color")
+            for(let i = 0, vi = 0, icol = 0; vi < vtx.length; ++i, vi += 2, icol += 4) {
+                let radius = (vtx_radius !== null) ? vtx_radius[i] : MESH_DISP.vtx_radius
                 ctx_img.beginPath();
-                ctx_img.arc(vtx[i], vtx[i+1], MESH_DISP.vtx_radius, 0, 2*Math.PI)
-                ctx_img.fillStyle = "rgba(" + vcol[vidx] + "," + vcol[vidx+1] + "," + vcol[vidx+2] + "," + (vcol[vidx+3]/255) + ")"
+                ctx_img.arc(vtx[vi], vtx[vi+1], radius, 0, 2*Math.PI)
+                ctx_img.fillStyle = "rgba(" + vcol[icol] + "," + vcol[icol+1] + "," + vcol[icol+2] + "," + (vcol[icol+3]/255) + ")"
                 ctx_img.fill()
             }
             ctx_img.lineWidth = 0.5
@@ -137,10 +143,11 @@ class Mesh extends PObject
             ctx_img.lineWidth = 1
         }
         ctx_img.beginPath();
-        for(let i = 0; i < vtx.length; i += 2) {
-            let x = vtx[i], y = vtx[i+1]
-            ctx_img.moveTo(x + MESH_DISP.vtx_radius, y)
-            ctx_img.arc(x, y, MESH_DISP.vtx_radius, 0, 2*Math.PI)
+        for(let i = 0, vi = 0; vi < vtx.length; ++i, vi += 2) {
+            let radius = (vtx_radius !== null) ? vtx_radius[i] : MESH_DISP.vtx_radius
+            let x = vtx[vi], y = vtx[vi+1]
+            ctx_img.moveTo(x + radius, y)
+            ctx_img.arc(x, y, radius, 0, 2*Math.PI)
         }
         ctx_img.strokeStyle = "#000"
         ctx_img.stroke()       

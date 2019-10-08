@@ -207,16 +207,36 @@ class NodeSetAttr extends NodeCls
         this.out_mesh = new OutTerminal(node, "out_mesh")
         this.source_sel = new ParamSelect(node, "Source", 0, ["Constant", "Input"])
         this.bind_to = new ParamSelect(node, "Bind To", 0, ["Vertices", "Faces"]) // TBD also lines?
-        this.color = new ParamColor(node, "Color", "#cccccc")
+        this.attr_name = new ParamStr(node, "Name", "color")
+        this.attr_type = new ParamSelect(node, "Type", 0, ["Color", "Float", "Float2"], (v)=>{
+            this.expr_color.set_visible(v == 0)
+            this.expr_float.set_visible(v == 1)
+            this.expr_vec2.set_visible(v == 2)
+        })
+        this.expr_color = new ParamColor(node, "Color", "#cccccc")
+        this.expr_float = new ParamFloat(node, "Float", 0)
+        this.expr_vec2 = new ParamVec2(node, "Float2", 0, 0)
     }
 
-    prop_from_const(prop) {
-        let col = this.color.v
-        for(let i = 0; i < prop.length; i += 4) {
-            prop[i] = col.r
-            prop[i+1] = col.g
-            prop[i+2] = col.b
-            prop[i+3] = col.alpha*255 // normalized back to 0-1 in mesh draw
+    prop_from_const(prop, src) {
+        if (this.attr_type.sel_idx == 0) {
+            for(let i = 0; i < prop.length; i += prop.elem_sz) {
+                prop[i] = src.r
+                prop[i+1] = src.g
+                prop[i+2] = src.b
+                prop[i+3] = src.alpha*255 // normalized back to 0-1 in mesh draw
+            }
+        }
+        else if (this.attr_type.sel_idx == 1) {
+            for(let i = 0; i < prop.length; i += prop.elem_sz) {
+                prop[i] = src.v
+            }
+        }
+        else if (this.attr_type.sel_idx == 2) {
+            for(let i = 0; i < prop.length; i += prop.elem_sz) {
+                prop[i] = src.x
+                prop[i+1] = src.y
+            }
         }
     }
 
@@ -234,7 +254,7 @@ class NodeSetAttr extends NodeCls
         let samp_vtx = (this.bind_to.sel_idx == 0)
         let face_sz = mesh.face_size()
         let vtxi = 0, idxi = 0
-        for(let i = 0; i < prop.length; i += 4) 
+        for(let i = 0; i < prop.length; i += prop.elem_sz) 
         {
             let x = 0, y = 0
             if (samp_vtx) {
@@ -260,15 +280,14 @@ class NodeSetAttr extends NodeCls
                 y = Math.round(y + hf)
             }
             if (x < 0 || y < 0 || x >= w || y >= h) {
-                prop[i] = prop[i+1] = prop[i+2] = prop[i+3] = 0
+                for(let si = 0; si < prop.elem_sz; ++si)
+                    prop[i+si] = 0
                 continue
             }
             let pidx = (y*w + x)*4
 
-            prop[i] = pixels[pidx]
-            prop[i+1] = pixels[pidx+1]
-            prop[i+2] = pixels[pidx+2]
-            prop[i+3] = pixels[pidx+3]
+            for(let si = 0; si < prop.elem_sz; ++si)
+                prop[i+si] = pixels[pidx+si] * 0.04
         }
     }
 
@@ -278,7 +297,7 @@ class NodeSetAttr extends NodeCls
         let mesh = this.in_mesh.get_const()
         assert(mesh, this, "missing in_mesh")
 
-        if (this.source_sel.sel_idx == 0 && this.color.v === null) {
+        if (this.source_sel.sel_idx == 0 && this.expr_color.v === null) {
             this.out_mesh.set(mesh)
             return // TBD warning
         }
@@ -305,13 +324,31 @@ class NodeSetAttr extends NodeCls
             attr_prefix = 'vtx_'
         }
 
+        let prop, src_expr
+        if (this.attr_type.sel_idx == 0) { // color
+            prop = new TColorArr(elem_num * 4)
+            prop.elem_sz = 4
+            src_expr = this.expr_color
+        }
+        else if (this.attr_type.sel_idx == 1) { // float
+            prop = new Float32Array(elem_num * 1)
+            prop.elem_sz = 1
+            src_expr = this.expr_float
+        }
+        else if (this.attr_type.sel_idx == 2) { // float2
+            prop = new Float32Array(elem_num * 2)
+            prop.elem_sz = 2
+            src_expr = this.expr_vec2
+        }
+        else {
+            assert(false, this, "unknown type")
+        }
 
         // commiting to work
-        mesh = this.in_mesh.get_mutable()            
-        
-        let prop = new TColorArr(elem_num * 4) //  * 4 for (r,g,b,alpha)
+        mesh = this.in_mesh.get_mutable()    
+
         if (this.source_sel.sel_idx == 0) // from const
-            this.prop_from_const(prop)
+            this.prop_from_const(prop, src_expr)
         else { // from input
             let isfb = (src.constructor === FrameBuffer)
             let transform = mat3.create()
@@ -319,7 +356,7 @@ class NodeSetAttr extends NodeCls
             this.prop_from_input_framebuffer(prop, mesh, src, transform, isfb)
         }
 
-        mesh.set(attr_prefix + 'color', prop, 4, true)
+        mesh.set(attr_prefix + this.attr_name.v, prop, 4, true)
         this.out_mesh.set(mesh)
     }
 }
@@ -373,6 +410,7 @@ class PObjGroup extends PObject{
     constructor() {
         super()
         this.v = []
+        this.disp_params = []
     }
     transform(m) {
         for(let obj of this.v) {
@@ -386,6 +424,13 @@ class PObjGroup extends PObject{
             if (p !== undefined)
                 await p
         }
+    }
+    get_disp_params(values) {
+        let r = []
+        for(let i in this.v) {
+            r.push(this.v[i].get_disp_params(values[i]))
+        }
+        return r 
     }
 }
 
@@ -401,7 +446,8 @@ class NodeGroupObjects extends NodeCls {
         this.node.display_values = []
         let r = new PObjGroup()
         for(let line of this.in_m.lines) {
-            r.v.push(line.to_term.get_const())
+            let obj = line.to_term.get_const()
+            r.v.push(obj)
             // gather the display nodes from the nodes that output the thing
             this.node.display_values.push(line.from_term.owner.display_values) 
         }
@@ -478,9 +524,10 @@ class NodeRandomPoints extends NodeCls
         let dx = bbox.max_x - bbox.min_x, dy = bbox.max_y - bbox.min_y
         let vtx = new TVtxArr(this.count.v * 2)
 
+        let addi = 0
         function nearest_neighbor_dist(of_px, of_py) {
             var min_d = Number.MAX_VALUE
-            for(let vi = 0; vi < vtx.length; vi += 2) {
+            for(let vi = 0; vi < addi; vi += 2) {
                 let px = vtx[vi], py = vtx[vi+1]
                 var d = dist(px, py, of_px, of_py)
                 if (d < min_d)
@@ -490,7 +537,6 @@ class NodeRandomPoints extends NodeCls
         }        
 
         let prng = new RandNumGen(this.seed.v)
-        let addi = 0
         for(let pi = 0; pi < this.count.v; ++pi) {
             let cand_x = null, cand_y, bestDistance = 0;
             for (let ti = 0; ti < this.smooth_iter.v; ++ti) {

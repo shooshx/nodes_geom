@@ -30,8 +30,6 @@ NODES:
     Path2D
     https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths
 - Primitive Circle
-- Scatter (random points) BUG  
-    moving the input geom should not change everything (should be relative to the bbox?)
 - attribute sample
     point size sample from image
 - Manual points

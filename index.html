@@ -10,6 +10,7 @@
 <script src="mesh.js"></script>
 <script src="serialization.js"></script>
 <script src="delaunator401.js"></script>
+<script src="expr_parser.js"></script>
 <script src="nodes_mesh.js"></script>
 <script src="nodes_webgl.js"></script>
 <script src="nodes_image.js"></script>
@@ -121,7 +122,7 @@ class Program {
                 this.names_indices[cls.name()] = 1
             else
                 this.names_indices[cls.name()]++
-            name = cls.name().toLowerCase().replace(/\s/g,'_') + "_" + this.names_indices[cls.name()]
+            name = cls.name().toLowerCase().replace(/[\s-]/g,'_') + "_" + this.names_indices[cls.name()]
         }
         if (id === null || id === undefined) {
             id = this.next_obj_id++ 
@@ -143,7 +144,7 @@ class Program {
         this.obj_map[uid] = line
         line.from_term.lines.push(line)
         line.to_term.lines.push(line)
-        line.to_term.set_dirty() // need function so that it will work for multi in as well
+        line.to_term.tset_dirty(true) // need function so that it will work for multi in as well
         trigger_frame_draw(true)
     }
 }
@@ -161,6 +162,12 @@ function assert(cond, node_cls, msg) {
     console.assert(node_cls !== undefined && msg !== undefined)
     if (!cond)
         throw { msg: msg, node_cls:node_cls }
+}
+
+// thrown in draw
+function dassert(cond, msg) {
+    if (!cond)
+        throw { msg: msg }
 }
 
 function calc_img_viewport() {
@@ -318,7 +325,6 @@ function trigger_frame_draw(do_run, clear_all=false)
         return
     }
 
-    let got_error = false
     let disp_obj = program.display_node.outputs[0].get_const()
     if (do_run || disp_obj === null) {
         if (clear_all)
@@ -336,7 +342,6 @@ function trigger_frame_draw(do_run, clear_all=false)
             }
             set_error(e.node_cls, e.msg)
             console.error(e)
-            got_error = true
         }
         disp_obj = program.display_node.outputs[0].get_const()
     }
@@ -351,7 +356,12 @@ function trigger_frame_draw(do_run, clear_all=false)
         return
     }
 
-    let p = disp_obj.draw(image_view.t_viewport, program.display_node.display_values)
+    let p
+    try {
+        p = disp_obj.draw(image_view.t_viewport, program.display_node.display_values)
+    } catch(e) {
+        set_error(program.display_node.cls, e.msg)
+    }
     let finalize_draw = ()=>{
         if (selected_node !== null) {
             selected_node.cls.draw_selection(image_view.t_viewport)

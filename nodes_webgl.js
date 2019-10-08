@@ -277,7 +277,7 @@ class TerminalProxy extends Terminal
 {
     constructor(node, wterm) {
         super(wterm.name, node, wterm.is_input)
-        copy_members(wterm, this, ["set", "get_const", "get_mutable", "clear", "set_dirty"])
+        copy_members(wterm, this, ["set", "get_const", "get_mutable", "clear", "tset_dirty", "is_dirty"])
     }
 }
 
