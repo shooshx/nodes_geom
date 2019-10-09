@@ -252,20 +252,59 @@ class ParamStr extends Parameter {
 class ParamFloat extends Parameter {
     constructor(node, label, start_v) {
         super(node, label)
-        this.v = start_v
+        this.v = start_v  // numerical value in case of const
+        this.e = null  // expression AST
+        this.se = null // expression string
+        this.elem = null
+        this.need_inputs = null // string names of the inputs needed, already verified that they exist
     }
-    save() { return {v:this.v}}
-    load(v) { this.peval(v.v) }
-    peval(v) {
-        this.e = ExprParser.eval(v, this.owner.state_access)
-        if (this.owner.state_access.score == 0) // depends on anything?
+    save() { return {v:this.v, se:this.se}}
+    load(v) { 
+        if (v.se !== undefined && v.se !== null)
+            this.peval(v.se) 
+        else
+            this.v = v.v
+    }
+    peval(se) {
+        this.se = se
+        try {
+            this.e = ExprParser.eval(se, this.owner.state_access)
+        }
+        catch(ex) {
+            if (this.elem)
+                this.elem.classList.toggle("param_input_error", true)
+            set_error(this.owner.cls, "Parameter expression error")
+            return
+        }
+        if (this.elem)
+            this.elem.classList.toggle("param_input_error", false)
+        let expr_score = this.owner.state_access.score
+        if (expr_score == EXPR_CONST) { // depends on anything?
             this.v = this.e.eval()
+            if (this.e.is_just_num) { // if we've just inputted a number without any expression, don't save the expression (checking existance of func)
+                this.e = null 
+                this.se = null
+            }
+            this.need_input = null
+        }
+        else if ((expr_score & EXPR_NEED_INPUT) != 0) {
+            this.need_inputs = this.owner.state_access.need_inputs
+        }
         this.pset_dirty() 
     }
     add_elems(parent) {
         this.line_elem = add_param_line(parent)
         this.label_elem = add_param_label(this.line_elem, this.label)
-        add_param_edit(this.line_elem, this.v, ED_FLOAT, this.peval) 
+        let show_v, ed_type
+        if (this.se != null && this.se !== undefined) {
+            show_v = this.se; ed_type = ED_STR
+        } else {
+            show_v = this.v; ed_type = ED_FLOAT
+        }
+        this.elem = add_param_edit(this.line_elem, show_v, ed_type, (se)=>{this.peval(se)}) 
+    }
+    dyn_eval(item_index, expr_input) {
+
     }
 }
 

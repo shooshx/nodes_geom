@@ -203,9 +203,9 @@ class NodeSetAttr extends NodeCls
     constructor(node) {
         super(node)
         this.in_mesh = new InTerminal(node, "in_mesh")
-        this.in_source = new InTerminal(node, "attr_source")
+        this.in_source = new InTerminal(node, "in_src") // future - may not be an image? proximity to other mesh?
         this.out_mesh = new OutTerminal(node, "out_mesh")
-        this.source_sel = new ParamSelect(node, "Source", 0, ["Constant", "Input"])
+        //this.source_sel = new ParamSelect(node, "Source", 0, ["Constant", "Input"])
         this.bind_to = new ParamSelect(node, "Bind To", 0, ["Vertices", "Faces"]) // TBD also lines?
         this.attr_name = new ParamStr(node, "Name", "color")
         this.attr_type = new ParamSelect(node, "Type", 0, ["Color", "Float", "Float2"], (v)=>{
@@ -240,7 +240,7 @@ class NodeSetAttr extends NodeCls
         }
     }
 
-    prop_from_input_framebuffer(prop, mesh, src, transform, fb_viewport) {
+    prop_from_input_framebuffer(prop, mesh, src, src_expr, transform, fb_viewport) {
         mesh.ensure_tcache(transform)
         let vtx = mesh.tcache.vtx
 
@@ -254,6 +254,7 @@ class NodeSetAttr extends NodeCls
         let samp_vtx = (this.bind_to.sel_idx == 0)
         let face_sz = mesh.face_size()
         let vtxi = 0, idxi = 0
+        let expr_input = { r:0, g:0, b:0, alpha:0 }
         for(let i = 0; i < prop.length; i += prop.elem_sz) 
         {
             let x = 0, y = 0
@@ -285,29 +286,26 @@ class NodeSetAttr extends NodeCls
                 continue
             }
             let pidx = (y*w + x)*4
+            expr_input.r = pixels[pidx]
+            expr_input.g = pixels[pidx+1]
+            expr_input.b = pixels[pidx+2]
+            expr_input.alpha = pixels[pidx+3]
 
             for(let si = 0; si < prop.elem_sz; ++si)
-                prop[i+si] = pixels[pidx+si] * 0.04
+                prop[i+si] = src_expr.dyn_eval(si, expr_input) // pixels[pidx+si] * 0.04
         }
     }
 
     run() {
         assert(this.bind_to.sel_idx != -1, this, "'Bind To' not set")
-        assert(this.source_sel.sel_idx != -1, this, "'Bind To' not set")
+        //assert(this.source_sel.sel_idx != -1, this, "'Bind To' not set")
         let mesh = this.in_mesh.get_const()
         assert(mesh, this, "missing in_mesh")
 
-        if (this.source_sel.sel_idx == 0 && this.expr_color.v === null) {
+        /*if (this.source_sel.sel_idx == 0 && this.expr_color.v === null) {
             this.out_mesh.set(mesh)
             return // TBD warning
-        }
-        let src = null
-        if (this.source_sel.sel_idx == 1) {
-            src = this.in_source.get_const()
-            assert(src !== null, this, "missing attribute source")
-            assert(src.constructor === FrameBuffer || 
-                   src.constructor === PImage, this, "expected FrameBuffer or Image as input")
-        }
+        }*/
 
         let elem_num, attr_prefix;
         // check that the mesh has face to bind to, otherwise this is a noop
@@ -344,16 +342,29 @@ class NodeSetAttr extends NodeCls
             assert(false, this, "unknown type")
         }
 
+        let need_inputs = src_expr.need_inputs === undefined || src_expr.need_inputs === null || src_expr.need_inputs.length == 0
+        let need_src = need_inputs && src_expr.need_inputs.includes("in_src")
+        
+        let src = null
+        if (need_src) {
+            src = this.in_source.get_const()
+            assert(src !== null, this, "missing attribute source")
+            assert(src.constructor === FrameBuffer || 
+                   src.constructor === PImage, this, "expected FrameBuffer or Image as input")
+        }
+
+
         // commiting to work
         mesh = this.in_mesh.get_mutable()    
 
-        if (this.source_sel.sel_idx == 0) // from const
+        if (need_inputs) { // from const
             this.prop_from_const(prop, src_expr)
-        else { // from input
+        }
+        else if (need_src) { // from img input
             let isfb = (src.constructor === FrameBuffer)
             let transform = mat3.create()
             mat3.invert(transform, src.t_mat) 
-            this.prop_from_input_framebuffer(prop, mesh, src, transform, isfb)
+            this.prop_from_input_framebuffer(prop, mesh, src, src_expr, transform, isfb)
         }
 
         mesh.set(attr_prefix + this.attr_name.v, prop, 4, true)

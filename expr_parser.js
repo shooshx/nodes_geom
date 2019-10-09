@@ -9,6 +9,7 @@ class NumNode  {
     eval() {
         return this.v;
     }
+    is_just_num() { return true }
 }
 
 function checkZero(v) {
@@ -55,17 +56,6 @@ class UnaryNegNode {
         return -this.child.eval();
     }
 }
-
-
-class IdentifierNode {
-    constructor(name) {
-        this.e = state_access_.get_evaluator(name)
-    }
-    eval() {
-        return this.e.eval();
-    }
-}
-
 
 
 const OPERATOR_NULL = 0
@@ -195,6 +185,28 @@ function parseOp()
     }
 }
 
+
+function parseIdentifier() {
+    let sb = ''
+    while(true) {
+        let c = getCharacter();
+        if (c === null)
+            break;
+        // identifier can have digits but not start with a digit
+        if ( (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c == '.' || (c >= '0' && c <= '9') )
+            sb = sb + c;
+        else
+            break;
+        index_++;
+    }
+
+    let e = state_access_.get_evaluator(name)
+    if (e === null) 
+        throw new Error("Unknown identifier " + name + " at " + index_)
+
+    return e;
+}
+
 function toInteger(c) {
     if (c === null)
         return 0xf + 1
@@ -206,22 +218,6 @@ function toInteger(c) {
 
 function getInteger() {
     return toInteger(getCharacter());
-}
-
-
-function parseIdentifier() {
-    let sb = ''
-    while(true) {
-        let c = getCharacter();
-        // identifier can have digits but not start with a digit
-        if ( (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || (c >= '0' && c <= '9') )
-            sb = sb + c;
-        else
-            break;
-        index_++;
-    }
-
-    return new IdentifierNode(sb);
 }
 
 function parseDecimal() {

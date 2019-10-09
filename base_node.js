@@ -494,27 +494,46 @@ function wrapText(context, text, x, center_y, maxWidth, lineHeight) {
         context.fillText(l.l, x, start_y + l.y);
 }
 
-class Evaluator {
+
+class ObjectEvaluator {
+    constructor(obj, name, subscript) {
+        this.name = name
+        this.obj = obj
+        this.subscript = subscript
+    }
     eval() {
-        return 0
+        return this.obj[this.subscript]
     }
 }
 
+// bit field
+const EXPR_CONST = 0  // didn't lookup anything
+const EXPR_NEED_INPUT = 1  //  looked up a value that does change depend on input
+
 class StateAccess {
     constructor(inputs) {
+        this.inputs = inputs
         //keep track of what the currently parsed expression was looking up
-        // 0 - didn't lookup anything
-        // 1 - looked up a value that doesn't change for a frame
-        // 2 - looked up a value that does change
-        this.score = 0
+        this.reset_check()
     }
     // called right before parsing an expression
     reset_check() {
-        this.score = 0
+        this.score = EXPR_CONST
+        this.need_inputs = []
     }
     get_evaluator(name) {
-        this.score = 1
-        return new Evaluator()
+        let sp = name.split('.')
+        let varname = sp[0]
+        for(let tin of this.inputs)
+            if (varname == tin.name) {
+                this.score |= EXPR_NEED_INPUT
+                this.checked_inputs.push(varname)
+                if (sp.length != 2)
+                    throw new Error("No subscript given to variable " + varname)
+                return new ObjectEvaluator(tin, name, sp[1])
+            }
+
+        return null
     }
 }
 
