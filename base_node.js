@@ -496,10 +496,12 @@ function wrapText(context, text, x, center_y, maxWidth, lineHeight) {
 
 
 class ObjectEvaluator {
-    constructor(obj, name, subscript) {
+    constructor(name, subscript) {
         this.name = name
-        this.obj = obj
         this.subscript = subscript
+    }
+    dyn_set_obj(obj) {
+        this.obj = obj
     }
     eval() {
         return this.obj[this.subscript]
@@ -519,18 +521,19 @@ class StateAccess {
     // called right before parsing an expression
     reset_check() {
         this.score = EXPR_CONST
-        this.need_inputs = []
+        this.need_inputs = {} // map name of input to its evaluator
     }
     get_evaluator(name) {
         let sp = name.split('.')
         let varname = sp[0]
         for(let tin of this.inputs)
             if (varname == tin.name) {
-                this.score |= EXPR_NEED_INPUT
-                this.checked_inputs.push(varname)
                 if (sp.length != 2)
                     throw new Error("No subscript given to variable " + varname)
-                return new ObjectEvaluator(tin, name, sp[1])
+                this.score |= EXPR_NEED_INPUT
+                let e = new ObjectEvaluator(name, sp[1])
+                this.need_inputs[varname] = e
+                return e
             }
 
         return null

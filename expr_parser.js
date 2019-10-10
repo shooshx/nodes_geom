@@ -200,9 +200,9 @@ function parseIdentifier() {
         index_++;
     }
 
-    let e = state_access_.get_evaluator(name)
+    let e = state_access_.get_evaluator(sb)
     if (e === null) 
-        throw new Error("Unknown identifier " + name + " at " + index_)
+        throw new Error("Unknown identifier " + sb + " at " + index_)
 
     return e;
 }

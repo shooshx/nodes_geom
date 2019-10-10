@@ -253,8 +253,9 @@ class ParamFloat extends Parameter {
     constructor(node, label, start_v) {
         super(node, label)
         this.v = start_v  // numerical value in case of const
-        this.e = null  // expression AST
+        this.e = null  // expression AST, can call eval() on this
         this.se = null // expression string
+        this.last_error = null // string of the error if there was one or null
         this.elem = null
         this.need_inputs = null // string names of the inputs needed, already verified that they exist
     }
@@ -267,10 +268,12 @@ class ParamFloat extends Parameter {
     }
     peval(se) {
         this.se = se
+        this.last_error = null
         try {
             this.e = ExprParser.eval(se, this.owner.state_access)
         }
-        catch(ex) {
+        catch(ex) { // TBD better show the error somewhere
+            this.last_error = ex.message
             if (this.elem)
                 this.elem.classList.toggle("param_input_error", true)
             set_error(this.owner.cls, "Parameter expression error")
@@ -285,7 +288,7 @@ class ParamFloat extends Parameter {
                 this.e = null 
                 this.se = null
             }
-            this.need_input = null
+            this.need_inputs = null
         }
         else if ((expr_score & EXPR_NEED_INPUT) != 0) {
             this.need_inputs = this.owner.state_access.need_inputs
@@ -301,11 +304,24 @@ class ParamFloat extends Parameter {
         } else {
             show_v = this.v; ed_type = ED_FLOAT
         }
-        this.elem = add_param_edit(this.line_elem, show_v, ed_type, (se)=>{this.peval(se)}) 
+        this.elem = add_param_edit(this.line_elem, show_v, ed_type, (se)=>{this.peval(se)})
+        this.elem.classList.toggle("param_input_error", this.last_error !== null)
     }
-    dyn_eval(item_index, expr_input) {
+    dyn_eval(item_index) {
+        console.assert(item_index == 0, "unexpected param item index")
+        if (this.e === null)  
+            return this.v
+        return this.e.eval() // the state input was put there using the evaler before the call to here
+    }
+    need_input_evaler(input_name) {
+        if (this.need_inputs === undefined || this.need_inputs === null)
+            return null
+        let ev = this.need_inputs[input_name]
+        if (ev === undefined)
+            return null
+        return ev
+    }
 
-    }
 }
 
 class ParamBool extends Parameter {

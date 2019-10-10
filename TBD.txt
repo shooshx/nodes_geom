@@ -52,8 +52,10 @@ NODES:
     https://stackoverflow.com/questions/27531860/how-to-highlight-a-certain-line-in-ace-editor
     title of window with different color for fragment and vertex shaders
     tabbed view?
+- Perlin Noise GLSL?
+    https://github.com/ashima/webgl-noise/tree/master/src
 - point size to path circle
-- *** bitmap from file with upload to imgur
+    and lines -- according to changing width
 - bitmap trace
     potrace -  https://github.com/kilobtye/potrace/blob/master/potrace.js
         http://potrace.sourceforge.net/  
@@ -73,6 +75,11 @@ nodes the produce transform, invert it
 try for changing pivot T1 * Tp1 * R * Tp1' = T2 * Tp2 * R * Tp
 
 
+EXPRESSIONS
+- input from mesh
+- functions cos,sin,tan,acos,asin.atan,atan2,log,log10,log2,round,ceil,floor,trunc,abs,sqrt,max(multi),min,clamp(to range),sign
+- boolean comparisons operator?:
+- intellisense
 
 NODE-VIEW
 - better lines the go up

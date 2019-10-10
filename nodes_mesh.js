@@ -240,7 +240,8 @@ class NodeSetAttr extends NodeCls
         }
     }
 
-    prop_from_input_framebuffer(prop, mesh, src, src_expr, transform, fb_viewport) {
+    prop_from_input_framebuffer(prop, mesh, src, value_need_src, src_param, transform, fb_viewport) 
+    {
         mesh.ensure_tcache(transform)
         let vtx = mesh.tcache.vtx
 
@@ -255,6 +256,8 @@ class NodeSetAttr extends NodeCls
         let face_sz = mesh.face_size()
         let vtxi = 0, idxi = 0
         let expr_input = { r:0, g:0, b:0, alpha:0 }
+        value_need_src.dyn_set_obj(expr_input)
+
         for(let i = 0; i < prop.length; i += prop.elem_sz) 
         {
             let x = 0, y = 0
@@ -292,7 +295,7 @@ class NodeSetAttr extends NodeCls
             expr_input.alpha = pixels[pidx+3]
 
             for(let si = 0; si < prop.elem_sz; ++si)
-                prop[i+si] = src_expr.dyn_eval(si, expr_input) // pixels[pidx+si] * 0.04
+                prop[i+si] = src_param.dyn_eval(si, expr_input) // pixels[pidx+si] * 0.04
         }
     }
 
@@ -322,31 +325,32 @@ class NodeSetAttr extends NodeCls
             attr_prefix = 'vtx_'
         }
 
-        let prop, src_expr
+        let prop, src_param
         if (this.attr_type.sel_idx == 0) { // color
             prop = new TColorArr(elem_num * 4)
             prop.elem_sz = 4
-            src_expr = this.expr_color
+            src_param = this.expr_color
         }
         else if (this.attr_type.sel_idx == 1) { // float
             prop = new Float32Array(elem_num * 1)
             prop.elem_sz = 1
-            src_expr = this.expr_float
+            src_param = this.expr_float
         }
         else if (this.attr_type.sel_idx == 2) { // float2
             prop = new Float32Array(elem_num * 2)
             prop.elem_sz = 2
-            src_expr = this.expr_vec2
+            src_param = this.expr_vec2
         }
         else {
             assert(false, this, "unknown type")
         }
 
-        let need_inputs = src_expr.need_inputs === undefined || src_expr.need_inputs === null || src_expr.need_inputs.length == 0
-        let need_src = need_inputs && src_expr.need_inputs.includes("in_src")
+        let value_need_src = src_param.need_input_evaler("in_src")
+        let value_need_mesh = src_param.need_input_evaler("in_mesh")
+        let need_inputs = value_need_src || value_need_mesh
         
         let src = null
-        if (need_src) {
+        if (value_need_src !== null) { // make sure we have a src to get the value from
             src = this.in_source.get_const()
             assert(src !== null, this, "missing attribute source")
             assert(src.constructor === FrameBuffer || 
@@ -357,14 +361,14 @@ class NodeSetAttr extends NodeCls
         // commiting to work
         mesh = this.in_mesh.get_mutable()    
 
-        if (need_inputs) { // from const
-            this.prop_from_const(prop, src_expr)
+        if (!need_inputs) { // from const
+            this.prop_from_const(prop, src_param)
         }
-        else if (need_src) { // from img input
+        else if (value_need_src !== null) { // from img input
             let isfb = (src.constructor === FrameBuffer)
             let transform = mat3.create()
             mat3.invert(transform, src.t_mat) 
-            this.prop_from_input_framebuffer(prop, mesh, src, src_expr, transform, isfb)
+            this.prop_from_input_framebuffer(prop, mesh, src, value_need_src, src_param, transform, isfb)
         }
 
         mesh.set(attr_prefix + this.attr_name.v, prop, 4, true)
