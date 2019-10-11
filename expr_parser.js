@@ -1,5 +1,13 @@
+"use strict"
 
 // https://github.com/NishadSaraf/First-Order-Differentiation-In-C/blob/d6965c15bef4fe84837105eb0e5ed8f21ae9f80b/calculator.hpp
+
+class ExprErr extends Error {
+    constructor(msg) {
+        super(msg)
+    }
+}
+
 var ExprParser = (function() {
 
 class NumNode  {
@@ -14,7 +22,7 @@ class NumNode  {
 
 function checkZero(v) {
     if (v == 0) {
-        throw new Error("Division by zero");
+        throw new ExprErr("Division by zero");
     }
     return v;
 }
@@ -43,7 +51,7 @@ class BinaryOpNode {
             case OPERATOR_MODULO:         ret = v1 % checkZero(v2); break;
             case OPERATOR_POWER:          ret = Math.pow(v1, v2); break;
             case OPERATOR_EXPONENT:       ret = v1 * Math.pow(10, v2); break;
-            default:  throw new Error("unexpected operator");
+            default:  throw new ExprErr("unexpected operator");
         }
         return ret;
     }
@@ -123,7 +131,7 @@ function expect(str) {
 }
 
 function unexpected() {
-    throw new Error("Syntax error: unexpected token at " + index_)
+    throw new ExprErr("Syntax error: unexpected token at " + index_)
 }
 
 /// Eat all white space characters at the
@@ -199,10 +207,12 @@ function parseIdentifier() {
             break;
         index_++;
     }
+    if (sb[0] == '.' || sb[sb.length-1] == '.')
+        throw new ExprErr("Unexpected dot in an identifier at " + index_)
 
     let e = state_access_.get_evaluator(sb)
     if (e === null) 
-        throw new Error("Unknown identifier " + sb + " at " + index_)
+        throw new ExprErr("Unknown identifier " + sb + " at " + index_)
 
     return e;
 }
@@ -226,7 +236,7 @@ function parseDecimal() {
         value = value * 10 + d;
     if (getCharacter() == '.') {
         index_++;
-        f = 0.1
+        let f = 0.1
         for (let d; (d = getInteger()) <= 9; index_++) {
             value = value + d * f;
             f *= 0.1
@@ -304,7 +314,7 @@ function parseValue() {
             if (getCharacter() != ')') {
                 if (!isEnd())
                     unexpected();
-                throw new Error("Syntax error: `)' expected at end of expression");
+                throw new ExprErr("Syntax error: `)' expected at end of expression");
             }
             index_++;
             break;
@@ -324,7 +334,7 @@ function parseValue() {
             }
             if (!isEnd())
                 unexpected();
-            throw new Error("Syntax error: value expected at end of expression");
+            throw new ExprErr("Syntax error: value expected at end of expression");
     }
     return val;
 }
@@ -375,7 +385,7 @@ var index_ = 0
 
 var state_access_ = null
 
-function eval(expr, state_access) {
+function eeval(expr, state_access) {
     if (typeof expr != "string")
         return new NumNode(expr)
     index_ = 0;
@@ -400,5 +410,7 @@ function eval(expr, state_access) {
 }
 
 
-return {eval:eval}
+return {eval:eeval}
 })()
+
+

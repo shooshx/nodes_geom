@@ -131,7 +131,8 @@ class Mesh extends PObject
             let vcol = this.arrs.vtx_color
             dassert(vcol.length / 4 == this.arrs.vtx.length / 2, "unexpected size of vtx_color")
             for(let i = 0, vi = 0, icol = 0; vi < vtx.length; ++i, vi += 2, icol += 4) {
-                let radius = (vtx_radius !== null) ? vtx_radius[i] : MESH_DISP.vtx_radius
+                // radius shouldn't be negative
+                let radius = Math.max(0, (vtx_radius !== null) ? vtx_radius[i] : MESH_DISP.vtx_radius)
                 ctx_img.beginPath();
                 ctx_img.arc(vtx[vi], vtx[vi+1], radius, 0, 2*Math.PI)
                 ctx_img.fillStyle = "rgba(" + vcol[icol] + "," + vcol[icol+1] + "," + vcol[icol+2] + "," + (vcol[icol+3]/255) + ")"
@@ -144,7 +145,7 @@ class Mesh extends PObject
         }
         ctx_img.beginPath();
         for(let i = 0, vi = 0; vi < vtx.length; ++i, vi += 2) {
-            let radius = (vtx_radius !== null) ? vtx_radius[i] : MESH_DISP.vtx_radius
+            let radius = Math.max(0, (vtx_radius !== null) ? vtx_radius[i] : MESH_DISP.vtx_radius)
             let x = vtx[vi], y = vtx[vi+1]
             ctx_img.moveTo(x + radius, y)
             ctx_img.arc(x, y, radius, 0, 2*Math.PI)

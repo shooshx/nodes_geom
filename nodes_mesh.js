@@ -196,7 +196,64 @@ class NodeManualPoints extends NodeCls
     }
 }
 
-// TBD any attribute
+
+class ObjRef { // top level variable that references an object
+    constructor(name) {
+        this.name = name
+        this.obj = null
+        this.idx = null
+    }
+    dyn_set_obj(obj) {
+        this.obj = obj
+    }
+    dyn_set_prop_index(idx) {
+        this.idx = idx
+    }       
+}
+class ObjSubscriptEvaluator {
+    constructor(objref, subscripts) {
+        if (subscripts.length != 1)
+            throw new Error("Wrong subscript given to variable " + name)
+        this.objref = objref
+        this.subscript = subscripts[0]
+    }
+
+    eval() {
+        return this.objref.obj[this.subscript]
+    }
+}
+
+const VAL_INDICES = { r:0, g:1, b:2, alpha:3, x:0, y:1, z:2, w:3 } // TBD add HSV 
+class MeshPropEvaluator {
+    constructor(meshref, subscripts) {
+        eassert(subscripts.length == 2 || subscripts.length == 1, "Not enough subscript given to variable " + name)
+        this.meshref = meshref
+        this.attrname = subscripts[0]
+        this.valname = (subscripts.length == 2) ? subscripts[1] : null
+        this.valindex = (this.valname !== null) ? VAL_INDICES[this.valname] : 0
+        eassert(this.valindex !== undefined, "Unknown subscript `" + this.valname + "`")
+        // idx is in meshref not multiplied for any property
+        this.attr = null
+        this.num_elems = null
+    }
+
+    eval() {
+        if (this.attr === null) {
+            eassert(this.meshref.obj !== null, "unexpecrted null mesh")
+            eassert(this.meshref.idx !== null, "unexpecrted null mesh")
+            let attr = this.meshref.obj.arrs[this.attrname]
+            eassert(attr !== undefined, "unknown attribute " + this.attrname + " of mesh")
+            this.num_elems = this.meshref.obj.meta[this.attrname].num_elems
+            if (this.num_elems == 1)
+                eassert(this.valname === null, "unexpected additional subscript to value")
+            else 
+                eassert(this.valname !== null, "missing addtitional subscript to select a value")
+            this.attr = attr
+        }
+        return this.attr[this.meshref.idx * this.num_elems + this.valindex]
+    }
+}
+
 class NodeSetAttr extends NodeCls
 {
     static name() { return "Set Attribute" }
@@ -205,7 +262,7 @@ class NodeSetAttr extends NodeCls
         this.in_mesh = new InTerminal(node, "in_mesh")
         this.in_source = new InTerminal(node, "in_src") // future - may not be an image? proximity to other mesh?
         this.out_mesh = new OutTerminal(node, "out_mesh")
-        //this.source_sel = new ParamSelect(node, "Source", 0, ["Constant", "Input"])
+
         this.bind_to = new ParamSelect(node, "Bind To", 0, ["Vertices", "Faces"]) // TBD also lines?
         this.attr_name = new ParamStr(node, "Name", "color")
         this.attr_type = new ParamSelect(node, "Type", 0, ["Color", "Float", "Float2"], (v)=>{
@@ -216,6 +273,9 @@ class NodeSetAttr extends NodeCls
         this.expr_color = new ParamColor(node, "Color", "#cccccc")
         this.expr_float = new ParamFloat(node, "Float", 0)
         this.expr_vec2 = new ParamVec2(node, "Float2", 0, 0)
+
+        // node says what evaluators it wants for its inputs
+        node.set_state_evaluators({"in_src": ObjSubscriptEvaluator, "in_mesh": MeshPropEvaluator })
     }
 
     prop_from_const(prop, src) {
@@ -236,6 +296,17 @@ class NodeSetAttr extends NodeCls
             for(let i = 0; i < prop.length; i += prop.elem_sz) {
                 prop[i] = src.x
                 prop[i+1] = src.y
+            }
+        }
+    }
+
+    prop_from_mesh_attr(prop, value_need_mesh, src_param) 
+    {
+        for(let i = 0, pi = 0; pi < prop.length; ++i, pi += prop.elem_sz) 
+        {
+            value_need_mesh.dyn_set_prop_index(i)
+            for(let si = 0; si < prop.elem_sz; ++si) {
+                prop[i+si] = src_param.dyn_eval(si) 
             }
         }
     }
@@ -294,8 +365,9 @@ class NodeSetAttr extends NodeCls
             expr_input.b = pixels[pidx+2]
             expr_input.alpha = pixels[pidx+3]
 
-            for(let si = 0; si < prop.elem_sz; ++si)
-                prop[i+si] = src_param.dyn_eval(si, expr_input) // pixels[pidx+si] * 0.04
+            for(let si = 0; si < prop.elem_sz; ++si) {
+                prop[i+si] = src_param.dyn_eval(si) 
+            }
         }
     }
 
@@ -345,6 +417,7 @@ class NodeSetAttr extends NodeCls
             assert(false, this, "unknown type")
         }
 
+        assert(!src_param.has_error(), this, "Parameter expression error")
         let value_need_src = src_param.need_input_evaler("in_src")
         let value_need_mesh = src_param.need_input_evaler("in_mesh")
         let need_inputs = value_need_src || value_need_mesh
@@ -356,19 +429,33 @@ class NodeSetAttr extends NodeCls
             assert(src.constructor === FrameBuffer || 
                    src.constructor === PImage, this, "expected FrameBuffer or Image as input")
         }
+        if (value_need_mesh !== null) {
+            value_need_mesh.dyn_set_obj(mesh)
+        }
 
 
         // commiting to work
         mesh = this.in_mesh.get_mutable()    
 
-        if (!need_inputs) { // from const
-            this.prop_from_const(prop, src_param)
+        try {
+            if (!need_inputs) { // from const
+                this.prop_from_const(prop, src_param)
+            }
+            else if (value_need_src !== null) { // from img input
+                let isfb = (src.constructor === FrameBuffer)
+                let transform = mat3.create()
+                mat3.invert(transform, src.t_mat) 
+                this.prop_from_input_framebuffer(prop, mesh, src, value_need_src, src_param, transform, isfb)
+            }
+            else if (value_need_mesh !== null) {
+                this.prop_from_mesh_attr(prop, value_need_mesh, src_param)
+            }
         }
-        else if (value_need_src !== null) { // from img input
-            let isfb = (src.constructor === FrameBuffer)
-            let transform = mat3.create()
-            mat3.invert(transform, src.t_mat) 
-            this.prop_from_input_framebuffer(prop, mesh, src, value_need_src, src_param, transform, isfb)
+        catch(e) {
+            if (e instanceof ExprErr) 
+                assert(false, this, "Parameter expression error")
+            else
+                throw e
         }
 
         mesh.set(attr_prefix + this.attr_name.v, prop, 4, true)

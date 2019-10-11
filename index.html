@@ -161,14 +161,22 @@ function assert(cond, node_cls, msg) {
     console.assert(node_cls.__proto__ instanceof NodeCls, "Assert with the node.cls")
     console.assert(node_cls !== undefined && msg !== undefined)
     if (!cond)
-        throw { msg: msg, node_cls:node_cls }
+        throw { message: msg, node_cls:node_cls }
 }
 
 // thrown in draw
 function dassert(cond, msg) {
     if (!cond)
-        throw { msg: msg }
+        throw new Error(msg)
 }
+
+// throw in expressions
+function eassert(cond, msg) {
+    if (!cond)
+        throw new ExprErr(msg)
+}
+
+
 
 function calc_img_viewport() {
     let t_viewport = mat3.create()
@@ -292,7 +300,7 @@ function mark_dirty_tree(n) {
 // happens when calling run(), clears every iteration
 function set_error(node_cls, msg) {
     if (node_cls.error === null)
-        node_cls.error = {msg:msg}
+        node_cls.error = {message:msg}
     draw_nodes()
 }
 
@@ -340,7 +348,7 @@ function trigger_frame_draw(do_run, clear_all=false)
                 in_draw = false
                 throw e
             }
-            set_error(e.node_cls, e.msg)
+            set_error(e.node_cls, e.message)
             console.error(e)
         }
         disp_obj = program.display_node.outputs[0].get_const()
@@ -360,7 +368,7 @@ function trigger_frame_draw(do_run, clear_all=false)
     try {
         p = disp_obj.draw(image_view.t_viewport, program.display_node.display_values)
     } catch(e) {
-        set_error(program.display_node.cls, e.msg)
+        set_error(program.display_node.cls, e.message)
     }
     let finalize_draw = ()=>{
         if (selected_node !== null) {

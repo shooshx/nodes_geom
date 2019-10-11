@@ -495,26 +495,15 @@ function wrapText(context, text, x, center_y, maxWidth, lineHeight) {
 }
 
 
-class ObjectEvaluator {
-    constructor(name, subscript) {
-        this.name = name
-        this.subscript = subscript
-    }
-    dyn_set_obj(obj) {
-        this.obj = obj
-    }
-    eval() {
-        return this.obj[this.subscript]
-    }
-}
+
 
 // bit field
 const EXPR_CONST = 0  // didn't lookup anything
 const EXPR_NEED_INPUT = 1  //  looked up a value that does change depend on input
 
 class StateAccess {
-    constructor(inputs) {
-        this.inputs = inputs
+    constructor(state_evaluators) {
+        this.state_evaluators = state_evaluators
         //keep track of what the currently parsed expression was looking up
         this.reset_check()
     }
@@ -526,15 +515,18 @@ class StateAccess {
     get_evaluator(name) {
         let sp = name.split('.')
         let varname = sp[0]
-        for(let tin of this.inputs)
-            if (varname == tin.name) {
-                if (sp.length != 2)
-                    throw new Error("No subscript given to variable " + varname)
-                this.score |= EXPR_NEED_INPUT
-                let e = new ObjectEvaluator(name, sp[1])
-                this.need_inputs[varname] = e
-                return e
-            }
+        // did we already create it?
+        let top_level = this.need_inputs[varname]
+        if (top_level === undefined) {
+            top_level = new ObjRef(varname)
+            this.need_inputs[varname] = top_level
+        }
+        let et = this.state_evaluators[varname] // as specificed by the node_cls
+        if (et !== undefined) {
+            this.score |= EXPR_NEED_INPUT // TBD
+            let e = new et(top_level, sp.slice(1))
+            return e
+        }
 
         return null
     }
@@ -556,6 +548,7 @@ class Node {
         this.parameters = []
         this.inputs = []
         this.outputs = [] 
+        this.state_evaluators = {} // map variable name to its evaluator type. Evaluator instance will be created with its subscripts when the expression is parsed
         this.cls = new cls(this)
         this.call_params_change() // set the enables or other changes that functions attached to params do
         this.make_term_offset(this.inputs)
@@ -577,9 +570,13 @@ class Node {
         // kept per-node since every node can want something different
         this.display_values = {}
 
-        this.state_access = new StateAccess(this.inputs)
+        this.state_access = new StateAccess(this.state_evaluators)
     }
-   
+
+    set_state_evaluators(d) { // called in cls ctor to configure how StateAccess accesses state
+        this.state_evaluators = d
+    }
+
     make_term_offset(lst) {
         if (lst.length == 1) {
             lst[0].offset = this.width / 2
@@ -625,7 +622,7 @@ class Node {
             ctx_nodes.font = "16px Verdana"
             ctx_nodes.fillStyle = "#ffA0A0"
             ctx_nodes.textAlign = "end"
-            wrapText(ctx_nodes, this.cls.get_error().msg, px, py + this.height*0.5, 150, 18)
+            wrapText(ctx_nodes, this.cls.get_error().message, px, py + this.height*0.5, 150, 18)
             ctx_nodes.textAlign = "start"
         }
         // main rect

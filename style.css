@@ -144,10 +144,13 @@ input {
     font-size: 14px;        
 }
 .param_input_long {
-    width: 70%;
+    /*width: 70%;*/
 }
 .param_input_error {
     background-color: #a22;
+}
+.param_editbox {
+    width: calc( 100% - 160px )
 }
 
 .param_checkbox_input {

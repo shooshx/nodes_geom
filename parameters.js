@@ -1,3 +1,4 @@
+"use strict"
 
 class Parameter
 {
@@ -150,7 +151,7 @@ const ED_INT=1
 const ED_STR=2
 function add_param_edit(line, value, type, set_func) {
     let e = document.createElement('input')
-    e.className = 'param_input'
+    e.classList = 'param_input param_editbox'
     e.type = 'text'
     e.spellcheck = false
     e.value = (type == ED_FLOAT) ? toFixedMag(value) : value
@@ -307,6 +308,7 @@ class ParamFloat extends Parameter {
         this.elem = add_param_edit(this.line_elem, show_v, ed_type, (se)=>{this.peval(se)})
         this.elem.classList.toggle("param_input_error", this.last_error !== null)
     }
+
     dyn_eval(item_index) {
         console.assert(item_index == 0, "unexpected param item index")
         if (this.e === null)  
@@ -320,6 +322,9 @@ class ParamFloat extends Parameter {
         if (ev === undefined)
             return null
         return ev
+    }
+    has_error() {
+        return this.last_error !== null
     }
 
 }
