@@ -193,6 +193,65 @@ function parseOp()
     }
 }
 
+class FuncDef {
+    constructor(jsfunc, num_args) {
+        this.f = jsfunc
+        this.num_args = num_args
+    }
+}
+
+function clamp(a, v, b) {
+    if (v < a) return a;
+    if (v > b) return b;
+    return v;
+}
+// cos,sin,tan,acos,asin.atan,atan2,log,log10,log2,round,ceil,floor,trunc,abs,sqrt,max(multi),min,clamp(to range),sign
+const func_defs = {
+    'cos': new FuncDef(Math.cos, 1), 'sin': new FuncDef(Math.sin, 1), 'tan': new FuncDef(Math.tan, 1),
+    'acos': new FuncDef(Math.acos, 1), 'asin': new FuncDef(Math.acos, 1), 'atan': new FuncDef(Math.atan, 1), 'atan2': new FuncDef(Math.atan2, 2),
+    'log': new FuncDef(Math.log, 1), 'log10': new FuncDef(Math.log10, 1), 'log2': new FuncDef(Math.log2, 1),
+    'round': new FuncDef(Math.round, 1), 'ceil': new FuncDef(Math.ceil, 1), 'floor': new FuncDef(Math.floor, 1), 'trunc': new FuncDef(Math.trunc, 1),
+    'abs': new FuncDef(Math.abs, 1), 'sign': new FuncDef(Math.sign, 1),
+    'min': new FuncDef(Math.min, -2), 'max': new FuncDef(Math.min, -2), 'clamp': new FuncDef(clamp, 3), // negative meants atleast
+}
+
+class FuncCallNode {
+    constructor(jsfunc, funcname, args) {
+        if (jsfunc === undefined) // from serializaton
+            this.f = func_defs[funcname].f
+        else
+            this.f = jsfunc
+        this.args = args
+    }
+    eval() {
+        let argvals = []
+        for(let arg of this.args)
+            argvals.push(arg.eval())
+        return this.f.apply(null, argvals)
+    }
+}
+
+function parseFuncCall(func_name) {
+    let def = func_defs[func_name]
+    if (def === undefined)
+        throw ExprErr("Unknown func " + func_name + " at " + index_)
+    let args = []
+    do {
+        index_++; // first time skips the parent, after that skips the comma
+        if (def.num_args > 0 && args.length == def.num_args)
+            throw ExprErr("Too many argument to function " + func_name + " at " + index_)
+        let arg = parseExpr()
+        args.push(arg)
+        eatSpaces();
+    } while (getCharacter() == ',')
+    if ((def.num_args > 0 && args.length != def.num_args) || (def.num_args < 0 && args.length < -def_num_args))
+        throw ExprErr("Not enough arguments to function " + func_name + " at " + index_)
+    if (getCharacter() != ')')
+        throw ExprErr("Expected closing paren for argument list at " + index_)
+    ++index_; // skip paren
+    return new FuncCallNode(def.f, func_name, args)
+}
+
 
 function parseIdentifier() {
     let sb = ''
@@ -209,6 +268,11 @@ function parseIdentifier() {
     }
     if (sb[0] == '.' || sb[sb.length-1] == '.')
         throw new ExprErr("Unexpected dot in an identifier at " + index_)
+
+    eatSpaces()
+    if (getCharacter() == '(')  {// function call
+        return parseFuncCall(sb) 
+    }   
 
     let e = state_access_.get_evaluator(sb)
     if (e === null) 

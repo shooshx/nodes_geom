@@ -306,6 +306,7 @@ class ParamFloat extends Parameter {
             show_v = this.v; ed_type = ED_FLOAT
         }
         this.elem = add_param_edit(this.line_elem, show_v, ed_type, (se)=>{this.peval(se)})
+        this.elem.classList.add('param_input_long') // since it's a single value
         this.elem.classList.toggle("param_input_error", this.last_error !== null)
     }
 

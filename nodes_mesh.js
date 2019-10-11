@@ -202,9 +202,11 @@ class ObjRef { // top level variable that references an object
         this.name = name
         this.obj = null
         this.idx = null
+        this.dirty_obj = true // true if the evaluator needs to invalidation anything it cached about the object
     }
     dyn_set_obj(obj) {
         this.obj = obj
+        this.dirty_obj = true
     }
     dyn_set_prop_index(idx) {
         this.idx = idx
@@ -238,7 +240,7 @@ class MeshPropEvaluator {
     }
 
     eval() {
-        if (this.attr === null) {
+        if (this.attr === null || this.meshref.dirty_obj) {
             eassert(this.meshref.obj !== null, "unexpecrted null mesh")
             eassert(this.meshref.idx !== null, "unexpecrted null mesh")
             let attr = this.meshref.obj.arrs[this.attrname]
@@ -249,6 +251,7 @@ class MeshPropEvaluator {
             else 
                 eassert(this.valname !== null, "missing addtitional subscript to select a value")
             this.attr = attr
+            this.meshref.dirty_obj = false
         }
         return this.attr[this.meshref.idx * this.num_elems + this.valindex]
     }
@@ -311,7 +314,7 @@ class NodeSetAttr extends NodeCls
         }
     }
 
-    prop_from_input_framebuffer(prop, mesh, src, value_need_src, src_param, transform, fb_viewport) 
+    prop_from_input_framebuffer(prop, mesh, src, value_need_src, value_need_mesh, src_param, transform, fb_viewport) 
     {
         mesh.ensure_tcache(transform)
         let vtx = mesh.tcache.vtx
@@ -329,7 +332,7 @@ class NodeSetAttr extends NodeCls
         let expr_input = { r:0, g:0, b:0, alpha:0 }
         value_need_src.dyn_set_obj(expr_input)
 
-        for(let i = 0; i < prop.length; i += prop.elem_sz) 
+        for(let i = 0, pi = 0; pi < prop.length; ++i, pi += prop.elem_sz) 
         {
             let x = 0, y = 0
             if (samp_vtx) {
@@ -354,19 +357,23 @@ class NodeSetAttr extends NodeCls
                 x = Math.round(x + wf)
                 y = Math.round(y + hf)
             }
+
+            if (value_need_mesh !== null)
+                value_need_mesh.dyn_set_prop_index(i)
+            
             if (x < 0 || y < 0 || x >= w || y >= h) {
-                for(let si = 0; si < prop.elem_sz; ++si)
-                    prop[i+si] = 0
-                continue
+                expr_input.r = expr_input.g = expr_input.b = expr_input.alpha = 0
             }
-            let pidx = (y*w + x)*4
-            expr_input.r = pixels[pidx]
-            expr_input.g = pixels[pidx+1]
-            expr_input.b = pixels[pidx+2]
-            expr_input.alpha = pixels[pidx+3]
+            else {
+                let pidx = (y*w + x)*4
+                expr_input.r = pixels[pidx]
+                expr_input.g = pixels[pidx+1]
+                expr_input.b = pixels[pidx+2]
+                expr_input.alpha = pixels[pidx+3]
+            }
 
             for(let si = 0; si < prop.elem_sz; ++si) {
-                prop[i+si] = src_param.dyn_eval(si) 
+                prop[pi+si] = src_param.dyn_eval(si) 
             }
         }
     }
@@ -445,7 +452,7 @@ class NodeSetAttr extends NodeCls
                 let isfb = (src.constructor === FrameBuffer)
                 let transform = mat3.create()
                 mat3.invert(transform, src.t_mat) 
-                this.prop_from_input_framebuffer(prop, mesh, src, value_need_src, src_param, transform, isfb)
+                this.prop_from_input_framebuffer(prop, mesh, src, value_need_src, value_need_mesh, src_param, transform, isfb)
             }
             else if (value_need_mesh !== null) {
                 this.prop_from_mesh_attr(prop, value_need_mesh, src_param)
