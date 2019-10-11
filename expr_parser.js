@@ -456,7 +456,6 @@ function eeval(expr, state_access) {
     expr_ = expr;
     if (state_access) {
         state_access_ = state_access
-        state_access_.reset_check()
     }
     let result = null;
     try {

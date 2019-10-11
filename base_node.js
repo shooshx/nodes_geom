@@ -503,7 +503,12 @@ const EXPR_NEED_INPUT = 1  //  looked up a value that does change depend on inpu
 
 class StateAccess {
     constructor(state_evaluators) {
-        this.state_evaluators = state_evaluators
+        this.state_evaluators = state_evaluators // from the node, map name to evaluator type
+        this.known_objrefs = {}
+        // have a store of objrefs so that these will always be the same ones, no matter which expression is calling for them
+        // reset between expressions in the same node doesn't create a new set of objrefs
+        for(let name in state_evaluators)
+            this.known_objrefs[name] = new ObjRef(name)
         //keep track of what the currently parsed expression was looking up
         this.reset_check()
     }
@@ -518,12 +523,14 @@ class StateAccess {
         // did we already create it?
         let top_level = this.need_inputs[varname]
         if (top_level === undefined) {
-            top_level = new ObjRef(varname)
-            this.need_inputs[varname] = top_level
+            let known_obj = this.known_objrefs[varname]
+            if (known_obj === undefined)
+                return null;
+                top_level = this.need_inputs[varname] = this.known_objrefs[varname]
         }
-        let et = this.state_evaluators[varname] // as specificed by the node_cls
+        let et = this.state_evaluators[varname] // as specified by the node_cls
         if (et !== undefined) {
-            this.score |= EXPR_NEED_INPUT // TBD
+            this.score |= EXPR_NEED_INPUT // TBD depend on evaluator?
             let e = new et(top_level, sp.slice(1))
             return e
         }

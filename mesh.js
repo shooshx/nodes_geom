@@ -143,6 +143,7 @@ class Mesh extends PObject
         else {
             ctx_img.lineWidth = 1
         }
+
         ctx_img.beginPath();
         for(let i = 0, vi = 0; vi < vtx.length; ++i, vi += 2) {
             let radius = Math.max(0, (vtx_radius !== null) ? vtx_radius[i] : MESH_DISP.vtx_radius)
@@ -152,6 +153,19 @@ class Mesh extends PObject
         }
         ctx_img.strokeStyle = "#000"
         ctx_img.stroke()       
+
+        if (this.arrs.vtx_normal !== undefined) {
+            let norm = this.arrs.vtx_normal
+            dassert(norm.length == this.arrs.vtx.length, "unexpected size of vtx_normal")
+            ctx_img.beginPath();
+            for(let vi=0; vi < vtx.length; vi += 2) {
+                ctx_img.moveTo(vtx[vi], vtx[vi+1])
+                ctx_img.lineTo(vtx[vi] + norm[vi], vtx[vi+1] + norm[vi+1])
+            }
+            ctx_img.lineWidth = 0.5
+            ctx_img.strokeStyle = "#ff0000"
+            ctx_img.stroke()
+        }        
     }
 
     draw_poly_stroke() {            

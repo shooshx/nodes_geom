@@ -208,7 +208,7 @@ class ObjRef { // top level variable that references an object
         this.obj = obj
         this.dirty_obj = true
     }
-    dyn_set_prop_index(idx) {
+    dyn_set_prop_index(idx) { // for mesh objects
         this.idx = idx
     }       
 }
@@ -228,6 +228,7 @@ class ObjSubscriptEvaluator {
 const VAL_INDICES = { r:0, g:1, b:2, alpha:3, x:0, y:1, z:2, w:3 } // TBD add HSV 
 class MeshPropEvaluator {
     constructor(meshref, subscripts) {
+        console.assert(meshref !== undefined  && meshref !== null)
         eassert(subscripts.length == 2 || subscripts.length == 1, "Not enough subscript given to variable " + name)
         this.meshref = meshref
         this.attrname = subscripts[0]

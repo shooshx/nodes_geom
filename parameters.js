@@ -250,86 +250,6 @@ class ParamStr extends Parameter {
     }
 }
 
-class ParamFloat extends Parameter {
-    constructor(node, label, start_v) {
-        super(node, label)
-        this.v = start_v  // numerical value in case of const
-        this.e = null  // expression AST, can call eval() on this
-        this.se = null // expression string
-        this.last_error = null // string of the error if there was one or null
-        this.elem = null
-        this.need_inputs = null // string names of the inputs needed, already verified that they exist
-    }
-    save() { return {v:this.v, se:this.se}}
-    load(v) { 
-        if (v.se !== undefined && v.se !== null)
-            this.peval(v.se) 
-        else
-            this.v = v.v
-    }
-    peval(se) {
-        this.se = se
-        this.last_error = null
-        try {
-            this.e = ExprParser.eval(se, this.owner.state_access)
-        }
-        catch(ex) { // TBD better show the error somewhere
-            this.last_error = ex.message
-            if (this.elem)
-                this.elem.classList.toggle("param_input_error", true)
-            set_error(this.owner.cls, "Parameter expression error")
-            return
-        }
-        if (this.elem)
-            this.elem.classList.toggle("param_input_error", false)
-        let expr_score = this.owner.state_access.score
-        if (expr_score == EXPR_CONST) { // depends on anything?
-            this.v = this.e.eval()
-            if (this.e.is_just_num) { // if we've just inputted a number without any expression, don't save the expression (checking existance of func)
-                this.e = null 
-                this.se = null
-            }
-            this.need_inputs = null
-        }
-        else if ((expr_score & EXPR_NEED_INPUT) != 0) {
-            this.need_inputs = this.owner.state_access.need_inputs
-        }
-        this.pset_dirty() 
-    }
-    add_elems(parent) {
-        this.line_elem = add_param_line(parent)
-        this.label_elem = add_param_label(this.line_elem, this.label)
-        let show_v, ed_type
-        if (this.se != null && this.se !== undefined) {
-            show_v = this.se; ed_type = ED_STR
-        } else {
-            show_v = this.v; ed_type = ED_FLOAT
-        }
-        this.elem = add_param_edit(this.line_elem, show_v, ed_type, (se)=>{this.peval(se)})
-        this.elem.classList.add('param_input_long') // since it's a single value
-        this.elem.classList.toggle("param_input_error", this.last_error !== null)
-    }
-
-    dyn_eval(item_index) {
-        console.assert(item_index == 0, "unexpected param item index")
-        if (this.e === null)  
-            return this.v
-        return this.e.eval() // the state input was put there using the evaler before the call to here
-    }
-    need_input_evaler(input_name) {
-        if (this.need_inputs === undefined || this.need_inputs === null)
-            return null
-        let ev = this.need_inputs[input_name]
-        if (ev === undefined)
-            return null
-        return ev
-    }
-    has_error() {
-        return this.last_error !== null
-    }
-
-}
-
 class ParamBool extends Parameter {
     constructor(node, label, start_v, change_func) {
         super(node, label)
@@ -362,20 +282,151 @@ class DispParamBool extends ParamBool {
     pset_dirty() {} // this override is needed to avoid draw triggers that mess with the controls
 }
 
+
+// represents a single value (item in a single edit box) that can be an expression and everything it needs to do
+class ExpressionItem {
+    constructor(in_param, prop_name, prop_type) {
+        this.in_param = in_param
+        this.prop_name = prop_name // name of property to set in the containing param ("v", "r")
+        this.prop_type = prop_type = prop_type  // constant like ED_FLOAT used for formatting the value
+        this.elem = null
+        this.e = null  // expression AST, can call eval() on this
+        this.se = null // expression string
+        this.last_error = null // string of the error if there was one or null
+        this.need_inputs = null // string names of the inputs needed, already verified that they exist
+    }
+    save_to(r) { r["se_" + this.prop_name] = this.se }
+    load(v) {
+        let vk = v["se_" + this.prop_name]
+        if (vk !== undefined && vk !== null) 
+            this.peval(vk) 
+        else
+            this.in_param[this.prop_name] = v[this.prop_name]
+    }
+    peval(se) {
+        this.se = se
+        this.last_error = null
+        try {
+            this.e = ExprParser.eval(se, this.in_param.owner.state_access)
+        }
+        catch(ex) { // TBD better show the error somewhere
+            this.last_error = ex.message
+            if (this.elem)
+                this.elem.classList.toggle("param_input_error", true)
+            set_error(this.in_param.owner.cls, "Parameter expression error")
+            return
+        }
+        if (this.elem)
+            this.elem.classList.toggle("param_input_error", false)
+        let expr_score = this.in_param.owner.state_access.score
+        if (expr_score == EXPR_CONST) { // depends on anything?
+            this.in_param.owner.state_access.reset_check()
+            this.param_set_v(this.e.eval())
+            if (this.e.is_just_num) { // if we've just inputted a number without any expression, don't save the expression (checking existance of func)
+                this.e = null 
+                this.se = null
+            }
+            this.need_inputs = null
+        }
+        else if ((expr_score & EXPR_NEED_INPUT) != 0) {
+            this.need_inputs = this.in_param.owner.state_access.need_inputs
+        }
+        this.in_param.pset_dirty() 
+    } 
+    add_editbox(line) {
+        let show_v, ed_type
+        if (this.se != null && this.se !== undefined) {
+            show_v = this.se; 
+            ed_type = ED_STR
+        } else {
+            show_v = this.in_param[this.prop_name]; 
+            ed_type = this.prop_type
+        }
+        this.elem = add_param_edit(line, show_v, ed_type, (se)=>{this.peval(se)})
+        this.elem.classList.toggle("param_input_error", this.last_error !== null)
+        return this.elem
+    }
+    dyn_eval() {
+        if (this.e === null)  
+            return this.in_param[this.prop_name]
+        return this.e.eval() // the state_input was put there using the evaler before the call to here
+    }
+    need_input_evaler(input_name) {
+        if (this.need_inputs === undefined || this.need_inputs === null)
+            return null
+        let ev = this.need_inputs[input_name]
+        if (ev === undefined)
+            return null
+        return ev
+    }
+    has_error() {
+        return this.last_error !== null
+    }
+}
+
+
+class ParamFloat extends Parameter {
+    constructor(node, label, start_v) {
+        super(node, label)
+        this.v = start_v  // numerical value in case of const
+        this.item = new ExpressionItem(this, "v", ED_FLOAT)
+    }
+    save() { let r = { v:this.v }; this.item.save_to(r); return r }
+    load(v) { this.item.load(v) }
+
+    add_elems(parent) {
+        this.line_elem = add_param_line(parent)
+        this.label_elem = add_param_label(this.line_elem, this.label)
+
+        let elem = this.item.add_editbox(this.line_elem)
+        elem.classList.add('param_input_long') // since it's a single value
+    }
+
+    dyn_eval(item_index) {
+        console.assert(item_index == 0, "unexpected param item index")
+        return this.item.dyn_eval()
+    }
+    need_input_evaler(input_name) {
+        return this.item.need_input_evaler(input_name)
+    }
+    has_error() {
+        return this.item.has_error()
+    }
+
+}
+
+
 class ParamVec2 extends Parameter {
     constructor(node, label, start_x, start_y) {
         super(node, label)
         this.x = start_x
+        this.item_x = new ExpressionItem(this, "x", ED_FLOAT)
         this.y = start_y
+        this.item_y = new ExpressionItem(this, "y", ED_FLOAT)
     }
-    save() { return {x:this.x, y:this.y} }
-    load(v) { this.x=v.x; this.y=v.y }
+    save() { let r = { x:this.x, y:this.y }; this.item_x.save_to(r); this.item_y.save_to(r); return r }
+    load(v) { this.item_x.load(v); this.item_y.load(v) }
     add_elems(parent) {
         this.line_elem = add_param_line(parent)
         this.label_elem = add_param_label(this.line_elem, this.label)
-        add_param_edit(this.line_elem, this.x, ED_FLOAT, (v) => { this.x = parseFloat(v); this.pset_dirty() })
-        add_param_edit(this.line_elem, this.y, ED_FLOAT, (v) => { this.y = parseFloat(v); this.pset_dirty() })
+
+        this.item_x.add_editbox(this.line_elem)
+        this.item_y.add_editbox(this.line_elem)
     }
+    dyn_eval(item_index) {
+        if (item_index == 0)
+            return this.item_x.dyn_eval()
+        if (item_index == 1)
+            return this.item_y.dyn_eval()
+        eassert(false, "inaccessible item index " + item_index)
+    }
+    need_input_evaler(input_name) {
+        // the first one that has it is good since all who has it have the same one (objref)
+        return this.item_x.need_input_evaler(input_name) || this.item_y.need_input_evaler(input_name)
+    }
+    has_error() {
+        return this.item_x.has_error() || this.item_y.has_error()
+    }    
 }
 
 class ParamVec2Int extends Parameter {

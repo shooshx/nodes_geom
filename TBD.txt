@@ -76,10 +76,10 @@ try for changing pivot T1 * Tp1 * R * Tp1' = T2 * Tp2 * R * Tp
 
 
 EXPRESSIONS
-- input from mesh
-- functions cos,sin,tan,acos,asin.atan,atan2,log,log10,log2,round,ceil,floor,trunc,abs,sqrt,max(multi),min,clamp(to range),sign
 - boolean comparisons operator?:
 - intellisense
+- vec2 normalize - require vec2 values
+    - scale to object space coordinate
 
 NODE-VIEW
 - better lines the go up
