@@ -111,7 +111,7 @@ function color_to_uint8arr(c) {
 class ParamColorList extends ListParam {
     constructor(node, label, table) {
         super(node, label, 4, table, TColorArr, { create_elem: function(parent, start_val, changed_func) { 
-            let [col,elem] = add_param_color(parent, uint8arr_to_color(start_val), "param_table_input_color", function(c) {
+            let [col,elem,ce] = add_param_color(parent, uint8arr_to_color(start_val), "param_table_input_color", function(c) {
                 changed_func(color_to_uint8arr(c))
             })
             return elem
@@ -221,7 +221,9 @@ class ObjSubscriptEvaluator {
     }
 
     eval() {
-        return this.objref.obj[this.subscript]
+        let v = this.objref.obj[this.subscript]
+        eassert(v !== undefined, "subscript not found " + this.subscript)        
+        return v
     }
 }
 
@@ -284,11 +286,12 @@ class NodeSetAttr extends NodeCls
 
     prop_from_const(prop, src) {
         if (this.attr_type.sel_idx == 0) {
+            let col = src.v
             for(let i = 0; i < prop.length; i += prop.elem_sz) {
-                prop[i] = src.r
-                prop[i+1] = src.g
-                prop[i+2] = src.b
-                prop[i+3] = src.alpha*255 // normalized back to 0-1 in mesh draw
+                prop[i] = col.r
+                prop[i+1] = col.g
+                prop[i+2] = col.b
+                prop[i+3] = col.alphai // normalized back to 0-1 in mesh draw
             }
         }
         else if (this.attr_type.sel_idx == 1) {
@@ -310,7 +313,7 @@ class NodeSetAttr extends NodeCls
         {
             value_need_mesh.dyn_set_prop_index(i)
             for(let si = 0; si < prop.elem_sz; ++si) {
-                prop[i+si] = src_param.dyn_eval(si) 
+                prop[pi+si] = src_param.dyn_eval(si) 
             }
         }
     }

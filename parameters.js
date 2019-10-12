@@ -126,9 +126,10 @@ function add_div(parent, cls) {
     return e
 }
 function add_param_line(parent) { return add_div(parent, 'param_line') }
+function add_param_multiline(parent) { return add_div(parent, 'param_multi_line') }
 function add_param_block(parent) { return add_div(parent, 'param_block') } // for multi-line params
 
-function add_param_label(line, text) {
+function add_param_label(line, text, cls) {
     let e = document.createElement('span')
     if (text != null) {
         e.innerText = text
@@ -136,6 +137,8 @@ function add_param_label(line, text) {
     }
     else
         e.className = 'param_label_pre_empty'
+    if (cls !== undefined)
+        e.classList.add(cls)
 
     line.appendChild(e)
     if (text != null) {
@@ -164,9 +167,8 @@ function add_param_color(line, value, cls, set_func) {
     let e = document.createElement('input')
     e.className = cls
     line.appendChild(e) // must have parent
-    // TBD move setting the func to be the last thing to avoid spurious triggers
     let ce = ColorEditBox.create_at(e, 200, function(c) { set_func(c) }, {with_alpha:true}, value)
-    return [ce.get_color().copy(), e]
+    return [ce.get_color().copy(), e, ce]
 }
 let g_input_ids = 1
 function add_param_checkbox(line, label, value, set_func) {
@@ -285,9 +287,11 @@ class DispParamBool extends ParamBool {
 
 // represents a single value (item in a single edit box) that can be an expression and everything it needs to do
 class ExpressionItem {
-    constructor(in_param, prop_name, prop_type) {
+    constructor(in_param, prop_name, prop_type, set_prop=null, get_prop=null) {
         this.in_param = in_param
         this.prop_name = prop_name // name of property to set in the containing param ("v", "r")
+        this.set_prop = (set_prop !== null) ? set_prop : (v)=>{ this.in_param[this.prop_name] = v }
+        this.get_prop = (get_prop !== null) ? get_prop : ()=>{ return this.in_param[this.prop_name] }
         this.prop_type = prop_type = prop_type  // constant like ED_FLOAT used for formatting the value
         this.elem = null
         this.e = null  // expression AST, can call eval() on this
@@ -301,12 +305,13 @@ class ExpressionItem {
         if (vk !== undefined && vk !== null) 
             this.peval(vk) 
         else
-            this.in_param[this.prop_name] = v[this.prop_name]
+            this.set_prop(v[this.prop_name])
     }
     peval(se) {
         this.se = se
         this.last_error = null
         try {
+            this.in_param.owner.state_access.reset_check()
             this.e = ExprParser.eval(se, this.in_param.owner.state_access)
         }
         catch(ex) { // TBD better show the error somewhere
@@ -320,35 +325,39 @@ class ExpressionItem {
             this.elem.classList.toggle("param_input_error", false)
         let expr_score = this.in_param.owner.state_access.score
         if (expr_score == EXPR_CONST) { // depends on anything?
-            this.in_param.owner.state_access.reset_check()
-            this.param_set_v(this.e.eval())
+            this.set_prop(this.e.eval())
             if (this.e.is_just_num) { // if we've just inputted a number without any expression, don't save the expression (checking existance of func)
                 this.e = null 
                 this.se = null
             }
             this.need_inputs = null
         }
-        else if ((expr_score & EXPR_NEED_INPUT) != 0) {
-            this.need_inputs = this.in_param.owner.state_access.need_inputs
+        else {
+            this.set_prop(null) // it's dynamic so best if it doesn't have a proper value from before
+            if ((expr_score & EXPR_NEED_INPUT) != 0) {
+                this.need_inputs = this.in_param.owner.state_access.need_inputs
+            }
         }
         this.in_param.pset_dirty() 
     } 
-    add_editbox(line) {
+    add_editbox(line, cls=null) {
         let show_v, ed_type
         if (this.se != null && this.se !== undefined) {
             show_v = this.se; 
             ed_type = ED_STR
         } else {
-            show_v = this.in_param[this.prop_name]; 
+            show_v = this.get_prop(); 
             ed_type = this.prop_type
         }
         this.elem = add_param_edit(line, show_v, ed_type, (se)=>{this.peval(se)})
         this.elem.classList.toggle("param_input_error", this.last_error !== null)
+        if (cls)
+            this.elem.classList.add(cls) // if it's a single value (long line)
         return this.elem
     }
     dyn_eval() {
         if (this.e === null)  
-            return this.in_param[this.prop_name]
+            return this.get_prop()
         return this.e.eval() // the state_input was put there using the evaler before the call to here
     }
     need_input_evaler(input_name) {
@@ -378,8 +387,7 @@ class ParamFloat extends Parameter {
         this.line_elem = add_param_line(parent)
         this.label_elem = add_param_label(this.line_elem, this.label)
 
-        let elem = this.item.add_editbox(this.line_elem)
-        elem.classList.add('param_input_long') // since it's a single value
+        let elem = this.item.add_editbox(this.line_elem, 'param_input_long')
     }
 
     dyn_eval(item_index) {
@@ -459,13 +467,37 @@ class ParamColor extends Parameter {
     constructor(node, label, start_c_str) {
         super(node, label)
         this.v = ColorPicker.parse_hex(start_c_str)
+        this.item_r = new ExpressionItem(this, "r", ED_INT, (v)=>{ this.v.r=v; this.items_to_picker()}, ()=>{return this.v.r})
+        this.item_g = new ExpressionItem(this, "g", ED_INT, (v)=>{ this.v.g=v; this.items_to_picker()}, ()=>{return this.v.g})
+        this.item_b = new ExpressionItem(this, "b", ED_INT, (v)=>{ this.v.b=v; this.items_to_picker()}, ()=>{return this.v.b})
+        this.item_alpha = new ExpressionItem(this, "alpha", ED_INT, (v)=>{this.v.alphai=v; this.items_to_picker()}, ()=>{return this.v.alphai})
+        this.picker = null
+        this.picker_elem = null
     }
-    save() { return (this.v !== null) ? this.v.hex : null }
-    load(v) { this.v = ColorPicker.parse_hex(v) }
+    items_to_picker() { //  if possible transfer the color from the items to the picker, otherwise, make an indication it's not possible
+        if (this.v.r !== null && this.v.g !== null && this.v.b !== null && this.v.alphai !== null)
+            this.picker.set_color(this.v, false)
+        else {
+            if (this.picker_elem) {
+                this.picker_elem.style.backgroundColor = "#555"
+                this.picker_elem.value = "[from-input]"
+            }
+        }
+    }
+    save() { 
+        //return (this.v !== null) ? this.v.hex : null 
+        let r = { hex:this.v.hex }; 
+        this.item_r.save_to(r); this.item_g.save_to(r); this.item_b.save_to(r); this.item_alpha.save_to(r)
+        return r 
+    }
+    load(v) { 
+        this.v = ColorPicker.parse_hex(v.hex) 
+        this.item_r.load(v); this.item_g.load(v); this.item_b.load(v); this.item_alpha.load(v);
+    }
     add_elems(parent) {
-        this.line_elem = add_param_line(parent)
+        this.line_elem = add_param_multiline(parent)
         this.label_elem = add_param_label(this.line_elem, this.label)
-        let [v, elem] = add_param_color(this.line_elem, this.v, 'param_input', (v)=>{ 
+        let [v, elem, picker] = add_param_color(this.line_elem, this.v, 'param_input', (v)=>{ 
             if (this.v !== null && this.v.hex == v.hex) 
                 return;
             if (v === null)
@@ -474,8 +506,33 @@ class ParamColor extends Parameter {
                 this.v = v.copy() // make a copy so that this.v will be different object than the internal object
             this.pset_dirty()
         })
-        this.v = v
+        this.v = v; this.picker_elem = elem; this.picker = picker
+        let line_r = add_param_line(this.line_elem); add_param_label(line_r, "Red", 'param_label_pre_indent')
+        this.item_r.add_editbox(line_r, 'param_input_long')
+        let line_g = add_param_line(this.line_elem); add_param_label(line_g, "Green", 'param_label_pre_indent')
+        this.item_g.add_editbox(line_g, 'param_input_long')
+        let line_b = add_param_line(this.line_elem); add_param_label(line_b, "Blue", 'param_label_pre_indent')
+        this.item_b.add_editbox(line_b, 'param_input_long')
+        let line_alpha = add_param_line(this.line_elem); add_param_label(line_alpha, "Alpha", 'param_label_pre_indent')
+        this.item_alpha.add_editbox(line_alpha, 'param_input_long')        
     }
+    dyn_eval(item_index) {
+        switch(item_index) {
+        case 0: return this.item_r.dyn_eval()
+        case 1: return this.item_g.dyn_eval()
+        case 2: return this.item_b.dyn_eval()
+        case 3: return this.item_alpha.dyn_eval()
+        }
+        eassert(false, "inaccessible item index " + item_index)
+    }
+    need_input_evaler(input_name) {
+        // the first one that has it is good since all who has it have the same one (objref)
+        return this.item_r.need_input_evaler(input_name) || this.item_g.need_input_evaler(input_name) ||
+               this.item_b.need_input_evaler(input_name) || this.item_alpha.need_input_evaler(input_name)
+    }
+    has_error() {
+        return this.item_r.has_error() || this.item_g.has_error() || this.item_b.has_error() || this.item_alpha.has_error()
+    }       
 }
 
 function toFixedMag(f) {

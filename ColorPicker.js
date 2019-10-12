@@ -221,6 +221,7 @@ function is_dark(c) {
 }
 
 function make_hex(c, force_no_alpha) {
+    console.assert(!isNaN(c.r) && !isNaN(c.g) && !isNaN(c.b) && !isNaN(c.alpha))
     if (c.alpha == 1 || force_no_alpha)
         return "#" + (Number(c.r).toString(16).padStart(2,'0') + Number(c.g).toString(16).padStart(2,'0') + Number(c.b).toString(16).padStart(2,'0')).toUpperCase()
     else
@@ -234,20 +235,21 @@ function parse_hex(s) {
     if (s[0] == 'r') {
         if (s.substr(0,4) == 'rbg(') {
             let sp = s.substr(4).split(',')
-            ret = { r: parseInt(sp[0]), g: parseInt(sp[1]), b: parseInt(sp[2]), alpha:1.0 }
+            ret = { r: parseInt(sp[0]), g: parseInt(sp[1]), b: parseInt(sp[2]), alpha:1, alphai:255 }
         }
         if (s.substr(0,5) == 'rgba(') {
             let sp = s.substr(5).split(',')
-            ret = { r: parseInt(sp[0]), g: parseInt(sp[1]), b: parseInt(sp[2]), alpha:parseFloat(sp[3]) }
+            let a = parseFloat(sp[3])
+            ret = { r: parseInt(sp[0]), g: parseInt(sp[1]), b: parseInt(sp[2]), alpha:a, alphai:Math.round(a*255) }
         }
     }
     else {
         if (s[0] == '#')
             s = s.substr(1)
         if (s.length == 6)
-            ret = { r: parseInt(s.substr(0,2), 16), g: parseInt(s.substr(2,2), 16), b: parseInt(s.substr(4,2), 16), alpha:1 }
+            ret = { r: parseInt(s.substr(0,2), 16), g: parseInt(s.substr(2,2), 16), b: parseInt(s.substr(4,2), 16), alpha:1, alphai:255 }
         if (s.length == 3) {
-            ret =  { r: parseInt(s[0]+s[0], 16), g: parseInt(s[1]+s[1], 16), b: parseInt(s[2]+s[2], 16), alpha:1 }
+            ret =  { r: parseInt(s[0]+s[0], 16), g: parseInt(s[1]+s[1], 16), b: parseInt(s[2]+s[2], 16), alpha:1, alphai:255 }
         }
     }
     if (ret != null && (isNaN(ret.r) || isNaN(ret.g) || isNaN(ret.b) || isNaN(ret.alpha)))
@@ -316,8 +318,8 @@ function create_at(elem, add_func, sz, visible, onchange, options, start_color)
     //    create_checkers_image(canvas, ctx) // for use in the html input element
     
     var cfg = { sz:sz }
-    var sel_col = { h:0, s:0, v:0, r:null, g:null, b:null, alpha:1, hex:"", copy: function() {
-        return { r:this.r, g:this.g, b:this.b, hex:this.hex, alpha:this.alpha }
+    var sel_col = { h:0, s:0, v:0, r:null, g:null, b:null, alpha:1, alphai:255, hex:"", copy: function() {
+        return { r:this.r, g:this.g, b:this.b, hex:this.hex, alpha:this.alpha, alphai:this.alphai }
     }}
     var sel_pos = { sq_x: 0, sq_y: 0, bar_y: 0, alpha_y: 0 } // range:0-1
     var presets = options.global_presets ? GLOBAL_PRESETS : {}
@@ -326,7 +328,8 @@ function create_at(elem, add_func, sz, visible, onchange, options, start_color)
         sel_col.h = sel_pos.bar_y
         sel_col.s = sel_pos.sq_x
         sel_col.v = 1-sel_pos.sq_y
-        sel_col.alpha = Math.round((1-sel_pos.alpha_y)*100)/100
+        sel_col.alphai = Math.round((1-sel_pos.alpha_y)*255)
+        sel_col.alpha = sel_col.alphai/255
         HSVtoRGB(sel_col.h, sel_col.s, sel_col.v, sel_col)
         sel_col.is_dark = is_dark(sel_col);
         sel_col.hex = make_hex(sel_col)
@@ -339,20 +342,32 @@ function create_at(elem, add_func, sz, visible, onchange, options, start_color)
         return sel_col
     }
     
-    var set_color = function(c, do_onchange) {
+    var set_color = function(c, trigger_level1=true, trigger_level2=true) {
         if (c === sel_col)
             return  // avoid infinite recursion though user code
         if (typeof c == "string")
             c = parse_hex(c)
         if (c === undefined || c == null)
             return
-        if (c.r == sel_col.r && c.g == sel_col.g && c.b == sel_col.b && c.alpha == sel_col.alpha)
-            return
+        console.assert(c.r !== undefined && !isNaN(c.r) && c.g !== undefined && !isNaN(c.g) && c.b !== undefined && !isNaN(c.b))
+        if (!is_first_change) // the following can happen on the first change if the input is nulls, we still want to draw the chart though
+            if (c.r == sel_col.r && c.g == sel_col.g && c.b == sel_col.b && (c.alpha == sel_col.alpha || c.alphai == sel_col.alphai))
+                return
         RGBtoHSV(c.r, c.g, c.b, sel_col)
         sel_col.r = c.r
         sel_col.g = c.g
         sel_col.b = c.b
-        sel_col.alpha = c.alpha
+        if (c.alpha !== undefined) {
+            console.assert(!isNaN(c.alpha))
+            sel_col.alpha = c.alpha
+            sel_col.alphai = Math.round(c.alpha * 255)
+        }
+        else { // alphai is integer alpha in the range of [0-255]
+            console.assert(c.alphai !== undefined && !isNaN(c.alphai))
+            sel_col.alpha = c.alphai / 255
+            sel_col.alphai = c.alphai
+        }
+
         sel_col.is_dark = is_dark(sel_col);
         sel_col.hex = make_hex(sel_col)
         sel_col.hex_no_alpha = make_hex(sel_col, true)
@@ -365,14 +380,13 @@ function create_at(elem, add_func, sz, visible, onchange, options, start_color)
             sel_col.h = sel_pos.bar_y
         sel_pos.alpha_y = 1-sel_col.alpha
         draw_chart(ctx, cfg, sel_col, sel_pos, presets, options)
-        if (do_onchange && onchange)
-            onchange(sel_col, is_real_change)
+        if (trigger_level1 && onchange)
+            onchange(sel_col, trigger_level2)
     }
 
-    let is_real_change = false // used for making the change propogate only to the edit box
-    set_color(start_color || "#cccccc", true) // need to_change in order to update the attached edit input
-    is_real_change = true
-
+    let is_first_change = true
+    set_color(start_color || "#cccccc", true, false) // need to_change in order to update the attached edit input
+    is_first_change = false
 
     // handle color change by draggin gand clicking
     var square_capture = false;
@@ -473,12 +487,12 @@ var ColorEditBox = (function(){
 var DEBUG_NO_BLUR = false
 function create_at(edit_elem, sz, onchange, options, start_value) 
 {
-    var picker = ColorPicker.create_after(edit_elem, sz, false, function(c, real_change=true) { 
+    var picker = ColorPicker.create_after(edit_elem, sz, false, function(c, trigger_level2=true) { 
         if (document.activeElement != edit_elem)
             edit_elem.value = c.hex  // change the text only if we're not editing
         edit_elem.style.backgroundColor = c.hex_no_alpha
         edit_elem.style.color = c.is_dark ? "#fff" : "#000"
-        if (onchange && real_change)
+        if (onchange && trigger_level2)
             onchange(c)
     }, options, start_value)
     picker.elem.style.position = "fixed"
@@ -487,6 +501,12 @@ function create_at(edit_elem, sz, onchange, options, start_value)
         var ed_rect = edit_elem.getBoundingClientRect()
         picker.elem.style.top = ed_rect.bottom + window.scrollY + 2 + "px"
         picker.elem.style.left = ed_rect.left + window.scrollX + "px"
+    }
+
+    let picker_set_color = picker.set_color
+    picker.set_color = function(c, trigger=true) {
+        picker_set_color(c, true, trigger) 
+        // the edit box update always need to be updated, and the boolean actuall says if the outside onchange is triggered
     }
     
     edit_elem.addEventListener("input", function() {

@@ -97,6 +97,11 @@ input {
     
 }
 .param_line {
+    display: flex;
+    padding: 5px 0 0 0;
+    align-items: center;
+}
+.param_multi_line {
     padding: 5px 0 0 0;
 }
 
@@ -119,6 +124,9 @@ input {
     display: inline-block;
     text-align: right;
     white-space: nowrap;
+}
+.param_label_pre_indent {
+    width: 150px; 
 }
 .param_label_colon {
     padding-right: 2px;    
@@ -144,7 +152,9 @@ input {
     font-size: 14px;        
 }
 .param_input_long {
-    width: calc( 100% - 160px )
+    /*width: calc( 100% - 160px )*/
+    flex-grow: 1;
+    margin-right:10px;
 }
 .param_input_error {
     background-color: #a22;
@@ -161,7 +171,7 @@ input {
 .param_checkbox_disp {
     width: 17px;
     height: 17px;
-    margin: -4px 4px 0 2px;
+    margin: 0 4px 0 2px;
     vertical-align: middle;
 }
 .param_checkbox_input + .param_checkbox_disp {

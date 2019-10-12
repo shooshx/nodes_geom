@@ -13,6 +13,7 @@ GUI:
 ENGINE:
 - parser in parameter
     - attributes in parameters?
+- serialization - save only if something is changed
 
 NODES:
 - frame buffer

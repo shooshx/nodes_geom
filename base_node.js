@@ -530,8 +530,8 @@ class StateAccess {
         }
         let et = this.state_evaluators[varname] // as specified by the node_cls
         if (et !== undefined) {
-            this.score |= EXPR_NEED_INPUT // TBD depend on evaluator?
             let e = new et(top_level, sp.slice(1))
+            this.score |= EXPR_NEED_INPUT // TBD depend on evaluator?
             return e
         }
 
