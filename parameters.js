@@ -304,8 +304,11 @@ class ExpressionItem {
         let vk = v["se_" + this.prop_name]
         if (vk !== undefined && vk !== null) 
             this.peval(vk) 
-        else
-            this.set_prop(v[this.prop_name])
+        else {
+            let lv = v[this.prop_name]
+            console.assert(lv !== undefined, "failed load value")
+            this.set_prop(lv)
+        }
     }
     peval(se) {
         this.se = se
@@ -470,28 +473,34 @@ class ParamColor extends Parameter {
         this.item_r = new ExpressionItem(this, "r", ED_INT, (v)=>{ this.v.r=v; this.items_to_picker()}, ()=>{return this.v.r})
         this.item_g = new ExpressionItem(this, "g", ED_INT, (v)=>{ this.v.g=v; this.items_to_picker()}, ()=>{return this.v.g})
         this.item_b = new ExpressionItem(this, "b", ED_INT, (v)=>{ this.v.b=v; this.items_to_picker()}, ()=>{return this.v.b})
-        this.item_alpha = new ExpressionItem(this, "alpha", ED_INT, (v)=>{this.v.alphai=v; this.items_to_picker()}, ()=>{return this.v.alphai})
+        this.item_alpha = new ExpressionItem(this, "alphai", ED_INT, (v)=>{this.v.alphai=v; this.v.alpha=(v==null)?null:(v/255); this.items_to_picker()}, ()=>{return this.v.alphai})
         this.picker = null
         this.picker_elem = null
     }
     items_to_picker() { //  if possible transfer the color from the items to the picker, otherwise, make an indication it's not possible
-        if (this.v.r !== null && this.v.g !== null && this.v.b !== null && this.v.alphai !== null)
-            this.picker.set_color(this.v, false)
+        if (this.v.r !== null && this.v.g !== null && this.v.b !== null && this.v.alphai !== null) {
+            if (this.picker !== null) {
+                this.picker.set_color(this.v, false)
+                this.picker_elem.setAttribute("placeholder", "")
+                this.picker_elem.classList.toggle("param_color_from_input", false)
+            }
+        }
         else {
             if (this.picker_elem) {
-                this.picker_elem.style.backgroundColor = "#555"
-                this.picker_elem.value = "[from-input]"
+                this.picker_elem.classList.toggle("param_color_from_input", true)
+                this.picker_elem.value = ""
+                this.picker_elem.setAttribute("placeholder", "[from-input]")
             }
         }
     }
     save() { 
         //return (this.v !== null) ? this.v.hex : null 
-        let r = { hex:this.v.hex }; 
+        let r = {r:this.v.r, g:this.v.g, b:this.v.b, hex:this.v.hex, alpha:this.v.alpha, alphai:this.v.alphai }
         this.item_r.save_to(r); this.item_g.save_to(r); this.item_b.save_to(r); this.item_alpha.save_to(r)
         return r 
     }
     load(v) { 
-        this.v = ColorPicker.parse_hex(v.hex) 
+        this.v = v 
         this.item_r.load(v); this.item_g.load(v); this.item_b.load(v); this.item_alpha.load(v);
     }
     add_elems(parent) {
@@ -514,7 +523,8 @@ class ParamColor extends Parameter {
         let line_b = add_param_line(this.line_elem); add_param_label(line_b, "Blue", 'param_label_pre_indent')
         this.item_b.add_editbox(line_b, 'param_input_long')
         let line_alpha = add_param_line(this.line_elem); add_param_label(line_alpha, "Alpha", 'param_label_pre_indent')
-        this.item_alpha.add_editbox(line_alpha, 'param_input_long')        
+        this.item_alpha.add_editbox(line_alpha, 'param_input_long')       
+        this.items_to_picker() 
     }
     dyn_eval(item_index) {
         switch(item_index) {

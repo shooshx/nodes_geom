@@ -221,11 +221,11 @@ function is_dark(c) {
 }
 
 function make_hex(c, force_no_alpha) {
-    console.assert(!isNaN(c.r) && !isNaN(c.g) && !isNaN(c.b) && !isNaN(c.alpha))
+    console.assert(!isNaN(c.r) && !isNaN(c.g) && !isNaN(c.b) && !isNaN(c.alpha), "NaN color")
     if (c.alpha == 1 || force_no_alpha)
         return "#" + (Number(c.r).toString(16).padStart(2,'0') + Number(c.g).toString(16).padStart(2,'0') + Number(c.b).toString(16).padStart(2,'0')).toUpperCase()
     else
-        return "rgba(" + c.r + "," + c.g + "," + c.b + "," + c.alpha.toFixed(2) + ")"
+        return "rgba(" + c.r + "," + c.g + "," + c.b + "," + ((c.alpha==null)?null:c.alpha.toFixed(2)) + ")"
 }
 
 function parse_hex(s) {
@@ -360,11 +360,11 @@ function create_at(elem, add_func, sz, visible, onchange, options, start_color)
         if (c.alpha !== undefined) {
             console.assert(!isNaN(c.alpha))
             sel_col.alpha = c.alpha
-            sel_col.alphai = Math.round(c.alpha * 255)
+            sel_col.alphai = (c.alpha==null)?null:Math.round(c.alpha * 255)
         }
         else { // alphai is integer alpha in the range of [0-255]
             console.assert(c.alphai !== undefined && !isNaN(c.alphai))
-            sel_col.alpha = c.alphai / 255
+            sel_col.alpha = (c.alphai==null)?null:(c.alphai / 255)
             sel_col.alphai = c.alphai
         }
 

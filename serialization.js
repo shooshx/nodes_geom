@@ -48,6 +48,8 @@ function load_prog_json(prog_s) {
 var user_saved_programs = {}
 
 function save_state() {
+    if (loading)
+        return
     let state = { program: save_program(),
                   nodes_view: nodes_view.save(), 
                   main_view_s: main_view_state.save(),
@@ -112,10 +114,12 @@ function load_program(sprog)
     program.display_node = (sprog.display_node_id == null) ? null : program.obj_map[sprog.display_node_id]
 }
 
+var loading = false // used for avoiding spurious saves during load
 function load_state() {
     let state_s = localStorage.getItem("state")
     if (state_s === null)
         return
+    loading = true
     //console.log("LOADING: " + state)
     let state = JSON.parse(state_s)
     main_view_state.load(state.main_view_s)
@@ -131,5 +135,5 @@ function load_state() {
     catch(e) {
         console.error("Failed loading current program")
     }
-
+    loading = false
 }

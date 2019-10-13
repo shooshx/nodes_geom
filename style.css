@@ -163,6 +163,16 @@ input {
     
 }
 
+.param_color_from_input {
+    background-color: #555  !important;  /* override element style */
+    color: #fff  !important;
+    font-style: italic;
+}
+.param_color_from_input::placeholder {
+    color: rgb(106, 157, 253) !important;;
+}
+
+
 .param_checkbox_input {
     position: absolute;
     z-index: -2;
