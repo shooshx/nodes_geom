@@ -33,6 +33,8 @@ NODES:
 - Primitive Circle
 - attribute sample
     point size sample from image
+- SetAttr
+    pseudo attribute - face center (position) so that it will be possible to sample face color from the position attribute
 - Manual points
     point size
 - round edges

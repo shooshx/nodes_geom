@@ -229,11 +229,12 @@ class ObjSubscriptEvaluator {
 
 const VAL_INDICES = { r:0, g:1, b:2, alpha:3, x:0, y:1, z:2, w:3 } // TBD add HSV 
 class MeshPropEvaluator {
-    constructor(meshref, subscripts) {
+    constructor(meshref, subscripts, param_bind_to) {
         console.assert(meshref !== undefined  && meshref !== null)
         eassert(subscripts.length == 2 || subscripts.length == 1, "Not enough subscript given to variable " + name)
         this.meshref = meshref
         this.attrname = subscripts[0]
+        this.param_bind_to = param_bind_to
         this.valname = (subscripts.length == 2) ? subscripts[1] : null
         this.valindex = (this.valname !== null) ? VAL_INDICES[this.valname] : 0
         eassert(this.valindex !== undefined, "Unknown subscript `" + this.valname + "`")
@@ -246,6 +247,10 @@ class MeshPropEvaluator {
         if (this.attr === null || this.meshref.dirty_obj) {
             eassert(this.meshref.obj !== null, "unexpecrted null mesh")
             eassert(this.meshref.idx !== null, "unexpecrted null mesh")
+            if (this.param_bind_to.sel_idx == 0) // vertices
+                eassert(this.attrname.startsWith("vtx"), "bind to Vertices can only sample vertex attribute")
+            else if (this.param_bind_to.sel_idx == 1) // faces
+                eassert(this.attrname.startsWith("face"), "bind to Faces can only sample face attribute")
             let attr = this.meshref.obj.arrs[this.attrname]
             eassert(attr !== undefined, "unknown attribute " + this.attrname + " of mesh")
             this.num_elems = this.meshref.obj.meta[this.attrname].num_elems
@@ -281,7 +286,8 @@ class NodeSetAttr extends NodeCls
         this.expr_vec2 = new ParamVec2(node, "Float2", 0, 0)
 
         // node says what evaluators it wants for its inputs
-        node.set_state_evaluators({"in_src": ObjSubscriptEvaluator, "in_mesh": MeshPropEvaluator })
+        node.set_state_evaluators({"in_src":  (m,s)=>{ return new ObjSubscriptEvaluator(m,s) }, 
+                                   "in_mesh": (m,s)=>{ return new MeshPropEvaluator(m,s, this.bind_to) }})
     }
 
     prop_from_const(prop, src) {

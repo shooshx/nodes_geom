@@ -528,9 +528,9 @@ class StateAccess {
                 return null;
                 top_level = this.need_inputs[varname] = this.known_objrefs[varname]
         }
-        let et = this.state_evaluators[varname] // as specified by the node_cls
-        if (et !== undefined) {
-            let e = new et(top_level, sp.slice(1))
+        let evaluator_factory = this.state_evaluators[varname] // as specified by the node_cls
+        if (evaluator_factory !== undefined) {
+            let e = evaluator_factory(top_level, sp.slice(1))
             this.score |= EXPR_NEED_INPUT // TBD depend on evaluator?
             return e
         }

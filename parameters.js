@@ -358,6 +358,13 @@ class ExpressionItem {
             this.elem.classList.add(cls) // if it's a single value (long line)
         return this.elem
     }
+    set_to_const(v) {
+        this.e = null 
+        this.se = null
+        this.need_inputs = null
+        this.elem.value = v
+        this.set_prop(v) // in color, need it the picker style to not be italic
+    }
     dyn_eval() {
         if (this.e === null)  
             return this.get_prop()
@@ -511,8 +518,14 @@ class ParamColor extends Parameter {
                 return;
             if (v === null)
                 this.v = null
-            else
+            else {
                 this.v = v.copy() // make a copy so that this.v will be different object than the internal object
+                // from color picker to items
+                this.item_r.set_to_const(this.v.r)
+                this.item_g.set_to_const(this.v.g)
+                this.item_b.set_to_const(this.v.b)
+                this.item_alpha.set_to_const(this.v.alphai)
+            }
             this.pset_dirty()
         })
         this.v = v; this.picker_elem = elem; this.picker = picker
