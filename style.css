@@ -100,6 +100,7 @@ input {
     display: flex;
     padding: 5px 0 0 0;
     align-items: center;
+    position: relative;  /* for error messages to appear relative to its line */
 }
 .param_multi_line {
     padding: 5px 0 0 0;
@@ -161,6 +162,22 @@ input {
 }
 .param_editbox {
     
+}
+.param_edit_err_box {
+    position:absolute;
+    background-color: #a22;
+    color: #fff;
+    border: solid 1px #000;
+    z-index: 1; /* get on top of the following edit boxes */
+    align-self: flex-end;
+    margin-top: 6px;
+    padding: 3px;
+    border-radius: 3px;
+    font-size: 14px;
+    display:none;
+}
+.param_editbox:focus + .param_edit_err_box {
+    display:initial;
 }
 
 .param_color_from_input {

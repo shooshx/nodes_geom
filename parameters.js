@@ -298,6 +298,7 @@ class ExpressionItem {
         this.se = null // expression string
         this.last_error = null // string of the error if there was one or null
         this.need_inputs = null // string names of the inputs needed, already verified that they exist
+        this.err_elem = null
     }
     save_to(r) { r["se_" + this.prop_name] = this.se }
     load(v) {
@@ -310,26 +311,50 @@ class ExpressionItem {
             this.set_prop(lv)
         }
     }
+    show_err() {
+        //let edit_rect = this.elem.getBoundingClientRect(), line_rect = this.this.elem.parentElement.getBoundingClientRect()
+        this.err_elem = create_div("param_edit_err_box")
+        this.err_elem.innerText = this.last_error
+        this.err_elem.style.left = Math.round(this.elem.offsetLeft) + "px"
+        this.err_elem.style.top = Math.round(this.elem.offsetHeight) + "px"
+        this.elem.parentElement.appendChild(this.err_elem)
+    }
+    eset_error(ex) {
+        if (this.last_error !== null)
+            return
+        this.last_error = ex.message
+        if (this.elem) {
+            this.elem.classList.toggle("param_input_error", true)
+            this.show_err()
+        }
+    }
+    eclear_error() {
+        if (this.last_error === null) 
+            return
+        this.last_error = null
+        if (this.elem)
+            this.elem.classList.toggle("param_input_error", false)
+        if (this.err_elem) {
+            this.err_elem.parentElement.removeChild(this.err_elem)
+            this.err_elem = null
+        }
+    }
     peval(se) {
         this.se = se
-        this.last_error = null
+        this.eclear_error()
         try {
             this.in_param.owner.state_access.reset_check()
             this.e = ExprParser.eval(se, this.in_param.owner.state_access)
         }
         catch(ex) { // TBD better show the error somewhere
-            this.last_error = ex.message
-            if (this.elem)
-                this.elem.classList.toggle("param_input_error", true)
+            this.eset_error(ex)
             set_error(this.in_param.owner.cls, "Parameter expression error")
             return
         }
-        if (this.elem)
-            this.elem.classList.toggle("param_input_error", false)
         let expr_score = this.in_param.owner.state_access.score
         if (expr_score == EXPR_CONST) { // depends on anything?
             this.set_prop(this.e.eval())
-            if (this.e.is_just_num) { // if we've just inputted a number without any expression, don't save the expression (checking existance of func)
+            if (this.e.is_decimal_num()) { // if we've just inputted a number without any expression, don't save the expression
                 this.e = null 
                 this.se = null
             }
@@ -353,9 +378,12 @@ class ExpressionItem {
             ed_type = this.prop_type
         }
         this.elem = add_param_edit(line, show_v, ed_type, (se)=>{this.peval(se)})
-        this.elem.classList.toggle("param_input_error", this.last_error !== null)
         if (cls)
             this.elem.classList.add(cls) // if it's a single value (long line)
+        if (this.last_error !== null) {
+            this.elem.classList.toggle("param_input_error", true)
+            this.show_err()
+        }
         return this.elem
     }
     set_to_const(v) {
@@ -366,9 +394,16 @@ class ExpressionItem {
         this.set_prop(v) // in color, need it the picker style to not be italic
     }
     dyn_eval() {
+        this.eclear_error()
         if (this.e === null)  
             return this.get_prop()
-        return this.e.eval() // the state_input was put there using the evaler before the call to here
+        try {
+            return this.e.eval() // the state_input was put there using the evaler before the call to here
+        }
+        catch(ex) {
+            this.eset_error(ex)
+            throw ex // will be caught by the node and node error set by caller          
+        }
     }
     need_input_evaler(input_name) {
         if (this.need_inputs === undefined || this.need_inputs === null)
@@ -477,10 +512,14 @@ class ParamColor extends Parameter {
     constructor(node, label, start_c_str) {
         super(node, label)
         this.v = ColorPicker.parse_hex(start_c_str)
-        this.item_r = new ExpressionItem(this, "r", ED_INT, (v)=>{ this.v.r=v; this.items_to_picker()}, ()=>{return this.v.r})
-        this.item_g = new ExpressionItem(this, "g", ED_INT, (v)=>{ this.v.g=v; this.items_to_picker()}, ()=>{return this.v.g})
-        this.item_b = new ExpressionItem(this, "b", ED_INT, (v)=>{ this.v.b=v; this.items_to_picker()}, ()=>{return this.v.b})
-        this.item_alpha = new ExpressionItem(this, "alphai", ED_INT, (v)=>{this.v.alphai=v; this.v.alpha=(v==null)?null:(v/255); this.items_to_picker()}, ()=>{return this.v.alphai})
+        this.item_r = new ExpressionItem(this, "r", ED_INT, (v)=>{ this.v.r=v & 0xff; this.items_to_picker()}, ()=>{return this.v.r})
+        this.item_g = new ExpressionItem(this, "g", ED_INT, (v)=>{ this.v.g=v & 0xff; this.items_to_picker()}, ()=>{return this.v.g})
+        this.item_b = new ExpressionItem(this, "b", ED_INT, (v)=>{ this.v.b=v & 0xff; this.items_to_picker()}, ()=>{return this.v.b})
+        this.item_alpha = new ExpressionItem(this, "alphai", ED_INT, (v)=>{
+            this.v.alphai=v & 0xff; 
+            this.v.alpha=(v==null)?null:((v&0xff)/255); 
+            this.items_to_picker()
+        }, ()=>{return this.v.alphai})
         this.picker = null
         this.picker_elem = null
     }
@@ -541,10 +580,10 @@ class ParamColor extends Parameter {
     }
     dyn_eval(item_index) {
         switch(item_index) {
-        case 0: return this.item_r.dyn_eval()
-        case 1: return this.item_g.dyn_eval()
-        case 2: return this.item_b.dyn_eval()
-        case 3: return this.item_alpha.dyn_eval()
+        case 0: return this.item_r.dyn_eval() & 0xff
+        case 1: return this.item_g.dyn_eval() & 0xff
+        case 2: return this.item_b.dyn_eval() & 0xff
+        case 3: return this.item_alpha.dyn_eval() & 0xff
         }
         eassert(false, "inaccessible item index " + item_index)
     }

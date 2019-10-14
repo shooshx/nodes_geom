@@ -11,13 +11,14 @@ class ExprErr extends Error {
 var ExprParser = (function() {
 
 class NumNode  {
-    constructor(_v) {
+    constructor(_v, str_was_decimal) {
         this.v = _v;
+        this.decimal = str_was_decimal
     }
     eval() {
         return this.v;
     }
-    is_just_num() { return true }
+    is_decimal_num() { return this.decimal }
 }
 
 function checkZero(v) {
@@ -284,9 +285,9 @@ function parseIdentifier() {
 function toInteger(c) {
     if (c === null)
         return 0xf + 1
-    if (c >= '0' && c <= '9') return c - '0';
-    if (c >= 'a' && c <= 'f') return c - 'a' + 0xa;
-    if (c >= 'A' && c <= 'F') return c - 'A' + 0xa;
+    if (c >= '0' && c <= '9') return c.charCodeAt(0) - 48; // '0'
+    if (c >= 'a' && c <= 'f') return c.charCodeAt(0) - 97 + 0xa;  // 'a'
+    if (c >= 'A' && c <= 'F') return c.charCodeAt(0) - 65 + 0xa;  // 'A'
     return  0xf + 1;
 }
 
@@ -306,7 +307,7 @@ function parseDecimal() {
             f *= 0.1
         }
     }
-    return new NumNode(value);
+    return new NumNode(value, true);
 }
 
 function parseHex() {
@@ -314,21 +315,21 @@ function parseHex() {
     let value = 0;
     for (let h; (h = getInteger()) <= 0xf; index_++)
         value = value * 0x10 + h;
-    return new NumNode(value);
+    return new NumNode(value, false);
 }
 function parseBin() {
     index_ = index_ + 2;
     let value = 0;
     for (let h; (h = getInteger()) <= 1; index_++)
         value = value * 2 + h;
-    return new NumNode(value);
+    return new NumNode(value, false);
 }
 function parseOct() {
     index_ = index_ + 2;
     let value = 0;
     for (let h; (h = getInteger()) <= 7; index_++)
         value = value * 8 + h;
-    return new NumNode(value);
+    return new NumNode(value, false);
 }
 
 function getBase()

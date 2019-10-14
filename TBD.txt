@@ -26,6 +26,7 @@ NODES:
     - select with rectangle
     - move them even after transform?
     - edit coords with input
+    - primitive quad, triangle, path between the points? by selection?
 - mouse polyline
 - polyline fill
     Path2D
