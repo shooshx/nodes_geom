@@ -44,7 +44,7 @@ class NodeGeomPrimitive extends NodeCls
         let mesh = new Mesh()
         // center at 0,0
         let hx = this.size.x * 0.5, hy = this.size.y * 0.5
-        mesh.set('vtx', new TVtxArr([-hx, -hy, hx, -hy, hx, hy, -hx, hy]), 2)
+        mesh.set('vtx_pos', new TVtxArr([-hx, -hy, hx, -hy, hx, hy, -hx, hy]), 2)
         mesh.set('idx', new TIdxArr([0, 1, 2, 3]))
         mesh.set_type(MESH_QUAD)
         mesh.transform(this.transform.v)
@@ -182,7 +182,7 @@ class NodeManualPoints extends NodeCls
     }
     run() {
         let mesh = new Mesh()
-        mesh.set('vtx', new TVtxArr(this.points.lst), 2)
+        mesh.set('vtx_pos', new TVtxArr(this.points.lst), 2)
         for (let attr of this.pnt_attrs) {
             mesh.set(attr.label, attr.lst, attr.values_per_entry, attr.need_normalize)
         }
@@ -276,6 +276,7 @@ class NodeSetAttr extends NodeCls
         this.in_source = new InTerminal(node, "in_src") // future - may not be an image? proximity to other mesh?
         this.out_mesh = new OutTerminal(node, "out_mesh")
 
+        this.use_code = new ParamBool(node, "Use Code", false, (v)=>{})
         this.bind_to = new ParamSelect(node, "Bind To", 0, ["Vertices", "Faces"]) // TBD also lines?
         this.attr_name = new ParamStr(node, "Name", "color")
         this.attr_type = new ParamSelect(node, "Type", 0, ["Color", "Float", "Float2"], (v)=>{
@@ -285,7 +286,8 @@ class NodeSetAttr extends NodeCls
         })
         this.expr_color = new ParamColor(node, "Color", "#cccccc")
         this.expr_float = new ParamFloat(node, "Float", 0)
-        this.expr_vec2 = new ParamVec2(node, "Float2", 0, 0)
+        this.expr_vec2 = new ParamVec2(node, "Float2", 0, 0, true)
+        this.expr_code = new ParamCode(node, "Code")
 
         // node says what evaluators it wants for its inputs
         node.set_state_evaluators({"in_src":  (m,s)=>{ return new ObjSubscriptEvaluator(m,s) }, 
@@ -329,7 +331,7 @@ class NodeSetAttr extends NodeCls
     prop_from_input_framebuffer(prop, mesh, src, value_need_src, value_need_mesh, src_param, transform, fb_viewport) 
     {
         mesh.ensure_tcache(transform)
-        let vtx = mesh.tcache.vtx
+        let vtx = mesh.tcache.vtx_pos
 
         // see https://www.khronos.org/opengl/wiki/Vertex_Post-Processing#Viewport_transform
         // from Xw = (w/2)*Xp + (w/2) 
@@ -680,7 +682,7 @@ class NodeRandomPoints extends NodeCls
         }
         
         let r = new Mesh()
-        r.set("vtx", vtx, 2)
+        r.set("vtx_pos", vtx, 2)
         this.out_mesh.set(r)
         
     }
@@ -698,8 +700,8 @@ class NodeTriangulate extends NodeCls
     run() {
         let mesh = this.in_mesh.get_mutable()
         assert(mesh !== null, this, "Missing input mesh")
-        assert(mesh.arrs !== undefined && mesh.arrs.vtx !== undefined, this, "Input doesn't have vertices. type: " + mesh.constructor.name())
-        let d = new Delaunator(mesh.arrs.vtx)
+        assert(mesh.arrs !== undefined && mesh.arrs.vtx_pos !== undefined, this, "Input doesn't have vertices. type: " + mesh.constructor.name())
+        let d = new Delaunator(mesh.arrs.vtx_pos)
         mesh.set('idx', d.triangles)
         mesh.set_type(MESH_TRI)
         this.out_mesh.set(mesh)
@@ -723,7 +725,7 @@ class GeomDivide extends NodeCls
     }
 
     divide_quad(mesh, out_vtx, out_idx, idx0, idx1, idx2, idx3) {
-        let vtx = mesh.arrs.vtx
+        let vtx = mesh.arrs.vtx_pos
         let p0_x = vtx[idx0*2], p0_y = vtx[idx0*2+1]
         let p1_x = vtx[idx1*2], p1_y = vtx[idx1*2+1]
         let p3_x = vtx[idx3*2], p3_y = vtx[idx3*2+1]
@@ -774,7 +776,7 @@ class GeomDivide extends NodeCls
                 this.divide_quad(mesh, out_vtx, out_idx, idx[i], idx[i+1], idx[i+2], idx[i+3])
             }
             let out_mesh = new Mesh()
-            out_mesh.set('vtx', new Float32Array(out_vtx), 2, false)
+            out_mesh.set('vtx_pos', new Float32Array(out_vtx), 2, false)
             out_mesh.set('idx', new Uint32Array(out_idx))
             out_mesh.type = MESH_QUAD
             this.out_mesh.set(out_mesh)

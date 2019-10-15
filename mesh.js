@@ -16,7 +16,7 @@ function normalize_attr_name(s) {
     if (r == "point_color")
         return "vtx_color"
     if (r == "coord")
-        return "vtx"
+        return "vtx_pos"
     return r
 }
 
@@ -30,12 +30,12 @@ class Mesh extends PObject
 
         this.type = MESH_NOT_SET
         // vtx_color : Uint8Array
-        this.arrs = { vtx:null, idx:null }
-        this.meta = { vtx:null, idx:null } // metadata objects for every array in arrs (instead of setting properties in the array object itself which can't be cloned reasonably)
+        this.arrs = { vtx_pos:null, idx:null }
+        this.meta = { vtx_pos:null, idx:null } // metadata objects for every array in arrs (instead of setting properties in the array object itself which can't be cloned reasonably)
         
-        this.tcache = { vtx:null, m:null }  // transformed cache
+        this.tcache = { vtx_pos:null, m:null }  // transformed cache
         //this.lines_cache = null  // cache lines for stroke (so that every line be repeated twice
-        this.glbufs = { vtx:null, idx:null }
+        this.glbufs = { vtx_pos:null, idx:null }
     }
     destructor() {
         for(let bi in this.glbufs) {
@@ -61,12 +61,12 @@ class Mesh extends PObject
                             num_elems: num_elems || 1, // count of numbers for each element. will be undefined for indices
                             need_normalize: need_normalize || false // true for color that needs to go from int to float [0,1]
                            }
-        if (name == "vtx" && this.tcache[name] !== undefined)
+        if (name == "vtx_pos" && this.tcache[name] !== undefined)
             this.tcache[name] = null  // invalidate
     }
 
     set_type(v) { this.type = v }
-    vtx_count() { return this.arrs.vtx.length / 2 } // 2 for (x,y)
+    vtx_count() { return this.arrs.vtx_pos.length / 2 } // 2 for (x,y)
     face_count() {
         if (this.arrs.idx === null || this.arrs.idx === undefined)
             return 0
@@ -101,12 +101,12 @@ class Mesh extends PObject
     
     // API
     transform(m) {
-        this.transform_arr(m, this.arrs.vtx, this.arrs.vtx)
+        this.transform_arr(m, this.arrs.vtx_pos, this.arrs.vtx_pos)
     }
 
     // API
     get_bbox() { // TBD can cache this
-        let vtx = this.arrs.vtx
+        let vtx = this.arrs.vtx_pos
         if (vtx.length == 0)
             return null
         let min_x = Number.MAX_VALUE, max_x = -Number.MAX_VALUE, min_y = Number.MAX_VALUE, max_y = -Number.MAX_VALUE
@@ -121,15 +121,15 @@ class Mesh extends PObject
     }
 
     draw_vertices() {
-        let vtx = this.tcache.vtx
+        let vtx = this.tcache.vtx_pos
         let vtx_radius = null
         if (this.arrs.vtx_radius !== undefined) {
             vtx_radius = this.arrs.vtx_radius
-            dassert(vtx_radius.length == this.arrs.vtx.length / 2, "unexpected size of vtx_radius")
+            dassert(vtx_radius.length == this.arrs.vtx_pos.length / 2, "unexpected size of vtx_radius")
         }
         if (this.arrs.vtx_color !== undefined) {
             let vcol = this.arrs.vtx_color
-            dassert(vcol.length / 4 == this.arrs.vtx.length / 2, "unexpected size of vtx_color")
+            dassert(vcol.length / 4 == this.arrs.vtx_pos.length / 2, "unexpected size of vtx_color")
             for(let i = 0, vi = 0, icol = 0; vi < vtx.length; ++i, vi += 2, icol += 4) {
                 // radius shouldn't be negative
                 let radius = Math.max(0, (vtx_radius !== null) ? vtx_radius[i] : MESH_DISP.vtx_radius)
@@ -156,7 +156,7 @@ class Mesh extends PObject
 
         if (this.arrs.vtx_normal !== undefined) {
             let norm = this.arrs.vtx_normal
-            dassert(norm.length == this.arrs.vtx.length, "unexpected size of vtx_normal")
+            dassert(norm.length == this.arrs.vtx_pos.length, "unexpected size of vtx_normal")
             ctx_img.beginPath();
             for(let vi=0; vi < vtx.length; vi += 2) {
                 ctx_img.moveTo(vtx[vi], vtx[vi+1])
@@ -169,7 +169,7 @@ class Mesh extends PObject
     }
 
     draw_poly_stroke() {            
-        let vtx = this.tcache.vtx
+        let vtx = this.tcache.vtx_pos
         let idxs = this.arrs.idx
         ctx_img.lineWidth = 0.5
         ctx_img.beginPath();
@@ -197,7 +197,7 @@ class Mesh extends PObject
 
     draw_poly_fill() {
         let r = (v)=>{return v}
-        let vtx = this.tcache.vtx
+        let vtx = this.tcache.vtx_pos
         let idxs = this.arrs.idx
         let fcol = this.arrs.face_color
         ctx_img.lineWidth = 1
@@ -244,16 +244,16 @@ class Mesh extends PObject
     
     ensure_tcache(m) {
         let do_trans = false
-        if (this.tcache.vtx === null) {
-            this.tcache.vtx = new Float32Array(this.arrs.vtx)
+        if (this.tcache.vtx_pos === null) {
+            this.tcache.vtx_pos = new Float32Array(this.arrs.vtx_pos)
             do_trans = true
         }
         else if (this.tcache.m === null || !mat3.equals(m, this.tcache.m)) {
             do_trans = true
         }
         if (do_trans) {
-            this.transform_arr(m, this.arrs.vtx, this.tcache.vtx)
-            this.meta['vtx'].made_glbuf = false
+            this.transform_arr(m, this.arrs.vtx_pos, this.tcache.vtx_pos)
+            this.meta['vtx_pos'].made_glbuf = false
         }
     }
 
@@ -273,7 +273,7 @@ class Mesh extends PObject
     draw_selection(m, select_vindices) {
         this.ensure_tcache(m)
 
-        let vtx = this.tcache.vtx
+        let vtx = this.tcache.vtx_pos
         ctx_img.lineWidth = 2
         ctx_img.beginPath();
         for(let idx of select_vindices) {
@@ -295,7 +295,7 @@ class Mesh extends PObject
                 this.meta[name].made_glbuf = false
             }
             if (this.meta[name] !== null && this.meta[name] !== undefined && !this.meta[name].made_glbuf) {
-                let data_from = (name == "vtx") ? this.tcache : this.arrs
+                let data_from = (name == "vtx_pos") ? this.tcache : this.arrs
                 let bind_point = (name == 'idx') ? gl.ELEMENT_ARRAY_BUFFER : gl.ARRAY_BUFFER
                     
                 gl.bindBuffer(bind_point, this.glbufs[name]);
@@ -322,6 +322,7 @@ class Mesh extends PObject
                 }
             }
             let attr_idx = program_attr[attr_name]
+            dassert(attr_idx !== -1, "Can't find program attribute `" + attr_name + "`")
             let arr = this.arrs[attr_name]
             let meta = this.meta[attr_name]
             if (!attr_buf) {
@@ -361,7 +362,7 @@ function arr_gl_type(arr) {
         let idx = this.arrs.idx
         if (this.lines_cache === null) {
             // upper bound to the number of lines is the the number of edges. it will be lower since the outer hull 
-            let vtx_visited = new Uint8Array(this.arrs.vtx.length)
+            let vtx_visited = new Uint8Array(this.arrs.vtx_pos.length)
             let lines_idx = new Uint32Array(idx.length)
             let ladd = 0
             function check_add(a,b) {

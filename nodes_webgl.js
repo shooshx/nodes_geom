@@ -242,7 +242,7 @@ class NodeShader extends NodeCls
         assert(this.program, this, "failed to compile shaders")
 
         this.program.attrs = {}
-        for(let attr_name of ["vtx", "vtx_color"])
+        for(let attr_name of ["vtx_pos", "vtx_color"])
             this.program.attrs[attr_name] = gl.getAttribLocation(this.program, attr_name);
     
         // draw
@@ -260,8 +260,14 @@ class NodeShader extends NodeCls
         let transform = mat3.create()
         mat3.invert(transform, tex.t_mat) 
 
+        try {
+            mesh.gl_draw(transform, this.program.attrs)
+        }
+        catch(ex) {
+            console.warn(ex.message)
+            assert(false, this, "Failed webgl draw")
+        }
 
-        mesh.gl_draw(transform, this.program.attrs)
         tex.invalidate_img()
 
         this.out_tex.set(tex)
@@ -294,16 +300,16 @@ class PointGradFill extends NodeCls
         this.out_tex = new TerminalProxy(node, this.shader_node.cls.out_tex)
 
         this.shader_node.cls.vtx_text.set_text(`#version 300 es
-in vec4 vtx;
+in vec4 vtx_pos;
 in vec4 vtx_color;
 
 out vec2 v_coord;
 out vec4 v_color;
 
 void main() {
-    v_coord = vtx.xy;
+    v_coord = vtx_pos.xy;
     v_color = vtx_color;
-    gl_Position = vtx;
+    gl_Position = vtx_pos;
 }
 `)
         this.shader_node.cls.frag_text.set_text( `#version 300 es

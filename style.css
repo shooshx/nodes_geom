@@ -408,17 +408,27 @@ input {
     bottom: -2px;
     cursor: s-resize;
 }
-.param_text_area {
+.dlg_param_text_area {
     margin: 5px;
     height: calc( 100% - 10px - 21px);
     width: calc( 100% - 10px );
-    box-sizing: border-box;
     background-color: #686868;
+}
+.panel_param_text_area {
+    flex-grow: 1;
+    margin: 0 10px 0 5px;
+    background-color: #555;
+    border-radius: 3px;
+    font-size: 14px;
+}
+.param_text_area {
+    box-sizing: border-box;
     color: #fff;
     font-family: monospace;
     font-size: 15px;  
     resize: none;
     outline: none; /* don't show focus border */
+    border: solid 1px #888;
 }
 .dlg_title {
     margin: 0 0 0 7px;

@@ -450,21 +450,31 @@ class ParamFloat extends Parameter {
 
 
 class ParamVec2 extends Parameter {
-    constructor(node, label, start_x, start_y) {
+    constructor(node, label, start_x, start_y, long_form=false) {
         super(node, label)
         this.x = start_x
         this.item_x = new ExpressionItem(this, "x", ED_FLOAT)
         this.y = start_y
         this.item_y = new ExpressionItem(this, "y", ED_FLOAT)
+        this.long_form = long_form
     }
     save() { let r = { x:this.x, y:this.y }; this.item_x.save_to(r); this.item_y.save_to(r); return r }
     load(v) { this.item_x.load(v); this.item_y.load(v) }
     add_elems(parent) {
-        this.line_elem = add_param_line(parent)
-        this.label_elem = add_param_label(this.line_elem, this.label)
+        if (!this.long_form) {
+            this.line_elem = add_param_line(parent)
+            this.label_elem = add_param_label(this.line_elem, this.label)
 
-        this.item_x.add_editbox(this.line_elem)
-        this.item_y.add_editbox(this.line_elem)
+            this.item_x.add_editbox(this.line_elem)
+            this.item_y.add_editbox(this.line_elem)
+        }
+        else {
+            this.line_elem = add_param_multiline(parent)
+            let line_x = add_param_line(this.line_elem); add_param_label(line_x, "X", 'param_label_pre_indent')
+            this.item_x.add_editbox(line_x, 'param_input_long')
+            let line_y = add_param_line(this.line_elem); add_param_label(line_y, "Y", 'param_label_pre_indent')
+            this.item_y.add_editbox(line_y, 'param_input_long')            
+        }
     }
     dyn_eval(item_index) {
         if (item_index == 0)
@@ -551,8 +561,9 @@ class ParamColor extends Parameter {
     }
     add_elems(parent) {
         this.line_elem = add_param_multiline(parent)
-        this.label_elem = add_param_label(this.line_elem, this.label)
-        let [v, elem, picker] = add_param_color(this.line_elem, this.v, 'param_input', (v)=>{ 
+        let line_picker = add_param_line(this.line_elem);
+        this.label_elem = add_param_label(line_picker, this.label)
+        let [v, elem, picker] = add_param_color(line_picker, this.v, 'param_input', (v)=>{ 
             if (this.v !== null && this.v.hex == v.hex) 
                 return;
             if (v === null)
@@ -596,6 +607,28 @@ class ParamColor extends Parameter {
         return this.item_r.has_error() || this.item_g.has_error() || this.item_b.has_error() || this.item_alpha.has_error()
     }       
 }
+
+// contains a text box that holds a piece of code that can modify 
+// multiple variables
+class ParamCode extends Parameter
+{
+    constructor(node, label) {
+        super(node, label)
+        this.text = null
+        this.input_elem = null
+    }
+    save() { return { text:this.text }}
+    load(v) { this.text = v.text }
+    add_elems(parent) {
+        this.line_elem = add_param_line(parent);
+        this.label_elem = add_param_label(this.line_elem, this.label)
+        this.input_elem = add_elem(this.line_elem, "textarea", ["param_text_area","panel_param_text_area"])
+        this.input_elem.spellcheck = false
+        this.input_elem.rows = 6
+
+    }
+}
+
 
 function toFixedMag(f) {
     if (Math.abs(f) < 1e-13)
@@ -1003,7 +1036,7 @@ class ParamTextBlock extends Parameter
         this.dlg_elem = this.dlg.elem, this.dlg_rect = this.dlg.rect
         let [edit_btn, edit_disp] = add_checkbox_btn(this.line_elem, "Edit...", this.dlg.rect.visible, this.dlg.set_visible)
 
-        this.text_input = add_elem(this.dlg_elem, "textarea", "param_text_area")
+        this.text_input = add_elem(this.dlg_elem, "textarea", ["dlg_param_text_area","param_text_area"])
         this.text_input.spellcheck = false
         this.text_input.value = this.text
         this.text_input.addEventListener("input", ()=>{ this.text = this.text_input.value; this.pset_dirty() }) // TBD save and trigger draw after timeout
