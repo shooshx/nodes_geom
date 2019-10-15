@@ -227,7 +227,7 @@ class ObjSubscriptEvaluator {
     }
 }
 
-const VAL_INDICES = { r:0, g:1, b:2, alpha:3, x:0, y:1, z:2, w:3 } // TBD add HSV 
+const VAL_INDICES = { r:0, g:1, b:2, alpha:3, x:0, y:1, z:2, w:3, index:-1 } // TBD add HSV 
 class MeshPropEvaluator {
     constructor(meshref, subscripts, param_bind_to) {
         console.assert(meshref !== undefined  && meshref !== null)
@@ -261,6 +261,8 @@ class MeshPropEvaluator {
             this.attr = attr
             this.meshref.dirty_obj = false
         }
+        if (this.valindex == -1)
+            return this.meshref.idx
         return this.attr[this.meshref.idx * this.num_elems + this.valindex]
     }
 }

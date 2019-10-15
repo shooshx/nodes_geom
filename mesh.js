@@ -204,7 +204,7 @@ class Mesh extends PObject
 
         let i = 0, vidx = 0
         if (this.type == MESH_QUAD) {
-            console.assert(fcol.length / 4 == idxs.length / 4, "unexpected size of face_color")
+            dassert(fcol.length / 4 == idxs.length / 4, "unexpected size of face_color")
             while(i < idxs.length) {
                 ctx_img.beginPath();
                 let idx = idxs[i++]<<1; ctx_img.moveTo(r(vtx[idx]), r(vtx[idx+1]))

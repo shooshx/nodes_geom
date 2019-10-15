@@ -66,6 +66,7 @@ NODES:
 - delete points outside a shape (crop>)
     node for clip using a path
 - convex hull
+- Copy - copy something onto vertices positions
 
 - random points  - https://www.sidefx.com/docs/houdini/nodes/sop/scatter.html
     on a surface
@@ -80,10 +81,12 @@ try for changing pivot T1 * Tp1 * R * Tp1' = T2 * Tp2 * R * Tp
 
 
 EXPRESSIONS
-- boolean comparisons operator?:
+- in transform params
+- boolean comparisons operator ?:
 - intellisense
 - vec2 normalize - require vec2 values
     - scale to object space coordinate
+
 
 NODE-VIEW
 - better lines the go up
@@ -109,3 +112,5 @@ d3: https://github.com/d3/d3/wiki/Gallery
 
 nice reference images:
 https://society6.com/product/gray-polygon-background_stretched-canvas
+
+VEX random attr video: https://www.youtube.com/watch?v=0qfBj15IoQM

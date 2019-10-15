@@ -354,7 +354,7 @@ class ExpressionItem {
         let expr_score = this.in_param.owner.state_access.score
         if (expr_score == EXPR_CONST) { // depends on anything?
             this.set_prop(this.e.eval())
-            if (this.e.is_decimal_num()) { // if we've just inputted a number without any expression, don't save the expression
+            if (this.e.is_decimal_num && this.e.is_decimal_num()) { // if we've just inputted a number without any expression, don't save the expression
                 this.e = null 
                 this.se = null
             }
