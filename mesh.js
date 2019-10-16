@@ -47,6 +47,7 @@ class Mesh extends PObject
         }
     }
 
+    // API
     get_disp_params(disp_values) {
         return [ new DispParamBool(disp_values, "Show Vertices", 'show_vtx', true),
                  new DispParamBool(disp_values, "Show Lines", 'show_lines', true),

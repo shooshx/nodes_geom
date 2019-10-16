@@ -121,14 +121,15 @@ class ParamColorList extends ListParam {
     def_value() { return [0xcc, 0xcc, 0xcc, 0xff] }
 }
 
-class NodeManualPoints extends NodeCls
+class NodeManualGeom extends NodeCls
 {
-    static name() { return "Manual_Points" }
+    static name() { return "Manual Geometry" }
     constructor(node) {
         super(node)
         this.selected_indices = [] // point indices
 
         this.out = new OutTerminal(node, "out_mesh")
+        this.geom_type = new ParamSelect(node, "Type", 0, ["Mesh, Paths"])
         this.table = new ParamTable(node, "Point List")
         this.points = new ParamCoordList(node, "Coord", this.table, this.selected_indices)
         this.dummy = new ParamFloatList(node, "Dummy", this.table)
@@ -181,12 +182,26 @@ class NodeManualPoints extends NodeCls
         return null
     }
     run() {
-        let mesh = new Mesh()
-        mesh.set('vtx_pos', new TVtxArr(this.points.lst), 2)
-        for (let attr of this.pnt_attrs) {
-            mesh.set(attr.label, attr.lst, attr.values_per_entry, attr.need_normalize)
+        if (this.geom_type.sel_idx == 0) // mesh
+        {
+            let mesh = new Mesh()
+            mesh.set('vtx_pos', this.points.lst, 2)
+            for (let attr of this.pnt_attrs) {
+                mesh.set(attr.label, attr.lst, attr.values_per_entry, attr.need_normalize)
+            }
+            this.out.set(mesh)
         }
-        this.out.set(mesh)
+        else if (this.geom_type.set_idx == 1) // paths
+        {
+            let paths = new MultiPath()
+            if (this.points.lst.length > 0) {
+                let cur_path = ['M', this.points.lst[0], this.points.lst[1]]
+                for(let pi = 2; pi < this.points.lst.length; p += 2) {
+                    cur_path.push('L', this.points.lst[pi], this.points.lst[pi+1])
+                }
+                paths.add_path(cur_path)
+            }
+        }
     }
     draw_selection(m) {
         let mesh = this.out.get_const()
@@ -202,11 +217,11 @@ class ObjRef { // top level variable that references an object
         this.name = name
         this.obj = null
         this.idx = null
-        this.dirty_obj = true // true if the evaluator needs to invalidation anything it cached about the object
+        this.dirty_obj_ver = 1 // incremented evaluator needs to invalidation anything it cached about the object
     }
     dyn_set_obj(obj) {
         this.obj = obj
-        this.dirty_obj = true
+        ++this.dirty_obj_ver;
     }
     dyn_set_prop_index(idx) { // for mesh objects
         this.idx = idx
@@ -241,10 +256,11 @@ class MeshPropEvaluator {
         // idx is in meshref not multiplied for any property
         this.attr = null
         this.num_elems = null
+        this.last_obj_ver = 0
     }
 
     eval() {
-        if (this.attr === null || this.meshref.dirty_obj) {
+        if (this.attr === null || this.last_obj_ver != this.meshref.dirty_obj_ver) {
             eassert(this.meshref.obj !== null, "unexpecrted null mesh")
             eassert(this.meshref.idx !== null, "unexpecrted null mesh")
             if (this.param_bind_to.sel_idx == 0) // vertices
@@ -259,7 +275,7 @@ class MeshPropEvaluator {
             else 
                 eassert(this.valname !== null, "missing addtitional subscript to select a value")
             this.attr = attr
-            this.meshref.dirty_obj = false
+            this.last_obj_ver = this.meshref.dirty_obj_ver
         }
         if (this.valindex == -1)
             return this.meshref.idx
@@ -276,7 +292,7 @@ class NodeSetAttr extends NodeCls
         this.in_source = new InTerminal(node, "in_src") // future - may not be an image? proximity to other mesh?
         this.out_mesh = new OutTerminal(node, "out_mesh")
 
-        this.use_code = new ParamBool(node, "Use Code", false, (v)=>{})
+        //this.use_code = new ParamBool(node, "Use Code", false, (v)=>{})
         this.bind_to = new ParamSelect(node, "Bind To", 0, ["Vertices", "Faces"]) // TBD also lines?
         this.attr_name = new ParamStr(node, "Name", "color")
         this.attr_type = new ParamSelect(node, "Type", 0, ["Color", "Float", "Float2"], (v)=>{
@@ -287,7 +303,7 @@ class NodeSetAttr extends NodeCls
         this.expr_color = new ParamColor(node, "Color", "#cccccc")
         this.expr_float = new ParamFloat(node, "Float", 0)
         this.expr_vec2 = new ParamVec2(node, "Float2", 0, 0, true)
-        this.expr_code = new ParamCode(node, "Code")
+        //this.expr_code = new ParamCode(node, "Code")
 
         // node says what evaluators it wants for its inputs
         node.set_state_evaluators({"in_src":  (m,s)=>{ return new ObjSubscriptEvaluator(m,s) }, 

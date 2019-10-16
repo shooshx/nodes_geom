@@ -1046,7 +1046,7 @@ class ParamTextBlock extends Parameter
 
 class ParamSelect extends Parameter
 {
-    constructor(node, label, selected_idx, opts, change_func) {
+    constructor(node, label, selected_idx, opts, change_func=null) {
         super(node, label)
         this.opts = opts
         this.sel_idx = selected_idx
