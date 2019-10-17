@@ -121,8 +121,9 @@ class Mesh extends PObject
         return { min_x:min_x, max_x:max_x, min_y:min_y, max_y:max_y }
     }
 
-    draw_vertices() {
-        let vtx = this.tcache.vtx_pos
+    draw_vertices() 
+    {
+        let vtx = this.arrs.vtx_pos
         let vtx_radius = null
         if (this.arrs.vtx_radius !== undefined) {
             vtx_radius = this.arrs.vtx_radius
@@ -134,20 +135,22 @@ class Mesh extends PObject
             for(let i = 0, vi = 0, icol = 0; vi < vtx.length; ++i, vi += 2, icol += 4) {
                 // radius shouldn't be negative
                 let radius = Math.max(0, (vtx_radius !== null) ? vtx_radius[i] : MESH_DISP.vtx_radius)
+                radius /= image_view.viewport_zoom // radius is given in pixels, need to scale it back
                 ctx_img.beginPath();
                 ctx_img.arc(vtx[vi], vtx[vi+1], radius, 0, 2*Math.PI)
                 ctx_img.fillStyle = "rgba(" + vcol[icol] + "," + vcol[icol+1] + "," + vcol[icol+2] + "," + (vcol[icol+3]/255) + ")"
                 ctx_img.fill()
             }
-            ctx_img.lineWidth = 0.5
+            ctx_img.lineWidth = 0.5/image_view.viewport_zoom
         }
         else {
-            ctx_img.lineWidth = 1
+            ctx_img.lineWidth = 1/image_view.viewport_zoom
         }
 
         ctx_img.beginPath();
         for(let i = 0, vi = 0; vi < vtx.length; ++i, vi += 2) {
             let radius = Math.max(0, (vtx_radius !== null) ? vtx_radius[i] : MESH_DISP.vtx_radius)
+            radius /= image_view.viewport_zoom
             let x = vtx[vi], y = vtx[vi+1]
             ctx_img.moveTo(x + radius, y)
             ctx_img.arc(x, y, radius, 0, 2*Math.PI)
@@ -163,16 +166,16 @@ class Mesh extends PObject
                 ctx_img.moveTo(vtx[vi], vtx[vi+1])
                 ctx_img.lineTo(vtx[vi] + norm[vi], vtx[vi+1] + norm[vi+1])
             }
-            ctx_img.lineWidth = 0.5
+            ctx_img.lineWidth = 0.5/image_view.viewport_zoom
             ctx_img.strokeStyle = "#ff0000"
             ctx_img.stroke()
         }        
     }
 
     draw_poly_stroke() {            
-        let vtx = this.tcache.vtx_pos
+        let vtx = this.arrs.vtx_pos
         let idxs = this.arrs.idx
-        ctx_img.lineWidth = 0.5
+        ctx_img.lineWidth = 0.5/image_view.viewport_zoom
         ctx_img.beginPath();
         let i = 0
         if (this.type == MESH_QUAD) {
@@ -198,7 +201,7 @@ class Mesh extends PObject
 
     draw_poly_fill() {
         let r = (v)=>{return v}
-        let vtx = this.tcache.vtx_pos
+        let vtx = this.arrs.vtx_pos
         let idxs = this.arrs.idx
         let fcol = this.arrs.face_color
         ctx_img.lineWidth = 1
@@ -262,29 +265,36 @@ class Mesh extends PObject
     draw(m, disp_values) {
         if (!disp_values)
             disp_values = { show_faces:true, show_lines:true, show_vtx:true } // hack for group to work
-        this.ensure_tcache(m)
+        //this.ensure_tcache(m)
+        ctx_img.save()
+        ctx_img.setTransform(m[0], m[1], m[3], m[4], m[6], m[7])
         if (disp_values.show_faces && this.arrs.face_color) 
             this.draw_poly_fill()
         if (disp_values.show_lines)
             this.draw_poly_stroke()
         if (disp_values.show_vtx)
             this.draw_vertices()
+        ctx_img.restore()
     }
 
     draw_selection(m, select_vindices) {
-        this.ensure_tcache(m)
+        //this.ensure_tcache(m)
+        ctx_img.save()
+        ctx_img.setTransform(m[0], m[1], m[3], m[4], m[6], m[7])
 
-        let vtx = this.tcache.vtx_pos
-        ctx_img.lineWidth = 2
+        let vtx = this.arrs.vtx_pos
+        ctx_img.lineWidth = 2/image_view.viewport_zoom
         ctx_img.beginPath();
+        let radius = MESH_DISP.vtx_sel_radius/image_view.viewport_zoom
         for(let idx of select_vindices) {
             let vidx = idx * 2
             let x = vtx[vidx], y = vtx[vidx+1]
-            ctx_img.moveTo(x + MESH_DISP.vtx_sel_radius, y)
-            ctx_img.arc(x, y, MESH_DISP.vtx_sel_radius, 0, 2*Math.PI)
+            ctx_img.moveTo(x + radius, y)
+            ctx_img.arc(x, y, radius, 0, 2*Math.PI)
         }
         ctx_img.strokeStyle = "#FFBB55"
-        ctx_img.stroke()             
+        ctx_img.stroke()
+        ctx_img.restore()          
     }
 
     make_buffers() {

@@ -78,7 +78,9 @@ function load_program(sprog)
     for(let nid_s in sprog.nodes) {
         let nid = parseInt(nid_s)
         let sn = sprog.nodes[nid]
-        let n = program.add_node(sn.x, sn.y, sn.name, nodes_classes_by_name[sn.cls_name], nid)
+        let cls = nodes_classes_by_name[sn.cls_name]
+        console.assert(cls !== null, "Unknown node class " + sn.cls_name)
+        let n = program.add_node(sn.x, sn.y, sn.name, cls, nid)
         for(let p of n.parameters) {
             let sp = sn.params[p.label]
             if (sp !== undefined) { // might be a new parameter that's not there

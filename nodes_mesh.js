@@ -129,7 +129,7 @@ class NodeManualGeom extends NodeCls
         this.selected_indices = [] // point indices
 
         this.out = new OutTerminal(node, "out_mesh")
-        this.geom_type = new ParamSelect(node, "Type", 0, ["Mesh, Paths"])
+        this.geom_type = new ParamSelect(node, "Type", 0, ["Mesh", "Paths"])
         this.table = new ParamTable(node, "Point List")
         this.points = new ParamCoordList(node, "Coord", this.table, this.selected_indices)
         this.dummy = new ParamFloatList(node, "Dummy", this.table)
@@ -191,16 +191,20 @@ class NodeManualGeom extends NodeCls
             }
             this.out.set(mesh)
         }
-        else if (this.geom_type.set_idx == 1) // paths
+        else if (this.geom_type.sel_idx == 1) // paths
         {
             let paths = new MultiPath()
             if (this.points.lst.length > 0) {
-                let cur_path = ['M', this.points.lst[0], this.points.lst[1]]
-                for(let pi = 2; pi < this.points.lst.length; p += 2) {
-                    cur_path.push('L', this.points.lst[pi], this.points.lst[pi+1])
+                let cur_path = ['M', 0]
+                for(let i = 1; i < this.points.lst.length/2; ++i) {
+                    cur_path.push('L', i)
                 }
-                paths.add_path(cur_path)
+                paths.add_path(cur_path, this.points.lst, 2)
             }
+            this.out.set(paths)
+        }
+        else {
+            assert(false, this, "unexpected type")
         }
     }
     draw_selection(m) {
@@ -717,10 +721,12 @@ class NodeTriangulate extends NodeCls
         let mesh = this.in_mesh.get_mutable()
         assert(mesh !== null, this, "Missing input mesh")
         assert(mesh.arrs !== undefined && mesh.arrs.vtx_pos !== undefined, this, "Input doesn't have vertices. type: " + mesh.constructor.name())
-        let d = new Delaunator(mesh.arrs.vtx_pos)
-        mesh.set('idx', d.triangles)
-        mesh.set_type(MESH_TRI)
-        this.out_mesh.set(mesh)
+        if (mesh.constructor === Mesh) {
+            let d = new Delaunator(mesh.arrs.vtx_pos)
+            mesh.set('idx', d.triangles)
+            mesh.set_type(MESH_TRI)
+            this.out_mesh.set(mesh)
+        }
     }
 }
 
