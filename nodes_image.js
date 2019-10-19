@@ -51,7 +51,9 @@ class NodeLoadImage extends NodeCls
     }
 
     draw_selection(m) {
-        this.transform.draw_dial_at_obj(this.out_img.get_const(), m)
+        let outimg = this.out_img.get_const()
+        dassert(outimg !== null, "No output object to select")
+        this.transform.draw_dial_at_obj(outimg, m)
     }    
     image_find_obj(vx, vy, ex, ey) {
         return this.transform.dial.find_obj(ex, ey)

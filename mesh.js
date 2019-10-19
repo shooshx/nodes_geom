@@ -91,18 +91,18 @@ class Mesh extends PObject
         return r
     }
 
-    transform_arr(m, from, to) {
+    static transform_arr(m, from, to) {
         for(let i = 0; i < from.length; i += 2) {
             let x = from[i], y = from[i+1]
             to[i]   = m[0] * x + m[3] * y + m[6];
             to[i+1] = m[1] * x + m[4] * y + m[7];            
         }
-        to.made_glbuf = false
     }
     
     // API
     transform(m) {
-        this.transform_arr(m, this.arrs.vtx_pos, this.arrs.vtx_pos)
+        Mesh.transform_arr(m, this.arrs.vtx_pos, this.arrs.vtx_pos)
+        this.meta.vtx_pos.made_glbuf = false
     }
 
     // API
@@ -124,6 +124,8 @@ class Mesh extends PObject
     draw_vertices() 
     {
         let vtx = this.arrs.vtx_pos
+        if (vtx === null)
+            return
         let vtx_radius = null
         if (this.arrs.vtx_radius !== undefined) {
             vtx_radius = this.arrs.vtx_radius
@@ -256,8 +258,8 @@ class Mesh extends PObject
             do_trans = true
         }
         if (do_trans) {
-            this.transform_arr(m, this.arrs.vtx_pos, this.tcache.vtx_pos)
-            this.meta['vtx_pos'].made_glbuf = false
+            Mesh.transform_arr(m, this.arrs.vtx_pos, this.tcache.vtx_pos)
+            this.meta.vtx_pos.made_glbuf = false
         }
     }
 

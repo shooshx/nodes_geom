@@ -8,11 +8,14 @@ class MultiPath extends PObject
         this.arrs = { vtx_pos:null }  // common to all paths
         this.meta = { vtx_pos:null }
     }
-    add_path(p, vtx_arr, num_elems) {
+    add_path(p) {
         this.cmds.push(p)
-        this.arrs.vtx_pos = vtx_arr
-        this.meta.vtx_pos = { num_elems: num_elems,
-                              need_normalize: false }
+    }
+    set(name, arr, num_elems, need_normalize) {
+        name = normalize_attr_name(name)
+        this.arrs[name] = arr
+        this.meta[name] = { num_elems: num_elems,
+                            need_normalize: need_normalize }
     }
 
     get_disp_params(disp_values) {
@@ -46,6 +49,10 @@ class MultiPath extends PObject
                         plst.push(cmd, vtx[vidx], vtx[vidx+1])
                         ci += 2
                     }
+                    else if (cmd = 'Z') {
+                        plst.push(cmd)
+                        ++ci
+                    }
                     else {
                         dassert(false, "Unexpected path cmd " + cmd)
                     }
@@ -65,6 +72,8 @@ class MultiPath extends PObject
 
     // API
     draw(m, disp_values) {
+        if (this.arrs.vtx_pos === null)
+            return
         ctx_img.save()
         ctx_img.setTransform(m[0], m[1], m[3], m[4], m[6], m[7])
         if (disp_values.show_lines)
@@ -75,6 +84,6 @@ class MultiPath extends PObject
     }
 
     draw_selection(m, select_vindices) {
-
+        Mesh.prototype.draw_selection.call(this, m, select_vindices)
     }
 }

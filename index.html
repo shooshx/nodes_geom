@@ -225,17 +225,23 @@ function run_nodes_tree(n) {
                 run_nodes_tree(line.from_term.node)
             }
         }
+        // clear outputs of what's just going to run to make sure it updated its output
+        for(let out_t of n.outputs) {
+            out_t.clear()
+        }
         n.cls.run()
         n.clear_dirty() // it finished running so it didn't throw and exception
     }
     // distribute outputs to all connected inputs so that all references of an object will be known
     //   still need to do that even if not dirty since inputs are cleared
     for(let out_t of n.outputs) {  
-        for(let line of out_t.lines) { 
-            line.to_term.set(line.from_term.get_const())
+        for(let line of out_t.lines) {
+            let obj = line.from_term.get_const()
+            assert(obj !== null, n.cls, "No output")
+            line.to_term.set(obj)
         }
     }
-    // clear all inputs of the node that just ran so that they won't take up references
+    // clear all inputs of the node that just ran just to be safe (they don't take up references)
     for(let inp_t of n.inputs) {
         for(let line of inp_t.lines) {
             line.to_term.clear()
@@ -373,7 +379,11 @@ function trigger_frame_draw(do_run, clear_all=false)
     }
     let finalize_draw = ()=>{
         if (selected_node !== null) {
-            selected_node.cls.draw_selection(image_view.t_viewport)
+            try {
+                selected_node.cls.draw_selection(image_view.t_viewport)
+            } catch(e) {
+                set_error(selected_node.cls, e.message)
+            }
         }
         in_draw = false
     }

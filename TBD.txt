@@ -27,13 +27,13 @@ NODES:
     - move them even after transform?
     - edit coords with input
     - primitive quad, triangle, path between the points? by selection?
-- mouse polyline
 - polyline fill
-    Path2D
     https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths
-- Primitive Circle
-- attribute sample
-    point size sample from image
+    transform
+    triangulation
+    curves
+    primitive circle
+    SetAttr
 - SetAttr
     pseudo attribute - face center (position) so that it will be possible to sample face color from the position attribute
 - Manual points
@@ -43,7 +43,7 @@ NODES:
 - single value input using a slider
 - random points
     too slow - add KdTree
-    exact shape, not bbox (clip)
+    exact shape, not bbox (clip) using canvas function
 - interactive
     mouse input
 - Group objects
@@ -106,6 +106,7 @@ demo idea
 - function map with color gradient
 - function contours like in d3 example
 - star field screen saver
+- topograph with gradient
 
 nice visualizations: https://bost.ocks.org/mike/algorithms/
 d3: https://github.com/d3/d3/wiki/Gallery

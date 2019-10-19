@@ -51,7 +51,9 @@ class NodeGeomPrimitive extends NodeCls
         this.out.set(mesh)
     }
     draw_selection(m) {
-        this.transform.draw_dial_at_obj(this.out.get_const(), m)
+        let outmesh = this.out.get_const()
+        dassert(outmesh !== null, "No output object to select")
+        this.transform.draw_dial_at_obj(outmesh, m)
     }    
     image_find_obj(vx, vy, ex, ey) {
         return this.transform.dial.find_obj(ex, ey)
@@ -121,6 +123,38 @@ class ParamColorList extends ListParam {
     def_value() { return [0xcc, 0xcc, 0xcc, 0xff] }
 }
 
+class PathCmdsList extends Parameter {
+    constructor(node) {
+        super(node, "cmds")
+        this.lst = []
+    }
+    save() { return {lst:this.lst} }
+    load(v) { this.lst = v.lst } // always a plain list
+    add(v) {
+        this.lst.push(v)
+        this.pset_dirty()
+    }
+    add_default() {
+        let cmd = 'L'
+        if (this.lst.length == 0)
+            cmd = 'M'
+        else {
+            let last_cmd = this.lst[this.lst.length - 1]
+            if (last_cmd[last_cmd.length - 1] == 'Z')
+                cmd = 'M'
+        }
+        this.add([cmd])
+    }
+    close_current() {
+        let last_cmd = this.lst[this.lst.length-1]
+        if (last_cmd[last_cmd.length - 1] !== 'Z') {// already closed?
+            last_cmd.push('Z')
+            this.pset_dirty()
+        }
+    }
+    add_elems(parent) {}
+}
+
 class NodeManualGeom extends NodeCls
 {
     static name() { return "Manual Geometry" }
@@ -130,21 +164,30 @@ class NodeManualGeom extends NodeCls
 
         this.out = new OutTerminal(node, "out_mesh")
         this.geom_type = new ParamSelect(node, "Type", 0, ["Mesh", "Paths"])
+        this.add_pnts_btn = new ParamBool(node, "Add points", true, null)
+        this.add_pnts_btn.display_as_btn(true)
         this.table = new ParamTable(node, "Point List")
         this.points = new ParamCoordList(node, "Coord", this.table, this.selected_indices)
         this.dummy = new ParamFloatList(node, "Dummy", this.table)
         this.color = new ParamColorList(node, "Point Color", this.table)
+        this.cmds = new PathCmdsList(node) // not shown
 
         this.pnt_attrs = [this.dummy, this.color]  // Param objets of additional attributes of each point other than it's coordinate
     }
     image_click(ex, ey) {
+        if (!this.add_pnts_btn.v)
+            return
         let ti = image_view.epnt_to_model(ex, ey)
         this.points.add(ti)
         for(let attr_param of this.pnt_attrs) {
             attr_param.add(attr_param.def_value())
         }
+
+        this.cmds.add_default() // do this anyway just to keep it simple, not much of an overhead
+
         trigger_frame_draw(true)
     }
+
     move_selection(dx, dy) {
         dx /= image_view.viewport_zoom
         dy /= image_view.viewport_zoom
@@ -157,9 +200,15 @@ class NodeManualGeom extends NodeCls
         this.points.reprint_all_lines()
     }
     set_selection(idx) {
+        if (this.add_pnts_btn.v && this.geom_type.sel_idx == 1) {
+            // when adding points to path, instead of select, close the path
+            this.cmds.close_current()
+            trigger_frame_draw(true)
+            return
+        }
         this.selected_indices.length = 0
         this.selected_indices.push(idx)
-        this.points.reprint_all_lines()
+        this.points.reprint_all_lines() // mark with yellow the selected
     }
     selected_obj_name() { return (this.selected_indices.length > 0) ? "points" : null }
     delete_selection() {
@@ -182,35 +231,42 @@ class NodeManualGeom extends NodeCls
         return null
     }
     run() {
+        let obj
         if (this.geom_type.sel_idx == 0) // mesh
         {
-            let mesh = new Mesh()
-            mesh.set('vtx_pos', this.points.lst, 2)
-            for (let attr of this.pnt_attrs) {
-                mesh.set(attr.label, attr.lst, attr.values_per_entry, attr.need_normalize)
-            }
-            this.out.set(mesh)
+            obj = new Mesh()
         }
         else if (this.geom_type.sel_idx == 1) // paths
         {
-            let paths = new MultiPath()
+            obj = new MultiPath()
             if (this.points.lst.length > 0) {
-                let cur_path = ['M', 0]
-                for(let i = 1; i < this.points.lst.length/2; ++i) {
-                    cur_path.push('L', i)
+                let cur_path = []
+                for(let i = 0; i < this.cmds.lst.length; ++i) {
+                    let cmd = this.cmds.lst[i]
+                    cur_path.push(cmd[0], i)
+                    for(let j = 1; j < cmd.length; ++j) // rest of the cmd
+                        cur_path.push(cmd[j])
+                    if (cmd[cmd.length-1] == 'Z') { // path ends
+                        obj.add_path(cur_path)
+                        cur_path = []
+                    }
                 }
-                paths.add_path(cur_path, this.points.lst, 2)
+                obj.add_path(cur_path)
             }
-            this.out.set(paths)
         }
         else {
             assert(false, this, "unexpected type")
         }
+
+        obj.set('vtx_pos', this.points.lst, 2)
+        for (let attr of this.pnt_attrs) {
+            obj.set(attr.label, attr.lst, attr.values_per_entry, attr.need_normalize)
+        }
+        this.out.set(obj)
     }
     draw_selection(m) {
         let mesh = this.out.get_const()
-        if (mesh === null)
-            return // might be it's not connected so it doesn't have output
+        dassert(mesh !== null, "No output object to select") // might be it's not connected so it doesn't have output
         mesh.draw_selection(m, this.selected_indices)
     }
 }

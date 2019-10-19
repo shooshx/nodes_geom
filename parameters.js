@@ -257,13 +257,16 @@ class ParamBool extends Parameter {
         super(node, label)
         this.v = start_v
         this.change_func = change_func
+        this.as_btn = false
     }
+    display_as_btn(v) { this.as_btn = v }
     save() { return {v:this.v} }
     load(v) { this.v = v.v; this.call_change()  }
     add_elems(parent) {
         this.line_elem = add_param_line(parent)
         add_param_label(this.line_elem, null)  // empty space
-        this.label_elem = add_param_checkbox(this.line_elem, this.label, this.v, (v) => { 
+        let add_func = this.as_btn ? add_checkbox_btn : add_param_checkbox
+        this.label_elem = add_func(this.line_elem, this.label, this.v, (v) => { 
             this.v = v; 
             this.call_change()
             this.pset_dirty()
