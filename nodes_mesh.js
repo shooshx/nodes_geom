@@ -671,6 +671,15 @@ class NodeTransform extends NodeCls
         obj.transform(this.transform.v)
         this.out.set(obj)
     }
+    draw_selection(m) {
+        let out = this.out.get_const()
+        dassert(out !== null, "No output object to select")
+        this.transform.draw_dial_at_obj(out, m)
+        out.draw_border(m)
+    }    
+    image_find_obj(vx, vy, ex, ey) {
+        return this.transform.dial.find_obj(ex, ey)
+    }
 }
 
 

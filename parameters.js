@@ -648,32 +648,66 @@ class ParamTransform extends Parameter {
         this.rotate = 0
         this.scale = vec2.fromValues(1,1)
         this.v = mat3.create()
+        this.rotate_pivot = vec2.fromValues(0,0)
         
-        this.elems = {tx:null, ty:null, r:null, sx:null, sy:null }
+        this.elems = {tx:null, ty:null, r:null, sx:null, sy:null, pvx:null, pvy:null }
         this.dial = null
     }
-    save() { return {t:this.translate, r:this.rotate, s:this.scale} }
-    load(v) { this.translate[0] = v.t[0]; this.translate[1] = v.t[1]; this.rotate = v.r; this.scale[0] = v.s[0]; this.scale[1] = v.s[1]; this.calc_mat() }
+    save() { return {t:this.translate, r:this.rotate, s:this.scale, pv:this.rotate_pivot} }
+    load(v) { 
+        this.translate[0] = v.t[0]; this.translate[1] = v.t[1]; 
+        this.rotate = v.r; 
+        if (v.pv) { this.rotate_pivot[0] = v.pv[0]; this.rotate_pivot[1] = v.pv[1] }
+        this.scale[0] = v.s[0]; this.scale[1] = v.s[1]; 
+        this.calc_mat() 
+    }
     calc_mat() {
         mat3.identity(this.v)
         mat3.translate(this.v, this.v, this.translate)
+          mat3.translate(this.v, this.v, this.rotate_pivot)
         mat3.rotate(this.v, this.v, glm.toRadian(this.rotate))
+          mat3.translate(this.v, this.v, vec2.fromValues(-this.rotate_pivot[0],-this.rotate_pivot[1]))
         mat3.scale(this.v, this.v, this.scale)
         this.pset_dirty()
     }
-    add_elems(parent) {  // TBD support enable
-        add_elem(parent, "hr", "param_separator")
-        let line1 = add_param_line(parent)
-        add_param_label(line1, "Translate")
-        this.elems.tx = add_param_edit(line1, this.translate[0], ED_FLOAT, (v)=>{ this.translate[0] = parseFloat(v); this.calc_mat() })
-        this.elems.ty = add_param_edit(line1, this.translate[1], ED_FLOAT, (v)=>{ this.translate[1] = parseFloat(v); this.calc_mat()})
-        let line2 = add_param_line(parent)
-        add_param_label(line2, "Rotate")
-        this.elems.r = add_param_edit(line2, this.rotate, ED_FLOAT, (v)=>{ this.rotate = parseFloat(v); this.calc_mat()})
-        let line3 = add_param_line(parent)
-        add_param_label(line3, "Scale")
-        this.elems.sx = add_param_edit(line3, this.scale[0], ED_FLOAT, (v)=>{ this.scale[0] = parseFloat(v); this.calc_mat()})
-        this.elems.sy = add_param_edit(line3, this.scale[1], ED_FLOAT, (v)=>{ this.scale[1] = parseFloat(v); this.calc_mat()})
+     // calculate the translation that needs to happen to counter the change in pivot in order for the object not to move
+    calc_pivot_counter(dx, dy) {
+        if (isNaN(dx) || isNaN(dy))
+            return // parse failed, no change
+        this.rotate_pivot[0] += dx
+        this.rotate_pivot[1] += dy
+        
+        let tt = mat3.create()
+        mat3.translate(tt, tt, vec2.fromValues(-dx,-dy))
+        mat3.rotate(tt, tt, glm.toRadian(this.rotate))
+        mat3.translate(tt, tt, vec2.fromValues(dx,dy))
+        //mat3.invert(tt, tt)
+        let dt = vec2.create()
+        vec2.transformMat3(dt, dt, tt)
+        this.translate[0] += dt[0]
+        this.translate[1] += dt[1]
+        this.repaint_elems()
+        this.calc_mat()
+    }
+    add_elems(parent) { 
+        this.line_elem = add_param_multiline(parent)
+        add_elem(this.line_elem, "hr", "param_separator")
+        let line_t = add_param_line(this.line_elem)
+        add_param_label(line_t, "Translate")
+        this.elems.tx = add_param_edit(line_t, this.translate[0], ED_FLOAT, (v)=>{ this.translate[0] = parseFloat(v); this.calc_mat() })
+        this.elems.ty = add_param_edit(line_t, this.translate[1], ED_FLOAT, (v)=>{ this.translate[1] = parseFloat(v); this.calc_mat()})
+        let line_r = add_param_line(this.line_elem)
+        add_param_label(line_r, "Rotate")
+        let line_pv = add_param_line(this.line_elem)
+        add_param_label(line_pv, "Pivot")
+        this.elems.pvx = add_param_edit(line_pv, this.rotate_pivot[0], ED_FLOAT, (v)=>{ let dx = parseFloat(v)-this.rotate_pivot[0]; this.calc_pivot_counter(dx, 0) })
+        this.elems.pvy = add_param_edit(line_pv, this.rotate_pivot[1], ED_FLOAT, (v)=>{ let dy = parseFloat(v)-this.rotate_pivot[1]; this.calc_pivot_counter(0, dy) })
+
+        this.elems.r = add_param_edit(line_r, this.rotate, ED_FLOAT, (v)=>{ this.rotate = parseFloat(v); this.calc_mat()})
+        let line_s = add_param_line(this.line_elem)
+        add_param_label(line_s, "Scale")
+        this.elems.sx = add_param_edit(line_s, this.scale[0], ED_FLOAT, (v)=>{ this.scale[0] = parseFloat(v); this.calc_mat()})
+        this.elems.sy = add_param_edit(line_s, this.scale[1], ED_FLOAT, (v)=>{ this.scale[1] = parseFloat(v); this.calc_mat()})
     }
     repaint_elems() {
         if (this.elems.tx === null) // not displayed yet
@@ -713,8 +747,16 @@ class ParamTransform extends Parameter {
     draw_dial_at_obj(obj, m) {
         if (obj === null)
             return // might be it's not connected so it doesn't have output
-        let bbox = obj.get_bbox()
-        let center = vec2.fromValues((bbox.min_x + bbox.max_x) * 0.5, (bbox.min_y + bbox.max_y) * 0.5)
+        let center;
+        if (false) {
+            let bbox = obj.get_bbox()
+            center = vec2.fromValues((bbox.min_x + bbox.max_x) * 0.5, (bbox.min_y + bbox.max_y) * 0.5)
+            //this.set_rotate_pivot(center[0], center[1])
+        }
+        center = vec2.clone(this.rotate_pivot)
+
+        center[0] += this.translate[0]
+        center[1] += this.translate[1]
         vec2.transformMat3(center, center, m) // to canvas coords
         this.draw_dial(center[0], center[1])        
     }

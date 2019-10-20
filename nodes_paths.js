@@ -27,11 +27,12 @@ class MultiPath extends PObject
 
     // API
     transform(m) {
-
+        Mesh.transform_arr(m, this.arrs.vtx_pos, this.arrs.vtx_pos)
     }
 
     // API
     get_bbox() {
+        return Mesh.prototype.get_bbox.call(this)
     }
 
     draw_lines() {

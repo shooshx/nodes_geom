@@ -120,6 +120,15 @@ class Mesh extends PObject
         }
         return { min_x:min_x, max_x:max_x, min_y:min_y, max_y:max_y }
     }
+    draw_border(m) {
+        let bbox = this.get_bbox()
+        ctx_img.save()
+        ctx_img.setTransform(m[0], m[1], m[3], m[4], m[6], m[7])
+        ctx_img.strokeStyle = "#000"
+        ctx_img.lineWidth = 0.5 / image_view.viewport_zoom
+        ctx_img.strokeRect(bbox.min_x, bbox.min_y, bbox.max_x - bbox.min_x, bbox.max_y - bbox.min_y)
+        ctx_img.restore()
+    }
 
     draw_vertices() 
     {
