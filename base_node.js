@@ -262,10 +262,14 @@ class PHandle {
     }
 }
 
+function isTypedArray(obj) {
+    return (obj.BYTES_PER_ELEMENT !== undefined)
+}
+
 function clone(obj) {
     if (obj === null || typeof (obj) !== 'object')
         return obj;    
-    if (obj.BYTES_PER_ELEMENT !== undefined || obj.constructor == Path2D) { 
+    if (isTypedArray(obj) || obj.constructor == Path2D) { 
         // it's a typed array or Path2D (that have copy ctor)
         return new obj.constructor(obj)
     }

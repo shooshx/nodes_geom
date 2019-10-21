@@ -135,7 +135,7 @@ function load_state() {
         load_program(state.program) 
     }
     catch(e) {
-        console.error("Failed loading current program")
+        console.error("Failed loading current program" + e)
     }
     loading = false
 }

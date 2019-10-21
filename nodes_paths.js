@@ -34,6 +34,9 @@ class MultiPath extends PObject
     get_bbox() {
         return Mesh.prototype.get_bbox.call(this)
     }
+    draw_border(m) {
+        Mesh.prototype.draw_border.call(this, m)
+    }
 
     draw_lines() {
         if (this.paths === null || this.paths.length != this.cmds.length) 

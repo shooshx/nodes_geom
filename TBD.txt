@@ -29,7 +29,6 @@ NODES:
     - primitive quad, triangle, path between the points? by selection?
 - polyline fill
     https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths
-    transform
     triangulation
     curves
     primitive circle

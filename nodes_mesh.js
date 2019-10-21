@@ -779,18 +779,73 @@ class NodeTriangulate extends NodeCls
     static name() { return "Triangulate" }
     constructor(node) {
         super(node)
-        this.in_mesh = new InTerminal(node, "in_mesh")
+        this.in_obj = new InTerminal(node, "in_obj")
         this.out_mesh = new OutTerminal(node, "out_mesh")        
     }
     run() {
-        let mesh = this.in_mesh.get_mutable()
-        assert(mesh !== null, this, "Missing input mesh")
-        assert(mesh.arrs !== undefined && mesh.arrs.vtx_pos !== undefined, this, "Input doesn't have vertices. type: " + mesh.constructor.name())
-        if (mesh.constructor === Mesh) {
-            let d = new Delaunator(mesh.arrs.vtx_pos)
-            mesh.set('idx', d.triangles)
-            mesh.set_type(MESH_TRI)
+        let obj = this.in_obj.get_const()
+        assert(obj !== null, this, "Missing input mesh")
+        assert(obj.arrs !== undefined && obj.arrs.vtx_pos !== undefined, this, "Input doesn't have vertices. type: " + obj.constructor.name())
+        if (obj.constructor === Mesh) {
+            let obj = this.in_obj.get_mutable()
+            let d = new Delaunator(obj.arrs.vtx_pos)
+            obj.set('idx', d.triangles)
+            obj.set_type(MESH_TRI)
             this.out_mesh.set(mesh)
+        }
+        else if (obj.constructor === MultiPath) 
+        { // https://github.com/shooshx/ArNavNav/blob/352a5a3acaabbc0591fb995b36255dc750406d22/src/poly2tri/adapter.cc
+            
+            var swctx = new poly2tri.SweepContext([]);
+            let vtx = obj.arrs.vtx_pos;
+            let added_poly = 0
+            for(let pcmds of obj.cmds) 
+            {
+                let plst = []
+                let ci = 0;
+                while(ci < pcmds.length) {
+                    let cmd = pcmds[ci]
+                    if (cmd == 'M' || cmd == 'L') {
+                        let idx = pcmds[ci+1]
+                        let vidx = idx * 2
+                        let tpnt = new poly2tri.Point(vtx[vidx], vtx[vidx+1])
+                        tpnt.my_index = idx
+                        plst.push(tpnt)
+                        ci += 2
+                    }
+                    else if (cmd = 'Z')
+                        ++ci
+                    else 
+                        dassert(false, "Unexpected path cmd " + cmd)
+                }
+                if (plst.length >= 3) {
+                    swctx.addHole(plst)
+                    ++added_poly;
+                }
+            }
+            let out_mesh = new Mesh()
+            let idx = []
+            if (added_poly > 0) {
+                try {
+                    swctx.triangulate()
+                } catch(e) {
+                    assert(false, this, "Failed triangulation")
+                }
+                var triangles = swctx.getTriangles();
+                for(let tri of triangles) {
+                    let tripnt = tri.getPoints()
+                    console.assert(tripnt.length == 3, "unexpected size of triangle")
+                    idx.push(tripnt[0].my_index, tripnt[1].my_index, tripnt[2].my_index)
+                }
+            }
+            for(let attrname in obj.arrs) {
+                let attrarr = obj.arrs[attrname]
+                console.assert(isTypedArray(attrarr), "not a typed-array " + attrname)
+                out_mesh.set(attrname, new attrarr.constructor(attrarr), obj.meta[attrname].num_elems, obj.meta[attrname].need_normalize)
+            }
+            out_mesh.set("idx", new TIdxArr(idx))
+            out_mesh.set_type(MESH_TRI)
+            this.out_mesh.set(out_mesh)
         }
     }
 }
