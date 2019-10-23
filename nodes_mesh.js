@@ -799,6 +799,7 @@ class NodeTriangulate extends NodeCls
             var swctx = new poly2tri.SweepContext([]);
             let vtx = obj.arrs.vtx_pos;
             let added_poly = 0
+            let all_pnts = []
             for(let pcmds of obj.cmds) 
             {
                 let plst = []
@@ -810,7 +811,9 @@ class NodeTriangulate extends NodeCls
                         let vidx = idx * 2
                         let tpnt = new poly2tri.Point(vtx[vidx], vtx[vidx+1])
                         tpnt.my_index = idx
+                        tpnt.visited = false
                         plst.push(tpnt)
+                        all_pnts.push(tpnt)
                         ci += 2
                     }
                     else if (cmd = 'Z')
@@ -826,16 +829,33 @@ class NodeTriangulate extends NodeCls
             let out_mesh = new Mesh()
             let idx = []
             if (added_poly > 0) {
-                try {
-                    swctx.triangulate()
-                } catch(e) {
-                    assert(false, this, "Failed triangulation")
-                }
-                var triangles = swctx.getTriangles();
-                for(let tri of triangles) {
-                    let tripnt = tri.getPoints()
-                    console.assert(tripnt.length == 3, "unexpected size of triangle")
-                    idx.push(tripnt[0].my_index, tripnt[1].my_index, tripnt[2].my_index)
+                // need to iterate since triangulate only processes one countour and its holes at a time
+                while(true) {
+                    try {
+                        swctx.triangulate()
+                    } catch(e) {
+                        assert(false, this, "Failed triangulation")
+                    }
+                    var triangles = swctx.getTriangles();
+                    for(let tri of triangles) {
+                        let tripnt = tri.getPoints()
+                        console.assert(tripnt.length == 3, "unexpected size of triangle")
+                        idx.push(tripnt[0].my_index, tripnt[1].my_index, tripnt[2].my_index)
+                        tripnt[0].visited = true; tripnt[1].visited = true; tripnt[2].visited = true
+                    }
+
+                    let leftover = []
+                    for(let p of all_pnts) {
+                        if (!p.visited)
+                            leftover.push(p)
+                    }
+                    if (leftover.length < 3)
+                        break;
+
+                    // hack poly2tri to start over without having to reinitialize the holes
+                    swctx.points_ = leftover
+                    swctx.map_ = []
+                    swctx.triangles_ = []
                 }
             }
             for(let attrname in obj.arrs) {

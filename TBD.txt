@@ -30,6 +30,7 @@ NODES:
 - polyline fill
     https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths
     triangulation
+        case of non-input points
     curves
     primitive circle
     SetAttr

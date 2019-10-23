@@ -329,70 +329,71 @@ function trigger_frame_draw(do_run, clear_all=false)
     if (in_draw)
         return // avoid starting a call if the previous async call didn't finish yet (indicated several triggers from the same stack)
     in_draw = true
-    save_state()
-    ctx_img.fillStyle = '#fff'
-    ctx_img.fillRect(0, 0, canvas_image.width, canvas_image.height)
-    //ctx_img.fillStyle = 'rgba(0,0,0,0)'
-    //ctx_img.fillRect(0, 0, canvas_image.width, canvas_image.height)
-
-    if (program.display_node == null) {
-        show_display_params(null, null)
-        in_draw = false
-        return
-    }
-
-    let disp_obj = program.display_node.outputs[0].get_const()
-    if (do_run || disp_obj === null) {
-        if (clear_all)
-            clear_outputs(program)
-        clear_inputs_errors(program)
-        clear_nodes_status(program)
-        mark_dirty_tree(program.display_node)
-        try {
-            run_nodes_tree(program.display_node)
-        }
-        catch(e) {
-            if (e.node_cls === undefined) {
-                in_draw = false
-                throw e
-            }
-            set_error(e.node_cls, e.message)
-            console.error(e)
-        }
-        disp_obj = program.display_node.outputs[0].get_const()
-    }
-
-    // do this before obj draw so that if there are missing display params, they'll get a default value
-    show_display_params(disp_obj, program.display_node) 
-
-    if (disp_obj === null) {
-        console.error("no out")
-        set_error(program.display_node.cls, "No output generated")
-        in_draw = false
-        return
-    }
-
-    let p
     try {
-        p = disp_obj.draw(image_view.t_viewport, program.display_node.display_values)
-    } catch(e) {
-        set_error(program.display_node.cls, e.message)
-    }
-    let finalize_draw = ()=>{
-        if (selected_node !== null) {
-            try {
-                selected_node.cls.draw_selection(image_view.t_viewport)
-            } catch(e) {
-                set_error(selected_node.cls, e.message)
-            }
+        save_state()
+        ctx_img.fillStyle = '#fff'
+        ctx_img.fillRect(0, 0, canvas_image.width, canvas_image.height)
+        //ctx_img.fillStyle = 'rgba(0,0,0,0)'
+        //ctx_img.fillRect(0, 0, canvas_image.width, canvas_image.height)
+
+        if (program.display_node == null) {
+            show_display_params(null, null)
+            return
         }
+
+        let disp_obj = program.display_node.outputs[0].get_const()
+        if (do_run || disp_obj === null) {
+            if (clear_all)
+                clear_outputs(program)
+            clear_inputs_errors(program)
+            clear_nodes_status(program)
+            mark_dirty_tree(program.display_node)
+            try {
+                run_nodes_tree(program.display_node)
+            }
+            catch(e) {
+                if (e.node_cls === undefined) {
+                    throw e
+                }
+                set_error(e.node_cls, e.message)
+                console.error(e)
+            }
+            disp_obj = program.display_node.outputs[0].get_const()
+        }
+
+        // do this before obj draw so that if there are missing display params, they'll get a default value
+        show_display_params(disp_obj, program.display_node) 
+
+        if (disp_obj === null) {
+            console.error("no out")
+            set_error(program.display_node.cls, "No output generated")
+            return
+        }
+
+        let promise
+        try {
+            promise = disp_obj.draw(image_view.t_viewport, program.display_node.display_values)
+        } catch(e) {
+            set_error(program.display_node.cls, e.message)
+        }
+        let finalize_draw = ()=>{
+            if (selected_node !== null) {
+                try {
+                    selected_node.cls.draw_selection(image_view.t_viewport)
+                } catch(e) {
+                    set_error(selected_node.cls, e.message)
+                }
+            }
+            
+        }
+        if (promise !== undefined)
+            promise.then(finalize_draw)
+        else
+            finalize_draw()
+    }
+    finally {
         in_draw = false
     }
-    if (p !== undefined)
-        p.then(finalize_draw)
-    else
-        finalize_draw()
-
 }
 
 

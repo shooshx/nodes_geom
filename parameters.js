@@ -97,7 +97,7 @@ function show_display_params(obj, disp_node) {
     if (obj === null || params === null || disp_node === null || disp_node !== selected_node)
         return
     for(let p of params) {
-        if (p.add_elems) // the params of a group is an aggregate of it's members, it's not going to have that
+        if (p !== null && p.add_elems) // the params of a group is an aggregate of it's members, it's not going to have that. FrameBuffer has null disp_params
             p.add_elems(div_display_params)
     }
 }
