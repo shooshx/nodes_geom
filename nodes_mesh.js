@@ -11,6 +11,7 @@ class NodeCls {
     clear_selection() {}
     draw_selection() {}
     selected_obj_name() { return null }
+    // rect_select(min_x, min_y, max_x, max_y) {} if it's not defined, rect doesn't even show
 
     // nodes that depends on the viewport should implement and dirty themselves
     dirty_viewport() {}
@@ -145,12 +146,25 @@ class PathCmdsList extends Parameter {
         }
         this.add([cmd])
     }
-    close_current() {
+    close_current(clicked_index) {
+        if (this.lst[clicked_index][0] != 'M')
+            return false// clicked something that is not a start of a poly
+        // go backwards to see if the clicked point is actually the first point of the poly we're currently doing
+        for(let i = this.lst.length-1; i > clicked_index; --i) {
+            if (this.lst[i] == 'M')
+                return false// found another M that is not clicked_index
+        }
+        
         let last_cmd = this.lst[this.lst.length-1]
         if (last_cmd[last_cmd.length - 1] !== 'Z') {// already closed?
             last_cmd.push('Z')
             this.pset_dirty()
         }
+        return true // managed to close
+    }
+    remove(indices) {
+        for(let index in indices)
+            delete this.lst[index]
     }
     add_elems(parent) {}
 }
@@ -160,7 +174,7 @@ class NodeManualGeom extends NodeCls
     static name() { return "Manual Geometry" }
     constructor(node) {
         super(node)
-        this.selected_indices = [] // point indices
+        this.selected_indices = [] // point indices. DO NOT RECREATE THIS. a reference of it goes to this.points
 
         this.out = new OutTerminal(node, "out_mesh")
         this.geom_type = new ParamSelect(node, "Type", 0, ["Mesh", "Paths"])
@@ -173,6 +187,7 @@ class NodeManualGeom extends NodeCls
         this.cmds = new PathCmdsList(node) // not shown
 
         this.pnt_attrs = [this.dummy, this.color]  // Param objets of additional attributes of each point other than it's coordinate
+        this.rect_elem = null // rect selection DOM elem if one is active
     }
     image_click(ex, ey) {
         if (!this.add_pnts_btn.v)
@@ -197,17 +212,23 @@ class NodeManualGeom extends NodeCls
     }
     clear_selection() {
         this.selected_indices.length = 0 // don't recreate the array since there's reference from the CoordListParam
+        trigger_frame_draw(false)
         this.points.reprint_all_lines()
     }
     set_selection(idx) {
         if (this.add_pnts_btn.v && this.geom_type.sel_idx == 1) {
             // when adding points to path, instead of select, close the path
-            this.cmds.close_current()
-            trigger_frame_draw(true)
-            return
+            if (this.cmds.close_current(idx)) {
+                trigger_frame_draw(true)
+                return
+            } // if didn't close, select?
         }
-        this.selected_indices.length = 0
-        this.selected_indices.push(idx)
+        // change the selection only if we just clicked an unselected point
+        // otherwise we might be trying to move a selected group of points
+        if (!this.selected_indices.includes(idx)) {
+            this.selected_indices.length = 0
+            this.selected_indices.push(idx)    
+        }
         this.points.reprint_all_lines() // mark with yellow the selected
     }
     selected_obj_name() { return (this.selected_indices.length > 0) ? "points" : null }
@@ -216,9 +237,11 @@ class NodeManualGeom extends NodeCls
         for(let attr_param of this.pnt_attrs) {
             attr_param.remove(this.selected_indices)
         }
+        this.cmds.remove(this.selected_indices)
         this.clear_selection()
         trigger_frame_draw(true)
     }
+    // API
     image_find_obj(vx, vy, ex, ey) {
         let [x,y] = image_view.epnt_to_model(ex, ey)
         let lst = this.points.lst
@@ -230,6 +253,33 @@ class NodeManualGeom extends NodeCls
         }
         return null
     }
+    rect_select(min_ex, min_ey, max_ex, max_ey) {
+        if (min_ex === undefined) { // indicates it needs to be cleared
+            main_view.removeChild(this.rect_elem)
+            this.rect_elem = null
+            return;
+        }
+        let [min_x,min_y] = image_view.epnt_to_model(min_ex, min_ey)
+        let [max_x,max_y] = image_view.epnt_to_model(max_ex, max_ey)
+        let lst = this.points.lst
+        this.selected_indices.length = 0
+        for(let i = 0; i < lst.length; i += 2) {
+            let x = lst[i], y = lst[i+1]
+            if (x > min_x && x < max_x && y > min_y && y < max_y) {
+                this.selected_indices.push(i/2)
+            }
+        }
+        if (this.rect_elem === null) {
+            this.rect_elem = add_div(main_view, "selection_rect")
+        }
+        this.rect_elem.style.left = min_ex + "px"
+        this.rect_elem.style.top = min_ey + "px"
+        this.rect_elem.style.width = (max_ex - min_ex) + "px"
+        this.rect_elem.style.height = (max_ey - min_ey) + "px"
+        trigger_frame_draw(false)
+        this.points.reprint_all_lines() // re-mark yellows
+    }
+    // API
     run() {
         let obj
         if (this.geom_type.sel_idx == 0) // mesh

@@ -193,6 +193,12 @@ class ImageView extends ViewBase
             return selected_node.cls.image_find_obj(vx, vy, ex, ey)
         return null
     }
+    check_rect_select() {
+        return selected_node !== null && selected_node.cls.rect_select !== undefined
+    }
+    rect_select(min_x, min_y, max_x, max_y) {
+        selected_node.cls.rect_select(min_x, min_y, max_x, max_y)
+    }
     epnt_to_model(ex, ey) { // takes coord from mouse event
         let ti = vec2.create()
         vec2.transformMat3(ti, vec2.fromValues(ex,ey), this.t_inv_viewport)        
@@ -226,9 +232,14 @@ function panel_mouse_control(view, canvas)
     var prev_x, prev_y, down_x, down_y
     var hit = null
     var did_move = false  // used for detecting unselect
+    var active_rect = null
     
     myAddEventListener(canvas, 'mousedown', function(e) {
         if (e.buttons == 1) {
+            if (e.ctrlKey && view.check_rect_select()) {
+                active_rect = { x1:e.pageX, y1:e.pageY }
+                return
+            }
             prev_x = e.pageX; prev_y = e.pageY
             down_x = e.pageX; down_y = e.pageY
             let vx=view.view_x(e.pageX), vy=view.view_y(e.pageY)
@@ -262,6 +273,10 @@ function panel_mouse_control(view, canvas)
         else if (!did_move)
             view.unselect_all(true) // click anywhere empty, without panning, just unselects the current selection (for nodes_view)
         hit = null
+        if (active_rect) {
+            view.rect_select(undefined)
+            active_rect = null
+        }
     });
     myAddEventListener(document, 'mousemove', function(e) {
         var dx = e.pageX - prev_x
@@ -269,6 +284,12 @@ function panel_mouse_control(view, canvas)
         prev_x = e.pageX, prev_y = e.pageY
         if (dx == 0 && dy == 0) 
             return
+        if (active_rect !== null) {
+            let x2 = e.pageX, y2 = e.pageY
+            view.rect_select(Math.min(active_rect.x1, x2), Math.min(active_rect.y1, y2),
+                             Math.max(active_rect.x1, x2), Math.max(active_rect.y1, y2))
+            return
+        }
         did_move = true
         if (panning) {
             view.pan_x += dx / view.zoom

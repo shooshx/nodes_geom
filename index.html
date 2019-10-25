@@ -323,10 +323,11 @@ function myAddEventListener(obj, event_name, func) {
     obj.addEventListener(event_name, function() {
         let r = func.apply(null, arguments)
         if (draw_request.draw) {
-            do_frame_draw(draw_request.do_run, draw_request.clear_all)
+            let do_run = draw_request.do_run, clear_all = draw_request.clear_all
             draw_request.draw = false
             draw_request.do_run = false
             draw_request.clear_all = false
+            do_frame_draw(do_run, clear_all)
         }
         return r;
     })

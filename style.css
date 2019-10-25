@@ -81,6 +81,12 @@ input {
     margin: 3px;
 }
 
+.selection_rect {
+    position: absolute;
+    border: dotted 2px #989898;;
+    background-color: rgba(191, 231, 255, 0.2);
+}
+
 .node_name_edit {
     position: absolute;
 }

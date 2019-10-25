@@ -29,8 +29,10 @@ NODES:
     - primitive quad, triangle, path between the points? by selection?
 - polyline fill
     https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths
+    UI for closing and starting a new poly, bugs with this
     triangulation
-        case of non-input points
+        handle failed triangulation in a graceful way
+        edge case of non-input points coming from triangulate (corner points)
     curves
     primitive circle
     SetAttr
