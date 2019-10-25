@@ -304,6 +304,8 @@ function create_at(elem, add_func, sz, visible, onchange, options, start_color)
         width += ALPHA_BAR_WIDTH
     if (options.global_presets !== false)
         options.global_presets = true
+    if (!options.myAddEventListener)
+        options.myAddEventListener = function(elem, name, func) { elem.addEventListener(name, func) }
     
     var txt = '<canvas width="WIDTH" height="HEIGHT" STYLE></canvas>'.replace(/WIDTH/g, width).replace(/HEIGHT/g, height)
                 .replace(/STYLE/g, visible ? '' : 'style="display:none;"')
@@ -432,7 +434,7 @@ function create_at(elem, add_func, sz, visible, onchange, options, start_color)
     var mouse_move = function(e) {
         mouse_act(e)
     }
-    document.addEventListener("mouseup", function(e) {
+    options.myAddEventListener(document, "mouseup", function(e) {
         square_capture = false;
         bar_capture = false;
         alpha_capture = false;
@@ -440,15 +442,15 @@ function create_at(elem, add_func, sz, visible, onchange, options, start_color)
         return true
     })
     
-    canvas.onmousedown = function(e) {
+    options.myAddEventListener(canvas, "mousedown", function(e) {
         var do_capture = mouse_act(e, true)
         if (do_capture) {
-            document.addEventListener("mousemove", mouse_move)
+            options.myAddEventListener(document, "mousemove", mouse_move)
         }                
-    }
+    })
 
     // handle presets click
-    canvas.onmouseup = function(e) {
+    options.myAddEventListener(canvas, "mouseup", function(e) {
         if (e.which != 1)
             return
         var rect = e.target.getBoundingClientRect();
@@ -468,7 +470,7 @@ function create_at(elem, add_func, sz, visible, onchange, options, start_color)
             var xi = Math.trunc((x - MARGIN)/BAR_SZ)
             set_color(presets[xi], true)
         }
-    }    
+    })
     
     var set_visible = function(v) {
         canvas.style.display = v ? 'initial':'none'
@@ -509,26 +511,26 @@ function create_at(edit_elem, sz, onchange, options, start_value)
         // the edit box update always need to be updated, and the boolean actuall says if the outside onchange is triggered
     }
     
-    edit_elem.addEventListener("input", function() {
+    options.myAddEventListener(edit_elem, "input", function() {
         picker.set_color(edit_elem.value, true)
     })
     
-    edit_elem.addEventListener("focus", function() { 
+    options.myAddEventListener(edit_elem, "focus", function() { 
         position_to_edit_elem(); 
         picker.set_visible(true) 
     })
     if (!DEBUG_NO_BLUR) {
-        edit_elem.addEventListener("blur", function(e) { 
+        options.myAddEventListener(edit_elem, "blur", function(e) { 
             if (e.relatedTarget !== picker.elem)  // if focus moved from the edit to something not the canvas, hide it
                 picker.set_visible(false) 
         })
     }
     
-    picker.elem.addEventListener("focus", function() { 
+    options.myAddEventListener(picker.elem, "focus", function() { 
         //console.log("canvas-focus") 
     })
     if (!DEBUG_NO_BLUR) {
-        picker.elem.addEventListener("blur", function(e) { 
+        options.myAddEventListener(picker.elem, "blur", function(e) { 
             if (e.relatedTarget !== edit_elem)
                 picker.set_visible(false) 
         })

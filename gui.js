@@ -30,20 +30,20 @@ function setup_horz_splitter(container, grip, resize1, resize2) //p1, , p2, c2)
         recalc_canvases_rects()
     }
     resize()
-    window.addEventListener('resize', resize);
+    myAddEventListener(window, 'resize', resize);
  
     var moving = false;
     var lastY;
     
-    grip.addEventListener('mousedown', function(e) {
+    myAddEventListener(grip, 'mousedown', function(e) {
         moving = true;
         lastY = e.pageY;
     });
-    document.addEventListener('mouseup', function() {
+    myAddEventListener(document, 'mouseup', function() {
         moving = false;
     });
 
-    document.addEventListener('mousemove', function(e) {
+    myAddEventListener(document, 'mousemove', function(e) {
       if (moving && e.pageY > MIN_PANEL_SIZE && e.pageY < container.offsetHeight - MIN_PANEL_SIZE) {
           p1_height += e.pageY - lastY
           lastY = e.pageY
@@ -72,20 +72,20 @@ function setup_vert_splitter(container, grip, resize1, resize2) //p1, c1, grip, 
         recalc_canvases_rects()
     }
     resize()
-    window.addEventListener('resize', resize);
+    myAddEventListener(window, 'resize', resize);
 
     var moving = false;
     var lastX;
     
-    grip.addEventListener('mousedown', function(e) {
+    myAddEventListener(grip, 'mousedown', function(e) {
         moving = true;
         lastX = e.pageX;
     });
-    document.addEventListener('mouseup', function() {
+    myAddEventListener(document, 'mouseup', function() {
         moving = false;
     });
 
-    document.addEventListener('mousemove', function(e) {
+    myAddEventListener(document, 'mousemove', function(e) {
       if (moving && e.pageX > MIN_PANEL_SIZE && e.pageX < container.offsetWidth - MIN_PANEL_SIZE) {
           p1sz += e.pageX - lastX
           lastX = e.pageX
@@ -227,7 +227,7 @@ function panel_mouse_control(view, canvas)
     var hit = null
     var did_move = false  // used for detecting unselect
     
-    canvas.addEventListener('mousedown', function(e) {
+    myAddEventListener(canvas, 'mousedown', function(e) {
         if (e.buttons == 1) {
             prev_x = e.pageX; prev_y = e.pageY
             down_x = e.pageX; down_y = e.pageY
@@ -243,7 +243,7 @@ function panel_mouse_control(view, canvas)
             panning = true
         }
     });
-    canvas.addEventListener('mouseup', function(e) {
+    myAddEventListener(canvas, 'mouseup', function(e) {
         if (panning) { // means there was no hit
             var dx = Math.abs(e.pageX - down_x)
             var dy = Math.abs(e.pageY - down_y)
@@ -255,7 +255,7 @@ function panel_mouse_control(view, canvas)
             }
         }
     });
-    document.addEventListener('mouseup', function() {
+    myAddEventListener(document, 'mouseup', function() {
         panning = false;
         if (hit !== null)
             hit.mouseup()  // commit line pending
@@ -263,7 +263,7 @@ function panel_mouse_control(view, canvas)
             view.unselect_all(true) // click anywhere empty, without panning, just unselects the current selection (for nodes_view)
         hit = null
     });
-    document.addEventListener('mousemove', function(e) {
+    myAddEventListener(document, 'mousemove', function(e) {
         var dx = e.pageX - prev_x
         var dy = e.pageY - prev_y
         prev_x = e.pageX, prev_y = e.pageY
@@ -281,7 +281,7 @@ function panel_mouse_control(view, canvas)
         }
     })
     
-    canvas.addEventListener("contextmenu", function(e) {
+    myAddEventListener(canvas, "contextmenu", function(e) {
         view.dismiss_ctx_menu()
         let cvs_x = e.pageX - view.rect.left, cvs_y = e.pageY - view.rect.top // relative to canvas
         let ctx = view.context_menu(view.view_x(e.pageX), view.view_y(e.pageY), e.pageX, e.pageY, cvs_x, cvs_y)
@@ -289,7 +289,7 @@ function panel_mouse_control(view, canvas)
             e.preventDefault()
         return false;
     })
-    document.addEventListener('mousedown', function(e) {
+    myAddEventListener(document, 'mousedown', function(e) {
         view.dismiss_ctx_menu()
         view.dismiss_popups()
     })
@@ -343,7 +343,7 @@ function panel_mouse_wheel(view, canvas)
         view.pan_redraw()
 
     }
-    canvas.addEventListener("wheel", onWarCanvasWheel)    
+    myAddEventListener(canvas, "wheel", onWarCanvasWheel)    
 }
 
 
@@ -371,10 +371,10 @@ function open_context_menu(options, wx, wy, parent_elem, dismiss_func)
     let menu_elem = addTextChild(parent_elem, text)    
     for(let i = 0; i < menu_elem.childNodes.length; ++i) {
         let child = menu_elem.childNodes[i]
-        child.addEventListener('mousedown', function(e) {
+        myAddEventListener(child, 'mousedown', function(e) {
             e.stopPropagation()            
         })
-        child.addEventListener('click', function() {
+        myAddEventListener(child, 'click', function() {
             options[i].func()
             dismiss_func()
         })        
@@ -418,14 +418,14 @@ class NameInput
         this.elem.style.left = this.node.namex() + nodes_view.rect.left + "px"
         this.elem.style.top = this.node.namey() + nodes_view.rect.top - 5 + "px"
         input.value = this.node.name
-        input.addEventListener('mousedown', function(e) {
+        myAddEventListener(input, 'mousedown', function(e) {
             e.stopPropagation()            
         })
-        input.addEventListener('input', ()=>{
+        myAddEventListener(input, 'input', ()=>{
             this.node.set_name(input.value)
             draw_nodes()
         })
-        input.addEventListener("keypress", function(e) {
+        myAddEventListener(input, "keypress", function(e) {
             if (e.keyCode == 13)
                 nodes_dismiss_name_input()
         })
@@ -459,7 +459,7 @@ class DisplayFlagProxy
 
 function setup_key_bindings()
 {
-    document.addEventListener("keypress", function(e) {
+    myAddEventListener(document, "keypress", function(e) {
         if (e.key == ' ') {
             // if ctrl is pressed, do a full clear and run, otherwise do a normal run with caches
             trigger_frame_draw(true, e.ctrlKey)
@@ -478,7 +478,7 @@ function create_dialog(parent, title, resizable, rect, visible_changed)
     let title_line = add_div(dlg, "dlg_title")
     title_line.innerText = title
     let close_btn = add_div(title_line, "dlg_close_btn")
-    close_btn.addEventListener('click', () => {
+    myAddEventListener(close_btn, 'click', () => {
         rect.visible = false
         if (visible_changed)
             visible_changed(rect.visible)
@@ -542,11 +542,11 @@ function add_move_handlers(grip, func) {
     var moving = false;
     var prevx, prevy;
 
-    grip.addEventListener('mousedown', function(e) {
+    myAddEventListener(grip, 'mousedown', function(e) {
         moving = true;
         prevx = e.pageX; prevy = e.pageY
     });
-    document.addEventListener('mousemove', function(e) {
+    myAddEventListener(document, 'mousemove', function(e) {
         if (!moving) 
             return
         e.preventDefault(); // prevent selection action from messing it up
@@ -556,7 +556,7 @@ function add_move_handlers(grip, func) {
         func(dx, dy)
         prevx = e.pageX; prevy = e.pageY
     });
-    document.addEventListener('mouseup', function() {
+    myAddEventListener(document, 'mouseup', function() {
         moving = false;
     });
 }
@@ -598,7 +598,7 @@ function create_top_menu(parent) {
             parent.removeChild(m)
         open_menus.length = 0
     }
-    menu_btn.addEventListener('click', ()=> {
+    myAddEventListener(menu_btn, 'click', ()=> {
         let opt = [{text:"Save As...", func:function() { save_as(parent) }}, {text:'-'}]
         for(let up_name in user_saved_programs) {
             let up = user_saved_programs[up_name]

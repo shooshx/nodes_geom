@@ -159,7 +159,7 @@ function add_param_edit(line, value, type, set_func) {
     e.spellcheck = false
     e.value = (type == ED_FLOAT) ? toFixedMag(value) : value
     // TBD parse error
-    e.addEventListener("input", function() { set_func(e.value); })
+    myAddEventListener(e, "input", function() { set_func(e.value); })
     line.appendChild(e)
     return e
 }
@@ -167,7 +167,7 @@ function add_param_color(line, value, cls, set_func) {
     let e = document.createElement('input')
     e.className = cls
     line.appendChild(e) // must have parent
-    let ce = ColorEditBox.create_at(e, 200, function(c) { set_func(c) }, {with_alpha:true}, value)
+    let ce = ColorEditBox.create_at(e, 200, function(c) { set_func(c) }, {with_alpha:true, myAddEventListener:myAddEventListener}, value)
     return [ce.get_color().copy(), e, ce]
 }
 let g_input_ids = 1
@@ -176,7 +176,7 @@ function add_param_checkbox(line, label, value, set_func) {
     ein.type = 'checkbox'
     ein.id = 'p_chb_' + g_input_ids++
     ein.checked = value
-    ein.addEventListener('change', function() { set_func(ein.checked); })
+    myAddEventListener(ein, 'change', function() { set_func(ein.checked); })
     let edisp = add_elem(line, 'label', 'param_checkbox_disp')
     edisp.setAttribute("for", ein.id)
     let etext = add_elem(line, 'label', 'param_checkbox_text')
@@ -187,7 +187,7 @@ function add_param_checkbox(line, label, value, set_func) {
 function add_push_btn(parent, label, onclick) {
     let btn = add_div(parent, "param_btn")
     btn.innerText = label
-    btn.addEventListener("click", onclick)
+    myAddEventListener(btn, "click", onclick)
     return btn
 }
 function add_checkbox_btn(parent, label, value, onchange) {
@@ -195,7 +195,7 @@ function add_checkbox_btn(parent, label, value, onchange) {
     ein.type = 'checkbox'
     ein.id = 'p_chb_' + g_input_ids++
     ein.checked = value
-    ein.addEventListener('change', function() { onchange(ein.checked); })
+    myAddEventListener(ein, 'change', function() { onchange(ein.checked); })
     let btn = add_elem(parent, 'label', 'param_btn')
     btn.setAttribute("for", ein.id)
     btn.innerText = label
@@ -208,7 +208,7 @@ function add_combobox(parent, opts, sel_idx, onchange) {
         o.innerText = s
     }
     se.selectedIndex = sel_idx
-    se.addEventListener('change', function() { onchange(se.selectedIndex); })
+    myAddEventListener(se, 'change', function() { onchange(se.selectedIndex); })
     return se
 }
 
@@ -1038,18 +1038,18 @@ function add_grip_handlers(grip, cell) {
     var startOffset;
     var column_width;
 
-    grip.addEventListener('mousedown', function(e) {
+    myAddEventListener(grip, 'mousedown', function(e) {
         moving = true;
         startOffset = parseFloat(window.getComputedStyle(cell)["width"]) - e.pageX;
     });
-    document.addEventListener('mousemove', function(e) {
+    myAddEventListener(document, 'mousemove', function(e) {
       if (moving) {
             column_width = startOffset + e.pageX
             cell.style.width = column_width + "px"
             e.preventDefault(); // prevent selection action from messing it up
       }
     });
-    document.addEventListener('mouseup', function() {
+    myAddEventListener(document, 'mouseup', function() {
         moving = false;
     });
 }
@@ -1084,7 +1084,7 @@ class ParamTextBlock extends Parameter
         this.text_input = add_elem(this.dlg_elem, "textarea", ["dlg_param_text_area","param_text_area"])
         this.text_input.spellcheck = false
         this.text_input.value = this.text
-        this.text_input.addEventListener("input", ()=>{ this.text = this.text_input.value; this.pset_dirty() }) // TBD save and trigger draw after timeout
+        myAddEventListener(this.text_input, "input", ()=>{ this.text = this.text_input.value; this.pset_dirty() }) // TBD save and trigger draw after timeout
         //this.text_input.value = this.text        
     }
 }
@@ -1138,7 +1138,7 @@ class ParamFileUpload extends Parameter
         let btn = add_elem(this.line_elem, "label", ["param_btn", "param_file_choose_btn"])
         btn.innerText = "Choose File..."
         btn.setAttribute("for", fin.id)
-        fin.addEventListener("change", ()=>{ 
+        myAddEventListener(fin, "change", ()=>{ 
             this.file = fin.files[0]
             fin.value = "" // make the input forget about this file so that the same filename can be uploaded again
             filename_show.textContent = this.file.name 

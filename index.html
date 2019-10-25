@@ -312,6 +312,26 @@ function set_error(node_cls, msg) {
     draw_nodes()
 }
 
+var draw_request = {draw:false, do_run:false, clear_all:false}
+function trigger_frame_draw(do_run, clear_all=false)  {
+    draw_request.draw = true
+    draw_request.do_run |= do_run
+    draw_request.clear_all |= clear_all
+}
+
+function myAddEventListener(obj, event_name, func) {
+    obj.addEventListener(event_name, function() {
+        let r = func.apply(null, arguments)
+        if (draw_request.draw) {
+            do_frame_draw(draw_request.do_run, draw_request.clear_all)
+            draw_request.draw = false
+            draw_request.do_run = false
+            draw_request.clear_all = false
+        }
+        return r;
+    })
+}
+
 // just redraw the same output
 const RUN_DRAW_SAME = 0
 // the viewport change, re-run anything that is viewport dependent
@@ -324,7 +344,7 @@ const RUN_ALL = 3
 var in_draw = false
 
 // called whenever the display needs to be updated to reflect a change
-function trigger_frame_draw(do_run, clear_all=false) 
+function do_frame_draw(do_run, clear_all=false) 
 {
     if (in_draw)
         return // avoid starting a call if the previous async call didn't finish yet (indicated several triggers from the same stack)

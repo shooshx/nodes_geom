@@ -117,7 +117,8 @@ class CreateTexture extends NodeCls
         let res_fit = ()=>{
             let minp = Math.min(canvas_image.width, canvas_image.height)
             // if it's scaled, the size in pixels need to adjust for that
-            let rx = minp * this.transform.scale[0], ry = minp * this.transform.scale[1]
+            let rx = minp * this.transform.scale[0] * image_view.zoom
+            let ry = minp * this.transform.scale[1] * image_view.zoom
             this.resolution.set(rx, ry)
         }
         this.zoom_fit = new ParamButton(node, "Fit resolution to viewport", res_fit)
