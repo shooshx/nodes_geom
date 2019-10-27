@@ -91,3 +91,156 @@ class MultiPath extends PObject
         Mesh.prototype.draw_selection.call(this, m, select_vindices)
     }
 }
+
+
+
+
+class PathPoly {
+    constructor(id) {
+        this.closed = false
+    }
+}
+// used in NodeManualGeom
+class PathPolysList extends Parameter {
+    constructor(node) {
+        super(node, "polys")
+        this.lst = []  // contains references to PathPoly objects all points of a poly point to the same object
+    }
+    save() { 
+        let polys = []
+        let refs = []
+        let cur = null
+        for(let p of this.lst) {
+            if (p !== cur) {
+                polys.push(p)
+                cur = p
+            }
+            refs.push(polys.length-1) // the index of the last poly seen
+        }
+        return {polys:polys, refs:refs} 
+    }
+    load(v) { 
+        this.lst = []
+        for(let r of v.refs) {
+            this.lst.push(v.polys[r])
+        }
+    } 
+    add(v) {
+        this.lst.push(v)
+        this.pset_dirty()
+    }
+    add_default() {
+        let p
+        if (this.lst.length == 0)
+            p = new PathPoly()
+        else {
+            let last_poly = this.lst[this.lst.length - 1]
+            if (last_poly.closed)
+                p = new PathPoly()
+            else
+                p = last_poly
+        }
+        this.add(p)
+    }
+    close_current(clicked_index) {
+        // go backwards to see where the current poly starts
+        let cur_poly = this.lst[this.lst.length-1]
+        if (cur_poly.closed)
+            return false
+        for(let i = this.lst.length-1; i >= 0; --i) {
+            if (this.lst[i] !== cur_poly) {
+                if (i + 1 != clicked_index)
+                    return false;
+                break // found the first and it is the expected index
+            }
+        }
+        
+        cur_poly.closed = true
+        this.pset_dirty()
+        return true // managed to close
+    }
+    remove(indices) {
+        for(let index of indices)
+            delete this.lst[index]
+            this.lst = cull_list(this.lst)
+    }
+    add_elems(parent) {}
+}
+
+
+function triangulate_path(obj, node)         
+{ // https://github.com/shooshx/ArNavNav/blob/352a5a3acaabbc0591fb995b36255dc750406d22/src/poly2tri/adapter.cc            
+    var swctx = new poly2tri.SweepContext([]);
+    let vtx = obj.arrs.vtx_pos;
+    let added_poly = 0
+    let all_pnts = []
+    for(let pcmds of obj.cmds) 
+    {
+        let plst = []
+        let ci = 0;
+        while(ci < pcmds.length) {
+            let cmd = pcmds[ci]
+            if (cmd == 'M' || cmd == 'L') {
+                let idx = pcmds[ci+1]
+                let vidx = idx * 2
+                assert(vidx + 1 < vtx.length, node, "wrong path cmd")
+                let tpnt = new poly2tri.Point(vtx[vidx], vtx[vidx+1])
+                tpnt.my_index = idx
+                tpnt.visited = false
+                plst.push(tpnt)
+                
+                ci += 2
+            }
+            else if (cmd = 'Z')
+                ++ci
+            else 
+                assert(false, node, "Unexpected path cmd " + cmd)
+        }
+        if (plst.length >= 3) {
+            swctx.addHole(plst)
+            all_pnts.push.apply(all_pnts, plst)
+            ++added_poly;
+        }
+    }
+    let out_mesh = new Mesh()
+    let idx = []
+    if (added_poly > 0) {
+        // need to iterate since triangulate only processes one countour and its holes at a time
+        while(true) {
+            try {
+                swctx.triangulate()
+            } catch(e) {
+                assert(false, node, "Failed triangulation")
+            }
+            var triangles = swctx.getTriangles();
+            for(let tri of triangles) {
+                let tripnt = tri.getPoints()
+                console.assert(tripnt.length == 3, "unexpected size of triangle")
+                idx.push(tripnt[0].my_index, tripnt[1].my_index, tripnt[2].my_index)
+                tripnt[0].visited = true; tripnt[1].visited = true; tripnt[2].visited = true
+            }
+
+            let leftover = []
+            for(let p of all_pnts) {
+                if (!p.visited)
+                    leftover.push(p)
+            }
+            if (leftover.length < 3)
+                break;
+
+            // hack poly2tri to start over without having to reinitialize the holes
+            swctx.points_ = leftover
+            swctx.map_ = []
+            swctx.triangles_ = []
+        }
+    }
+    for(let attrname in obj.arrs) {
+        let attrarr = obj.arrs[attrname]
+        console.assert(isTypedArray(attrarr), "not a typed-array " + attrname)
+        out_mesh.set(attrname, new attrarr.constructor(attrarr), obj.meta[attrname].num_elems, obj.meta[attrname].need_normalize)
+    }
+    out_mesh.set("idx", new TIdxArr(idx))
+    out_mesh.set_type(MESH_TRI)
+    return out_mesh
+    
+}
