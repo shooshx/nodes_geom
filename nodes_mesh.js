@@ -124,47 +124,75 @@ class ParamColorList extends ListParam {
     def_value() { return [0xcc, 0xcc, 0xcc, 0xff] }
 }
 
-class PathCmdsList extends Parameter {
-    constructor(node) {
-        super(node, "cmds")
-        this.lst = []
+
+class PathPoly {
+    constructor(id) {
+        this.closed = false
     }
-    save() { return {lst:this.lst} }
-    load(v) { this.lst = v.lst } // always a plain list
+}
+
+class PathPolysList extends Parameter {
+    constructor(node) {
+        super(node, "polys")
+        this.lst = []  // contains references to PathPoly objects all points of a poly point to the same object
+    }
+    save() { 
+        let polys = []
+        let refs = []
+        let cur = null
+        for(let p of this.lst) {
+            if (p !== cur) {
+                polys.push(p)
+                cur = p
+            }
+            refs.push(polys.length-1) // the index of the last poly seen
+        }
+        return {polys:polys, refs:refs} 
+    }
+    load(v) { 
+        this.lst = []
+        for(let r of v.refs) {
+            this.lst.push(v.polys[r])
+        }
+    } 
     add(v) {
         this.lst.push(v)
         this.pset_dirty()
     }
     add_default() {
-        let cmd = 'L'
+        let p
         if (this.lst.length == 0)
-            cmd = 'M'
+            p = new PathPoly()
         else {
-            let last_cmd = this.lst[this.lst.length - 1]
-            if (last_cmd[last_cmd.length - 1] == 'Z')
-                cmd = 'M'
+            let last_poly = this.lst[this.lst.length - 1]
+            if (last_poly.closed)
+                p = new PathPoly()
+            else
+                p = last_poly
         }
-        this.add([cmd])
+        this.add(p)
     }
     close_current(clicked_index) {
-        if (this.lst[clicked_index][0] != 'M')
-            return false// clicked something that is not a start of a poly
-        // go backwards to see if the clicked point is actually the first point of the poly we're currently doing
-        for(let i = this.lst.length-1; i > clicked_index; --i) {
-            if (this.lst[i] == 'M')
-                return false// found another M that is not clicked_index
+        // go backwards to see where the current poly starts
+        let cur_poly = this.lst[this.lst.length-1]
+        if (cur_poly.closed)
+            return false
+        for(let i = this.lst.length-1; i >= 0; --i) {
+            if (this.lst[i] !== cur_poly) {
+                if (i + 1 != clicked_index)
+                    return false;
+                break // found the first and it is the expected index
+            }
         }
         
-        let last_cmd = this.lst[this.lst.length-1]
-        if (last_cmd[last_cmd.length - 1] !== 'Z') {// already closed?
-            last_cmd.push('Z')
-            this.pset_dirty()
-        }
+        cur_poly.closed = true
+        this.pset_dirty()
         return true // managed to close
     }
     remove(indices) {
-        for(let index in indices)
+        for(let index of indices)
             delete this.lst[index]
+            this.lst = cull_list(this.lst)
     }
     add_elems(parent) {}
 }
@@ -184,7 +212,7 @@ class NodeManualGeom extends NodeCls
         this.points = new ParamCoordList(node, "Coord", this.table, this.selected_indices)
         this.dummy = new ParamFloatList(node, "Dummy", this.table)
         this.color = new ParamColorList(node, "Point Color", this.table)
-        this.cmds = new PathCmdsList(node) // not shown
+        this.polys = new PathPolysList(node) // not shown
 
         this.pnt_attrs = [this.dummy, this.color]  // Param objets of additional attributes of each point other than it's coordinate
         this.rect_elem = null // rect selection DOM elem if one is active
@@ -198,7 +226,7 @@ class NodeManualGeom extends NodeCls
             attr_param.add(attr_param.def_value())
         }
 
-        this.cmds.add_default() // do this anyway just to keep it simple, not much of an overhead
+        this.polys.add_default() // do this anyway just to keep it simple, not much of an overhead
 
         trigger_frame_draw(true)
     }
@@ -218,7 +246,7 @@ class NodeManualGeom extends NodeCls
     set_selection(idx) {
         if (this.add_pnts_btn.v && this.geom_type.sel_idx == 1) {
             // when adding points to path, instead of select, close the path
-            if (this.cmds.close_current(idx)) {
+            if (this.polys.close_current(idx)) {
                 trigger_frame_draw(true)
                 return
             } // if didn't close, select?
@@ -237,7 +265,7 @@ class NodeManualGeom extends NodeCls
         for(let attr_param of this.pnt_attrs) {
             attr_param.remove(this.selected_indices)
         }
-        this.cmds.remove(this.selected_indices)
+        this.polys.remove(this.selected_indices)
         this.clear_selection()
         trigger_frame_draw(true)
     }
@@ -254,8 +282,8 @@ class NodeManualGeom extends NodeCls
         return null
     }
     rect_select(min_ex, min_ey, max_ex, max_ey) {
-        if (min_ex === undefined) { // indicates it needs to be cleared
-            main_view.removeChild(this.rect_elem)
+        if (min_ex === undefined && this.rect_elem !== null) { // indicates it needs to be cleared
+            main_view.removeChild(this.rect_elem)   // rect can be null if there was no move with ctrl
             this.rect_elem = null
             return;
         }
@@ -291,16 +319,26 @@ class NodeManualGeom extends NodeCls
             obj = new MultiPath()
             if (this.points.lst.length > 0) {
                 let cur_path = []
-                for(let i = 0; i < this.cmds.lst.length; ++i) {
-                    let cmd = this.cmds.lst[i]
-                    cur_path.push(cmd[0], i)
-                    for(let j = 1; j < cmd.length; ++j) // rest of the cmd
-                        cur_path.push(cmd[j])
-                    if (cmd[cmd.length-1] == 'Z') { // path ends
+                let cur_poly_obj = null
+                let i = 0
+                for(let p of this.polys.lst) {
+                    if (p !== cur_poly_obj) {
+                        if (cur_poly_obj !== null && cur_poly_obj.closed)
+                            cur_path.push('Z')
+                        
                         obj.add_path(cur_path)
-                        cur_path = []
+                        cur_path = []                            
+
+                        cur_path.push('M', i++)
+                        cur_poly_obj = p
+                    }
+                    else {
+                        cur_path.push('L', i++)
                     }
                 }
+                // handle last one
+                if (cur_poly_obj.closed)
+                    cur_path.push('Z')                
                 obj.add_path(cur_path)
             }
         }
@@ -841,7 +879,7 @@ class NodeTriangulate extends NodeCls
             let d = new Delaunator(obj.arrs.vtx_pos)
             obj.set('idx', d.triangles)
             obj.set_type(MESH_TRI)
-            this.out_mesh.set(mesh)
+            this.out_mesh.set(obj)
         }
         else if (obj.constructor === MultiPath) 
         { // https://github.com/shooshx/ArNavNav/blob/352a5a3acaabbc0591fb995b36255dc750406d22/src/poly2tri/adapter.cc
@@ -859,11 +897,12 @@ class NodeTriangulate extends NodeCls
                     if (cmd == 'M' || cmd == 'L') {
                         let idx = pcmds[ci+1]
                         let vidx = idx * 2
+                        assert(vidx + 1 < vtx.length, this, "wrong path cmd")
                         let tpnt = new poly2tri.Point(vtx[vidx], vtx[vidx+1])
                         tpnt.my_index = idx
                         tpnt.visited = false
                         plst.push(tpnt)
-                        all_pnts.push(tpnt)
+                        
                         ci += 2
                     }
                     else if (cmd = 'Z')
@@ -873,6 +912,7 @@ class NodeTriangulate extends NodeCls
                 }
                 if (plst.length >= 3) {
                     swctx.addHole(plst)
+                    all_pnts.push.apply(all_pnts, plst)
                     ++added_poly;
                 }
             }

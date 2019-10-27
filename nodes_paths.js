@@ -68,7 +68,7 @@ class MultiPath extends PObject
         }
         for(let p of this.paths) {
             ctx_img.strokeStyle = "#000"
-            ctx_img.lineWidth = 1/image_view.viewport_zoom
+            ctx_img.lineWidth = 0.5/image_view.viewport_zoom
             ctx_img.stroke(p)
         }
     }

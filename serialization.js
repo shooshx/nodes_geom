@@ -72,7 +72,7 @@ function load_program(sprog)
     clear_program()
     
     program.next_obj_id = parseInt(sprog.next_node_id)
-    for(let n in sprog.names_indices)
+    for(let n in sprog.names_idx_s)
         program.names_indices[n] = parseInt(sprog.names_idx_s[n])
 
     for(let nid_s in sprog.nodes) {

@@ -33,6 +33,7 @@ NODES:
     triangulation
         handle failed triangulation in a graceful way
         edge case of non-input points coming from triangulate (corner points)
+        add non-hole points?
     curves
     primitive circle
     SetAttr
