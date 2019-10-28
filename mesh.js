@@ -211,21 +211,20 @@ class Mesh extends PObject
     }
 
     draw_poly_fill() {
-        let r = (v)=>{return v}
         let vtx = this.arrs.vtx_pos
         let idxs = this.arrs.idx
         let fcol = this.arrs.face_color
-        ctx_img.lineWidth = 1
+        ctx_img.lineWidth = 1 / image_view.viewport_zoom
 
         let i = 0, vidx = 0
         if (this.type == MESH_QUAD) {
             dassert(fcol.length / 4 == idxs.length / 4, "unexpected size of face_color")
             while(i < idxs.length) {
                 ctx_img.beginPath();
-                let idx = idxs[i++]<<1; ctx_img.moveTo(r(vtx[idx]), r(vtx[idx+1]))
-                idx = idxs[i++]<<1; ctx_img.lineTo(r(vtx[idx]), r(vtx[idx+1]))
-                idx = idxs[i++]<<1; ctx_img.lineTo(r(vtx[idx]), r(vtx[idx+1]))
-                idx = idxs[i++]<<1; ctx_img.lineTo(r(vtx[idx]), r(vtx[idx+1]))
+                let idx = idxs[i++]<<1; ctx_img.moveTo(vtx[idx], vtx[idx+1])
+                idx = idxs[i++]<<1; ctx_img.lineTo(vtx[idx], vtx[idx+1])
+                idx = idxs[i++]<<1; ctx_img.lineTo(vtx[idx], vtx[idx+1])
+                idx = idxs[i++]<<1; ctx_img.lineTo(vtx[idx], vtx[idx+1])
                 ctx_img.closePath()
                 //idx = idxs[i-4]<<1; ctx_img.lineTo(vtx[idx], vtx[idx+1])
                 let col = "rgba(" + fcol[vidx] + "," + fcol[vidx+1] + "," + fcol[vidx+2] + "," + (fcol[vidx+3]/255) + ")"
@@ -242,9 +241,9 @@ class Mesh extends PObject
             console.assert(fcol.length / 4 == idxs.length / 3, "unexpected size of face_color")
             while(i < idxs.length) {
                 ctx_img.beginPath();
-                let idx = idxs[i++]<<1; ctx_img.moveTo(r(vtx[idx]), r(vtx[idx+1]))
-                idx = idxs[i++]<<1; ctx_img.lineTo(r(vtx[idx]), r(vtx[idx+1]))
-                idx = idxs[i++]<<1; ctx_img.lineTo(r(vtx[idx]), r(vtx[idx+1]))
+                let idx = idxs[i++]<<1; ctx_img.moveTo(vtx[idx], vtx[idx+1])
+                idx = idxs[i++]<<1; ctx_img.lineTo(vtx[idx], vtx[idx+1])
+                idx = idxs[i++]<<1; ctx_img.lineTo(vtx[idx], vtx[idx+1])
                 ctx_img.closePath()
                 //idx = idxs[i-3]<<1; ctx_img.lineTo(vtx[idx], vtx[idx+1])
                 let col = "rgba(" + fcol[vidx] + "," + fcol[vidx+1] + "," + fcol[vidx+2] + "," + (fcol[vidx+3]/255) + ")"
