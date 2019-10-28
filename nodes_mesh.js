@@ -38,18 +38,27 @@ class NodeGeomPrimitive extends NodeCls
     constructor(node) {
         super(node)
         this.out = new OutTerminal(node, "out_mesh")
+        this.shape = new ParamSelect(node, "Shape", 0, ["Rectangle", "Ellipse"])
         this.size = new ParamVec2(node, "Size", 0.5, 0.5)
         this.transform = new ParamTransform(node, "Transform")
     }
     run() {
-        let mesh = new Mesh()
-        // center at 0,0
+        let obj
         let hx = this.size.x * 0.5, hy = this.size.y * 0.5
-        mesh.set('vtx_pos', new TVtxArr([-hx, -hy, hx, -hy, hx, hy, -hx, hy]), 2)
-        mesh.set('idx', new TIdxArr([0, 1, 2, 3]))
-        mesh.set_type(MESH_QUAD)
-        mesh.transform(this.transform.v)
-        this.out.set(mesh)
+        if (this.shape.sel_idx == 0) {
+            obj = new Mesh()
+            // center at 0,0
+            obj.set('vtx_pos', new TVtxArr([-hx, -hy, hx, -hy, hx, hy, -hx, hy]), 2)
+            obj.set('idx', new TIdxArr([0, 1, 2, 3]))
+            obj.set_type(MESH_QUAD)
+        }
+        else {
+            obj = new MultiPath()
+            obj.set('vtx_pos', new TVtxArr([hx,0, -hx,0]))
+            obj.add_path(['M',0, 'A',(hx + " " + hy + " 0 1 0"),1 ,'A',(hx + " " + hy + " 0 1 0"),0,'Z'])
+        }
+        obj.transform(this.transform.v)
+        this.out.set(obj)
     }
     draw_selection(m) {
         let outmesh = this.out.get_const()
@@ -251,11 +260,12 @@ class NodeManualGeom extends NodeCls
                 let i = 0
                 for(let p of this.polys.lst) {
                     if (p !== cur_poly_obj) {
-                        if (cur_poly_obj !== null && cur_poly_obj.closed)
-                            cur_path.push('Z')
-                        
-                        obj.add_path(cur_path)
-                        cur_path = []                            
+                        if (cur_poly_obj !== null) {
+                            if (cur_poly_obj.closed)
+                                cur_path.push('Z')                        
+                            obj.add_path(cur_path)
+                            cur_path = []
+                        }
 
                         cur_path.push('M', i++)
                         cur_poly_obj = p
@@ -359,6 +369,9 @@ class MeshPropEvaluator {
     }
 }
 
+// examples:
+//  abs(in_mesh.vtx_pos.x)*20
+//  in_src.r
 class NodeSetAttr extends NodeCls
 {
     static name() { return "Set Attribute" }

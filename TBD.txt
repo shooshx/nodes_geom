@@ -31,8 +31,7 @@ NODES:
     https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths
     UI for closing and starting a new poly, bugs with this
     triangulation
-        handle failed triangulation in a graceful way
-        edge case of non-input points coming from triangulate (corner points)
+        edge case of non-input points coming from triangulate (corner points) ???
         add non-hole points?
     curves
     primitive circle

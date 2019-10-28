@@ -58,7 +58,7 @@ class Mesh extends PObject
     set(name, arr, num_elems, need_normalize) {
         name = normalize_attr_name(name)        
         this.arrs[name] = arr
-        this.meta[name] = { made_glbuf: false,
+        this.meta[name] = { made_glbuf: false,  // not really used for anything right now
                             num_elems: num_elems || 1, // count of numbers for each element. will be undefined for indices
                             need_normalize: need_normalize || false // true for color that needs to go from int to float [0,1]
                            }
@@ -256,7 +256,7 @@ class Mesh extends PObject
         }
     }
     
-    ensure_tcache(m) {
+    ensure_tcache(m) {  // used for gl_draw and setattr node transform
         let do_trans = false
         if (this.tcache.vtx_pos === null) {
             this.tcache.vtx_pos = new Float32Array(this.arrs.vtx_pos)

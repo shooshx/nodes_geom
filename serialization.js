@@ -110,6 +110,10 @@ function load_program(sprog)
         let to_node = program.obj_map[sl.to_id]
         console.assert(to_node.constructor === Node)
         let to_term = find_by_name(to_node.terminals, sl.to_name)
+        if (to_term === null) {
+            console.log("Can't find terminal ", sl.to_name)
+            continue // happens when terminal names change
+        }
         program.add_line(new Line(from_term.get_attachment(), to_term.get_attachment()), sl.uid)
     }
 

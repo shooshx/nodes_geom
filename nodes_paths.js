@@ -7,6 +7,7 @@ class MultiPath extends PObject
         this.paths = null
         this.arrs = { vtx_pos:null }  // common to all paths
         this.meta = { vtx_pos:null }
+        this.tcache = { vtx_pos:null, m:null }  // transformed cache (for setattr)
     }
     add_path(p) {
         this.cmds.push(p)
@@ -38,7 +39,18 @@ class MultiPath extends PObject
         Mesh.prototype.draw_border.call(this, m)
     }
 
-    draw_lines() {
+    face_count() {
+        return this.cmds.length
+    }
+    vtx_count() {
+        return Mesh.prototype.vtx_count.call(this)
+    }
+
+    ensure_tcache(m) {
+        return Mesh.prototyle.ensure_tcache(m)
+    }
+
+    draw_poly(do_fill) {
         if (this.paths === null || this.paths.length != this.cmds.length) 
         {
             this.paths = []
@@ -53,9 +65,14 @@ class MultiPath extends PObject
                         plst.push(cmd, vtx[vidx], vtx[vidx+1])
                         ci += 2
                     }
-                    else if (cmd = 'Z') {
+                    else if (cmd == 'Z') {
                         plst.push(cmd)
                         ++ci
+                    }
+                    else if (cmd == 'A') { // arc: A,its arguments,index of end-point
+                        let vidx = pcmds[ci+2] * 2
+                        plst.push(cmd, pcmds[ci+1], vtx[vidx], vtx[vidx+1]) 
+                        ci += 3
                     }
                     else {
                         dassert(false, "Unexpected path cmd " + cmd)
@@ -66,7 +83,16 @@ class MultiPath extends PObject
                 this.paths.push(jp)
             }
         }
+        let cidx = 0
+        let fcol = this.arrs.face_color
+        do_fill = do_fill && (fcol !== undefined)
         for(let p of this.paths) {
+            if (do_fill) {
+                let col = "rgba(" + fcol[cidx] + "," + fcol[cidx+1] + "," + fcol[cidx+2] + "," + (fcol[cidx+3]/255) + ")"
+                cidx += 4
+                ctx_img.fillStyle = col
+                ctx_img.fill(p)
+            }
             ctx_img.strokeStyle = "#000"
             ctx_img.lineWidth = 0.5/image_view.viewport_zoom
             ctx_img.stroke(p)
@@ -81,9 +107,10 @@ class MultiPath extends PObject
         ctx_img.save()
         ctx_img.setTransform(m[0], m[1], m[3], m[4], m[6], m[7])
         if (disp_values.show_lines)
-            this.draw_lines()
+            this.draw_poly(disp_values.show_faces)
         if (disp_values.show_vtx)
             Mesh.prototype.draw_vertices.call(this)
+
         ctx_img.restore()
     }
 
@@ -216,6 +243,8 @@ function triangulate_path(obj, node)
             for(let tri of triangles) {
                 let tripnt = tri.getPoints()
                 console.assert(tripnt.length == 3, "unexpected size of triangle")
+                // for the edge case of triangulation emitting points that it created, not from the input (don't know how to reproduce this)
+                console.assert(tripnt[0].my_index !== undefined && tripnt[1].my_index !== undefined && tripnt[2].my_index !== undefined, "External helper point?")
                 idx.push(tripnt[0].my_index, tripnt[1].my_index, tripnt[2].my_index)
                 tripnt[0].visited = true; tripnt[1].visited = true; tripnt[2].visited = true
             }
