@@ -446,7 +446,7 @@ class NodeSetAttr extends NodeCls
         let pixels = src.get_pixels()
 
         let samp_vtx = (this.bind_to.sel_idx == 0)
-        let face_sz = mesh.face_size()
+        //let face_sz = mesh.face_size()
         let vtxi = 0, idxi = 0
         let expr_input = { r:0, g:0, b:0, alpha:0 }
         value_need_src.dyn_set_obj(expr_input)
@@ -459,13 +459,13 @@ class NodeSetAttr extends NodeCls
                 y = vtx[vtxi++]
             }
             else { // sample at faces, at center of the face (average face points)
-                for(let fi = 0; fi < face_sz; ++fi) {
-                    let idx = mesh.arrs.idx[idxi++] * 2
-                    x += vtx[idx]
-                    y += vtx[idx+1]
+                let vidxs = mesh.vidxs_of_face(i) // returns the list of indices into vtx of the points that make face i (index of x, +1 of y)
+                for(let vidx of vidxs) {
+                    x += vtx[vidx]
+                    y += vtx[vidx+1]                    
                 }
-                x /= face_sz
-                y /= face_sz
+                x /= vidxs.length
+                y /= vidxs.length
             }
 
             if (fb_viewport) {

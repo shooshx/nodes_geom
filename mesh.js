@@ -271,20 +271,36 @@ class Mesh extends PObject
         }
     }
 
+    vidxs_of_face(i) { // get the vertices indices (of x) of face i
+        let face_sz = this.face_size()
+        let idxi = i * face_sz
+        console.assert(idxi < this.arrs.idx.length, "Out of bound index")
+        let r = []
+        for(let fi = 0; fi < face_sz; ++fi) {
+            let vidx = this.arrs.idx[idxi++] * 2
+            r.push(vidx)
+        }
+        return r
+    }
+
     // API
     draw(m, disp_values) {
         if (!disp_values)
             disp_values = { show_faces:true, show_lines:true, show_vtx:true } // hack for group to work
         //this.ensure_tcache(m)
         ctx_img.save()
-        ctx_img.setTransform(m[0], m[1], m[3], m[4], m[6], m[7])
-        if (disp_values.show_faces && this.arrs.face_color) 
-            this.draw_poly_fill()
-        if (disp_values.show_lines)
-            this.draw_poly_stroke()
-        if (disp_values.show_vtx)
-            this.draw_vertices()
-        ctx_img.restore()
+        try {
+            ctx_img.setTransform(m[0], m[1], m[3], m[4], m[6], m[7])
+            if (disp_values.show_faces && this.arrs.face_color) 
+                this.draw_poly_fill()
+            if (disp_values.show_lines)
+                this.draw_poly_stroke()
+            if (disp_values.show_vtx)
+                this.draw_vertices()
+        }
+        finally {
+            ctx_img.restore()
+        }
     }
 
     draw_selection(m, select_vindices) {

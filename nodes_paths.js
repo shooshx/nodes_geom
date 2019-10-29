@@ -47,10 +47,32 @@ class MultiPath extends PObject
     }
 
     ensure_tcache(m) {
-        return Mesh.prototyle.ensure_tcache(m)
+        return Mesh.prototype.ensure_tcache.call(this, m)
     }
 
-    draw_poly(do_fill) {
+    vidxs_of_face(i) {
+        console.assert(i < this.cmds.length, "index out of bounds")
+        let pcmds = this.cmds[i]
+        let r = []
+        let ci = 0
+        while (ci < pcmds.length) {
+            let cmd = pcmds[ci]
+            if (cmd == 'M' || cmd == 'L') {
+                r.push(pcmds[ci+1] * 2)
+                ci += 2
+            }
+            else if (cmd == 'Z') {
+                ++ci
+            }
+            else if (cmd == 'A') {
+                r.push(pcmds[ci+2] * 2)
+                ci += 3
+            }
+        }
+        return r
+    }
+
+    draw_poly(do_lines, do_fill) {
         if (this.paths === null || this.paths.length != this.cmds.length) 
         {
             this.paths = []
@@ -93,9 +115,11 @@ class MultiPath extends PObject
                 ctx_img.fillStyle = col
                 ctx_img.fill(p)
             }
-            ctx_img.strokeStyle = "#000"
-            ctx_img.lineWidth = 0.5/image_view.viewport_zoom
-            ctx_img.stroke(p)
+            if (do_lines) {
+                ctx_img.strokeStyle = "#000"
+                ctx_img.lineWidth = 0.5/image_view.viewport_zoom
+                ctx_img.stroke(p)
+            }
         }
     }
 
@@ -105,13 +129,16 @@ class MultiPath extends PObject
         if (this.arrs.vtx_pos === null)
             return
         ctx_img.save()
-        ctx_img.setTransform(m[0], m[1], m[3], m[4], m[6], m[7])
-        if (disp_values.show_lines)
-            this.draw_poly(disp_values.show_faces)
-        if (disp_values.show_vtx)
-            Mesh.prototype.draw_vertices.call(this)
-
-        ctx_img.restore()
+        try {
+            ctx_img.setTransform(m[0], m[1], m[3], m[4], m[6], m[7])
+            if (disp_values.show_lines || disp_values.show_faces)
+                this.draw_poly(disp_values.show_lines, disp_values.show_faces)
+            if (disp_values.show_vtx)
+                Mesh.prototype.draw_vertices.call(this)
+        }
+        finally {
+            ctx_img.restore()
+        }
     }
 
     draw_selection(m, select_vindices) {
