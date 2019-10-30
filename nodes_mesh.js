@@ -820,6 +820,7 @@ class NodeTriangulate extends NodeCls
             let d = new Delaunator(obj.arrs.vtx_pos)
             obj.set('idx', d.triangles)
             obj.set_type(MESH_TRI)
+            obj.halfedge = d.halfedges
             this.out_mesh.set(obj)
         }
         else if (obj.constructor === MultiPath) {
@@ -903,5 +904,127 @@ class GeomDivide extends NodeCls
             out_mesh.type = MESH_QUAD
             this.out_mesh.set(out_mesh)
         }
+    }
+}
+
+
+function triangles_lines(idxs, vtx) {
+    let lines = [], idx, i = 0, p0, p1, p2
+    while(i < idxs.length) {
+        idx = idxs[i++]<<1; p0 = vec2.fromValues(vtx[idx], vtx[idx+1])
+        idx = idxs[i++]<<1; p1 = vec2.fromValues(vtx[idx], vtx[idx+1])
+        idx = idxs[i++]<<1; p2 = vec2.fromValues(vtx[idx], vtx[idx+1])
+        lines.push([p0,p1])
+        lines.push([vec2.clone(p1),p2])
+        lines.push([vec2.clone(p2),vec2.clone(p0)])
+        // these points are going to be modified in place so we don't want the same point in both lines
+    }
+    return lines
+}
+
+
+function inset_lines(lines, width) {
+    let from_to = vec2.create(), ort = vec2.create()
+
+    for(let l of lines) {
+        vec2.subtract(from_to, l[1], l[0])
+        vec2.normalize(from_to, from_to)
+        vec2.set(ort, from_to[1], -from_to[0]) // orthogonal
+        //vec2.set(ort, from_to[1], -from_to[0]) // orthogonal
+        vec2.scaleAndAdd(l[0], l[0], ort, width)
+        vec2.scaleAndAdd(l[1], l[1], ort, width)     
+    }
+    return lines
+}    
+
+
+function get_line_intersection(l0, l1) 
+{
+    var p0_x = l0[0][0], p0_y = l0[0][1]
+    var p1_x = l0[1][0], p1_y = l0[1][1]
+    var p2_x = l1[0][0], p2_y = l1[0][1]
+    var p3_x = l1[1][0], p3_y = l1[1][1]
+    var s1_x = p1_x - p0_x;
+    var s1_y = p1_y - p0_y;
+    var s2_x = p3_x - p2_x;
+    var s2_y = p3_y - p2_y;
+    var s = (-s1_y * (p0_x - p2_x) + s1_x * (p0_y - p2_y)) / (-s2_x * s1_y + s1_x * s2_y);
+    var t = ( s2_x * (p0_y - p2_y) - s2_y * (p0_x - p2_x)) / (-s2_x * s1_y + s1_x * s2_y);
+    if (s >= 0 && s <= 1 && t >= 0 && t <= 1)
+    {
+        // Collision detected
+        var i_x = p0_x + (t * s1_x);
+        var i_y = p0_y + (t * s1_y);
+        return [i_x, i_y];
+    }
+    return null; // No collision
+}
+
+class LinesObj extends PObject
+{
+    static name() { return "Lines" }
+    constructor(lines) {
+        super()
+        this.lines = lines
+    }
+    draw(m) {
+        ctx_img.save()
+        try {
+            ctx_img.setTransform(m[0], m[1], m[3], m[4], m[6], m[7])
+            ctx_img.beginPath();
+            for(let l of this.lines) {
+                ctx_img.moveTo(l[0][0], l[0][1])
+                ctx_img.lineTo(l[1][0], l[1][1])
+            }
+            ctx_img.strokeStyle = "#000"
+            ctx_img.lineWidth = 1 / image_view.viewport_zoom
+            ctx_img.stroke()
+        }
+        finally {
+            ctx_img.restore()
+        }        
+    }
+}
+
+class FillLines extends NodeCls
+{
+    static name() { return "Fill Lines" }
+    constructor(node) {
+        super(node)
+        this.in_mesh = new InTerminal(node, "in_mesh")
+        this.out_mesh = new OutTerminal(node, "out_mesh")    
+        this.width = new ParamFloat(node, "Width", 0.01)    
+    }
+
+    run() {
+        let mesh = this.in_mesh.get_const()
+        assert(mesh !== null, this, "missing input mesh")
+        //assert(mesh.halfedges !== null, this, "missing halfedges in input mesh")
+        let lines = triangles_lines(mesh.arrs.idx, mesh.arrs.vtx_pos)
+
+        lines = inset_lines(lines, this.width.v) // in-place
+
+        //this.out_mesh.set(new LinesObj(lines))
+        //return
+
+        let new_vtx = [], new_idx = []
+
+        let ri = 0
+        for (let i = 0; i < lines.length; i += 3) {
+            var p0 = get_line_intersection(lines[i],   lines[i+1])
+            var p1 = get_line_intersection(lines[i+1], lines[i+2])
+            var p2 = get_line_intersection(lines[i+2], lines[i])
+            if (p0 === null || p1 === null || p2 === null)
+                continue
+            new_vtx.push(p0[0], p0[1], p1[0], p1[1], p2[0], p2[1])
+            new_idx.push(ri, ri+1, ri+2)
+            ri += 3
+        }
+        let obj = new Mesh()
+        obj.set('vtx_pos', new TVtxArr(new_vtx, 2))
+        obj.set('idx', new TIdxArr(new_idx))
+        // TBD dup other attributes?
+        obj.set_type(MESH_TRI)
+        this.out_mesh.set(obj)
     }
 }
