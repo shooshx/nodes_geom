@@ -88,21 +88,50 @@ class PointSelectHandle
     }
 }
 
+
 class ParamCoordList extends ListParam {
-    constructor(node, label, table, selected_indices) {
-        super(node, label, 2, table, TVtxArr, {cls:"param_monospace", to_string: (v)=>{ 
-            return "(" + v[0].toFixed(3) + "," + v[1].toFixed(3) + ")" 
-        }, 
-        get_clss: (index)=>{
-            let r = ["param_monospace"]
+    constructor(node, label, table, selected_indices) 
+    {
+        let edit_wrap = null
+        let text_elem_content = function(text_elem, value, index) {
+            let clss = "param_monospace param_lst_clickable"
             if (selected_indices.indexOf(index) != -1)
-                r.push("param_list_selected_line")
-            return r
+                clss += " param_list_selected_line"
+            text_elem.classList = clss
+            text_elem.innerText = "(" + value[0].toFixed(3) + "," + value[1].toFixed(3) + ")" 
+            text_elem.p_lst_index = index
         }
-        })
-        this.need_normalize = false  // not really needed for coordinates but just for remembering
+        super(node, label, 2, table, TVtxArr, { create_elem: (parent, start_val, index, change_func, get_cur_val)=>{
+            let text_elem = add_div(parent, "") // create elem for a single cell in the column of this list
+            text_elem_content(text_elem, start_val, index)
+            myAddEventListener(text_elem, "click", ()=>{ // open input edits on click
+                // index should not be used inside here becase removals might have changed this elem index. instead use the 
+                // index saved in the text_elem which is kept up to date with removals
+                let cur_val = get_cur_val(text_elem.p_lst_index)
+                if (this.edit_wrap !== null) {
+                    this.edit_wrap.parentNode.removeChild(this.edit_wrap)
+                }
+                this.edit_wrap = create_div("param_lst_coord_edit_wrap")
+                add_param_edit(this.edit_wrap, cur_val[0], ED_FLOAT, (v)=> { change_func([v,undefined],text_elem.p_lst_index); text_elem_content(text_elem, get_cur_val(text_elem.p_lst_index), text_elem.p_lst_index) })
+                add_param_edit(this.edit_wrap, cur_val[1], ED_FLOAT, (v)=> { change_func([undefined,v],text_elem.p_lst_index); text_elem_content(text_elem, get_cur_val(text_elem.p_lst_index), text_elem.p_lst_index) })
+                stop_propogation_on("mousedown", this.edit_wrap)
+                text_elem.parentNode.insertBefore(this.edit_wrap, text_elem.nextSibling) // re-parent
+            })
+            return text_elem
+        }, external_update: text_elem_content})
+        this.edit_wrap = null
+        this.need_normalize = false  // not really needed for coordinates but just for remembering    
     }
     def_value() { return [0,0] }
+    add_elems(parent) {
+        super.add_elems(parent)
+        param_reg_for_dismiss(()=>{ 
+            if (this.edit_wrap) { 
+                this.edit_wrap.parentNode.removeChild(this.edit_wrap);   
+                this.edit_wrap = null
+            }
+        })    
+    }
 }
 class ParamFloatList extends ListParam {
     constructor(node, label, table) {
@@ -122,12 +151,13 @@ function color_to_uint8arr(c) {
 }
 class ParamColorList extends ListParam {
     constructor(node, label, table) {
-        super(node, label, 4, table, TColorArr, { create_elem: function(parent, start_val, changed_func) { 
+        super(node, label, 4, table, TColorArr, { create_elem: function(parent, start_val, index, changed_func) { 
             let [col,elem,ce] = add_param_color(parent, uint8arr_to_color(start_val), "param_table_input_color", function(c) {
-                changed_func(color_to_uint8arr(c))
+                changed_func(color_to_uint8arr(c), elem.p_lst_index)
             })
+            elem.p_lst_index = index
             return elem
-        }})
+        }, external_update:(elem,value,index)=>{ elem.p_lst_index = index } })
         this.need_normalize = true
     }
     def_value() { return [0xcc, 0xcc, 0xcc, 0xff] }
@@ -938,28 +968,6 @@ function inset_lines(lines, width) {
 }    
 
 
-function get_line_intersection(l0, l1) 
-{
-    var p0_x = l0[0][0], p0_y = l0[0][1]
-    var p1_x = l0[1][0], p1_y = l0[1][1]
-    var p2_x = l1[0][0], p2_y = l1[0][1]
-    var p3_x = l1[1][0], p3_y = l1[1][1]
-    var s1_x = p1_x - p0_x;
-    var s1_y = p1_y - p0_y;
-    var s2_x = p3_x - p2_x;
-    var s2_y = p3_y - p2_y;
-    var s = (-s1_y * (p0_x - p2_x) + s1_x * (p0_y - p2_y)) / (-s2_x * s1_y + s1_x * s2_y);
-    var t = ( s2_x * (p0_y - p2_y) - s2_y * (p0_x - p2_x)) / (-s2_x * s1_y + s1_x * s2_y);
-    if (s >= 0 && s <= 1 && t >= 0 && t <= 1)
-    {
-        // Collision detected
-        var i_x = p0_x + (t * s1_x);
-        var i_y = p0_y + (t * s1_y);
-        return [i_x, i_y];
-    }
-    return null; // No collision
-}
-
 class LinesObj extends PObject
 {
     static name() { return "Lines" }
@@ -986,14 +994,37 @@ class LinesObj extends PObject
     }
 }
 
-class FillLines extends NodeCls
+class ShrinkFaces extends NodeCls
 {
-    static name() { return "Fill Lines" }
+    static name() { return "Shrink Faces" }
     constructor(node) {
         super(node)
         this.in_mesh = new InTerminal(node, "in_mesh")
         this.out_mesh = new OutTerminal(node, "out_mesh")    
-        this.width = new ParamFloat(node, "Width", 0.01)    
+        this.offset = new ParamFloat(node, "Offset", 0.01)
+        this.allow_overshoot = new ParamBool(node, "Allow over-shoot", false)
+    }
+
+    get_line_intersection(l0, l1) 
+    {
+        var p0_x = l0[0][0], p0_y = l0[0][1]
+        var p1_x = l0[1][0], p1_y = l0[1][1]
+        var p2_x = l1[0][0], p2_y = l1[0][1]
+        var p3_x = l1[1][0], p3_y = l1[1][1]
+        var s1_x = p1_x - p0_x;
+        var s1_y = p1_y - p0_y;
+        var s2_x = p3_x - p2_x;
+        var s2_y = p3_y - p2_y;
+        var s = (-s1_y * (p0_x - p2_x) + s1_x * (p0_y - p2_y)) / (-s2_x * s1_y + s1_x * s2_y);
+        var t = ( s2_x * (p0_y - p2_y) - s2_y * (p0_x - p2_x)) / (-s2_x * s1_y + s1_x * s2_y);
+        if (this.allow_overshoot.v || (s >= 0 && s <= 1 && t >= 0 && t <= 1))
+        {
+            // intersect detected
+            var i_x = p0_x + (t * s1_x);
+            var i_y = p0_y + (t * s1_y);
+            return [i_x, i_y];
+        }
+        return null; // No collision
     }
 
     run() {
@@ -1002,7 +1033,7 @@ class FillLines extends NodeCls
         //assert(mesh.halfedges !== null, this, "missing halfedges in input mesh")
         let lines = triangles_lines(mesh.arrs.idx, mesh.arrs.vtx_pos)
 
-        lines = inset_lines(lines, this.width.v) // in-place
+        lines = inset_lines(lines, this.offset.v) // in-place
 
         //this.out_mesh.set(new LinesObj(lines))
         //return
@@ -1011,9 +1042,9 @@ class FillLines extends NodeCls
 
         let ri = 0
         for (let i = 0; i < lines.length; i += 3) {
-            var p0 = get_line_intersection(lines[i],   lines[i+1])
-            var p1 = get_line_intersection(lines[i+1], lines[i+2])
-            var p2 = get_line_intersection(lines[i+2], lines[i])
+            var p0 = this.get_line_intersection(lines[i],   lines[i+1])
+            var p1 = this.get_line_intersection(lines[i+1], lines[i+2])
+            var p2 = this.get_line_intersection(lines[i+2], lines[i])
             if (p0 === null || p1 === null || p2 === null)
                 continue
             new_vtx.push(p0[0], p0[1], p1[0], p1[1], p2[0], p2[1])

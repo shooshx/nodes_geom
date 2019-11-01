@@ -74,8 +74,12 @@ function clear_elem(id) {
     return cNode    
 }
 
+// list of callbacks that want to get a call
+// in the current "add_elems"
+let g_params_popups = [] 
 function show_params_of(node) {
     // clear children
+    g_params_popups.length = 0
     let div_params_list = clear_elem('div_params_list')
     if (node === null)
         return
@@ -85,6 +89,14 @@ function show_params_of(node) {
         p.init_enable_visible()
     }
     fix_label_lengths(node.parameters)
+}
+
+function param_dismiss_popups() {
+    for(let callback of g_params_popups)
+        callback()
+}
+function param_reg_for_dismiss(callback) {
+    g_params_popups.push(callback)
 }
 
 // display_values is held per-node and is a map of string to value
@@ -899,15 +911,18 @@ class ListParam extends Parameter {
         this.create_entry_elems(v, this.table.get_column_elem(this.column), vindex)
     }
 
+    get_value(vindex) {
+        let v = []
+        if (this.values_per_entry > 1)
+            for(let vi = 0; vi < this.values_per_entry; ++vi)
+                v[vi] = this.lst[vindex + vi]            
+        else
+            v = this.lst[vindex]
+        return v
+    }
     for_values(func) {
         for(let vindex = 0; vindex < this.lst.length; vindex += this.values_per_entry) {
-            let v = []
-            if (this.values_per_entry > 1)
-                for(let vi = 0; vi < this.values_per_entry; ++vi)
-                    v[vi] = this.lst[vindex + vi]            
-            else
-                v = this.lst[vindex]
-            func(v, vindex)
+            func(this.get_value(vindex), vindex)
         }
     }
     add_column_elems(column_elem) {
@@ -918,14 +933,18 @@ class ListParam extends Parameter {
     create_entry_elems(v, parent, vindex) {
         let e
         if (this.elem_prm.create_elem !== undefined) {
-            e = this.elem_prm.create_elem(parent, v, (v) => {
+            let idx = vindex / this.values_per_entry
+            e = this.elem_prm.create_elem(parent, v, idx, (v, ch_index) => {
                 // change that come from the input element in the list
                 console.assert(v.length == this.values_per_entry, "unexpected length of value")
+                let ch_vindex = ch_index * this.values_per_entry
                 for(let vi = 0; vi < this.values_per_entry; ++vi)
-                    this.lst[vindex + vi] = v[vi]
+                    if (v[vi] !== undefined)
+                        this.lst[ch_vindex + vi] = v[vi]
                 this.pset_dirty()
                 trigger_frame_draw(true)
-            })
+            }, 
+            (index)=>{ return this.get_value(index*this.values_per_entry) })
         }
         else {
             let clss = this.elem_prm.get_clss ? this.elem_prm.get_clss(vindex / this.values_per_entry) : [this.elem_prm.cls]
@@ -958,15 +977,21 @@ class ListParam extends Parameter {
         this.pset_dirty()
 
         this.elem_lst = cull_list(this.elem_lst)
+        this.reprint_all_lines()
         console.assert(this.lst.length == this.elem_lst.length * this.values_per_entry, "unexpected number of elements")
     }
 
     reprint_line(vidx, v) {
         let idx = vidx / this.values_per_entry
         let elem = this.elem_lst[idx]
-        if (this.elem_prm.get_clss)
-            elem.classList = this.elem_prm.get_clss(idx).join(" ")
-        elem.innerText = this.elem_prm.to_string(v)
+        if (this.elem_prm.external_update) {
+            this.elem_prm.external_update(elem, v, idx)
+        }
+        else {
+            if (this.elem_prm.get_clss)
+                elem.classList = this.elem_prm.get_clss(idx).join(" ")
+            elem.innerText = this.elem_prm.to_string(v)
+        }
     }
 
     reprint_all_lines() {

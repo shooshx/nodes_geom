@@ -147,6 +147,7 @@ class NodesView extends ViewBase
 
     dismiss_popups() {
         nodes_dismiss_name_input()
+        param_dismiss_popups()
     }
 }
 
@@ -392,9 +393,7 @@ function open_context_menu(options, wx, wy, parent_elem, dismiss_func)
     let menu_elem = addTextChild(parent_elem, text)    
     for(let i = 0; i < menu_elem.childNodes.length; ++i) {
         let child = menu_elem.childNodes[i]
-        myAddEventListener(child, 'mousedown', function(e) {
-            e.stopPropagation()            
-        })
+        stop_propogation_on("mousedown", child)
         myAddEventListener(child, 'click', function() {
             options[i].func()
             dismiss_func()
@@ -439,9 +438,7 @@ class NameInput
         this.elem.style.left = this.node.namex() + nodes_view.rect.left + "px"
         this.elem.style.top = this.node.namey() + nodes_view.rect.top - 5 + "px"
         input.value = this.node.name
-        myAddEventListener(input, 'mousedown', function(e) {
-            e.stopPropagation()            
-        })
+        stop_propogation_on("mousedown", input)
         myAddEventListener(input, 'input', ()=>{
             this.node.set_name(input.value)
             draw_nodes()

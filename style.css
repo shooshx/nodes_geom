@@ -253,6 +253,18 @@ input {
     overflow-x: hidden;
     height: 21px;
 }
+.param_lst_clickable:hover {
+    background-color: #474780;
+    border-radius: 4px;
+}
+.param_lst_coord_edit_wrap {
+    position: absolute;
+    background-color: #777;
+    z-index: 1;
+    padding: 5px;
+    border-radius: 4px;    
+}
+
 .param_table_input_color {
     display: block;
     background-color: #555;

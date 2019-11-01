@@ -333,6 +333,14 @@ function myAddEventListener(obj, event_name, func) {
     })
 }
 
+function stop_propogation_on(event_name, ...elems) {
+    for(let e of elems) {
+        e.addEventListener(event_name, function(e) {
+            e.stopPropagation()            
+        })
+    }
+}
+
 // just redraw the same output
 const RUN_DRAW_SAME = 0
 // the viewport change, re-run anything that is viewport dependent
@@ -434,7 +442,7 @@ var nodes_classes = [
     PointGradFill,
     NodeLoadImage,
     CreateTexture,
-    FillLines,
+    ShrinkFaces,
 ]
 var nodes_classes_by_name = {}
 for(let c of nodes_classes)
