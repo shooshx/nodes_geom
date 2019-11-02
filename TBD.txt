@@ -67,6 +67,9 @@ NODES:
     node for clip using a path
 - convex hull
 - Copy - copy something onto vertices positions
+- !!! Chaikin - https://simblob.blogspot.com/2019/10/chaikin-curves.html
+    - needs voronoi
+
 
 - random points  - https://www.sidefx.com/docs/houdini/nodes/sop/scatter.html
     on a surface
@@ -107,6 +110,7 @@ demo idea
 - function contours like in d3 example
 - star field screen saver
 - topograph with gradient
+- something looking like https://github.com/stolk/allrgb
 
 nice visualizations: https://bost.ocks.org/mike/algorithms/
 d3: https://github.com/d3/d3/wiki/Gallery

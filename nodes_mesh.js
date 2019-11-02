@@ -939,14 +939,17 @@ class GeomDivide extends NodeCls
 
 
 function triangles_lines(idxs, vtx) {
-    let lines = [], idx, i = 0, p0, p1, p2
+    let lines = [], idx, i = 0, p0, p1, p2, p0c, p1c, p2c
     while(i < idxs.length) {
-        idx = idxs[i++]<<1; p0 = vec2.fromValues(vtx[idx], vtx[idx+1])
-        idx = idxs[i++]<<1; p1 = vec2.fromValues(vtx[idx], vtx[idx+1])
-        idx = idxs[i++]<<1; p2 = vec2.fromValues(vtx[idx], vtx[idx+1])
+        idx = idxs[i++]<<1; p0 = vec2.fromValues(vtx[idx], vtx[idx+1]); p0c = vec2.clone(p0)
+        p0c.from_idx = p0.from_idx = idx/2
+        idx = idxs[i++]<<1; p1 = vec2.fromValues(vtx[idx], vtx[idx+1]); p1c = vec2.clone(p1)
+        p1c.from_idx = p1.from_idx = idx/2
+        idx = idxs[i++]<<1; p2 = vec2.fromValues(vtx[idx], vtx[idx+1]); p2c = vec2.clone(p2)
+        p2c.from_idx = p2.from_idx = idx/2
         lines.push([p0,p1])
-        lines.push([vec2.clone(p1),p2])
-        lines.push([vec2.clone(p2),vec2.clone(p0)])
+        lines.push([p1c,p2])
+        lines.push([p2c,p0c])
         // these points are going to be modified in place so we don't want the same point in both lines
     }
     return lines
@@ -1030,32 +1033,60 @@ class ShrinkFaces extends NodeCls
     run() {
         let mesh = this.in_mesh.get_const()
         assert(mesh !== null, this, "missing input mesh")
-        //assert(mesh.halfedges !== null, this, "missing halfedges in input mesh")
-        let lines = triangles_lines(mesh.arrs.idx, mesh.arrs.vtx_pos)
 
+        let lines = triangles_lines(mesh.arrs.idx, mesh.arrs.vtx_pos)
         lines = inset_lines(lines, this.offset.v) // in-place
 
         //this.out_mesh.set(new LinesObj(lines))
         //return
 
-        let new_vtx = [], new_idx = []
+        let new_vtx = [], new_idx = [], from_vidx = [], from_face = []
 
         let ri = 0
-        for (let i = 0; i < lines.length; i += 3) {
+        for (let i = 0, fi=0; i < lines.length; i += 3, ++fi) {
             var p0 = this.get_line_intersection(lines[i],   lines[i+1])
             var p1 = this.get_line_intersection(lines[i+1], lines[i+2])
             var p2 = this.get_line_intersection(lines[i+2], lines[i])
             if (p0 === null || p1 === null || p2 === null)
                 continue
             new_vtx.push(p0[0], p0[1], p1[0], p1[1], p2[0], p2[1])
+            from_vidx.push(lines[i][1].from_idx, lines[i+1][1].from_idx, lines[i+2][1].from_idx)
             new_idx.push(ri, ri+1, ri+2)
+            from_face.push(fi)
             ri += 3
         }
-        let obj = new Mesh()
-        obj.set('vtx_pos', new TVtxArr(new_vtx, 2))
-        obj.set('idx', new TIdxArr(new_idx))
+        let out_obj = new Mesh()
+        out_obj.set('vtx_pos', new TVtxArr(new_vtx), 2)
+        out_obj.set('idx', new TIdxArr(new_idx))
+        // duplicate other attributes
+        for(let arr_name in mesh.arrs) {
+            if (arr_name == "idx" || arr_name == "vtx_pos")
+                continue
+            
+            let from_arr = mesh.arrs[arr_name]
+            let num_elems = mesh.meta[arr_name].num_elems
+            let idx_src;
+            if (arr_name.startsWith("vtx_")) 
+                idx_src = from_vidx
+            else if (arr_name.startsWith("face_")) 
+                idx_src = from_face
+            else
+                continue
+
+            let new_arr = new from_arr.constructor(idx_src.length * num_elems)
+            let ni = 0
+
+            for(let idx of idx_src) {
+                for(let i = 0; i < num_elems; ++i) {
+                    new_arr[ni++] = from_arr[idx*num_elems+i]  
+                }
+            }
+            out_obj.set(arr_name, new_arr, num_elems, mesh.meta[arr_name].need_normalize)
+
+        }
         // TBD dup other attributes?
-        obj.set_type(MESH_TRI)
-        this.out_mesh.set(obj)
+        // TBD Quads
+        out_obj.set_type(MESH_TRI)
+        this.out_mesh.set(out_obj)
     }
 }
