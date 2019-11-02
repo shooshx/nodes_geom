@@ -67,7 +67,7 @@ NODES:
     node for clip using a path
 - convex hull
 - Copy - copy something onto vertices positions
-- !!! Chaikin - https://simblob.blogspot.com/2019/10/chaikin-curves.html
+- !!! Chaikin - https://simblob.blogspot.com/2019/10/chaikin-curves.html and https://sighack.com/post/chaikin-curves
     - needs voronoi
 
 
