@@ -33,7 +33,10 @@ NODES:
         edge case of non-input points coming from triangulate (corner points) ???
         add non-hole points?
     curves
+        redesign with arrays
     primitive circle
+- Voronoi     
+    for tri2poly - needs halfedges and hull
 - SetAttr
     pseudo attribute - face center (position) so that it will be possible to sample face color from the position attribute
 - Manual points

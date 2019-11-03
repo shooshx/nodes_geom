@@ -845,19 +845,74 @@ class NodeTriangulate extends NodeCls
         let obj = this.in_obj.get_const()
         assert(obj !== null, this, "Missing input mesh")
         assert(obj.arrs !== undefined && obj.arrs.vtx_pos !== undefined, this, "Input doesn't have vertices. type: " + obj.constructor.name())
+
         if (obj.constructor === Mesh) {
             let obj = this.in_obj.get_mutable()
             let d = new Delaunator(obj.arrs.vtx_pos)
             obj.set('idx', d.triangles)
             obj.set_type(MESH_TRI)
-            obj.halfedge = d.halfedges
+            obj.halfedges = d.halfedges
+            obj.hull = d.hull
             this.out_mesh.set(obj)
         }
         else if (obj.constructor === MultiPath) {
             let out_mesh = triangulate_path(obj, this)
             this.out_mesh.set(out_mesh)
         }
+    }
+}
 
+
+class PathsBuilder {
+    constructor() {
+        this.vtx_pos = []
+        this.cmds = []
+    }
+    moveTo(x,y) {
+        this.cmds.push(['M', this.vtx_pos.length/2])
+        this.vtx_pos.push(x,y)
+    }
+    lineTo(x,y) {
+        let last_cmd = this.cmds[this.cmds.length - 1]
+        last_cmd.push('L', this.vtx_pos.length/2)
+        this.vtx_pos.push(x,y)
+    }
+    closePath() {
+        let last_cmd = this.cmds[this.cmds.length - 1]
+        last_cmd.push('Z')
+    }
+    finalize(paths) {
+        paths.set('vtx_pos', this.vtx_pos, 2, false)
+        paths.cmds = this.cmds
+    }
+}
+
+
+class NodeVoronoi extends NodeCls
+{
+    static name() { return "Voronoi" }
+    constructor(node) {
+        super(node)
+        this.in_obj = new InTerminal(node, "in_mesh")
+        this.out_mesh = new OutTerminal(node, "out_paths")
+        this.margin = new ParamVec2(node, "Margin", 0.2, 0.2)
+    }
+    run() {
+        let mesh = this.in_obj.get_const()
+        assert(mesh !== null, this, "Missing input mesh")
+        assert(mesh.arrs !== undefined && mesh.arrs.vtx_pos !== undefined, this, "Input doesn't have vertices. type: " + mesh.constructor.name())
+        assert(mesh.halfedges !== undefined && mesh.hull !== undefined, this, "missing halfedges or hull")
+
+        let bbox = mesh.get_bbox()
+        let mx = this.margin.x, my = this.margin.y
+
+        let delaunay = { triangles:mesh.arrs.idx, points:mesh.arrs.vtx_pos, halfedges:mesh.halfedges, hull:mesh.hull }
+        let voronoi = new Voronoi(delaunay, [bbox.min_x-mx,bbox.min_y-my, bbox.max_x+mx,bbox.max_y+my]);
+        let builder = new PathsBuilder()
+        voronoi.renderCells(builder)
+        let new_paths = new MultiPath()
+        builder.finalize(new_paths)
+        this.out_mesh.set(new_paths)
     }
 }
 
@@ -1033,6 +1088,7 @@ class ShrinkFaces extends NodeCls
     run() {
         let mesh = this.in_mesh.get_const()
         assert(mesh !== null, this, "missing input mesh")
+        assert(mesh.face_size !== undefined, this, "input needs to be a mesh")
 
         let face_size = mesh.face_size()
         // a line is a list of two points. `lines` has `face_size` lines for each face
@@ -1065,17 +1121,6 @@ class ShrinkFaces extends NodeCls
                 ri += 1
             }
             from_face.push(fi)
-/*
-            var p0 = this.get_line_intersection(lines[i],   lines[i+1])
-            var p1 = this.get_line_intersection(lines[i+1], lines[i+2])
-            var p2 = this.get_line_intersection(lines[i+2], lines[i])
-            if (p0 === null || p1 === null || p2 === null)
-                continue
-            new_vtx.push(p0[0], p0[1], p1[0], p1[1], p2[0], p2[1])
-            from_vidx.push(lines[i][1].from_idx, lines[i+1][1].from_idx, lines[i+2][1].from_idx)
-            new_idx.push(ri, ri+1, ri+2)
-            from_face.push(fi)
-            ri += 3*/
         }
         let out_obj = new Mesh()
         out_obj.set('vtx_pos', new TVtxArr(new_vtx), 2)

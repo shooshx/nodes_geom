@@ -114,6 +114,9 @@ class MultiPath extends PObject
                 cidx += 4
                 ctx_img.fillStyle = col
                 ctx_img.fill(p)
+                ctx_img.lineWidth = 1 / image_view.viewport_zoom
+                ctx_img.strokeStyle = col
+                ctx_img.stroke(p) // fill antialiasing gaps
             }
             if (do_lines) {
                 ctx_img.strokeStyle = "#000"
