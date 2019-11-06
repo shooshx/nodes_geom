@@ -4,7 +4,10 @@ GUI:
 - color picker with null
 - BUG: resize the window beyond the size of the nodes panel moves it
 - select *nodes* with Ctrl, rectangle (display params of multiple nodes at once?)
-- progress bar for long run
+- zoom nodes view
+- icons nodes view
+- node show node name if name is changed
+- progress bar for long run, abort button
 - first node created with display flag (otherwise nothing is visible)
 - fix jumping of splits on page load
 - template display
@@ -36,7 +39,7 @@ NODES:
         redesign with arrays
     primitive circle
 - Voronoi     
-    for tri2poly - needs halfedges and hull
+    !!!! for tri2poly - needs halfedges and hull
 - SetAttr
     pseudo attribute - face center (position) so that it will be possible to sample face color from the position attribute
 - Manual points
@@ -59,6 +62,7 @@ NODES:
     https://stackoverflow.com/questions/27531860/how-to-highlight-a-certain-line-in-ace-editor
     title of window with different color for fragment and vertex shaders
     tabbed view?
+- Image processing  http://evanw.github.io/webgl-filter/
 - Perlin Noise GLSL?
     https://github.com/ashima/webgl-noise/tree/master/src
 - point size to path circle
@@ -66,12 +70,12 @@ NODES:
 - bitmap trace
     potrace -  https://github.com/kilobtye/potrace/blob/master/potrace.js
         http://potrace.sourceforge.net/  
-- delete points outside a shape (crop>)
+- delete points outside a shape (crop)
     node for clip using a path
 - convex hull
 - Copy - copy something onto vertices positions
 - !!! Chaikin - https://simblob.blogspot.com/2019/10/chaikin-curves.html and https://sighack.com/post/chaikin-curves
-    - needs voronoi
+- Boolean ops from Inkscape https://gitlab.com/inkscape/lib2geom/blob/master/src/2geom/intersection-graph.h
 
 
 - random points  - https://www.sidefx.com/docs/houdini/nodes/sop/scatter.html

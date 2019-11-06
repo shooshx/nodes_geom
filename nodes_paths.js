@@ -1,16 +1,16 @@
+const PATH_CLOSED = 1
+
 class MultiPath extends PObject
 {
     static name() { return "MultiPath" }
     constructor() {
         super()
-        this.cmds = [] // list of paths, each a list of ['M', 0, 'L', 1] where 0,1 are indices of vertices
+        //this.cmds = [] // list of paths, each a list of ['M', 0, 'L', 1] where 0,1 are indices of vertices
+        this.paths_ranges = [] // index in (normal index) of start, one-past-end of every path, flags (1 for closed)
         this.paths = null
         this.arrs = { vtx_pos:null }  // common to all paths
         this.meta = { vtx_pos:null }
         this.tcache = { vtx_pos:null, m:null }  // transformed cache (for setattr)
-    }
-    add_path(p) {
-        this.cmds.push(p)
     }
     set(name, arr, num_elems, need_normalize) {
         name = normalize_attr_name(name)
@@ -40,7 +40,7 @@ class MultiPath extends PObject
     }
 
     face_count() {
-        return this.cmds.length
+        return this.paths_ranges.length / 3
     }
     vtx_count() {
         return Mesh.prototype.vtx_count.call(this)
@@ -51,55 +51,29 @@ class MultiPath extends PObject
     }
 
     vidxs_of_face(i) {
-        console.assert(i < this.cmds.length, "index out of bounds")
-        let pcmds = this.cmds[i]
+        console.assert(i*3 < this.paths_ranges.length, "index out of bounds")
+        let start_vidx = this.paths_ranges[i*3]*2
+        let end_vidx = this.paths_ranges[i*3 + 1]*2
         let r = []
-        let ci = 0
-        while (ci < pcmds.length) {
-            let cmd = pcmds[ci]
-            if (cmd == 'M' || cmd == 'L') {
-                r.push(pcmds[ci+1] * 2)
-                ci += 2
-            }
-            else if (cmd == 'Z') {
-                ++ci
-            }
-            else if (cmd == 'A') {
-                r.push(pcmds[ci+2] * 2)
-                ci += 3
-            }
-        }
+        for(let vidx = start_vidx; vidx < end_vidx; vidx += 2)
+            r.push(vidx)
         return r
     }
 
     draw_poly(do_lines, do_fill) {
-        if (this.paths === null || this.paths.length != this.cmds.length) 
+        if (this.paths === null || this.paths.length*3 != this.paths_ranges.length) 
         {
             this.paths = []
             let vtx = this.arrs.vtx_pos;
-            for(let pcmds of this.cmds) {
-                let plst = []
-                let ci = 0;
-                while(ci < pcmds.length) {
-                    let cmd = pcmds[ci]
-                    if (cmd == 'M' || cmd == 'L') {
-                        let vidx = pcmds[ci+1] * 2
-                        plst.push(cmd, vtx[vidx], vtx[vidx+1])
-                        ci += 2
-                    }
-                    else if (cmd == 'Z') {
-                        plst.push(cmd)
-                        ++ci
-                    }
-                    else if (cmd == 'A') { // arc: A,its arguments,index of end-point
-                        let vidx = pcmds[ci+2] * 2
-                        plst.push(cmd, pcmds[ci+1], vtx[vidx], vtx[vidx+1]) 
-                        ci += 3
-                    }
-                    else {
-                        dassert(false, "Unexpected path cmd " + cmd)
-                    }
+            for(let pri = 0; pri < this.paths_ranges.length; pri += 3) {
+                let start_vidx = this.paths_ranges[pri]*2
+                let end_vidx = this.paths_ranges[pri+1]*2
+                let plst = ['M', vtx[start_vidx], vtx[start_vidx+1]]
+                for(let vidx = start_vidx + 2; vidx < end_vidx; vidx += 2) {
+                    plst.push('L', vtx[vidx], vtx[vidx+1])
                 }
+                if (this.paths_ranges[pri+2] == PATH_CLOSED)
+                    plst.push('Z')
                 let s = plst.join(" ")
                 let jp = new Path2D(s)
                 this.paths.push(jp)
@@ -150,76 +124,65 @@ class MultiPath extends PObject
 }
 
 
-
-
-class PathPoly {
-    constructor(id) {
-        this.closed = false
-    }
-}
 // used in NodeManualGeom
-class PathPolysList extends Parameter {
+class PathRangesList extends Parameter {
     constructor(node) {
-        super(node, "polys")
+        super(node, "path_ranges")
         this.lst = []  // contains references to PathPoly objects all points of a poly point to the same object
     }
-    save() { 
-        let polys = []
-        let refs = []
-        let cur = null
-        for(let p of this.lst) {
-            if (p !== cur) {
-                polys.push(p)
-                cur = p
-            }
-            refs.push(polys.length-1) // the index of the last poly seen
-        }
-        return {polys:polys, refs:refs} 
-    }
-    load(v) { 
-        this.lst = []
-        for(let r of v.refs) {
-            this.lst.push(v.polys[r])
-        }
-    } 
-    add(v) {
-        this.lst.push(v)
-        this.pset_dirty()
-    }
+    save() { return {ranges:this.lst} }
+    load(v) { this.lst = v.ranges }
+
     add_default() {
         let p
-        if (this.lst.length == 0)
-            p = new PathPoly()
-        else {
-            let last_poly = this.lst[this.lst.length - 1]
-            if (last_poly.closed)
-                p = new PathPoly()
-            else
-                p = last_poly
+        if (this.lst.length == 0) {
+            this.lst.push(0,1,0)
         }
-        this.add(p)
+        else {
+            let last_end = this.lst[this.lst.length - 2]
+            let last_flags = this.lst[this.lst.length - 1]
+            if (last_flags == PATH_CLOSED)
+                this.lst.push(last_end, last_end+1, 0)
+            else
+                ++this.lst[this.lst.length - 2]
+        }
+        this.pset_dirty()
     }
     close_current(clicked_index) {
-        // go backwards to see where the current poly starts
-        let cur_poly = this.lst[this.lst.length-1]
-        if (cur_poly.closed)
+        let last_flags = this.lst[this.lst.length - 1]
+        if (last_flags == PATH_CLOSED)
             return false
-        for(let i = this.lst.length-1; i >= 0; --i) {
-            if (this.lst[i] !== cur_poly) {
-                if (i + 1 != clicked_index)
-                    return false;
-                break // found the first and it is the expected index
-            }
-        }
-        
-        cur_poly.closed = true
+        // go backwards to see where the current poly starts
+        let last_start = this.lst[this.lst.length - 3]
+        if (last_start !== clicked_index)
+            return false
+        this.lst[this.lst.length - 1] = PATH_CLOSED
         this.pset_dirty()
         return true // managed to close
     }
-    remove(indices) {
-        for(let index of indices)
-            delete this.lst[index]
-            this.lst = cull_list(this.lst)
+    remove(indices) { 
+        // for simplicity, expand, remove and redo ranges
+        let polys_index = [], polys = []
+        for(let rpi = 0; rpi < this.lst.length; rpi += 3) {
+            let start_vidx = this.lst[rpi], end_vidx = this.lst[rpi+1]
+            let poly = { flags: this.lst[rpi+2], count: end_vidx-start_vidx}
+            polys.push(poly)
+            for(let vidx = start_vidx; vidx < end_vidx; ++vidx)
+                polys_index.push(poly)
+        }
+        for(let index of indices) {
+            --polys_index[index].count
+            console.assert(polys_index[index].count >=0) // sanity
+            delete polys_index[index]
+        }
+        polys = cull_list(polys)
+        let new_lst = [], pos = 0
+        for(let p of polys) 
+            if (p.count > 0) {
+                new_lst.push(pos, pos+p.count, p.flags)
+                pos += p.count
+            }
+        this.lst = new_lst
     }
     add_elems(parent) {}
 }
@@ -231,27 +194,17 @@ function triangulate_path(obj, node)
     let vtx = obj.arrs.vtx_pos;
     let added_poly = 0
     let all_pnts = []
-    for(let pcmds of obj.cmds) 
+    //for(let pcmds of obj.cmds) 
+    for(let pri = 0; pri < obj.paths_ranges.length; pri += 3)
     {
-        let plst = []
-        let ci = 0;
-        while(ci < pcmds.length) {
-            let cmd = pcmds[ci]
-            if (cmd == 'M' || cmd == 'L') {
-                let idx = pcmds[ci+1]
-                let vidx = idx * 2
-                assert(vidx + 1 < vtx.length, node, "wrong path cmd")
-                let tpnt = new poly2tri.Point(vtx[vidx], vtx[vidx+1])
-                tpnt.my_index = idx
-                tpnt.visited = false
-                plst.push(tpnt)
-                
-                ci += 2
-            }
-            else if (cmd = 'Z')
-                ++ci
-            else 
-                assert(false, node, "Unexpected path cmd " + cmd)
+        let plst = [] // of current hole
+        let start_vidx = obj.paths_ranges[pri]*2
+        let end_vidx = obj.paths_ranges[pri+1]*2
+        for(let vidx = start_vidx; vidx < end_vidx; vidx += 2) {
+            let tpnt = new poly2tri.Point(vtx[vidx], vtx[vidx+1])
+            tpnt.my_index = vidx / 2
+            tpnt.visited = false
+            plst.push(tpnt)
         }
         if (plst.length >= 3) {
             swctx.addHole(plst)

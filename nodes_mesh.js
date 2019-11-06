@@ -54,8 +54,8 @@ class NodeGeomPrimitive extends NodeCls
         }
         else {
             obj = new MultiPath()
-            obj.set('vtx_pos', new TVtxArr([hx,0, -hx,0]))
-            obj.add_path(['M',0, 'A',(hx + " " + hy + " 0 1 0"),1 ,'A',(hx + " " + hy + " 0 1 0"),0,'Z'])
+            //obj.set('vtx_pos', new TVtxArr([hx,0, -hx,0]))
+            //obj.add_path(['M',0, 'A',(hx + " " + hy + " 0 1 0"),1 ,'A',(hx + " " + hy + " 0 1 0"),0,'Z'])
         }
         obj.transform(this.transform.v)
         this.out.set(obj)
@@ -179,7 +179,7 @@ class NodeManualGeom extends NodeCls
         this.points = new ParamCoordList(node, "Coord", this.table, this.selected_indices)
         this.dummy = new ParamFloatList(node, "Dummy", this.table)
         this.color = new ParamColorList(node, "Point Color", this.table)
-        this.polys = new PathPolysList(node) // not shown
+        this.paths_ranges = new PathRangesList(node) // not shown
 
         this.pnt_attrs = [this.dummy, this.color]  // Param objets of additional attributes of each point other than it's coordinate
         this.rect_elem = null // rect selection DOM elem if one is active
@@ -193,7 +193,7 @@ class NodeManualGeom extends NodeCls
             attr_param.add(attr_param.def_value())
         }
 
-        this.polys.add_default() // do this anyway just to keep it simple, not much of an overhead
+        this.paths_ranges.add_default() // do this anyway just to keep it simple, not much of an overhead
 
         trigger_frame_draw(true)
     }
@@ -213,7 +213,7 @@ class NodeManualGeom extends NodeCls
     set_selection(idx) {
         if (this.add_pnts_btn.v && this.geom_type.sel_idx == 1) {
             // when adding points to path, instead of select, close the path
-            if (this.polys.close_current(idx)) {
+            if (this.paths_ranges.close_current(idx)) {
                 trigger_frame_draw(true)
                 return
             } // if didn't close, select?
@@ -232,7 +232,7 @@ class NodeManualGeom extends NodeCls
         for(let attr_param of this.pnt_attrs) {
             attr_param.remove(this.selected_indices)
         }
-        this.polys.remove(this.selected_indices)
+        this.paths_ranges.remove(this.selected_indices)
         this.clear_selection()
         trigger_frame_draw(true)
     }
@@ -284,31 +284,7 @@ class NodeManualGeom extends NodeCls
         else if (this.geom_type.sel_idx == 1) // paths
         {
             obj = new MultiPath()
-            if (this.points.lst.length > 0) {
-                let cur_path = []
-                let cur_poly_obj = null
-                let i = 0
-                for(let p of this.polys.lst) {
-                    if (p !== cur_poly_obj) {
-                        if (cur_poly_obj !== null) {
-                            if (cur_poly_obj.closed)
-                                cur_path.push('Z')                        
-                            obj.add_path(cur_path)
-                            cur_path = []
-                        }
-
-                        cur_path.push('M', i++)
-                        cur_poly_obj = p
-                    }
-                    else {
-                        cur_path.push('L', i++)
-                    }
-                }
-                // handle last one
-                if (cur_poly_obj.closed)
-                    cur_path.push('Z')                
-                obj.add_path(cur_path)
-            }
+            obj.paths_ranges = this.paths_ranges.lst.slice();
         }
         else {
             assert(false, this, "unexpected type")
