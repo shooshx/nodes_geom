@@ -10,12 +10,15 @@ class PImage extends ImageBase
         this.pixels = null
     }
 
+    width() { return this.img.width }
+    height() { return this.img.height }
+
     draw(m) {
         this.draw_image(this.img, m)
     }
 
     get_pixels() {
-        if (this.pixels === null) {
+        if (this.pixels === null && this.img.width != 0 && this.img.height != 0) {
             canvas_img_shadow.width = this.img.width
             canvas_img_shadow.height = this.img.height
             ctx_img_shadow.drawImage(this.img, 0, 0, this.img.width, this.img.height);
@@ -54,6 +57,7 @@ class NodeLoadImage extends NodeCls
         let outimg = this.out_img.get_const()
         dassert(outimg !== null, "No output object to select")
         this.transform.draw_dial_at_obj(outimg, m)
+        outimg.draw_border(m)
     }    
     image_find_obj(vx, vy, ex, ey) {
         return this.transform.dial.find_obj(ex, ey)

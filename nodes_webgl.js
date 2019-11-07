@@ -15,8 +15,6 @@ class ImageBase extends PObject
         this.bottom_right = vec2.fromValues(hw,hh)
     }
 
-    width() { return this.tex_obj.width }
-    height() { return this.tex_obj.height }
     transform(m) { this.t_mat = m } 
 
     draw_image(img_impl, m) {
@@ -74,6 +72,8 @@ class FrameBuffer extends ImageBase
     }
 
     // TBDno need for destructor, the texture is owned by the NodeShader that created it
+    width() { return this.tex_obj.width }
+    height() { return this.tex_obj.height }
 
     get_pixels() {
         if (this.pixels === null) {
@@ -91,6 +91,7 @@ class FrameBuffer extends ImageBase
 
             // get the pixels from webgl
             let pixels = this.get_pixels()
+            dassert(pixels !== null, "Image is empty")
             let pixelsc = new Uint8ClampedArray(pixels)
             let img_data = new ImageData(pixelsc, this.tex_obj.width, this.tex_obj.height)
             // draw the on the shadow canvas

@@ -537,9 +537,9 @@ class ParamColor extends Parameter {
     constructor(node, label, start_c_str) {
         super(node, label)
         this.v = ColorPicker.parse_hex(start_c_str)
-        this.item_r = new ExpressionItem(this, "r", ED_INT, (v)=>{ this.v.r=v & 0xff; this.items_to_picker()}, ()=>{return this.v.r})
-        this.item_g = new ExpressionItem(this, "g", ED_INT, (v)=>{ this.v.g=v & 0xff; this.items_to_picker()}, ()=>{return this.v.g})
-        this.item_b = new ExpressionItem(this, "b", ED_INT, (v)=>{ this.v.b=v & 0xff; this.items_to_picker()}, ()=>{return this.v.b})
+        this.item_r = new ExpressionItem(this, "r", ED_INT, (v)=>{ this.v.r=(v === null)?v:(v & 0xff); this.items_to_picker()}, ()=>{return this.v.r})
+        this.item_g = new ExpressionItem(this, "g", ED_INT, (v)=>{ this.v.g=(v === null)?v:(v & 0xff); this.items_to_picker()}, ()=>{return this.v.g})
+        this.item_b = new ExpressionItem(this, "b", ED_INT, (v)=>{ this.v.b=(v === null)?v:(v & 0xff); this.items_to_picker()}, ()=>{return this.v.b})
         this.item_alpha = new ExpressionItem(this, "alphai", ED_INT, (v)=>{
             this.v.alphai=v & 0xff; 
             this.v.alpha=(v==null)?null:((v&0xff)/255); 
@@ -1261,17 +1261,18 @@ class ParamImageUpload extends ParamFileUpload
         this.last_error = null
         this.image = null
         let newimage = new Image()
-        newimage.onload = (e)=>{
+        myAddEventListener(newimage, "load", (e)=>{
             this.image = newimage
             this.pset_dirty()
-        }
-        newimage.onerror = (e)=>{
+        })
+        myAddEventListener(newimage, "error", (e)=>{
             this.last_error = "Failed download image from URL"
             console.error("Failed to download image", e)
             this.pset_dirty() // trigger a draw that will show this error
-        }
+        })
         newimage.crossOrigin = ''
-        newimage.src = url        
+        newimage.src = url
+        this.image = newimage // first time it may not be there but then the load even is going to refresh the display   
     }
 
     get_image() {

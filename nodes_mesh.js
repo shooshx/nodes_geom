@@ -450,6 +450,7 @@ class NodeSetAttr extends NodeCls
         let wf = w/2
         let hf = src.height()/2
         let pixels = src.get_pixels()
+        assert(pixels !== null, this, "Input image is empty")
 
         let samp_vtx = (this.bind_to.sel_idx == 0)
         //let face_sz = mesh.face_size()
