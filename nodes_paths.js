@@ -214,6 +214,8 @@ function triangulate_path(obj, node)
     }
     let out_mesh = new Mesh()
     let idx = []
+    let halfedges = []
+    halfedges.fill(-1)
     if (added_poly > 0) {
         // need to iterate since triangulate only processes one countour and its holes at a time
         while(true) {
@@ -228,8 +230,27 @@ function triangulate_path(obj, node)
                 console.assert(tripnt.length == 3, "unexpected size of triangle")
                 // for the edge case of triangulation emitting points that it created, not from the input (don't know how to reproduce this)
                 console.assert(tripnt[0].my_index !== undefined && tripnt[1].my_index !== undefined && tripnt[2].my_index !== undefined, "External helper point?")
-                idx.push(tripnt[0].my_index, tripnt[1].my_index, tripnt[2].my_index)
+                tri.start_at_idx = idx.length
+                //idx.push(tripnt[0].my_index, tripnt[1].my_index, tripnt[2].my_index)
+                idx.push(tripnt[2].my_index, tripnt[1].my_index, tripnt[0].my_index)
                 tripnt[0].visited = true; tripnt[1].visited = true; tripnt[2].visited = true
+                halfedges.push(-1,-1,-1) // size of halfedges is the same as idx
+            }
+            // make halfedges
+            for(let tri of triangles) {
+                let tripnt = tri.getPoints()
+                for(let pi = 0; pi < 3; ++pi) {
+                    let p = tripnt[pi]
+                    let nei_tri = tri.getNeighbor(pi)  // beightbor across p
+                    if (nei_tri === null || !nei_tri.interior_) {
+                        continue
+                    }
+                    let p_after = tripnt[(pi+1)%3]
+                    let p_before = tripnt[(pi-1+3)%3]
+                    let index_in_tri = 2-tri.index(p_before)
+                    let index_in_nei = 2-nei_tri.index(p_after)
+                    halfedges[tri.start_at_idx + index_in_tri] = nei_tri.start_at_idx + index_in_nei
+                }
             }
 
             let leftover = []
@@ -253,6 +274,12 @@ function triangulate_path(obj, node)
     }
     out_mesh.set("idx", new TIdxArr(idx))
     out_mesh.set_type(MESH_TRI)
+    out_mesh.halfedges = halfedges
+
+
+    let d = new Delaunator(out_mesh.arrs.vtx_pos)
+    out_mesh.hull = d.hull
+    
     return out_mesh
     
 }

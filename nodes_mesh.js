@@ -843,24 +843,23 @@ class NodeTriangulate extends NodeCls
 class PathsBuilder {
     constructor() {
         this.vtx_pos = []
-        this.cmds = []
+        this.paths_ranges = []
     }
     moveTo(x,y) {
-        this.cmds.push(['M', this.vtx_pos.length/2])
+        let l = this.vtx_pos.length / 2
+        this.paths_ranges.push(l,l+1,0)
         this.vtx_pos.push(x,y)
     }
     lineTo(x,y) {
-        let last_cmd = this.cmds[this.cmds.length - 1]
-        last_cmd.push('L', this.vtx_pos.length/2)
+        ++this.paths_ranges[this.paths_ranges.length-2]
         this.vtx_pos.push(x,y)
     }
     closePath() {
-        let last_cmd = this.cmds[this.cmds.length - 1]
-        last_cmd.push('Z')
+        this.paths_ranges[this.paths_ranges.length-1] = 1
     }
     finalize(paths) {
         paths.set('vtx_pos', this.vtx_pos, 2, false)
-        paths.cmds = this.cmds
+        paths.paths_ranges = this.paths_ranges
     }
 }
 
@@ -879,6 +878,11 @@ class NodeVoronoi extends NodeCls
         assert(mesh !== null, this, "Missing input mesh")
         assert(mesh.arrs !== undefined && mesh.arrs.vtx_pos !== undefined, this, "Input doesn't have vertices. type: " + mesh.constructor.name())
         assert(mesh.halfedges !== undefined && mesh.hull !== undefined, this, "missing halfedges or hull")
+        // voronoi for multiple paths or of non-convex path is not well-defined
+        // there is a result but it might have holes. To make it do the "right thing" the paths
+        // itself need to be the hulls (and not the delaunay hull) as is computed in paths triangulate
+        // but that would also not look good since the separate voronois would intersect each other
+        // it is possible to introduce the concept of multiple hulls into the algorithm but I didn't do it
 
         let bbox = mesh.get_bbox()
         let mx = this.margin.x, my = this.margin.y
