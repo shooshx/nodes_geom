@@ -1,5 +1,9 @@
 const PATH_CLOSED = 1
 
+function get_flag(v, f) {
+    return (v & f) == f
+}
+
 class MultiPath extends PObject
 {
     static name() { return "MultiPath" }
@@ -8,7 +12,12 @@ class MultiPath extends PObject
         //this.cmds = [] // list of paths, each a list of ['M', 0, 'L', 1] where 0,1 are indices of vertices
         this.paths_ranges = [] // index in (normal index) of start, one-past-end of every path, flags (1 for closed)
         this.paths = null
-        this.arrs = { vtx_pos:null }  // common to all paths
+        this.arrs = { vtx_pos:null, ctrl_to_prev:null, ctrl_from_prev:null }  // common to all paths
+        // bezier control points: for every point i in vtx_pos, ctrl_xx are the two control points of the line coming into i
+        //   ctrl_to_prev is the control point coming from i towards the previous point in the path
+        //   ctrl_from_prev is the control point coming from (i-1)%len towards point i
+        //   for an unclosed path, both control points of the first point in the path are (0,0)
+        //   all control points are relative to the point
         this.meta = { vtx_pos:null }
         this.tcache = { vtx_pos:null, m:null }  // transformed cache (for setattr)
     }
@@ -21,6 +30,7 @@ class MultiPath extends PObject
 
     get_disp_params(disp_values) {
         return [ new DispParamBool(disp_values, "Show Vertices", 'show_vtx', true),
+                 new DispParamBool(disp_values, "Show Curve Controls", 'show_ctrls', true),
                  new DispParamBool(disp_values, "Show Lines", 'show_lines', true),
                  new DispParamBool(disp_values, "Show Faces", 'show_faces', true)
                 ]
@@ -29,11 +39,36 @@ class MultiPath extends PObject
     // API
     transform(m) {
         Mesh.transform_arr(m, this.arrs.vtx_pos, this.arrs.vtx_pos)
+        let vm = mat3.clone(m)
+        vm[6] = 0; vm[7] = 0
+        Mesh.transform_arr(vm, this.arrs.ctrl_to_prev, this.arrs.ctrl_to_prev)
+        Mesh.transform_arr(vm, this.arrs.ctrl_from_prev, this.arrs.ctrl_from_prev)
     }
-
+    // API
+    is_point_inside(x, y) {
+        return Mesh.prototype.is_point_inside.call(this, x, y)
+    }
     // API
     get_bbox() {
-        return Mesh.prototype.get_bbox.call(this)
+        if (this.arrs.ctrl_to_prev === null) {
+            return Mesh.prototype.get_bbox.call(this)
+        }
+        else { // add control points as well (see pritive circle rotated)
+            let vtx = this.arrs.vtx_pos, ctp = this.arrs.ctrl_to_prev, cfp = this.arrs.ctrl_from_prev
+            if (vtx.length == 0)
+                return null
+            let min_x = Number.MAX_VALUE, max_x = -Number.MAX_VALUE, min_y = Number.MAX_VALUE, max_y = -Number.MAX_VALUE
+            for(let i = 0; i < vtx.length; i += 2) { 
+                let x = vtx[i], y = vtx[i+1]
+                let ct_x = x + ctp[i], ct_y = y + ctp[i+1]
+                let cf_x = x + cfp[i], cf_y = y + cfp[i+1]
+                min_x = Math.min(min_x, x, ct_x, cf_x)
+                max_x = Math.max(max_x, x, ct_x, cf_x)
+                min_y = Math.min(min_y, x, ct_y, cf_y)
+                max_y = Math.max(max_y, x, ct_y, cf_y)
+            }
+            return { min_x:min_x, max_x:max_x, min_y:min_y, max_y:max_y }
+        }
     }
     draw_border(m) {
         Mesh.prototype.draw_border.call(this, m)
@@ -60,25 +95,46 @@ class MultiPath extends PObject
         return r
     }
 
-    draw_poly(do_lines, do_fill) {
-        if (this.paths === null || this.paths.length*3 != this.paths_ranges.length) 
-        {
-            this.paths = []
-            let vtx = this.arrs.vtx_pos;
-            for(let pri = 0; pri < this.paths_ranges.length; pri += 3) {
-                let start_vidx = this.paths_ranges[pri]*2
-                let end_vidx = this.paths_ranges[pri+1]*2
-                let plst = ['M', vtx[start_vidx], vtx[start_vidx+1]]
-                for(let vidx = start_vidx + 2; vidx < end_vidx; vidx += 2) {
-                    plst.push('L', vtx[vidx], vtx[vidx+1])
-                }
-                if (this.paths_ranges[pri+2] == PATH_CLOSED)
-                    plst.push('Z')
-                let s = plst.join(" ")
-                let jp = new Path2D(s)
-                this.paths.push(jp)
+    is_curve(vidx) {
+        let ctp = this.arrs.ctrl_to_prev, cfp = this.arrs.ctrl_from_prev
+        return ctp !== null && (ctp[vidx] != 0 || ctp[vidx+1] != 0 || cfp[vidx] != 0 || cfp[vidx+1] != 0)
+    }
+
+    ensure_paths_created() {
+        if (this.paths !== null && this.paths.length*3 == this.paths_ranges.length) 
+            return
+
+        this.paths = []
+        let vtx = this.arrs.vtx_pos;
+        let ctp = this.arrs.ctrl_to_prev, cfp = this.arrs.ctrl_from_prev
+        for(let pri = 0; pri < this.paths_ranges.length; pri += 3) {
+            let start_vidx = this.paths_ranges[pri]*2
+            let end_vidx = this.paths_ranges[pri+1]*2
+            let prev_x = vtx[start_vidx], prev_y = vtx[start_vidx+1]
+            let plst = ['M', prev_x, prev_y]
+            for(let vidx = start_vidx + 2; vidx < end_vidx; vidx += 2) {
+                let vx = vtx[vidx], vy = vtx[vidx+1]
+                if (!this.is_curve(vidx))
+                    plst.push('L', vx, vy)
+                else 
+                    plst.push('C', prev_x+cfp[vidx], prev_y+cfp[vidx+1], vx+ctp[vidx], vy+ctp[vidx+1], vx, vy)
+                prev_x = vx; prev_y = vy
             }
+            if (get_flag(this.paths_ranges[pri+2], PATH_CLOSED)) {
+                if (this.is_curve(0)) {
+                    let vx = vtx[0], vy = vtx[1]
+                    plst.push('C', prev_x+cfp[0], prev_y+cfp[1], vx+ctp[0], vy+ctp[1], vx, vy)
+                }
+                plst.push('Z')
+            }
+            let s = plst.join(" ")
+            let jp = new Path2D(s)
+            this.paths.push(jp)
         }
+    }
+
+    draw_poly(do_lines, do_fill) {
+        this.ensure_paths_created()
         let cidx = 0
         let fcol = this.arrs.face_color
         do_fill = do_fill && (fcol !== undefined)
@@ -100,6 +156,31 @@ class MultiPath extends PObject
         }
     }
 
+    draw_control_points() {
+        let vtx = this.arrs.vtx_pos;
+        let ctp = this.arrs.ctrl_to_prev, cfp = this.arrs.ctrl_from_prev
+        ctx_img.beginPath()
+        for(let pri = 0; pri < this.paths_ranges.length; pri += 3) {
+            let start_vidx = this.paths_ranges[pri]*2
+            let end_vidx = this.paths_ranges[pri+1]*2
+            let prev_x = vtx[end_vidx-2], prev_y = vtx[end_vidx-2+1]
+            for(let vidx = start_vidx; vidx < end_vidx; vidx += 2) {
+                let vx = vtx[vidx], vy = vtx[vidx+1]
+                if (this.is_curve(vidx))
+                {
+                    let abs_cfp_x = prev_x+cfp[vidx], abs_cfp_y = prev_y+cfp[vidx+1]
+                    let abs_ctp_x = vx+ctp[vidx], abs_ctp_y = vy+ctp[vidx+1]
+                    ctx_img.moveTo(prev_x, prev_y)
+                    ctx_img.lineTo(abs_cfp_x, abs_cfp_y)
+                    ctx_img.moveTo(vx, vy)
+                    ctx_img.lineTo(abs_ctp_x, abs_ctp_y)
+                }
+                prev_x = vx; prev_y = vy
+            }
+        }
+        ctx_img.lineWidth = 0.5/image_view.viewport_zoom
+        ctx_img.stroke()
+    }
 
     // API
     draw(m, disp_values) {
@@ -110,8 +191,10 @@ class MultiPath extends PObject
             ctx_img.setTransform(m[0], m[1], m[3], m[4], m[6], m[7])
             if (disp_values.show_lines || disp_values.show_faces)
                 this.draw_poly(disp_values.show_lines, disp_values.show_faces)
-            if (disp_values.show_vtx)
+            if (disp_values.show_vtx) 
                 Mesh.prototype.draw_vertices.call(this)
+            if (disp_values.show_ctrls) 
+                this.draw_control_points()
         }
         finally {
             ctx_img.restore()
@@ -141,7 +224,7 @@ class PathRangesList extends Parameter {
         else {
             let last_end = this.lst[this.lst.length - 2]
             let last_flags = this.lst[this.lst.length - 1]
-            if (last_flags == PATH_CLOSED)
+            if (get_flag(last_flags, PATH_CLOSED))
                 this.lst.push(last_end, last_end+1, 0)
             else
                 ++this.lst[this.lst.length - 2]
@@ -150,13 +233,13 @@ class PathRangesList extends Parameter {
     }
     close_current(clicked_index) {
         let last_flags = this.lst[this.lst.length - 1]
-        if (last_flags == PATH_CLOSED)
+        if (get_flag(last_flags, PATH_CLOSED))
             return false
         // go backwards to see where the current poly starts
         let last_start = this.lst[this.lst.length - 3]
         if (last_start !== clicked_index)
             return false
-        this.lst[this.lst.length - 1] = PATH_CLOSED
+        this.lst[this.lst.length - 1] |= PATH_CLOSED
         this.pset_dirty()
         return true // managed to close
     }
@@ -215,7 +298,6 @@ function triangulate_path(obj, node)
     let out_mesh = new Mesh()
     let idx = []
     let halfedges = []
-    halfedges.fill(-1)
     if (added_poly > 0) {
         // need to iterate since triangulate only processes one countour and its holes at a time
         while(true) {
@@ -236,7 +318,7 @@ function triangulate_path(obj, node)
                 tripnt[0].visited = true; tripnt[1].visited = true; tripnt[2].visited = true
                 halfedges.push(-1,-1,-1) // size of halfedges is the same as idx
             }
-            // make halfedges
+            // make halfedges, see what it needs to look like: https://github.com/mapbox/delaunator
             for(let tri of triangles) {
                 let tripnt = tri.getPoints()
                 for(let pi = 0; pi < 3; ++pi) {

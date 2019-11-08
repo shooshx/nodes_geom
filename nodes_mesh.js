@@ -54,8 +54,12 @@ class NodeGeomPrimitive extends NodeCls
         }
         else {
             obj = new MultiPath()
-            //obj.set('vtx_pos', new TVtxArr([hx,0, -hx,0]))
-            //obj.add_path(['M',0, 'A',(hx + " " + hy + " 0 1 0"),1 ,'A',(hx + " " + hy + " 0 1 0"),0,'Z'])
+            obj.set('vtx_pos', new TVtxArr([hx,0, 0,-hy, -hx,0, 0,hy]))
+            let dc = 0.5 * 4*(Math.sqrt(2)-1)/3 // see https://stackoverflow.com/questions/1734745/how-to-create-circle-with-b%C3%A9zier-curves
+            let dc_x = this.size.x * dc, dc_y = this.size.y * dc
+            obj.set('ctrl_to_prev',   new TVtxArr([0,dc_y, dc_x,0,  0,-dc_y,  -dc_x,0] ))
+            obj.set('ctrl_from_prev', new TVtxArr([dc_x,0,  0,-dc_y, -dc_x,0, 0,dc_y] ))
+            obj.paths_ranges = [0,4,PATH_CLOSED]
         }
         obj.transform(this.transform.v)
         this.out.set(obj)
@@ -744,7 +748,7 @@ class NodeRandomPoints extends NodeCls
     static name() { return "Scatter" }
     constructor(node) {
         super(node)
-        this.in_mesh = new InTerminal(node, "in_mesh")
+        this.in_obj = new InTerminal(node, "in_obj")
         this.out_mesh = new OutTerminal(node, "out_mesh")
         this.seed = new ParamInt(node, "Seed", 1)
         this.by_density = new ParamBool(node, "Set Density", false, (v)=>{
@@ -759,10 +763,10 @@ class NodeRandomPoints extends NodeCls
     }
         
     run() {
-        let in_mesh = this.in_mesh.get_const()
-        assert(in_mesh !== null, this, "No mesh input")
-        assert(in_mesh["get_bbox"] !== undefined, this, "Input does not define a bounding box")
-        let bbox = in_mesh.get_bbox()  // TBD cut into shape if shape allows that
+        let in_obj = this.in_obj.get_const()
+        assert(in_obj !== null, this, "No mesh input")
+        assert(in_obj["get_bbox"] !== undefined, this, "Input does not define a bounding box")
+        let bbox = in_obj.get_bbox()  // TBD cut into shape if shape allows that
         assert(bbox !== null, this, "Object doesn't have content for a bounding box")
 
         let dx = bbox.max_x - bbox.min_x, dy = bbox.max_y - bbox.min_y
@@ -781,23 +785,42 @@ class NodeRandomPoints extends NodeCls
         }        
 
         let prng = new RandNumGen(this.seed.v)
-        for(let pi = 0; pi < this.count.v; ++pi) {
+        let add_count = 0
+        let last_added = [];
+        let last_added_sum = 0
+        while (true) {
             let cand_x = null, cand_y, bestDistance = 0;
             for (let ti = 0; ti < this.smooth_iter.v; ++ti) {
                 let x = prng.next() * dx + bbox.min_x
                 let y = prng.next() * dy + bbox.min_y
+                if (in_obj.is_point_inside)
+                    if (!in_obj.is_point_inside(x, y))
+                        continue          
                 let d = nearest_neighbor_dist(x, y);
                 if (d > bestDistance) {
                     bestDistance = d;
                     cand_x = x; cand_y = y
                 }
             }
-            if (this.by_density.v && bestDistance < this.min_dist.v)
-                break;
+            // maintain moving average of the last values
+            if (bestDistance !== Number.MAX_VALUE) { // first bestDistance is Number.MAX_VALUE
+                last_added.push(bestDistance)
+                last_added_sum += bestDistance
+                if (last_added.length > 6) {
+                    last_added_sum -= last_added[0]
+                    last_added.shift()
+                }
+                let dist_avg = last_added_sum / last_added.length
+                
+                if (this.by_density.v && dist_avg < this.min_dist.v)
+                    break;
+            }
+    
             vtx[addi++] = cand_x
             vtx[addi++] = cand_y
+            if (++add_count > this.count.v)
+                break
         }
-
         if (addi < vtx.length) {
             vtx = vtx.slice(0,addi)
         }
