@@ -988,8 +988,8 @@ class GeomDivide extends NodeCls
                 this.divide_quad(mesh, out_vtx, out_idx, idx[i], idx[i+1], idx[i+2], idx[i+3])
             }
             let out_mesh = new Mesh()
-            out_mesh.set('vtx_pos', new Float32Array(out_vtx), 2, false)
-            out_mesh.set('idx', new Uint32Array(out_idx))
+            out_mesh.set('vtx_pos', new TVtxArr(out_vtx), 2, false)
+            out_mesh.set('idx', new TIdxArr(out_idx))
             out_mesh.type = MESH_QUAD
             this.out_mesh.set(out_mesh)
         }

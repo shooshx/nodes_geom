@@ -1268,6 +1268,7 @@ class ParamImageUpload extends ParamFileUpload
         myAddEventListener(newimage, "error", (e)=>{
             this.last_error = "Failed download image from URL"
             console.error("Failed to download image", e)
+            this.image = null
             this.pset_dirty() // trigger a draw that will show this error
         })
         newimage.crossOrigin = ''

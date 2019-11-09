@@ -24,22 +24,17 @@ NODES:
     merge create and shader
 - any square (primitive, webgl, image)
     dials for resizing
-- mouse vertices - mesh
+- manual geom
     - delete point from list control
     - move them even after transform?
-    - edit coords with input
     - primitive quad, triangle, path between the points? by selection?
+    - curve control points
 - polyline fill
     https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths
     UI for closing and starting a new poly, bugs with this
     triangulation
-        edge case of non-input points coming from triangulate (corner points) ???
+        edge case of non-input points coming from triangulate (corner points) ??? don't know how to do this
         add non-hole points?
-    curves
-        redesign with arrays
-    primitive circle
-- Voronoi     
-    !!!! for tri2poly - needs halfedges and hull
 - SetAttr
     pseudo attribute - face center (position) so that it will be possible to sample face color from the position attribute
 - Manual points
@@ -47,9 +42,6 @@ NODES:
 - round edges
 - transform invert
 - single value input using a slider
-- random points
-    too slow - add KdTree
-    exact shape, not bbox (clip) using canvas function
 - interactive
     mouse input
 - Group objects
@@ -74,9 +66,11 @@ NODES:
     node for clip using a path
 - convex hull
 - Copy - copy something onto vertices positions
+    how to control parameters of the copies?
 - !!! Chaikin - https://simblob.blogspot.com/2019/10/chaikin-curves.html and https://sighack.com/post/chaikin-curves
 - Boolean ops from Inkscape https://gitlab.com/inkscape/lib2geom/blob/master/src/2geom/intersection-graph.h
-
+- Shrink for paths (not trivial)
+- !!! Gradient object, fill, stroke, 
 
 - random points  - https://www.sidefx.com/docs/houdini/nodes/sop/scatter.html
     on a surface

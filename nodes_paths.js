@@ -122,8 +122,8 @@ class MultiPath extends PObject
             }
             if (get_flag(this.paths_ranges[pri+2], PATH_CLOSED)) {
                 if (this.is_curve(0)) {
-                    let vx = vtx[0], vy = vtx[1]
-                    plst.push('C', prev_x+cfp[0], prev_y+cfp[1], vx+ctp[0], vy+ctp[1], vx, vy)
+                    let vx = vtx[start_vidx], vy = vtx[start_vidx+1]
+                    plst.push('C', prev_x+cfp[start_vidx], prev_y+cfp[start_vidx+1], vx+ctp[start_vidx], vy+ctp[start_vidx+1], vx, vy)
                 }
                 plst.push('Z')
             }
@@ -364,4 +364,53 @@ function triangulate_path(obj, node)
     
     return out_mesh
     
+}
+
+class NodeRoundCorners extends NodeCls
+{
+    static name() { return "Round Corners" }
+    constructor(node) {
+        super(node)
+        this.in_obj = new InTerminal(node, "in_obj")
+        this.out_paths = new OutTerminal(node, "out_paths")        
+    }
+
+    round_poly(vtx, poly_len, get_vidx, new_vtx, new_ranges, ctp, cfp) {
+        let prev_vidx = get_vidx(poly_len-1)
+        let prev_x = vtx[prev_vidx], prev_y = vtx[prev_vidx+1]
+        let prev_mid_x = 0, prev_mid_y = 0
+        let new_start = new_vtx.length/2
+        for(let i = 0; i < poly_len; ++i) {
+            let vidx = get_vidx(i)
+            let x = vtx[vidx], y = vtx[vidx+1]
+            let mid_x = (x + prev_x)/2, mid_y = (y + prev_y)/2
+            new_vtx.push(mid_x, mid_y)
+            ctp.push(prev_x - mid_x, prev_y - mid_y)
+            cfp.push(prev_x - prev_mid_x, prev_y - prev_mid_y)
+            prev_x = x; prev_y = y
+            prev_mid_x = mid_x; prev_mid_y = mid_y
+        }
+        let vidx = get_vidx(0)
+        cfp[vidx] = prev_x - prev_mid_x; cfp[vidx+1] = prev_y - prev_mid_y
+        new_ranges.push(new_start, new_vtx.length/2, PATH_CLOSED)
+    }
+    run() {
+        let obj = this.in_obj.get_const()
+        assert(obj !== null, this, "No input")
+        let vtx = obj.arrs.vtx_pos
+        let new_vtx = [], new_ranges = [], ctp = [], cfp = []
+        if (obj.constructor === MultiPath) {
+            for(let rpi = 0; rpi < obj.paths_ranges.length; rpi += 3) {
+                let start_vidx = obj.paths_ranges[rpi]
+                let end_vidx = obj.paths_ranges[rpi+1]
+                this.round_poly(vtx, end_vidx-start_vidx, (i)=>{ return (start_vidx+i)*2 }, new_vtx, new_ranges, ctp, cfp)
+            }
+        }
+        let new_obj = new MultiPath()
+        new_obj.set('vtx_pos', new TVtxArr(new_vtx), 2, false)
+        new_obj.set('ctrl_to_prev', new TVtxArr(ctp), 2, false)
+        new_obj.set('ctrl_from_prev', new TVtxArr(cfp), 2, false)
+        new_obj.paths_ranges = new_ranges
+        this.out_paths.set(new_obj)
+    }
 }
