@@ -375,36 +375,56 @@ class NodeRoundCorners extends NodeCls
         this.out_paths = new OutTerminal(node, "out_paths")        
     }
 
-    round_poly(vtx, poly_len, get_vidx, new_vtx, new_ranges, ctp, cfp) {
-        let prev_vidx = get_vidx(poly_len-1)
-        let prev_x = vtx[prev_vidx], prev_y = vtx[prev_vidx+1]
-        let prev_mid_x = 0, prev_mid_y = 0
-        let new_start = new_vtx.length/2
-        for(let i = 0; i < poly_len; ++i) {
-            let vidx = get_vidx(i)
-            let x = vtx[vidx], y = vtx[vidx+1]
-            let mid_x = (x + prev_x)/2, mid_y = (y + prev_y)/2
-            new_vtx.push(mid_x, mid_y)
-            ctp.push(prev_x - mid_x, prev_y - mid_y)
-            cfp.push(prev_x - prev_mid_x, prev_y - prev_mid_y)
-            prev_x = x; prev_y = y
-            prev_mid_x = mid_x; prev_mid_y = mid_y
-        }
-        let vidx = get_vidx(0)
-        cfp[vidx] = prev_x - prev_mid_x; cfp[vidx+1] = prev_y - prev_mid_y
-        new_ranges.push(new_start, new_vtx.length/2, PATH_CLOSED)
-    }
+
     run() {
         let obj = this.in_obj.get_const()
         assert(obj !== null, this, "No input")
         let vtx = obj.arrs.vtx_pos
         let new_vtx = [], new_ranges = [], ctp = [], cfp = []
+
+        let round_poly = (poly_len, get_vidx, is_closed)=>{
+            let prev_vidx = get_vidx(poly_len-1)
+            let prev_x = vtx[prev_vidx], prev_y = vtx[prev_vidx+1]
+            let prev_mid_x = 0, prev_mid_y = 0
+            let new_start_vidx = new_vtx.length
+            for(let i = 0; i < poly_len; ++i) {
+                let vidx = get_vidx(i)
+                let x = vtx[vidx], y = vtx[vidx+1]
+                let mid_x = (x + prev_x)/2, mid_y = (y + prev_y)/2
+                new_vtx.push(mid_x, mid_y)
+                ctp.push(prev_x - mid_x, prev_y - mid_y)
+                cfp.push(prev_x - prev_mid_x, prev_y - prev_mid_y)
+                prev_x = x; prev_y = y
+                prev_mid_x = mid_x; prev_mid_y = mid_y
+            }
+            let vidx = get_vidx(0)
+            if (is_closed) {
+                cfp[new_start_vidx] = prev_x - prev_mid_x; cfp[new_start_vidx+1] = prev_y - prev_mid_y
+            }
+            else {
+                cfp[new_start_vidx] = 0; cfp[new_start_vidx+1] = 0
+            }
+            new_ranges.push(new_start_vidx/2, new_vtx.length/2, is_closed?PATH_CLOSED:0)
+        }
+
         if (obj.constructor === MultiPath) {
             for(let rpi = 0; rpi < obj.paths_ranges.length; rpi += 3) {
                 let start_vidx = obj.paths_ranges[rpi]
                 let end_vidx = obj.paths_ranges[rpi+1]
-                this.round_poly(vtx, end_vidx-start_vidx, (i)=>{ return (start_vidx+i)*2 }, new_vtx, new_ranges, ctp, cfp)
+                let is_closed = get_flag(obj.paths_ranges[rpi+2], PATH_CLOSED)
+                round_poly(end_vidx-start_vidx, (i)=>{ return (start_vidx+i)*2 }, is_closed)
             }
+        }
+        else if (obj.constructor === Mesh) {
+            let face_size = obj.face_size()
+            let idx = obj.arrs.idx
+            assert(idx !== null, this, "Mesh is empty")
+            for(let pi = 0; pi < idx.length; pi += face_size) {
+                round_poly(face_size, (i)=>{ return idx[pi+i]*2 }, true)
+            }
+        }
+        else {
+            assert(false, this, "input is not Mesh or Paths")
         }
         let new_obj = new MultiPath()
         new_obj.set('vtx_pos', new TVtxArr(new_vtx), 2, false)
