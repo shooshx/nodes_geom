@@ -5,7 +5,7 @@ const MESH_NOT_SET = 0
 const MESH_QUAD = 1
 const MESH_TRI = 2
 
-const MESH_DISP = { vtx_radius: 5, vtx_sel_radius: 7 }
+const MESH_DISP = { vtx_radius: 5, vtx_sel_radius: 7, sel_color:"#FFBB55" }
 
 let TVtxArr = Float32Array
 let TIdxArr = Uint16Array
@@ -292,43 +292,33 @@ class Mesh extends PObject
     }
 
     // API
-    draw(m, disp_values) {
+    draw_m(m, disp_values) {
         if (!disp_values)
             disp_values = { show_faces:true, show_lines:true, show_vtx:true } // hack for group to work
         //this.ensure_tcache(m)
-        ctx_img.save()
-        try {
-            ctx_img.setTransform(m[0], m[1], m[3], m[4], m[6], m[7])
-            if (disp_values.show_faces && this.arrs.face_color) 
-                this.draw_poly_fill()
-            if (disp_values.show_lines)
-                this.draw_poly_stroke()
-            if (disp_values.show_vtx)
-                this.draw_vertices()
-        }
-        finally {
-            ctx_img.restore()
-        }
+
+        if (disp_values.show_faces && this.arrs.face_color) 
+            this.draw_poly_fill()
+        if (disp_values.show_lines)
+            this.draw_poly_stroke()
+        if (disp_values.show_vtx)
+            this.draw_vertices()
     }
 
-    draw_selection(m, select_vindices) {
+    draw_selection_m(m, select_indices) {
         //this.ensure_tcache(m)
-        ctx_img.save()
-        ctx_img.setTransform(m[0], m[1], m[3], m[4], m[6], m[7])
-
         let vtx = this.arrs.vtx_pos
-        ctx_img.lineWidth = 2/image_view.viewport_zoom
         ctx_img.beginPath();
         let radius = MESH_DISP.vtx_sel_radius/image_view.viewport_zoom
-        for(let idx of select_vindices) {
+        for(let idx of select_indices) {
             let vidx = idx * 2
             let x = vtx[vidx], y = vtx[vidx+1]
             ctx_img.moveTo(x + radius, y)
             ctx_img.arc(x, y, radius, 0, 2*Math.PI)
         }
-        ctx_img.strokeStyle = "#FFBB55"
+        ctx_img.lineWidth = 2/image_view.viewport_zoom
+        ctx_img.strokeStyle = MESH_DISP.sel_color
         ctx_img.stroke()
-        ctx_img.restore()          
     }
 
     make_buffers() {

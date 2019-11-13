@@ -183,26 +183,19 @@ class MultiPath extends PObject
     }
 
     // API
-    draw(m, disp_values) {
+    draw_m(m, disp_values) {
         if (this.arrs.vtx_pos === null)
             return
-        ctx_img.save()
-        try {
-            ctx_img.setTransform(m[0], m[1], m[3], m[4], m[6], m[7])
-            if (disp_values.show_lines || disp_values.show_faces)
-                this.draw_poly(disp_values.show_lines, disp_values.show_faces)
-            if (disp_values.show_vtx) 
-                Mesh.prototype.draw_vertices.call(this)
-            if (disp_values.show_ctrls) 
-                this.draw_control_points()
-        }
-        finally {
-            ctx_img.restore()
-        }
+        if (disp_values.show_lines || disp_values.show_faces)
+            this.draw_poly(disp_values.show_lines, disp_values.show_faces)
+        if (disp_values.show_vtx) 
+            Mesh.prototype.draw_vertices.call(this)
+        if (disp_values.show_ctrls) 
+            this.draw_control_points()
     }
 
-    draw_selection(m, select_vindices) {
-        Mesh.prototype.draw_selection.call(this, m, select_vindices)
+    draw_selection_m(m, select_vindices) {
+        Mesh.prototype.draw_selection_m.call(this, m, select_vindices)
     }
 }
 
@@ -366,6 +359,8 @@ function triangulate_path(obj, node)
     
 }
 
+// Chaikin round corners
+// see https://simblob.blogspot.com/2019/10/chaikin-curves.html and https://sighack.com/post/chaikin-curves
 class NodeRoundCorners extends NodeCls
 {
     static name() { return "Round Corners" }

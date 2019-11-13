@@ -67,8 +67,11 @@ function fix_label_lengths(parameters) {
     }
 }
 
-function clear_elem(id) {
+function clear_elem_byid(id) {
     let e = document.getElementById(id)
+    return clear_elem(e)
+}
+function clear_elem(e) {
     var cNode = e.cloneNode(false);
     e.parentNode.replaceChild(cNode, e);
     return cNode    
@@ -80,7 +83,7 @@ let g_params_popups = []
 function show_params_of(node) {
     // clear children
     g_params_popups.length = 0
-    let div_params_list = clear_elem('div_params_list')
+    let div_params_list = clear_elem_byid('div_params_list')
     if (node === null)
         return
     
@@ -105,7 +108,7 @@ function show_display_params(obj, disp_node) {
     let params = null
     if (disp_node && obj)
         params = obj.get_disp_params(disp_node.display_values) // sets defaults if needed
-    let div_display_params = clear_elem('div_display_params')
+    let div_display_params = clear_elem_byid('div_display_params')
     if (obj === null || params === null || disp_node === null || disp_node !== selected_node)
         return
     for(let p of params) {
@@ -366,6 +369,7 @@ class ExpressionItem {
             set_error(this.in_param.owner.cls, "Parameter expression error")
             return
         }
+        // score determines if the expression depends on anything
         let expr_score = this.in_param.owner.state_access.score
         if (expr_score == EXPR_CONST) { // depends on anything?
             this.set_prop(this.e.eval())
@@ -405,7 +409,7 @@ class ExpressionItem {
         this.e = null 
         this.se = null
         this.need_inputs = null
-        this.elem.value = v
+        this.elem.value = toFixedMag(v)
         this.set_prop(v) // in color, need it the picker style to not be italic
     }
     dyn_eval() {
@@ -490,6 +494,14 @@ class ParamVec2 extends Parameter {
             let line_y = add_param_line(this.line_elem); add_param_label(line_y, "Y", 'param_label_pre_indent')
             this.item_y.add_editbox(line_y, 'param_input_long')            
         }
+    }
+    get_value() {
+        return [this.x, this.y]
+    }
+    increment(dv) {
+        this.item_x.set_to_const(this.x + dv[0])
+        this.item_y.set_to_const(this.y + dv[1])
+        this.pset_dirty() 
     }
     dyn_eval(item_index) {
         if (item_index == 0)
@@ -908,9 +920,11 @@ class ListParam extends Parameter {
         this.pset_dirty(this.table === null) // if we're in a table, don't draw yet since not all the columns are set
 
         let vindex = (this.lst.length - this.values_per_entry)
-        this.create_entry_elems(v, this.table.get_column_elem(this.column), vindex)
+        let col_elem = this.table.get_column_elem(this.column)
+        if (col_elem !== null) // might not be displayed
+            this.create_entry_elems(v, col_elem, vindex)
     }
-
+    count() { return this.lst.length / this.values_per_entry }
     get_value(vindex) {
         let v = []
         if (this.values_per_entry > 1)
@@ -1000,57 +1014,97 @@ class ListParam extends Parameter {
 
     // for changes that come from user interaction in the image_canvas
     modify(index, v) { // index is already multiplied by values_per_entry
-        console.assert(v.length == this.values_per_entry, "Unexpected number of values")
-        let vindex = index * this.values_per_entry
-        console.assert(vindex < this.lst.length, "modify out of range")
-        for(let vi = 0; vi < v.length; ++vi)
-            this.lst[vindex + vi] = v[vi]
+        if (this.values_per_entry > 1) {
+            console.assert(v.length == this.values_per_entry, "Unexpected number of values")
+            let vindex = index * this.values_per_entry
+            console.assert(vindex < this.lst.length, "modify out of range")
+            for(let vi = 0; vi < v.length; ++vi)
+                this.lst[vindex + vi] = v[vi]
+            this.reprint_line(vindex, v)
+        }
+        else {
+            console.assert(v.length === undefined, "Unexpected list")
+            this.lst[index] = v
+            this.reprint_line(index, this.lst[index])
+        }        
         this.pset_dirty()
-        this.reprint_line(vindex, v)
     }
-    increment(index, v) {
-        console.assert(v.length == this.values_per_entry, "Unexpected number of values")
-        let vindex = index * this.values_per_entry
-        console.assert(vindex < this.lst.length, "modify out of range")
-        for(let vi = 0; vi < v.length; ++vi) {
-            this.lst[vindex + vi] += v[vi]
+    increment(index, dv) {
+        if (this.values_per_entry > 1) {
+            console.assert(v.length == this.values_per_entry, "Unexpected number of values")
+            let vindex = index * this.values_per_entry
+            console.assert(vindex < this.lst.length, "modify out of range")
+            for(let vi = 0; vi < v.length; ++vi) 
+                this.lst[vindex + vi] += dv[vi]
+            this.reprint_line(vindex, this.lst.slice(vindex, vindex + this.values_per_entry))
+        }
+        else {
+            console.assert(v.length === undefined, "Unexpected list")
+            this.lst[index] += dv
+            this.reprint_line(index, this.lst[index])
         }
         this.pset_dirty()
-        this.reprint_line(vindex, this.lst.slice(vindex, vindex + this.values_per_entry))
     }    
 }
 
 class ParamTable extends Parameter {
-    constructor(node, label) {
+    constructor(node, label, sorted_order=null, redo_sort=null) {
         super(node, label)
         this.list_params = []  // registered ListParams
-        //this.elem_rows = []  // entire row div
-        this.elem_cols = []
+        this.elem_cols = null
+
+        this.sorted_order = sorted_order
+        this.redo_sort = redo_sort
     }
     register(list_param) {
         this.list_params.push(list_param)
         return this.list_params.length - 1
     }
     get_column_elem(column) {
-        console.assert(column <= this.elem_cols.length, "column index too high")
+        if (this.elem_cols === null)
+            return null
+        console.assert(column < this.elem_cols.length, "column index too high")
         return this.elem_cols[column]
     }
     save() { return null }
-    load(v) { }
+    load(v) { } 
 
     add_elems(parent) {
         this.line_elem = add_param_block(parent)
         this.label_elem = add_div(this.line_elem, "param_list_title")
         this.label_elem.innerText = this.label + ":"
 
-        this.table_elem = add_div(this.line_elem)
+        this.make_table()
+    }
 
+    remake_table() {
+        if (this.line_elem === null)
+            return
+        clear_elem(this.table_elem)
+        this.make_table()
+    }
+
+    make_table() {
+        this.table_elem = add_div(this.line_elem, "param_list_body")
         this.elem_cols = []
-
+        
         for(let lst_prm of this.list_params) {
-            let column = add_div(this.table_elem, "param_table_column")
+            let column = create_div("param_table_column")
             this.elem_cols.push(column)
             lst_prm.add_column_elems(column)
+
+            if (this.sorted_order !== null) { // sort by the given order if needed
+                let unsorted = column
+                column = create_div("param_table_column")
+                let childs_copy = []
+                for(let c of unsorted.childNodes)
+                    childs_copy.push(c)
+                for(let from_idx of this.sorted_order) {
+                    column.appendChild(childs_copy[from_idx])
+                }
+            }
+
+            this.table_elem.appendChild(column)
             let grip = add_div(column, "param_table_grip")
             add_grip_handlers(grip, column)
         }

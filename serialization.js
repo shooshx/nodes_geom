@@ -94,6 +94,8 @@ function load_program(sprog)
                 }
             }
         }
+        if (n.cls.post_load_hook)
+            n.cls.post_load_hook()
         if (sn.disp_param)
             n.display_values = sn.disp_param
     }

@@ -83,7 +83,10 @@ class PointSelectHandle
         // TBD add offset
     }
     mousedown() {
-        this.ofnode.set_selection(this.index) 
+        if (this.ofnode.point_mousedown)
+            this.ofnode.point_mousedown(this.index)
+        else            
+            this.ofnode.set_selection(this.index) 
         trigger_frame_draw(false)
     }
     mouseup() {}
@@ -156,7 +159,8 @@ function color_to_uint8arr(c) {
 class ParamColorList extends ListParam {
     constructor(node, label, table) {
         super(node, label, 4, table, TColorArr, { create_elem: function(parent, start_val, index, changed_func) { 
-            let [col,elem,ce] = add_param_color(parent, uint8arr_to_color(start_val), "param_table_input_color", function(c) {
+            let wdiv = add_div(parent, "col_elem_wrap") // needed so that the input+canvas would be a in single elem for reorder on gradient
+            let [col,elem,ce] = add_param_color(wdiv, uint8arr_to_color(start_val), "param_table_input_color", function(c) {
                 changed_func(color_to_uint8arr(c), elem.p_lst_index)
             })
             elem.p_lst_index = index
@@ -165,6 +169,80 @@ class ParamColorList extends ListParam {
         this.need_normalize = true
     }
     def_value() { return [0xcc, 0xcc, 0xcc, 0xff] }
+}
+
+
+function add_point_select_mixin(node_cls, selected_indices, points_param) {
+
+    // API
+    node_cls.image_find_obj = function(vx, vy, ex, ey) {
+        let [x,y] = image_view.epnt_to_model(ex, ey)
+        let r = Math.max(7, MESH_DISP.vtx_radius) / image_view.viewport_zoom // if the disp radius gets lower, we still want it at reasonable value
+        let len = points_param.count()
+        for(let i = 0; i < len; ++i) {
+            let [px,py] = points_param.get_value(i*2)
+            if (m_dist(px, py, x, y) < r) {
+                return new PointSelectHandle(this.points, i, this)
+            }
+        }
+        return null
+    }
+    node_cls.move_selection = function(dx, dy) {
+        dx /= image_view.viewport_zoom
+        dy /= image_view.viewport_zoom
+        for(let idx of selected_indices)
+            points_param.increment(idx, [dx, dy])
+        trigger_frame_draw(true)
+    }
+
+    node_cls.clear_selection = function() {
+        selected_indices.length = 0 // don't recreate the array since there's reference from the CoordListParam
+        trigger_frame_draw(false)
+        points_param.reprint_all_lines()
+    }
+    node_cls.set_selection = function(idx) {
+        // change the selection only if we just clicked an unselected point
+        // otherwise we might be trying to move a selected group of points
+        if (!selected_indices.includes(idx)) {
+            selected_indices.length = 0
+            selected_indices.push(idx)    
+        }
+        points_param.reprint_all_lines() // mark with yellow the selected
+    }
+
+    let rect_elem = null // rect selection DOM elem if one is active
+    node_cls.rect_select = function(min_ex, min_ey, max_ex, max_ey) {
+        if (min_ex === undefined && rect_elem !== null) { // indicates it needs to be cleared
+            main_view.removeChild(rect_elem)   // rect can be null if there was no move with ctrl
+            rect_elem = null
+            return;
+        }
+        let [min_x,min_y] = image_view.epnt_to_model(min_ex, min_ey)
+        let [max_x,max_y] = image_view.epnt_to_model(max_ex, max_ey)
+        let len = points_param.count()
+        selected_indices.length = 0
+        for(let i = 0; i < len; ++i) {
+            let [x,y] = points_param.get_value(i*2)
+            if (x > min_x && x < max_x && y > min_y && y < max_y) {
+                selected_indices.push(i)
+            }
+        }
+        if (rect_elem === null) {
+            rect_elem = add_div(main_view, "selection_rect")
+        }
+        rect_elem.style.left = min_ex + "px"
+        rect_elem.style.top = min_ey + "px"
+        rect_elem.style.width = (max_ex - min_ex) + "px"
+        rect_elem.style.height = (max_ey - min_ey) + "px"
+        trigger_frame_draw(false)
+        points_param.reprint_all_lines() // re-mark yellows
+    } 
+    
+    node_cls.draw_selection = function(m) {
+        let obj = this.out.get_const()
+        dassert(obj !== null, "No output object to select") // might be it's not connected so it doesn't have output
+        obj.draw_selection(m, selected_indices)
+    }    
 }
 
 
@@ -186,7 +264,8 @@ class NodeManualGeom extends NodeCls
         this.paths_ranges = new PathRangesList(node) // not shown
 
         this.pnt_attrs = [this.dummy, this.color]  // Param objets of additional attributes of each point other than it's coordinate
-        this.rect_elem = null // rect selection DOM elem if one is active
+
+        add_point_select_mixin(this, this.selected_indices, this.points)
     }
     image_click(ex, ey) {
         if (!this.add_pnts_btn.v)
@@ -202,34 +281,17 @@ class NodeManualGeom extends NodeCls
         trigger_frame_draw(true)
     }
 
-    move_selection(dx, dy) {
-        dx /= image_view.viewport_zoom
-        dy /= image_view.viewport_zoom
-        for(let idx of this.selected_indices)
-            this.points.increment(idx, [dx, dy])
-        trigger_frame_draw(true)
-    }
-    clear_selection() {
-        this.selected_indices.length = 0 // don't recreate the array since there's reference from the CoordListParam
-        trigger_frame_draw(false)
-        this.points.reprint_all_lines()
-    }
-    set_selection(idx) {
+    point_mousedown(idx) {
         if (this.add_pnts_btn.v && this.geom_type.sel_idx == 1) {
             // when adding points to path, instead of select, close the path
             if (this.paths_ranges.close_current(idx)) {
                 trigger_frame_draw(true)
                 return
-            } // if didn't close, select?
+            } // if didn't close, select
         }
-        // change the selection only if we just clicked an unselected point
-        // otherwise we might be trying to move a selected group of points
-        if (!this.selected_indices.includes(idx)) {
-            this.selected_indices.length = 0
-            this.selected_indices.push(idx)    
-        }
-        this.points.reprint_all_lines() // mark with yellow the selected
+        this.set_selection(idx)     
     }
+
     selected_obj_name() { return (this.selected_indices.length > 0) ? "points" : null }
     delete_selection() {
         this.points.remove(this.selected_indices)
@@ -240,44 +302,7 @@ class NodeManualGeom extends NodeCls
         this.clear_selection()
         trigger_frame_draw(true)
     }
-    // API
-    image_find_obj(vx, vy, ex, ey) {
-        let [x,y] = image_view.epnt_to_model(ex, ey)
-        let lst = this.points.lst
-        let r = Math.max(7, MESH_DISP.vtx_radius) / image_view.viewport_zoom// if the disp radius gets lower, we still want it at reasonable value
-        for(let i = 0; i < lst.length; i += 2) {
-            if (m_dist(lst[i], lst[i+1], x, y) < r) {
-                return new PointSelectHandle(this.points, i/2, this)
-            }
-        }
-        return null
-    }
-    rect_select(min_ex, min_ey, max_ex, max_ey) {
-        if (min_ex === undefined && this.rect_elem !== null) { // indicates it needs to be cleared
-            main_view.removeChild(this.rect_elem)   // rect can be null if there was no move with ctrl
-            this.rect_elem = null
-            return;
-        }
-        let [min_x,min_y] = image_view.epnt_to_model(min_ex, min_ey)
-        let [max_x,max_y] = image_view.epnt_to_model(max_ex, max_ey)
-        let lst = this.points.lst
-        this.selected_indices.length = 0
-        for(let i = 0; i < lst.length; i += 2) {
-            let x = lst[i], y = lst[i+1]
-            if (x > min_x && x < max_x && y > min_y && y < max_y) {
-                this.selected_indices.push(i/2)
-            }
-        }
-        if (this.rect_elem === null) {
-            this.rect_elem = add_div(main_view, "selection_rect")
-        }
-        this.rect_elem.style.left = min_ex + "px"
-        this.rect_elem.style.top = min_ey + "px"
-        this.rect_elem.style.width = (max_ex - min_ex) + "px"
-        this.rect_elem.style.height = (max_ey - min_ey) + "px"
-        trigger_frame_draw(false)
-        this.points.reprint_all_lines() // re-mark yellows
-    }
+
     // API
     run() {
         let obj
@@ -300,11 +325,8 @@ class NodeManualGeom extends NodeCls
         }
         this.out.set(obj)
     }
-    draw_selection(m) {
-        let mesh = this.out.get_const()
-        dassert(mesh !== null, "No output object to select") // might be it's not connected so it doesn't have output
-        mesh.draw_selection(m, this.selected_indices)
-    }
+
+
 }
 
 
@@ -996,6 +1018,7 @@ class GeomDivide extends NodeCls
     }
 }
 
+// for debugging
 class LinesObj extends PObject
 {
     static name() { return "Lines" }
@@ -1003,22 +1026,15 @@ class LinesObj extends PObject
         super()
         this.lines = lines
     }
-    draw(m) {
-        ctx_img.save()
-        try {
-            ctx_img.setTransform(m[0], m[1], m[3], m[4], m[6], m[7])
-            ctx_img.beginPath();
-            for(let l of this.lines) {
-                ctx_img.moveTo(l[0][0], l[0][1])
-                ctx_img.lineTo(l[1][0], l[1][1])
-            }
-            ctx_img.strokeStyle = "#000"
-            ctx_img.lineWidth = 1 / image_view.viewport_zoom
-            ctx_img.stroke()
+    draw_m(m) {
+        ctx_img.beginPath();
+        for(let l of this.lines) {
+            ctx_img.moveTo(l[0][0], l[0][1])
+            ctx_img.lineTo(l[1][0], l[1][1])
         }
-        finally {
-            ctx_img.restore()
-        }        
+        ctx_img.strokeStyle = "#000"
+        ctx_img.lineWidth = 1 / image_view.viewport_zoom
+        ctx_img.stroke()
     }
 }
 

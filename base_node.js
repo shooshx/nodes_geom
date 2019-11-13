@@ -230,7 +230,29 @@ class PObject {
         this.refcount = 0
     }
     get_disp_params(disp_values) { return null }
+    // this is the default that just sets the transform and calls draw_m which doesn't need to worry about it
+    draw(m, disp_values) {
+        ctx_img.save()
+        try {
+            ctx_img.setTransform(m[0], m[1], m[3], m[4], m[6], m[7])
+            this.draw_m(m, disp_values)
+        }
+        finally {
+            ctx_img.restore()
+        }
+    } 
+    draw_selection(m, select_vindices) {
+        ctx_img.save()
+        try {
+            ctx_img.setTransform(m[0], m[1], m[3], m[4], m[6], m[7])
+            this.draw_selection_m(m, select_vindices)
+        }
+        finally {
+            ctx_img.restore()
+        }        
+    }
 }
+
 class PHandle {
     constructor(obj) {
         this.p = obj
