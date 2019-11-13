@@ -174,7 +174,9 @@ function add_param_edit(line, value, type, set_func) {
     e.spellcheck = false
     e.value = (type == ED_FLOAT) ? toFixedMag(value) : value
     // TBD parse error
-    myAddEventListener(e, "input", function() { set_func(e.value); })
+    myAddEventListener(e, "input", function() { 
+        set_func( (type == ED_FLOAT)? parseFloat(e.value) : e.value); 
+    })
     line.appendChild(e)
     return e
 }
@@ -948,13 +950,18 @@ class ListParam extends Parameter {
         let e
         if (this.elem_prm.create_elem !== undefined) {
             let idx = vindex / this.values_per_entry
-            e = this.elem_prm.create_elem(parent, v, idx, (v, ch_index) => {
+            e = this.elem_prm.create_elem(parent, v, idx, (v, ch_index, elem_idx=undefined) => {
                 // change that come from the input element in the list
-                console.assert(v.length == this.values_per_entry, "unexpected length of value")
                 let ch_vindex = ch_index * this.values_per_entry
-                for(let vi = 0; vi < this.values_per_entry; ++vi)
-                    if (v[vi] !== undefined)
+                if (elem_idx === undefined) { // given a list
+                    console.assert(v.length == this.values_per_entry, "unexpected length of value")
+                    for(let vi = 0; vi < this.values_per_entry; ++vi)
                         this.lst[ch_vindex + vi] = v[vi]
+                }
+                else { // given just one number of a list
+                    console.assert(v.length === undefined, "unexpected length existing")
+                    this.lst[ch_vindex + elem_idx] = v
+                }
                 this.pset_dirty()
                 trigger_frame_draw(true)
             }, 
@@ -1008,7 +1015,7 @@ class ListParam extends Parameter {
         }
     }
 
-    reprint_all_lines() {
+    reprint_all_lines() {  // voffset needed for gradient that has its list items shifted in index space
         this.for_values((v, vindex)=>{ this.reprint_line(vindex, v) })
     }
 
@@ -1031,10 +1038,10 @@ class ListParam extends Parameter {
     }
     increment(index, dv) {
         if (this.values_per_entry > 1) {
-            console.assert(v.length == this.values_per_entry, "Unexpected number of values")
+            console.assert(dv.length == this.values_per_entry, "Unexpected number of values")
             let vindex = index * this.values_per_entry
             console.assert(vindex < this.lst.length, "modify out of range")
-            for(let vi = 0; vi < v.length; ++vi) 
+            for(let vi = 0; vi < dv.length; ++vi) 
                 this.lst[vindex + vi] += dv[vi]
             this.reprint_line(vindex, this.lst.slice(vindex, vindex + this.values_per_entry))
         }

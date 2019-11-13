@@ -95,20 +95,24 @@ class PointSelectHandle
     }
 }
 
-
-class ParamCoordList extends ListParam {
-    constructor(node, label, table, selected_indices) 
+// a list for a column for a numerical value with an editor that pops up when its clicked. for float and vec2
+class ParamEditableValueList extends ListParam {
+    constructor(node, label, table, lst_type, selected_indices, values_per_entry, to_string, changed_func_to_node=null) 
     {
-        let edit_wrap = null
         let text_elem_content = function(text_elem, value, index) {
             let clss = "param_monospace param_lst_clickable"
-            if (selected_indices.indexOf(index) != -1)
+            let mark_sel;
+            if (selected_indices.includes_shifted !== undefined)
+                mark_sel = selected_indices.includes_shifted(index)
+            else
+                mark_sel = selected_indices.includes(index)
+            if (mark_sel)
                 clss += " param_list_selected_line"
             text_elem.classList = clss
-            text_elem.innerText = "(" + value[0].toFixed(3) + "," + value[1].toFixed(3) + ")" 
+            text_elem.innerText = to_string(value)
             text_elem.p_lst_index = index
         }
-        super(node, label, 2, table, TVtxArr, { create_elem: (parent, start_val, index, change_func, get_cur_val)=>{
+        super(node, label, values_per_entry, table, lst_type, { create_elem: (parent, start_val, index, change_func, get_cur_val)=>{
             let text_elem = add_div(parent, "") // create elem for a single cell in the column of this list
             text_elem_content(text_elem, start_val, index)
             myAddEventListener(text_elem, "click", ()=>{ // open input edits on click
@@ -119,17 +123,21 @@ class ParamCoordList extends ListParam {
                     this.edit_wrap.parentNode.removeChild(this.edit_wrap)
                 }
                 this.edit_wrap = create_div("param_lst_coord_edit_wrap")
-                add_param_edit(this.edit_wrap, cur_val[0], ED_FLOAT, (v)=> { change_func([v,undefined],text_elem.p_lst_index); text_elem_content(text_elem, get_cur_val(text_elem.p_lst_index), text_elem.p_lst_index) })
-                add_param_edit(this.edit_wrap, cur_val[1], ED_FLOAT, (v)=> { change_func([undefined,v],text_elem.p_lst_index); text_elem_content(text_elem, get_cur_val(text_elem.p_lst_index), text_elem.p_lst_index) })
+                for(let i = 0; i < values_per_entry; ++i) {
+                    add_param_edit(this.edit_wrap, (values_per_entry == 1)?cur_val:cur_val[i], ED_FLOAT, (v)=> { 
+                        change_func(v, text_elem.p_lst_index, i); // do the change in the lst
+                        text_elem_content(text_elem, get_cur_val(text_elem.p_lst_index), text_elem.p_lst_index) 
+                        if (changed_func_to_node) // redo_sort in Gradient
+                            changed_func_to_node()
+                    })
+                }
                 stop_propogation_on("mousedown", this.edit_wrap)
                 text_elem.parentNode.insertBefore(this.edit_wrap, text_elem.nextSibling) // re-parent
             })
             return text_elem
         }, external_update: text_elem_content})
         this.edit_wrap = null
-        this.need_normalize = false  // not really needed for coordinates but just for remembering    
     }
-    def_value() { return [0,0] }
     add_elems(parent) {
         super.add_elems(parent)
         param_reg_for_dismiss(()=>{ 
@@ -140,11 +148,20 @@ class ParamCoordList extends ListParam {
         })    
     }
 }
-class ParamFloatList extends ListParam {
-    constructor(node, label, table) {
-        super(node, label, 1, table, Float32Array, { cls:"param_monospace", to_string: function(v) { 
-            return v.toFixed(3)
-        }})
+
+class ParamCoordList extends ParamEditableValueList {
+    constructor(node, label, table, selected_indices) {
+        super(node, label, table, TVtxArr, selected_indices, 2, 
+            function(value) { return "(" + value[0].toFixed(3) + "," + value[1].toFixed(3) + ")" })
+        this.need_normalize = false  // not really needed for coordinates but just for remembering    
+    }
+    def_value() { return [0,0] }
+}
+
+class ParamFloatList extends ParamEditableValueList {
+    constructor(node, label, table, selected_indices, changed_func_to_node=null) {
+        super(node, label, table, Float32Array, selected_indices, 1,
+            function(v) { return v.toFixed(3) }, changed_func_to_node)
         this.need_normalize = false
     }
     def_value() { return 0; }
@@ -259,7 +276,7 @@ class NodeManualGeom extends NodeCls
         this.add_pnts_btn.display_as_btn(true)
         this.table = new ParamTable(node, "Point List")
         this.points = new ParamCoordList(node, "Coord", this.table, this.selected_indices)
-        this.dummy = new ParamFloatList(node, "Dummy", this.table)
+        this.dummy = new ParamFloatList(node, "Dummy", this.table, this.selected_indices)
         this.color = new ParamColorList(node, "Point Color", this.table)
         this.paths_ranges = new PathRangesList(node) // not shown
 

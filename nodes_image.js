@@ -207,6 +207,7 @@ class GradPointsAdapterParam {
         } 
     }
     reprint_all_lines() { // TBD mark yellow
+        this.range_lstprm.reprint_all_lines()
     }
 }
 
@@ -229,6 +230,7 @@ class NodeGradient extends NodeCls
     constructor(node) {
         super(node)
         this.sorted_order = [] // list is not recreated, just overwritten
+        this.selected_indices = []
 
         this.out = new OutTerminal(node, "out_gradient")
         this.type = new ParamSelect(node, "Type", 0, ["Linear", "Radial"])
@@ -237,11 +239,11 @@ class NodeGradient extends NodeCls
         this.add_stops_btn = new ParamBool(node, "Add stops", true, null)
         this.add_stops_btn.display_as_btn(true)
         this.table = new ParamTable(node, "Stops", this.sorted_order)
-        this.values = new ParamFloatList(node, "Value", this.table)
+        this.values = new ParamFloatList(node, "Value", this.table, this.selected_indices, ()=>{this.redo_sort()})
         this.colors = new ParamColorList(node, "Color", this.table)
 
         let ad = new GradPointsAdapterParam([this.p1, this.p2], this.values, this)
-        this.selected_indices = []
+        this.selected_indices.includes_shifted = function(v) { return this.includes(v+2) } // used for yellow mark of the selected point
         add_point_select_mixin(this, this.selected_indices, ad)
 
         this.values.add(0); this.colors.add([0xff, 0x00, 0x00, 0xff])
@@ -294,5 +296,19 @@ class NodeGradient extends NodeCls
             }
             this.out.set(obj)
         }
+    }
+
+    selected_obj_name() { return (this.selected_indices.length > 0) ? "stops" : null }
+    delete_selection() {
+        let rm_indices = []
+        // indices 0,1 are the end points, cant remove them, the stops are shifted by 2
+        for(let idx of this.selected_indices) 
+            if (idx >= 2)
+                rm_indices.push(idx - 2)
+        this.values.remove(rm_indices)
+        this.colors.remove(rm_indices)
+        this.redo_sort()
+        this.clear_selection()
+        trigger_frame_draw(true)
     }
 }
