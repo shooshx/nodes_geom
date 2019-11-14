@@ -71,15 +71,15 @@ function make_str_color(c) {
     return "rgba(" + c[0] + "," + c[1] + "," + c[2] + "," + (c[3]/255) + ")"
 }
 
-class LinearGradient extends PObject 
+class Gradient extends PObject 
 {
-    static name() { return "Linear Gradient" }
     constructor(x1,y1, x2,y2) {
         super()
         this.p1 = vec2.fromValues(x1,y1) // point at v=0
         this.p2 = vec2.fromValues(x2,y2) // point at v=1
         this.stops = [] // list of [value,color] where color is [r,g,b,alpha]
         this.grd = null
+        this.ctx_create_func
     }
     add_stop(value, color) {
         this.stops.push({value:value,color:color})
@@ -87,7 +87,7 @@ class LinearGradient extends PObject
     }
     draw_fill() {
         if (this.obj === null) {
-            let grd = ctx_img.createLinearGradient(this.p1[0],this.p1[1], this.p2[0],this.p2[1])
+            let grd = this.ctx_create_func.call(ctx_img, this.p1[0],this.p1[1], this.p2[0],this.p2[1])
             for(let s of this.stops) {
                 dassert(s.value >= 0 && s.value <= 1, "stop out of range")
                 grd.addColorStop(s.value, make_str_color(s.color))
@@ -97,22 +97,27 @@ class LinearGradient extends PObject
         ctx_img.fillStyle = this.grd
         ctx_img.fillRect(-1,-1,2,2) // TBD whole screen
     }
-    interp_point(t) {
-        let x = this.p1[0] * (1-t) + this.p2[0] * t
-        let y = this.p1[1] * (1-t) + this.p2[1] * t
+    interp_point(pa, pb, t) {
+        let x = pa[0] * (1-t) + pb[0] * t
+        let y = pa[1] * (1-t) + pb[1] * t
         return [x,y]
     }
-    draw_points() {
+
+    transform(m) {
+        // TBD
+    }
+
+    draw_points(pa, pb) {
         let radius = MESH_DISP.vtx_radius / image_view.viewport_zoom
         let did1 = false, did0 = false
         ctx_img.beginPath();
-        ctx_img.moveTo(this.p1[0], this.p1[1])
-        ctx_img.lineTo(this.p2[0], this.p2[1])
+        ctx_img.moveTo(pa[0], pa[1])
+        ctx_img.lineTo(pb[0], pb[1])
         ctx_img.lineWidth = 1/image_view.viewport_zoom
         ctx_img.lineStyle = "#000"
         ctx_img.stroke()
         for(let s of this.stops) {
-            let [x,y] = this.interp_point(s.value)
+            let [x,y] = this.interp_point(pa, pb, s.value)
             if (s.value == 1)
                 did1 = true
             else if (s.value == 0)
@@ -128,35 +133,28 @@ class LinearGradient extends PObject
         }
         if (!did1) {
             ctx_img.beginPath();
-            ctx_img.arc(this.p2[0], this.p2[1], radius, 0, 2*Math.PI)
+            ctx_img.arc(pb[0], pb[1], radius, 0, 2*Math.PI)
             ctx_img.stroke()
         }
         if (!did0) {
             ctx_img.beginPath();
-            ctx_img.arc(this.p1[0], this.p1[1], radius, 0, 2*Math.PI)
+            ctx_img.arc(pa[0], pa[1], radius, 0, 2*Math.PI)
             ctx_img.stroke()
         }
-    }
-    draw_m(m) {
-        this.draw_fill()
-        this.draw_points()
-    }
-    transform(m) {
+    }    
 
-    }
-
-    draw_selection_m(m, selected_indices) {
+    draw_sel_points(selected_indices, pa, pb) {
         let radius = MESH_DISP.vtx_sel_radius/image_view.viewport_zoom
         ctx_img.beginPath();
         for(let idx of selected_indices) {
             if (idx == 0) {
-                var x = this.p1[0], y = this.p1[1]
+                var x = pa[0], y = pa[1]
             }
             else if (idx == 1) {
-                var x = this.p2[0], y = this.p2[1]
+                var x = pb[0], y = pb[1]
             }
             else {
-                var [x,y] = this.interp_point(this.stops[idx-2].value)
+                var [x,y] = this.interp_point(pa, pb, this.stops[idx-2].value)
             }
             ctx_img.moveTo(x + radius, y)
             ctx_img.arc(x, y, radius, 0, 2*Math.PI)
@@ -167,6 +165,68 @@ class LinearGradient extends PObject
     }
 }
 
+class LinearGradient extends Gradient {
+    static name() { return "Linear Gradient" }
+    constructor(x1,y1, x2,y2) {
+        super(x1,y1, x2, y2)
+        this.ctx_create_func = ctx_img.createLinearGradient
+    }
+
+    draw_m(m) {
+        this.draw_fill()
+        this.draw_points(this.p1, this.p2)
+    }
+    draw_selection_m(m, selected_indices) {
+        this.draw_sel_points(selected_indices, this.p1, this.p2)
+    }
+}
+
+function get_circle_points(p1, r1, p2, r2) {
+    let v12 = vec2.fromValues(p2[0]-p1[0], p2[1]-p1[1])
+    if (v12[0] == 0 && v12[1] == 0)
+        v12 = vec2.fromValues(1,0)
+    vec2.normalize(v12, v12)
+    let pa = vec2.fromValues(p1[0], p1[1])
+    vec2.scaleAndAdd(pa, pa, v12, r1)
+    let pb = vec2.fromValues(p2[0], p2[1])
+    vec2.scaleAndAdd(pb, pb, v12, r2)
+    return [pa,pb]       
+}
+function get_circle_points_xy(p1, r1, p2, r2) {
+    let r = get_circle_points(vec2.fromValues(p1.x,p1.y), r1, vec2.fromValues(p2.x,p2.y), r2)
+    return [{x:r[0][0],y:r[0][1]}, {x:r[1][0],y:r[1][1]}]
+}
+
+class RadialGradient extends Gradient {
+    static name() { return "Radial Gradient" }
+    constructor(x1,y1,r1, x2,y2,r2) {
+        super(x1,y1, x2, y2)
+        this.r1 = r1
+        this.r2 = r2
+        this.ctx_create_func = function() { return ctx_img.createRadialGradient(x1,y1,r1, x2,y2,r2) }
+    }
+    draw_circles() {
+        ctx_img.beginPath()
+        ctx_img.moveTo(this.p1[0]+this.r1, this.p1[1])
+        ctx_img.arc(this.p1[0], this.p1[1], this.r1, 0, 2*Math.PI)
+        ctx_img.moveTo(this.p2[0]+this.r2, this.p2[1])
+        ctx_img.arc(this.p2[0], this.p2[1], this.r2, 0, 2*Math.PI)
+        ctx_img.lineWidth = 1/image_view.viewport_zoom
+        ctx_img.lineStyle = "#000"
+        ctx_img.stroke()
+    }
+
+    draw_m(m) {
+        this.draw_fill()
+        this.draw_circles()
+        let [pa,pb] = get_circle_points(this.p1, this.r1, this.p2, this.r2)
+        this.draw_points(pa, pb)
+    }
+    draw_selection_m(m, selected_indices) {
+        let [pa,pb] = get_circle_points(this.p1, this.r1, this.p2, this.r2)
+        this.draw_sel_points(selected_indices, pa, pb)
+    }
+}
 
 // add_point_select_mixin expects a list of points, gradient has 2 or 3 points
 // outside the list, this adapts this data to the expected interface
@@ -182,14 +242,21 @@ class GradPointsAdapterParam {
     count() {
         return this.move_prm.length + this.range_lstprm.count()
     }
+    get_pa_pb() {
+        if (this.nodecls.is_radial()) 
+            return get_circle_points_xy(this.p1, this.nodecls.r1.v, this.p2, this.nodecls.r2.v)
+        else
+            return [this.p1, this.p2]
+    }
     get_value(vidx) {
         let idx = vidx / 2
         if (idx < this.move_prm.length) {
             return this.move_prm[idx].get_value()
         }
+        let [pa,pb] = this.get_pa_pb()
         let t = this.range_lstprm.get_value(idx - this.move_prm.length)
-        let x = this.p1.x * (1-t) + this.p2.x * t
-        let y = this.p1.y * (1-t) + this.p2.y * t
+        let x = pa.x * (1-t) + pb.x * t
+        let y = pa.y * (1-t) + pb.y * t
         return [x,y]
     }
     increment(idx, dv) {
@@ -197,8 +264,9 @@ class GradPointsAdapterParam {
             this.move_prm[idx].increment(dv)  // move end point
         }
         else {
+            let [pa,pb] = this.get_pa_pb()
             // project dv on the line
-            let v12 = vec2.fromValues(this.p2.x - this.p1.x, this.p2.y - this.p1.y)
+            let v12 = vec2.fromValues(pb.x - pa.x, pb.y - pa.y)
             let dt = vec2.dot(dv, v12) / vec2.dot(v12, v12);
             let ridx = idx - this.move_prm.length
             let v = Math.min(1, Math.max(0, this.range_lstprm.get_value(ridx) + dt))
@@ -233,9 +301,14 @@ class NodeGradient extends NodeCls
         this.selected_indices = []
 
         this.out = new OutTerminal(node, "out_gradient")
-        this.type = new ParamSelect(node, "Type", 0, ["Linear", "Radial"])
+        this.type = new ParamSelect(node, "Type", 0, ["Linear", "Radial"], (sel_idx)=>{
+            this.r1.set_visible(sel_idx == 1)
+            this.r2.set_visible(sel_idx == 1)
+        })
         this.p1 = new ParamVec2(node, "Point 1", -0.5, 0)
+        this.r1 = new ParamFloat(node, "Radius 1", 0.1)
         this.p2 = new ParamVec2(node, "Point 2", 0.5, 0)
+        this.r2 = new ParamFloat(node, "Radius 2", 0.7)
         this.add_stops_btn = new ParamBool(node, "Add stops", true, null)
         this.add_stops_btn.display_as_btn(true)
         this.table = new ParamTable(node, "Stops", this.sorted_order)
@@ -255,6 +328,7 @@ class NodeGradient extends NodeCls
 
         // TBD points as expressions
     }
+    is_radial() { return this.type.sel_idx == 1 }
     post_load_hook() { this.redo_sort() } // sort loaded values for the table
     redo_sort() {
         let tmparr = []
@@ -289,13 +363,17 @@ class NodeGradient extends NodeCls
         trigger_frame_draw(true)
     }
     run() {
-        if (this.type.sel_idx == 0) {
-            let obj = new LinearGradient(this.p1.x, this.p1.y, this.p2.x, this.p2.y)
-            for(let i = 0, ci = 0; i < this.values.lst.length; ++i, ci += 4) {
-                obj.add_stop(this.values.lst[i], this.colors.lst.slice(ci, ci+4))
-            }
-            this.out.set(obj)
+        let obj
+        if (!this.is_radial()) 
+            obj = new LinearGradient(this.p1.x, this.p1.y, this.p2.x, this.p2.y)
+        else 
+            obj = new RadialGradient(this.p1.x, this.p1.y, this.r1.v, this.p2.x, this.p2.y, this.r2.v)
+        
+        for(let i = 0, ci = 0; i < this.values.lst.length; ++i, ci += 4) {
+            obj.add_stop(this.values.lst[i], this.colors.lst.slice(ci, ci+4))
         }
+        this.out.set(obj)
+
     }
 
     selected_obj_name() { return (this.selected_indices.length > 0) ? "stops" : null }
