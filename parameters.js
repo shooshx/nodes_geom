@@ -466,7 +466,10 @@ class ParamFloat extends Parameter {
     has_error() {
         return this.item.has_error()
     }
-
+    modify(v) {
+        this.item.set_to_const(v)
+        this.pset_dirty()
+    }
 }
 
 
