@@ -14,13 +14,20 @@ class Gradient extends PObject
         this.p2 = vec2.fromValues(x2,y2) // point at v=1
         this.stops = [] // list of [value,color] where color is [r,g,b,alpha]
         this.grd = null
-        this.ctx_create_func
+        this.ctx_create_func = null
+        this.t_mat = mat3.create() // transform for circles and fill
     }
     add_stop(value, color) {
         this.stops.push({value:value,color:color})
         this.obj = null
     }
-    draw_fill() {
+    get_disp_params(disp_values) {
+        return [ new DispParamBool(disp_values, "Show Controls", 'show_ctrl', true),
+                 new DispParamBool(disp_values, "Show Fill", 'show_fill', true),
+                ]
+    }
+
+    draw_fill() {        
         if (this.obj === null) {
             let grd = this.ctx_create_func.call(ctx_img, this.p1[0],this.p1[1], this.p2[0],this.p2[1])
             for(let s of this.stops) {
@@ -29,8 +36,12 @@ class Gradient extends PObject
             }
             this.grd = grd
         }
+
+        ctx_img.save()
+        ctx_img.transform(this.t_mat[0], this.t_mat[1], this.t_mat[3], this.t_mat[4], this.t_mat[6], this.t_mat[7])
         ctx_img.fillStyle = this.grd
         ctx_img.fillRect(-1,-1,2,2) // TBD whole screen
+        ctx_img.restore()
     }
     interp_point(pa, pb, t) {
         let x = pa[0] * (1-t) + pb[0] * t
@@ -38,11 +49,9 @@ class Gradient extends PObject
         return [x,y]
     }
 
-    transform(m) {
-        // TBD
-    }
+    transform(m) { mat3.multiply(this.t_mat, m, this.t_mat) }
 
-    draw_points(pa, pb) {
+    draw_line_points(pa, pb) {
         let radius = MESH_DISP.vtx_radius / image_view.viewport_zoom
         let did1 = false, did0 = false
         ctx_img.beginPath();
@@ -110,15 +119,18 @@ class LinearGradient extends Gradient {
         this.ctx_create_func = ctx_img.createLinearGradient
     }
 
-    draw_m(m) {
-        this.draw_fill()
-        this.draw_points(this.p1, this.p2)
+    draw_m(m, disp_values) {
+        if (disp_values.show_fill)
+            this.draw_fill()
+        if (disp_values.show_ctrl)
+            this.draw_line_points(this.p1, this.p2)
     }
     draw_selection_m(m, selected_indices) {
         this.draw_sel_points(selected_indices, this.p1, this.p2)
     }
 }
 
+// get the points on the circle that are used for changing the radius
 function get_circle_points(p1, r1, p2, r2) {
     let v12 = vec2.fromValues(p2[0]-p1[0], p2[1]-p1[1])
     if (v12[0] == 0 && v12[1] == 0)
@@ -148,32 +160,50 @@ class RadialGradient extends Gradient {
         this.r2 = r2
         this.ctx_create_func = function() { return ctx_img.createRadialGradient(x1,y1,r1, x2,y2,r2) }
     }
-    draw_circles() {
+    draw_circles(tp1, tp2) {
         let p1 = this.p1, p2 = this.p2, r1 = this.r1, r2 = this.r2
-        ctx_img.beginPath()
-        circle(p1, r1)
-        circle(p2, r2)
-        let radius = MESH_DISP.vtx_radius / image_view.viewport_zoom
+        ctx_img.save()
+        ctx_img.transform(this.t_mat[0], this.t_mat[1], this.t_mat[3], this.t_mat[4], this.t_mat[6], this.t_mat[7])
+        {
+            ctx_img.beginPath()
+            circle(p1, r1)
+            circle(p2, r2)
+        }
+        ctx_img.restore()
         // point marker
-        circle(p1, radius)
-        circle(p2, radius)
+        let radius = MESH_DISP.vtx_radius / image_view.viewport_zoom
+        circle(tp1, radius)
+        circle(tp2, radius)
         ctx_img.lineWidth = 1/image_view.viewport_zoom
         ctx_img.strokeStyle = "#000"
         ctx_img.stroke()
+
         // center circles should be different somehow so mark them with additional white
         ctx_img.beginPath()
         ctx_img.strokeStyle = "#ffffff"
-        circle(p1, radius*0.7) 
-        circle(p2, radius*0.7)
+        circle(tp1, radius*0.7) 
+        circle(tp2, radius*0.7)
         ctx_img.stroke()
         ctx_img.strokeStyle = "#000"
     }
 
-    draw_m(m) {
-        this.draw_fill()
-        this.draw_circles()
-        let [pa,pb] = get_circle_points(this.p1, this.r1, this.p2, this.r2)
-        this.draw_points(pa, pb)
+    draw_m(m, disp_values) {
+        if (disp_values.show_fill)
+            this.draw_fill()
+        if (disp_values.show_ctrl) {
+            // anything that draws point-marker circles can't use the canvas transform so the points
+            // need to be manually transformed with t_mat.
+            let tp1 = vec2.create(), tp2 = vec2.create()
+            vec2.transformMat3(tp1, this.p1, this.t_mat)
+            vec2.transformMat3(tp2, this.p2, this.t_mat)
+            this.draw_circles(tp1, tp2)
+            // not using tp1,tp2 for this since r1,r2 can't be transformed
+            let [pa,pb] = get_circle_points(this.p1, this.r1, this.p2, this.r2)
+            let tpa = vec2.create(), tpb = vec2.create()
+            vec2.transformMat3(tpa, pa, this.t_mat)
+            vec2.transformMat3(tpb, pb, this.t_mat)
+            this.draw_line_points(tpa, tpb)
+        }
     }
     draw_selection_m(m, selected_indices) {
         let [pa,pb] = get_circle_points(this.p1, this.r1, this.p2, this.r2)

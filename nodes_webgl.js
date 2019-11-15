@@ -6,7 +6,7 @@ class ImageBase extends PObject
 {
     constructor(sz_x, sz_y, smooth) {
         super()
-        this.t_mat = null
+        this.t_mat = mat3.create() 
         this.smooth = smooth
 
         let hw = sz_x * 0.5
@@ -15,7 +15,7 @@ class ImageBase extends PObject
         this.bottom_right = vec2.fromValues(hw,hh)
     }
 
-    transform(m) { this.t_mat = m } 
+    transform(m) { mat3.multiply(this.t_mat, m, this.t_mat) } 
 
     draw_image(img_impl, m) {
         let tl = this.top_left, br = this.bottom_right

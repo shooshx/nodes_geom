@@ -251,6 +251,7 @@ class PObject {
             ctx_img.restore()
         }        
     }
+    draw_border() {} // called in NodeTransform
 }
 
 class PHandle {
@@ -295,9 +296,15 @@ function clone(obj) {
         // it's a typed array or Path2D (that have copy ctor)
         return new obj.constructor(obj)
     }
-    if (obj.constructor === WebGLBuffer) {
+    if (obj.constructor === WebGLBuffer || obj.constructor === CanvasGradient) {
         return null // gl buffers can't be cloned
     }
+    if (obj.constructor === HTMLImageElement) {
+        return obj // immutable object (once it's loaded) so it's ok for several clones to reference it
+    }
+    // it's ok for a PObject constructor to take arguments
+    // as long as it's fine with getting them as undefined and later being assigned the same
+    // values as properties
     let n = new obj.constructor()
     for(let k in obj) {
         n[k] = clone(obj[k])

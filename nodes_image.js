@@ -5,7 +5,7 @@ class PImage extends ImageBase
 {
     static name() { return "PImage" }
     constructor(js_img, smooth) {
-        super(js_img.width, js_img.height, smooth)
+        super((js_img !== undefined)?js_img.width:0, (js_img !== undefined)?js_img.height:0, smooth)
         this.img = js_img
         this.pixels = null
     }
