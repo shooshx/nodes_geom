@@ -36,11 +36,26 @@ class Gradient extends PObject
             }
             this.grd = grd
         }
+        let tinv = mat3.create()
+        mat3.invert(tinv, this.t_mat)
 
         ctx_img.save()
         ctx_img.transform(this.t_mat[0], this.t_mat[1], this.t_mat[3], this.t_mat[4], this.t_mat[6], this.t_mat[7])
         ctx_img.fillStyle = this.grd
-        ctx_img.fillRect(-1,-1,2,2) // TBD whole screen
+
+        // rect that fills all the viewport
+        let rp = [vec2.fromValues(0, 0), vec2.fromValues(canvas_image.width, canvas_image.height),
+                  vec2.fromValues(canvas_image.width, 0), vec2.fromValues(0, canvas_image.height)]
+
+        for(let i = 0; i < 4; ++i) {
+            vec2.transformMat3(rp[i], rp[i], image_view.t_inv_viewport)
+            vec2.transformMat3(rp[i], rp[i], tinv)
+        }
+        // need to make this rect a path and not fillRect since in the transformed space it's not axis aligned
+        ctx_img.beginPath()
+        ctx_img.moveTo(rp[0][0], rp[0][1]); ctx_img.lineTo(rp[2][0], rp[2][1])
+        ctx_img.lineTo(rp[1][0], rp[1][1]); ctx_img.lineTo(rp[3][0], rp[3][1])
+        ctx_img.fill()
         ctx_img.restore()
     }
     interp_point(pa, pb, t) {
@@ -52,16 +67,20 @@ class Gradient extends PObject
     transform(m) { mat3.multiply(this.t_mat, m, this.t_mat) }
 
     draw_line_points(pa, pb) {
+        let tpa = vec2.create(), tpb = vec2.create()
+        vec2.transformMat3(tpa, pa, this.t_mat)
+        vec2.transformMat3(tpb, pb, this.t_mat)
+
         let radius = MESH_DISP.vtx_radius / image_view.viewport_zoom
         let did1 = false, did0 = false
         ctx_img.beginPath();
-        ctx_img.moveTo(pa[0], pa[1])
-        ctx_img.lineTo(pb[0], pb[1])
+        ctx_img.moveTo(tpa[0], tpa[1])
+        ctx_img.lineTo(tpb[0], tpb[1])
         ctx_img.lineWidth = 1/image_view.viewport_zoom
         ctx_img.lineStyle = "#000"
         ctx_img.stroke()
         for(let s of this.stops) {
-            let [x,y] = this.interp_point(pa, pb, s.value)
+            let [x,y] = this.interp_point(tpa, tpb, s.value)
             if (s.value == 1)
                 did1 = true
             else if (s.value == 0)
@@ -77,12 +96,12 @@ class Gradient extends PObject
         }
         if (!did1) {
             ctx_img.beginPath();
-            ctx_img.arc(pb[0], pb[1], radius, 0, 2*Math.PI)
+            ctx_img.arc(tpb[0], tpb[1], radius, 0, 2*Math.PI)
             ctx_img.stroke()
         }
         if (!did0) {
             ctx_img.beginPath();
-            ctx_img.arc(pa[0], pa[1], radius, 0, 2*Math.PI)
+            ctx_img.arc(tpa[0], tpa[1], radius, 0, 2*Math.PI)
             ctx_img.stroke()
         }
     }    
@@ -91,18 +110,17 @@ class Gradient extends PObject
         let radius = MESH_DISP.vtx_sel_radius/image_view.viewport_zoom
         ctx_img.beginPath();
         for(let idx of selected_indices) {
-            if (idx == 0) {
-                var x = this.p1[0], y = this.p1[1]
-            }
-            else if (idx == 1) {
-                var x = this.p2[0], y = this.p2[1]
-            }
-            else if (idx == 2 || idx == 3) {
-                continue
-            }
-            else {
+            if (idx == 0) 
+                var [x,y] = this.p1
+            else if (idx == 1) 
+                var [x,y] = this.p2
+            else if (idx == 2) 
+                var [x,y] = pa
+            else if (idx == 3)
+                var [x,y] = pb
+            else 
                 var [x,y] = this.interp_point(pa, pb, this.stops[idx-NODE_POINT_LST_OFFSET].value)
-            }
+            
             ctx_img.moveTo(x + radius, y)
             ctx_img.arc(x, y, radius, 0, 2*Math.PI)
         }
@@ -199,10 +217,8 @@ class RadialGradient extends Gradient {
             this.draw_circles(tp1, tp2)
             // not using tp1,tp2 for this since r1,r2 can't be transformed
             let [pa,pb] = get_circle_points(this.p1, this.r1, this.p2, this.r2)
-            let tpa = vec2.create(), tpb = vec2.create()
-            vec2.transformMat3(tpa, pa, this.t_mat)
-            vec2.transformMat3(tpb, pb, this.t_mat)
-            this.draw_line_points(tpa, tpb)
+
+            this.draw_line_points(pa, pb)
         }
     }
     draw_selection_m(m, selected_indices) {
@@ -229,6 +245,8 @@ class GradPointsAdapterParam {
     get_value(vidx) {
         let idx = vidx / 2
         if (idx < this.move_prm.length) {
+            if (this.move_prm[idx] === null) // 2,3 of linear are not used
+                return [null,null]
             return this.move_prm[idx].get_value()
         }
         let [pa,pb] = this.get_pa_pb()

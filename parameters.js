@@ -777,7 +777,7 @@ class ParamTransform extends Parameter {
         if (obj === null)
             return // might be it's not connected so it doesn't have output
         let center;
-        if (false) {
+        if (false) { // this was replaced with pivot thing. TBD - starting pivot should be the center of the bbox instead of 0,0
             let bbox = obj.get_bbox()
             center = vec2.fromValues((bbox.min_x + bbox.max_x) * 0.5, (bbox.min_y + bbox.max_y) * 0.5)
             //this.set_rotate_pivot(center[0], center[1])

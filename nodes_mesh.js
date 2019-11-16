@@ -198,6 +198,8 @@ function add_point_select_mixin(node_cls, selected_indices, points_param) {
         let len = points_param.count()
         for(let i = 0; i < len; ++i) {
             let [px,py] = points_param.get_value(i*2)
+            if (px === null)
+                continue
             if (m_dist(px, py, x, y) < r) {
                 return new PointSelectHandle(this.points, i, this)
             }
