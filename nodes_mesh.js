@@ -43,6 +43,7 @@ class NodeGeomPrimitive extends NodeCls
         this.transform = new ParamTransform(node, "Transform")
     }
     run() {
+        assert(this.transform.is_valid(), this, "invalid transform")
         let obj
         let hx = this.size.x * 0.5, hy = this.size.y * 0.5
         if (this.shape.sel_idx == 0) {
@@ -484,7 +485,7 @@ class NodeSetAttr extends NodeCls
         }
     }
 
-    prop_from_input_framebuffer(prop, mesh, src, value_need_src, value_need_mesh, src_param, transform, fb_viewport) 
+    prop_from_input_framebuffer(prop, mesh, src, value_need_src, value_need_mesh, src_param, transform, src_ctor) 
     {
         mesh.ensure_tcache(transform)
         let vtx = mesh.tcache.vtx_pos
@@ -493,7 +494,7 @@ class NodeSetAttr extends NodeCls
         // from Xw = (w/2)*Xp + (w/2) 
         let w = src.width(), h = src.height()
         let wf = w/2
-        let hf = src.height()/2
+        let hf = h/2
         let pixels = src.get_pixels()
         assert(pixels !== null, this, "Input image is empty")
 
@@ -520,13 +521,23 @@ class NodeSetAttr extends NodeCls
                 y /= vidxs.length
             }
 
-            if (fb_viewport) {
+            if (src_ctor === FrameBuffer) { // TBD move this to adapter?
+                // half in the case of frame buffer since frame buffers are sized 2x2
                 x = Math.round(wf*x + wf)
                 y = Math.round(hf*y + hf)
             }
-            else {
+            else if (src_ctor === PImage) {
+                // with image multiplying x,y by the wf,hf is not needed since the image t_mat includes the zoom factor
                 x = Math.round(x + wf)
                 y = Math.round(y + hf)
+            }
+            else if (src_ctor === GradientPixelsAdapter) {
+                // minus 1 so that the points at the edge of the last pixel would still be in the shadow canvas
+                x = Math.round((w-1)*x)
+                y = Math.round((h-1)*y)
+            }
+            else {
+                assert(false, this, "unexpected object type")
             }
 
             if (value_need_mesh !== null)
@@ -603,9 +614,10 @@ class NodeSetAttr extends NodeCls
         let src = null
         if (value_need_src !== null) { // make sure we have a src to get the value from
             src = this.in_source.get_const()
-            assert(src !== null, this, "missing attribute source")
-            assert(src.constructor === FrameBuffer || 
-                   src.constructor === PImage, this, "expected FrameBuffer or Image as input")
+            assert(src !== null, this, "missing input source")
+            if (src.get_pixels_adapter !== undefined)
+                src = src.get_pixels_adapter(mesh) // got Gradient
+            assert(src.get_pixels !== undefined, this, "expected object with pixels")
         }
         if (value_need_mesh !== null) {
             value_need_mesh.dyn_set_obj(mesh)
@@ -620,10 +632,17 @@ class NodeSetAttr extends NodeCls
                 this.prop_from_const(prop, src_param)
             }
             else if (value_need_src !== null) { // from img input
-                let isfb = (src.constructor === FrameBuffer)
                 let transform = mat3.create()
-                mat3.invert(transform, src.t_mat) 
-                this.prop_from_input_framebuffer(prop, mesh, src, value_need_src, value_need_mesh, src_param, transform, isfb)
+                if (src.constructor === GradientPixelsAdapter) { // TBD move this to adapter
+                    // for gradient we need to stretch all the points sampled to the size of the sampled bbox area
+                    mat3.scale(transform, transform, vec2.fromValues(1/src.bbox.width(), 1/src.bbox.height() ))
+                    mat3.translate(transform, transform, vec2.fromValues(-src.bbox.min_x, -src.bbox.min_y))
+                }
+                else {
+                    // for image and framebufer, we need to move the points to the image coordinates
+                    mat3.invert(transform, src.t_mat)                     
+                }
+                this.prop_from_input_framebuffer(prop, mesh, src, value_need_src, value_need_mesh, src_param, transform, src.constructor)
             }
             else if (value_need_mesh !== null) {
                 this.prop_from_mesh_attr(prop, value_need_mesh, src_param)
@@ -746,6 +765,7 @@ class NodeTransform extends NodeCls
         this.transform = new ParamTransform(node, "transform")
     }
     run() {
+        assert(this.transform.is_valid(), this, "invalid transform")
         // TBD mutate only if not identity
         let obj = this.in.get_mutable()
         assert(obj, this, "missing input")
@@ -1033,6 +1053,9 @@ class GeomDivide extends NodeCls
             out_mesh.set('idx', new TIdxArr(out_idx))
             out_mesh.type = MESH_QUAD
             this.out_mesh.set(out_mesh)
+        }
+        else {
+            assert(false, this, "unexpected geometry")
         }
     }
 }

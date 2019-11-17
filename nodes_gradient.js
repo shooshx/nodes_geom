@@ -27,37 +27,47 @@ class Gradient extends PObject
                 ]
     }
 
-    draw_fill() {        
-        if (this.obj === null) {
-            let grd = this.ctx_create_func.call(ctx_img, this.p1[0],this.p1[1], this.p2[0],this.p2[1])
+    ensure_grd() { // it doesn't matter which context creates the gradient object, it will be usable in both img and shadow
+        if (this.grd === null) {
+            let grd = this.ctx_create_func.call()
             for(let s of this.stops) {
                 dassert(s.value >= 0 && s.value <= 1, "stop out of range")
                 grd.addColorStop(s.value, make_str_color(s.color))
             }
             this.grd = grd
         }
+    }
+
+    draw_fill_rect(ctx, pmin, pmax, is_viewport_coords) {        
+        this.ensure_grd()
         let tinv = mat3.create()
         mat3.invert(tinv, this.t_mat)
 
-        ctx_img.save()
-        ctx_img.transform(this.t_mat[0], this.t_mat[1], this.t_mat[3], this.t_mat[4], this.t_mat[6], this.t_mat[7])
-        ctx_img.fillStyle = this.grd
-
-        // rect that fills all the viewport
-        let rp = [vec2.fromValues(0, 0), vec2.fromValues(canvas_image.width, canvas_image.height),
-                  vec2.fromValues(canvas_image.width, 0), vec2.fromValues(0, canvas_image.height)]
+        // need to make this rect a path and not fillRect since in the transformed space it's not axis aligned
+        let rp = [pmin, pmax, vec2.fromValues(pmax[0], pmin[1]), vec2.fromValues(pmin[0], pmax[1])]
 
         for(let i = 0; i < 4; ++i) {
-            vec2.transformMat3(rp[i], rp[i], image_view.t_inv_viewport)
+            if (is_viewport_coords)
+                vec2.transformMat3(rp[i], rp[i], image_view.t_inv_viewport)
             vec2.transformMat3(rp[i], rp[i], tinv)
         }
-        // need to make this rect a path and not fillRect since in the transformed space it's not axis aligned
-        ctx_img.beginPath()
-        ctx_img.moveTo(rp[0][0], rp[0][1]); ctx_img.lineTo(rp[2][0], rp[2][1])
-        ctx_img.lineTo(rp[1][0], rp[1][1]); ctx_img.lineTo(rp[3][0], rp[3][1])
-        ctx_img.fill()
-        ctx_img.restore()
+
+        ctx.save()
+        ctx.transform(this.t_mat[0], this.t_mat[1], this.t_mat[3], this.t_mat[4], this.t_mat[6], this.t_mat[7])
+        ctx.fillStyle = this.grd
+        ctx.beginPath()
+        ctx.moveTo(rp[0][0], rp[0][1]); ctx.lineTo(rp[2][0], rp[2][1])
+        ctx.lineTo(rp[1][0], rp[1][1]); ctx.lineTo(rp[3][0], rp[3][1])
+        ctx.fill()
+
+        ctx.restore()
     }
+
+    draw_fill() {
+        // rect that fills all the viewport
+        this.draw_fill_rect(ctx_img, vec2.fromValues(0,0), vec2.fromValues(canvas_image.width, canvas_image.height), true)
+    }
+
     interp_point(pa, pb, t) {
         let x = pa[0] * (1-t) + pb[0] * t
         let y = pa[1] * (1-t) + pb[1] * t
@@ -128,13 +138,57 @@ class Gradient extends PObject
         ctx_img.strokeStyle = MESH_DISP.sel_color
         ctx_img.stroke()        
     }
+
+    get_pixels_adapter(for_mesh) {
+        let bbox = for_mesh.get_bbox()
+        let ad = new GradientPixelsAdapter(bbox, this)
+        return ad
+    }
 }
+
+// adapts the gradient object which doesn't have dimentions to an object that can be used with
+// SetAttr which samples pixels.
+// take the bbox that we want to sample in and render the gradient only there
+class GradientPixelsAdapter {
+    constructor(bbox, grd_obj) {
+        this.pixels = null
+        this.obj = grd_obj
+        this.bbox = bbox // in abstract coords
+        this.w_width = this.bbox.width()   
+        this.w_height = this.bbox.height()
+        this.px_width = Math.round(this.w_width * image_view.viewport_zoom)
+        this.px_height = Math.round(this.w_height * image_view.viewport_zoom)
+        this.t_mat = grd_obj.t_mat
+    }
+    width() { return this.px_width }
+    height() { return this.px_height }
+    get_pixels() {
+        if (this.pixels === null) {
+            this.obj.ensure_grd()
+
+            canvas_img_shadow.width = this.px_width
+            canvas_img_shadow.height = this.px_height
+
+            ctx_img_shadow.save()
+            // bring to top-left corner of the mesh to 0,0
+            let m = mat3.create()
+            mat3.scale(m, m, [image_view.viewport_zoom, image_view.viewport_zoom])
+            ctx_img_shadow.setTransform(m[0], m[1], m[3], m[4], m[6], m[7])
+            ctx_img_shadow.translate(-this.bbox.min_x, -this.bbox.min_y)
+            this.obj.draw_fill_rect(ctx_img_shadow, vec2.fromValues(this.bbox.min_x,this.bbox.min_y), vec2.fromValues(this.w_width, this.w_height), false)
+            ctx_img_shadow.restore()
+            this.pixels = ctx_img_shadow.getImageData(0, 0, this.px_width, this.px_height).data;
+        }
+        return this.pixels        
+    }
+}
+
 
 class LinearGradient extends Gradient {
     static name() { return "Linear Gradient" }
     constructor(x1,y1, x2,y2) {
         super(x1,y1, x2, y2)
-        this.ctx_create_func = ctx_img.createLinearGradient
+        this.ctx_create_func = function() { return ctx_img.createLinearGradient(x1,y1, x2,y2) }
     }
 
     draw_m(m, disp_values) {

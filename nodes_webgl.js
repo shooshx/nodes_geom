@@ -35,7 +35,7 @@ class ImageBase extends PObject
         let tl = vec2.create(), br = vec2.create()
         vec2.transformMat3(tl, this.top_left, this.t_mat)
         vec2.transformMat3(br, this.bottom_right, this.t_mat)
-        return { min_x:tl[0], max_x:br[0], min_y:tl[1], max_y:br[1] }
+        return new BBox(tl[0], tl[1], br[0], br[1])
     }
 
     draw_border(m) {
@@ -128,6 +128,7 @@ class CreateTexture extends NodeCls
         res_fit()
     }
     run() {
+        assert(this.transform.is_valid(), this, "invalid transform")
         ensure_webgl()
         let cw = this.resolution.x, ch = this.resolution.y
         let tex = gl.createTexture();

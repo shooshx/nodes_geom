@@ -20,7 +20,20 @@ function normalize_attr_name(s) {
     return r
 }
 
-
+class BBox {
+    constructor(min_x, min_y, max_x, max_y) {
+        this.min_x = min_x
+        this.min_y = min_y
+        this.max_x = max_x
+        this.max_y = max_y
+    }
+    width() {
+        return this.max_x - this.min_x
+    }
+    height() {
+        return this.max_y - this.min_y
+    }
+}
 
 class Mesh extends PObject
 {
@@ -129,7 +142,7 @@ class Mesh extends PObject
             if (y < min_y) min_y = y
             if (y > max_y) max_y = y
         }
-        return { min_x:min_x, max_x:max_x, min_y:min_y, max_y:max_y }
+        return new BBox(min_x, min_y, max_x, max_y)
     }
 
     is_point_inside(x, y) {

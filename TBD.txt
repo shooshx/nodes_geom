@@ -25,14 +25,14 @@ NODES:
     clone object
     merge create and shader
 - any square (primitive, webgl, image)
-    dials for resizing
+    !!! dials for resizing
 - manual geom
     - delete point from list control
     - move them even after transform?
     - primitive quad, triangle, path between the points? by selection?
     - curve control points
 - polyline fill
-    https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths
+
     UI for closing and starting a new poly, bugs with this
     triangulation
         edge case of non-input points coming from triangulate (corner points) ??? don't know how to do this
@@ -70,13 +70,11 @@ NODES:
 - Copy - copy something onto vertices positions
     how to control parameters of the copies?
     for loop?
-
 - Boolean ops from Inkscape https://gitlab.com/inkscape/lib2geom/blob/master/src/2geom/intersection-graph.h
 - Shrink for paths (not trivial)
 - !!! Gradient object, fill, stroke, 
-
-
 - random points  - https://www.sidefx.com/docs/houdini/nodes/sop/scatter.html
+    !!! density by expression
     on a surface
     on a line
     interpolate property from input geometry

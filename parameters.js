@@ -699,6 +699,11 @@ class ParamTransform extends Parameter {
         mat3.scale(this.v, this.v, this.scale)
         this.pset_dirty()
     }
+    is_valid() {
+        return !isNaN(this.v[0]) && !isNaN(this.v[1]) && !isNaN(this.v[2]) && 
+               !isNaN(this.v[3]) && !isNaN(this.v[4]) && !isNaN(this.v[5]) &&
+               !isNaN(this.v[6]) && !isNaN(this.v[7]) && !isNaN(this.v[8])
+    }
      // calculate the translation that needs to happen to counter the change in pivot in order for the object not to move
     calc_pivot_counter(dx, dy) {
         if (isNaN(dx) || isNaN(dy))

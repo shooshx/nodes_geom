@@ -16,6 +16,7 @@ input {
     left: 0;
     right: 0;
     overflow: hidden; /* TEMP needed for some strangeness that creates a scrollbar randomally when resizing */
+    /* comment out to see canvas_img_shadow */
 }
 
 #image_panel {
@@ -313,7 +314,7 @@ input {
 }
 #canvas_img_shadow {
     border: solid 1px;
-    display: none;
+    display: none;  /* comment out to see canvas_img_shadow */
 }
 
 .param_btn {

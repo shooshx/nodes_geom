@@ -48,6 +48,7 @@ class NodeLoadImage extends NodeCls
     run() {
         let image = this.file_upload.get_image()
         assert(image !== null, this, "No image uploaded")
+        assert(this.transform.is_valid(), this, "invalid transform")
         let pimg = new PImage(image, this.smooth_image.v)
         pimg.transform(this.transform.v)
         this.out_img.set(pimg)

@@ -4,6 +4,7 @@ function get_flag(v, f) {
     return (v & f) == f
 }
 
+// https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths
 class MultiPath extends PObject
 {
     static name() { return "MultiPath" }
@@ -67,7 +68,7 @@ class MultiPath extends PObject
                 min_y = Math.min(min_y, x, ct_y, cf_y)
                 max_y = Math.max(max_y, x, ct_y, cf_y)
             }
-            return { min_x:min_x, max_x:max_x, min_y:min_y, max_y:max_y }
+            return new BBox(min_x, min_y, max_x, max_y)
         }
     }
     draw_border(m) {
