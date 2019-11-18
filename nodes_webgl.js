@@ -105,6 +105,17 @@ class FrameBuffer extends ImageBase
         this.imgBitmap = null
         this.pixels = null
     }
+    get_transform_to_pixels() {
+        let transform = mat3.create()
+        // half in the case of frame buffer since frame buffers are sized 2x2
+        let hs = vec2.fromValues(this.width()/2, this.height()/2)
+        mat3.translate(transform, transform, hs)
+        mat3.scale(transform, transform, hs)
+        let inv_t = mat3.create()
+        mat3.invert(inv_t, this.t_mat)     
+        mat3.mul(transform, transform, inv_t)    
+        return transform
+    }
 } 
 
 class CreateTexture extends NodeCls

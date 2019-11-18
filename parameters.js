@@ -434,8 +434,8 @@ class ExpressionItem {
             return null
         return ev
     }
-    has_error() {
-        return this.last_error !== null
+    get_last_error() {
+        return this.last_error
     }
 }
 
@@ -463,8 +463,8 @@ class ParamFloat extends Parameter {
     need_input_evaler(input_name) {
         return this.item.need_input_evaler(input_name)
     }
-    has_error() {
-        return this.item.has_error()
+    get_last_error() {
+        return this.item.get_last_error()
     }
     modify(v) {
         this.item.set_to_const(v)
@@ -519,8 +519,8 @@ class ParamVec2 extends Parameter {
         // the first one that has it is good since all who has it have the same one (objref)
         return this.item_x.need_input_evaler(input_name) || this.item_y.need_input_evaler(input_name)
     }
-    has_error() {
-        return this.item_x.has_error() || this.item_y.has_error()
+    get_last_error() {
+        return this.item_x.get_last_error() || this.item_y.get_last_error()
     }    
 }
 
@@ -635,8 +635,9 @@ class ParamColor extends Parameter {
         return this.item_r.need_input_evaler(input_name) || this.item_g.need_input_evaler(input_name) ||
                this.item_b.need_input_evaler(input_name) || this.item_alpha.need_input_evaler(input_name)
     }
-    has_error() {
-        return this.item_r.has_error() || this.item_g.has_error() || this.item_b.has_error() || this.item_alpha.has_error()
+    get_last_error() {
+        return this.item_r.get_last_error() || this.item_g.get_last_error() || 
+               this.item_b.get_last_error() || this.item_alpha.get_last_error()
     }       
 }
 

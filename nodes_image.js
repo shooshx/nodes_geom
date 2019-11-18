@@ -26,6 +26,16 @@ class PImage extends ImageBase
         }
         return this.pixels
     }
+    get_transform_to_pixels() {
+        let transform = mat3.create()
+        // with image scaling x,y by the wf,hf is not needed since the image t_mat includes the zoom factor
+        // still using halfs since the center is the reference point
+        mat3.translate(transform, transform, vec2.fromValues(this.width()/2, this.height()/2))
+        let inv_t = mat3.create()
+        mat3.invert(inv_t, this.t_mat)
+        mat3.mul(transform, transform, inv_t)
+        return transform
+    }    
 }
 
 class NodeLoadImage extends NodeCls
@@ -62,6 +72,6 @@ class NodeLoadImage extends NodeCls
     }    
     image_find_obj(vx, vy, ex, ey) {
         return this.transform.dial.find_obj(ex, ey)
-    }    
+    }
 }
 

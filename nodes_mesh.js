@@ -521,24 +521,8 @@ class NodeSetAttr extends NodeCls
                 y /= vidxs.length
             }
 
-            if (src_ctor === FrameBuffer) { // TBD move this to adapter?
-                // half in the case of frame buffer since frame buffers are sized 2x2
-                x = Math.round(wf*x + wf)
-                y = Math.round(hf*y + hf)
-            }
-            else if (src_ctor === PImage) {
-                // with image multiplying x,y by the wf,hf is not needed since the image t_mat includes the zoom factor
-                x = Math.round(x + wf)
-                y = Math.round(y + hf)
-            }
-            else if (src_ctor === GradientPixelsAdapter) {
-                // minus 1 so that the points at the edge of the last pixel would still be in the shadow canvas
-                x = Math.round((w-1)*x)
-                y = Math.round((h-1)*y)
-            }
-            else {
-                assert(false, this, "unexpected object type")
-            }
+            x = Math.round(x)
+            y = Math.round(y)
 
             if (value_need_mesh !== null)
                 value_need_mesh.dyn_set_prop_index(i)
@@ -606,7 +590,7 @@ class NodeSetAttr extends NodeCls
             assert(false, this, "unknown type")
         }
 
-        assert(!src_param.has_error(), this, "Parameter expression error")
+        assert(src_param.get_last_error() === null, this, "Parameter expression error " + src_param.get_last_error())
         let value_need_src = src_param.need_input_evaler("in_src")
         let value_need_mesh = src_param.need_input_evaler("in_mesh")
         let need_inputs = value_need_src || value_need_mesh
@@ -632,16 +616,7 @@ class NodeSetAttr extends NodeCls
                 this.prop_from_const(prop, src_param)
             }
             else if (value_need_src !== null) { // from img input
-                let transform = mat3.create()
-                if (src.constructor === GradientPixelsAdapter) { // TBD move this to adapter
-                    // for gradient we need to stretch all the points sampled to the size of the sampled bbox area
-                    mat3.scale(transform, transform, vec2.fromValues(1/src.bbox.width(), 1/src.bbox.height() ))
-                    mat3.translate(transform, transform, vec2.fromValues(-src.bbox.min_x, -src.bbox.min_y))
-                }
-                else {
-                    // for image and framebufer, we need to move the points to the image coordinates
-                    mat3.invert(transform, src.t_mat)                     
-                }
+                let transform = src.get_transform_to_pixels()
                 this.prop_from_input_framebuffer(prop, mesh, src, value_need_src, value_need_mesh, src_param, transform, src.constructor)
             }
             else if (value_need_mesh !== null) {

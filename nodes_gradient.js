@@ -181,6 +181,14 @@ class GradientPixelsAdapter {
         }
         return this.pixels        
     }
+    get_transform_to_pixels() {
+        let transform = mat3.create()
+        // for gradient we need to stretch all the points sampled to the size of the sampled bbox area
+        mat3.scale(transform, transform, vec2.fromValues(this.width()-1, this.height()-1 ))
+        mat3.scale(transform, transform, vec2.fromValues(1/this.bbox.width(), 1/this.bbox.height() ))
+        mat3.translate(transform, transform, vec2.fromValues(-this.bbox.min_x, -this.bbox.min_y))
+        return transform
+    }
 }
 
 
