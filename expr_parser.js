@@ -52,6 +52,12 @@ class BinaryOpNode {
             case OPERATOR_MODULO:         ret = v1 % checkZero(v2); break;
             case OPERATOR_POWER:          ret = Math.pow(v1, v2); break;
             case OPERATOR_EXPONENT:       ret = v1 * Math.pow(10, v2); break;
+
+            case OPERATOR_LESS:           ret = v1 < v2; break
+            case OPERATOR_LESS_EQ:        ret = v1 <= v2; break
+            case OPERATOR_GREATER:        ret = v1 > v2; break
+            case OPERATOR_GREATER_EQ:     ret = v1 >= v2; break
+            case OPERATOR_EQ:             ret = v1 == v2; break
             default:  throw new ExprErr("unexpected operator");
         }
         return ret;
@@ -80,6 +86,11 @@ const OPERATOR_DIVISION = 9       /// /
 const OPERATOR_MODULO = 10         /// %
 const OPERATOR_POWER = 11          /// **
 const OPERATOR_EXPONENT = 12        /// e, E
+const OPERATOR_LESS = 13 // <
+const OPERATOR_LESS_EQ = 14 // <=
+const OPERATOR_GREATER = 15 // >
+const OPERATOR_GREATER_EQ = 16 // >=
+const OPERATOR_EQ = 17 // ==
 
 class Operator
 {
@@ -105,7 +116,12 @@ const ops = [
     new Operator(OPERATOR_DIVISION, 20, 'L'),
     new Operator(OPERATOR_MODULO, 20, 'L'),
     new Operator(OPERATOR_POWER, 30, 'R'),
-    new Operator(OPERATOR_EXPONENT, 40, 'R')
+    new Operator(OPERATOR_EXPONENT, 40, 'R'),
+    new Operator(OPERATOR_LESS, 50, 'L'),
+    new Operator(OPERATOR_LESS_EQ, 50, 'L'),
+    new Operator(OPERATOR_GREATER, 50, 'L'),
+    new Operator(OPERATOR_GREATER_EQ, 50, 'L'),
+    new Operator(OPERATOR_EQ, 50, 'L'),
 ]
 
 
@@ -149,6 +165,7 @@ function eatSpaces() {
 function parseOp()
 {
     eatSpaces();
+    let ne
     switch (getCharacter()) {
         case '|':
             index_++;
@@ -160,11 +177,32 @@ function parseOp()
             index_++;
             return ops[OPERATOR_BITWISE_AND];
         case '<':
-            expect("<<");
-            return ops[OPERATOR_BITWISE_SHL];
+            index_++;
+            ne = getCharacter()
+            if (ne == '<') {
+                index_++;
+                return ops[OPERATOR_BITWISE_SHL];
+            }
+            if (ne == '=') {
+                index_++;
+                return ops[OPERATOR_LESS_EQ];
+            }
+            return ops[OPERATOR_LESS];
         case '>':
-            expect(">>");
-            return ops[OPERATOR_BITWISE_SHR];
+            index_++;
+            ne = getCharacter()
+            if (ne == '>') {
+                index_++;
+                return ops[OPERATOR_BITWISE_SHR];
+            }
+            if (ne == '=') {
+                index_++;
+                return ops[OPERATOR_GREATER_EQ];
+            }
+            return ops[OPERATOR_GREATER];
+        case '=':
+            expect('==')
+            return ops[OPERATOR_EQ];
         case '+':
             index_++;
             return ops[OPERATOR_ADDITION];
@@ -226,6 +264,7 @@ function fit(v, oldmin, oldmax, newmin, newmax) {
 }
 function fit01(v, nmin, nmax) { return fit(v, 0, 1, nmin, nmax) }
 function fit11(v, nmin, nmax) { return fit(v, -1, 1, nmin, nmax) }
+function ifelse(v, vt, vf) { return v?vt:vf }
 
 // cos,sin,tan,acos,asin.atan,atan2,log,log10,log2,round,ceil,floor,trunc,abs,sqrt,max(multi),min,clamp(to range),sign
 const func_defs = {
@@ -237,6 +276,7 @@ const func_defs = {
     'min': new FuncDef(Math.min, -2), 'max': new FuncDef(Math.min, -2), 'clamp': new FuncDef(clamp, 3), // negative meants atleast
     'rand': new FuncDef(myrand, 1),
     'fit': new FuncDef(fit, 5), 'fit01': new FuncDef(fit01, 3), 'fit11': new FuncDef(fit11, 3),
+    'if': new FuncDef(ifelse, 3),
 }
 
 class FuncCallNode {

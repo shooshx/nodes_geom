@@ -167,12 +167,13 @@ function add_param_label(line, text, cls) {
 const ED_FLOAT=0
 const ED_INT=1
 const ED_STR=2
+const ED_FLOAT_OUT_ONLY=3
 function add_param_edit(line, value, type, set_func) {
     let e = document.createElement('input')
     e.classList = 'param_input param_editbox'
     e.type = 'text'
     e.spellcheck = false
-    e.value = (type == ED_FLOAT) ? toFixedMag(value) : value
+    e.value = (type == ED_FLOAT || type == ED_FLOAT_OUT_ONLY) ? toFixedMag(value) : value
     // TBD parse error
     myAddEventListener(e, "input", function() { 
         set_func( (type == ED_FLOAT)? parseFloat(e.value) : e.value); 
@@ -317,7 +318,7 @@ class ExpressionItem {
         this.e = null  // expression AST, can call eval() on this
         this.se = null // expression string
         this.last_error = null // string of the error if there was one or null
-        this.need_inputs = null // string names of the inputs needed, already verified that they exist
+        this.need_inputs = null // map string names of the inputs needed, already verified that they exist to the ObjRef that needs filling
         this.err_elem = null
     }
     save_to(r) { r["se_" + this.prop_name] = this.se }
@@ -398,7 +399,7 @@ class ExpressionItem {
             show_v = this.get_prop(); 
             ed_type = this.prop_type
         }
-        this.elem = add_param_edit(line, show_v, ed_type, (se)=>{this.peval(se)})
+        this.elem = add_param_edit(line, show_v, (ed_type == ED_FLOAT)?ED_FLOAT_OUT_ONLY:ed_type, (se)=>{this.peval(se)})
         if (cls)
             this.elem.classList.add(cls) // if it's a single value (long line)
         if (this.last_error !== null) {

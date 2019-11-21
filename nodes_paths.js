@@ -59,14 +59,20 @@ class MultiPath extends PObject
             if (vtx.length == 0)
                 return null
             let min_x = Number.MAX_VALUE, max_x = -Number.MAX_VALUE, min_y = Number.MAX_VALUE, max_y = -Number.MAX_VALUE
-            for(let i = 0; i < vtx.length; i += 2) { 
-                let x = vtx[i], y = vtx[i+1]
-                let ct_x = x + ctp[i], ct_y = y + ctp[i+1]
-                let cf_x = x + cfp[i], cf_y = y + cfp[i+1]
-                min_x = Math.min(min_x, x, ct_x, cf_x)
-                max_x = Math.max(max_x, x, ct_x, cf_x)
-                min_y = Math.min(min_y, x, ct_y, cf_y)
-                max_y = Math.max(max_y, x, ct_y, cf_y)
+            for(let pri = 0; pri < this.paths_ranges.length; pri += 3) {
+                let start_vidx = this.paths_ranges[pri]*2
+                let end_vidx = this.paths_ranges[pri+1]*2
+                let prev_x = vtx[end_vidx-2], prev_y = vtx[end_vidx-1]
+                for(let vidx = start_vidx; vidx < end_vidx; vidx += 2) {
+                    let x = vtx[vidx], y = vtx[vidx+1]
+                    let ct_x = x + ctp[vidx], ct_y = y + ctp[vidx+1]
+                    let cf_x = prev_x + cfp[vidx], cf_y = prev_y + cfp[vidx+1]
+                    min_x = Math.min(min_x, x, ct_x, cf_x)
+                    max_x = Math.max(max_x, x, ct_x, cf_x)
+                    min_y = Math.min(min_y, y, ct_y, cf_y)
+                    max_y = Math.max(max_y, y, ct_y, cf_y)
+                    prev_x = x, prev_y = y
+                }
             }
             return new BBox(min_x, min_y, max_x, max_y)
         }

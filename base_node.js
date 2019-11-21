@@ -549,9 +549,9 @@ class StateAccess {
     // called right before parsing an expression
     reset_check() {
         this.score = EXPR_CONST
-        this.need_inputs = {} // map name of input to its evaluator
+        this.need_inputs = {} // map name of input to its ObjRef
     }
-    get_evaluator(name) {
+    get_evaluator(name) { // called from parser
         let sp = name.split('.')
         let varname = sp[0]
         // did we already create it?
@@ -560,7 +560,7 @@ class StateAccess {
             let known_obj = this.known_objrefs[varname]
             if (known_obj === undefined)
                 return null;
-                top_level = this.need_inputs[varname] = this.known_objrefs[varname]
+            top_level = this.need_inputs[varname] = this.known_objrefs[varname]
         }
         let evaluator_factory = this.state_evaluators[varname] // as specified by the node_cls
         if (evaluator_factory !== undefined) {

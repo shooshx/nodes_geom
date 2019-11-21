@@ -78,6 +78,7 @@ NODES:
     on a surface
     on a line
     interpolate property from input geometry
+    uniform using grid - https://www.jasondavies.com/poisson-disc/
 
 - animate? modify a property for the next frame
 - random color with r,g,b ranges and seed parameter

@@ -771,14 +771,25 @@ class RandNumGen
 }
 
 function dist(ax, ay, bx, by) {
-    var dx = ax - bx, dy = ay - by
+    let dx = ax - bx, dy = ay - by
     return Math.sqrt(dx*dx+dy*dy)
 }
 function m_dist(ax, ay, bx, by) {
     return Math.max(Math.abs(ax - bx), Math.abs(ay - by))
 }
 
+class Timer {
+    constructor() {
+        this.start = new Date().valueOf()
+    }
+    elapsed() {
+        return new Date().valueOf() - this.start
+    }
+}
+
+
 // https://www.sidefx.com/docs/houdini/nodes/sop/scatter.html
+// https://www.jasondavies.com/poisson-disc/
 class NodeRandomPoints extends NodeCls
 {
     static name() { return "Scatter" }
@@ -787,15 +798,10 @@ class NodeRandomPoints extends NodeCls
         this.in_obj = new InTerminal(node, "in_obj")
         this.out_mesh = new OutTerminal(node, "out_mesh")
         this.seed = new ParamInt(node, "Seed", 1)
-        this.by_density = new ParamBool(node, "Set Density", false, (v)=>{
-            this.count.set_label(v ? "Max Count" : "Count")
-            this.min_dist.set_enable(v)
-        })
         this.min_dist = new ParamFloat(node, "Min Distance", 0.02)
-        this.count = new ParamInt(node, "Count", 50)
-        this.smooth_iter = new ParamInt(node, "Smoothness", 20)
 
         //this.by_density.change_func() // enact the changes it does
+        node.set_state_evaluators({"vtx_pos":  (m,s)=>{ return new ObjSubscriptEvaluator(m,s) }} )        
     }
         
     run() {
@@ -805,66 +811,96 @@ class NodeRandomPoints extends NodeCls
         let bbox = in_obj.get_bbox()  // TBD cut into shape if shape allows that
         assert(bbox !== null, this, "Object doesn't have content for a bounding box")
 
-        let dx = bbox.max_x - bbox.min_x, dy = bbox.max_y - bbox.min_y
-        let vtx = new TVtxArr(this.count.v * 2)
+        let value_need_src = this.min_dist.need_input_evaler("vtx_pos")
 
-        let addi = 0
-        function nearest_neighbor_dist(of_px, of_py) {
-            var min_d = Number.MAX_VALUE
+        let vtx = [] 
+        let addi = 0 
+        let r, inner2, A
+
+        //let timer = new Timer()
+
+        function emitSample(p) {
+            queue.push(p)
+            vtx.push(p[0], p[1])
+            addi += 2
+        }
+
+        function generateAround(p) {
+            let phi = prng.next() * 2 * Math.PI
+            let r = Math.sqrt(prng.next() * A + inner2); 
+            return [p[0] + r * Math.cos(phi), p[1] + r * Math.sin(phi)];  // TBD use rejection
+        }
+
+        function withinExtent(p) {
+            var x = p[0], y = p[1];
+            return bbox.min_x <= x && x <= bbox.max_x && bbox.min_y <= y && y <= bbox.max_y;
+        }
+        function near(of_px, of_py) {  // TBD can make this better by using a grid 
             for(let vi = 0; vi < addi; vi += 2) {
                 let px = vtx[vi], py = vtx[vi+1]
-                var d = dist(px, py, of_px, of_py)
-                if (d < min_d)
-                    min_d = d
+                let dx = px - of_px, dy = py - of_py
+                let d = dx*dx+dy*dy
+                if (d < inner2)
+                    return true
             }
-            return min_d
-        }        
-
+            return false
+        }
+        
         let prng = new RandNumGen(this.seed.v)
-        let add_count = 0
-        let last_added = [];
-        let last_added_sum = 0
-        while (true) {
-            let cand_x = null, cand_y, bestDistance = 0;
-            for (let ti = 0; ti < this.smooth_iter.v; ++ti) {
-                let x = prng.next() * dx + bbox.min_x
-                let y = prng.next() * dy + bbox.min_y
-                if (in_obj.is_point_inside)
-                    if (!in_obj.is_point_inside(x, y))
-                        continue          
-                let d = nearest_neighbor_dist(x, y);
-                if (d > bestDistance) {
-                    bestDistance = d;
-                    cand_x = x; cand_y = y
-                }
-            }
-            // maintain moving average of the last values
-            if (bestDistance !== Number.MAX_VALUE) { // first bestDistance is Number.MAX_VALUE
-                last_added.push(bestDistance)
-                last_added_sum += bestDistance
-                if (last_added.length > 6) {
-                    last_added_sum -= last_added[0]
-                    last_added.shift()
-                }
-                let dist_avg = last_added_sum / last_added.length
-                
-                if (this.by_density.v && dist_avg < this.min_dist.v)
-                    break;
-            }
-    
-            vtx[addi++] = cand_x
-            vtx[addi++] = cand_y
-            if (++add_count > this.count.v)
+        let cand = {x:null, y:null }
+        if (value_need_src)
+            value_need_src.dyn_set_obj(cand)
+
+        cand.x = bbox.min_x + bbox.width()*prng.next() 
+        cand.y = bbox.min_y + bbox.height()*prng.next()
+        let queue = [[cand.x, cand.y]]
+        emitSample(queue[0]);
+        let got_zeros = 0, too_many_zeros = false
+
+        while (queue.length > 0) {
+            let i = prng.next() * queue.length | 0
+            let p = queue[i], j
+            cand.x = p[0]; cand.y = p[1]
+
+            r = (value_need_src === null)?this.min_dist.v : this.min_dist.dyn_eval(0)
+            if (r == 0 && ++got_zeros > 100) {
+                too_many_zeros = true
                 break
+            }
+            inner2 = r * r
+            A = 4 * inner2 - inner2
+
+            for (j = 0; j < 20; ++j) {
+                let q = generateAround(p);
+                if (withinExtent(q) && !near(q[0], q[1])) {
+                    emitSample(q);
+                    break;
+                }
+            }
+            if (j === 20) { // exhausted all possibilites with this point in the queue
+                queue[i] = queue[queue.length-1]
+                queue.pop();   
+            }
         }
-        if (addi < vtx.length) {
-            vtx = vtx.slice(0,addi)
+        assert(!too_many_zeros, this, "Expression evaluates to zero too much")
+
+        if (in_obj.is_point_inside) {
+            let vtx_in = []
+            for(let i = 0; i < vtx.length; i += 2) {
+                let x = vtx[i], y = vtx[i + 1]
+                if (!in_obj.is_point_inside(x, y))
+                    continue               
+                vtx_in.push(x, y)
+            }
+            vtx = vtx_in
         }
+
         
-        let r = new Mesh()
-        r.set("vtx_pos", vtx, 2)
-        this.out_mesh.set(r)
+        let ret = new Mesh()
+        ret.set("vtx_pos", new TVtxArr(vtx), 2)
+        this.out_mesh.set(ret)
         
+        //console.log("Scatter: ", vtx.length, "  ", timer.elapsed(), "msec")
     }
 }
 
