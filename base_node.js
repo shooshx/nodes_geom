@@ -216,8 +216,7 @@ class TerminalBase {
 
         draw_nodes()  // erase temp line
     }
-    mousedown() {
-    }    
+    mousedown() {}
 }
 
 
@@ -842,9 +841,9 @@ function nodes_context_menu(px, py, wx, wy, cvs_x, cvs_y) {
     let opt
     if (obj != null) {
         if (obj.constructor === Node)
-            opt = [{text:"Delete Node", func:function() { delete_node(obj, true)} }]
+            opt = [{text:"Delete Node", func:function() { program.delete_node(obj, true)} }]
         else if (obj.constructor === Line)
-            opt = [{text:"Delete Line", func:function() { delete_line(obj, true)} }]
+            opt = [{text:"Delete Line", func:function() { program.delete_line(obj, true)} }]
         else
             return null
     }
@@ -858,39 +857,6 @@ function nodes_context_menu(px, py, wx, wy, cvs_x, cvs_y) {
     return nodes_view.last_ctx_menu
 }
 
-function delete_node(node, redraw)
-{
-    if (selected_node == node)
-        nodes_unselect_all(false)
-    if (program.display_node == node) 
-        set_display_node(null)
-    if (node.destructor)
-        node.destructor()
-    var index = program.nodes.indexOf(node);
-    program.nodes.splice(index, 1);        
-    delete program.obj_map[node.id];
-    for(let t of node.terminals) {
-        while(t.lines.length > 0)
-            delete_line(t.lines[0], false)
-    }
-    
-    if (redraw) {
-        draw_nodes()
-        trigger_frame_draw(true)
-    }
-}
-
-
-function delete_line(line, redraw) {
-    line.from_term.lines.splice(line.from_term.lines.indexOf(line), 1)
-    line.to_term.lines.splice(line.to_term.lines.indexOf(line), 1)
-    line.to_term.tset_dirty(true)
-    program.lines.splice(program.lines.indexOf(line), 1)
-    if (redraw) {
-        draw_nodes()
-        trigger_frame_draw(true)
-    }
-}
 
 const NODES_GRID_SIZE = 50
 

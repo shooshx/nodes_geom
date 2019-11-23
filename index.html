@@ -140,6 +140,29 @@ class Program {
         return node
     }
 
+    
+    delete_node(node, redraw)
+    {
+        if (selected_node == node)
+            nodes_unselect_all(false)
+        if (this.display_node == node) 
+            set_display_node(null)
+        if (node.destructor)
+            node.destructor()
+        var index = this.nodes.indexOf(node);
+        this.nodes.splice(index, 1);        
+        delete this.obj_map[node.id];
+        for(let t of node.terminals) {
+            while(t.lines.length > 0)
+            this.delete_line(t.lines[0], false)
+        }
+        
+        if (redraw) {
+            draw_nodes()
+            trigger_frame_draw(true)
+        }
+    }
+
     add_line(line, uid) {
         this.lines.push(line)
         if (uid === null || uid === undefined)
@@ -148,9 +171,24 @@ class Program {
         this.obj_map[uid] = line
         line.from_term.lines.push(line)
         line.to_term.lines.push(line)
+        line.to_term.get_attachee().node.cls.did_connect(line.to_term.get_attachee(), line) 
         line.to_term.tset_dirty(true) // need function so that it will work for multi in as well
         trigger_frame_draw(true)
     }
+
+
+    delete_line(line, redraw) {
+        line.to_term.get_attachee().node.cls.doing_disconnect(line.to_term.get_attachee(), line)
+        line.from_term.lines.splice(line.from_term.lines.indexOf(line), 1)
+        line.to_term.lines.splice(line.to_term.lines.indexOf(line), 1)
+        line.to_term.tset_dirty(true)
+        this.lines.splice(this.lines.indexOf(line), 1)
+        if (redraw) {
+            draw_nodes()
+            trigger_frame_draw(true)
+        }
+    }
+
 }
 
 var program = null

@@ -18,6 +18,8 @@ class NodeCls {
 
     get_error() { return this.error }
     clear_error() { this.error = null }
+    did_connect(to_term, line) {}
+    doing_disconnect(to_term, line) {}
 }
 
 
@@ -94,99 +96,6 @@ class PointSelectHandle
     mousemove(dx,dy, vx,vy, ex,ey) {
         this.ofnode.move_selection(dx, dy)
     }
-}
-
-// a list for a column for a numerical value with an editor that pops up when its clicked. for float and vec2
-class ParamEditableValueList extends ListParam {
-    constructor(node, label, table, lst_type, selected_indices, values_per_entry, to_string, changed_func_to_node=null) 
-    {
-        let text_elem_content = function(text_elem, value, index) {
-            let clss = "param_monospace param_lst_clickable"
-            let mark_sel;
-            if (selected_indices.includes_shifted !== undefined)
-                mark_sel = selected_indices.includes_shifted(index)
-            else
-                mark_sel = selected_indices.includes(index)
-            if (mark_sel)
-                clss += " param_list_selected_line"
-            text_elem.classList = clss
-            text_elem.innerText = to_string(value)
-            text_elem.p_lst_index = index
-        }
-        super(node, label, values_per_entry, table, lst_type, { create_elem: (parent, start_val, index, change_func, get_cur_val)=>{
-            let text_elem = add_div(parent, "") // create elem for a single cell in the column of this list
-            text_elem_content(text_elem, start_val, index)
-            myAddEventListener(text_elem, "click", ()=>{ // open input edits on click
-                // index should not be used inside here becase removals might have changed this elem index. instead use the 
-                // index saved in the text_elem which is kept up to date with removals
-                let cur_val = get_cur_val(text_elem.p_lst_index)
-                if (this.edit_wrap !== null) {
-                    this.edit_wrap.parentNode.removeChild(this.edit_wrap)
-                }
-                this.edit_wrap = create_div("param_lst_coord_edit_wrap")
-                for(let i = 0; i < values_per_entry; ++i) {
-                    add_param_edit(this.edit_wrap, (values_per_entry == 1)?cur_val:cur_val[i], ED_FLOAT, (v)=> { 
-                        change_func(v, text_elem.p_lst_index, i); // do the change in the lst
-                        text_elem_content(text_elem, get_cur_val(text_elem.p_lst_index), text_elem.p_lst_index) 
-                        if (changed_func_to_node) // redo_sort in Gradient
-                            changed_func_to_node()
-                    })
-                }
-                stop_propogation_on("mousedown", this.edit_wrap)
-                text_elem.parentNode.insertBefore(this.edit_wrap, text_elem.nextSibling) // re-parent
-            })
-            return text_elem
-        }, external_update: text_elem_content})
-        this.edit_wrap = null
-    }
-    add_elems(parent) {
-        super.add_elems(parent)
-        param_reg_for_dismiss(()=>{ 
-            if (this.edit_wrap) { 
-                this.edit_wrap.parentNode.removeChild(this.edit_wrap);   
-                this.edit_wrap = null
-            }
-        })    
-    }
-}
-
-class ParamCoordList extends ParamEditableValueList {
-    constructor(node, label, table, selected_indices) {
-        super(node, label, table, TVtxArr, selected_indices, 2, 
-            function(value) { return "(" + value[0].toFixed(3) + "," + value[1].toFixed(3) + ")" })
-        this.need_normalize = false  // not really needed for coordinates but just for remembering    
-    }
-    def_value() { return [0,0] }
-}
-
-class ParamFloatList extends ParamEditableValueList {
-    constructor(node, label, table, selected_indices, changed_func_to_node=null) {
-        super(node, label, table, Float32Array, selected_indices, 1,
-            function(v) { return v.toFixed(3) }, changed_func_to_node)
-        this.need_normalize = false
-    }
-    def_value() { return 0; }
-}
-
-function uint8arr_to_color(arr) {
-    return {r:arr[0], g:arr[1], b:arr[2], alpha:arr[3]/255}
-}
-function color_to_uint8arr(c) {
-    return [c.r, c.g, c.b, c.alpha*255]
-}
-class ParamColorList extends ListParam {
-    constructor(node, label, table) {
-        super(node, label, 4, table, TColorArr, { create_elem: function(parent, start_val, index, changed_func) { 
-            let wdiv = add_div(parent, "col_elem_wrap") // needed so that the input+canvas would be a in single elem for reorder on gradient
-            let [col,elem,ce] = add_param_color(wdiv, uint8arr_to_color(start_val), "param_table_input_color", function(c) {
-                changed_func(color_to_uint8arr(c), elem.p_lst_index)
-            })
-            elem.p_lst_index = index
-            return elem
-        }, external_update:(elem,value,index)=>{ elem.p_lst_index = index } })
-        this.need_normalize = true
-    }
-    def_value() { return [0xcc, 0xcc, 0xcc, 0xff] }
 }
 
 
@@ -708,13 +617,25 @@ class PObjGroup extends PObject{
     }
 }
 
+
+// items are maps with { name: id: } only name is displayed
+class ParamInputOrderList extends ListParam
+{
+    constructor(node, label, table, in_multi_term) {
+        super(node, label, 1, table, Array, { to_string:(v)=>{ return v.name } })
+
+    }
+}
+
+
 class NodeGroupObjects extends NodeCls {
     static name() { return "Group_Objects" }
     constructor(node) {
         super(node)
         this.in_m = new InTerminalMulti(node, "in_multi_mesh")
         this.out = new OutTerminal(node, "out_mesh")
-        //this.order = new InputOrderParam(node, "Order", this.in_m)
+        this.table = new ParamTable(node, "Order")
+        this.order = new ParamInputOrderList(node, "Order", this.table, this.in_m)
     }
     run() {
         this.node.display_values = []
@@ -727,6 +648,27 @@ class NodeGroupObjects extends NodeCls {
         }
         this.out.set(r)
     }
+    idx_from_id(id) {
+        return this.order.lst.findIndex((e)=>{return e.id === id})
+    }
+    did_connect(to_term, line) {
+        if (to_term !== this.in_m)
+            return
+        let node = line.from_term.owner
+        if (this.idx_from_id(node.id) !== -1)
+            return // already there
+        let d = { name:node.name, id:node.id }
+        this.order.add(d)
+    }
+    doing_disconnect(to_term, line) {
+        if (to_term !== this.in_m)
+            return
+        let node = line.from_term.owner
+        let idx = this.idx_from_id(node.id)
+        console.assert(idx != -1)
+        this.order.remove([idx])
+    }
+
 }
 
 // maybe wrap with a proxy?
