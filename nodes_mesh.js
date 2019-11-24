@@ -621,10 +621,73 @@ class PObjGroup extends PObject{
 // items are maps with { name: id: } only name is displayed
 class ParamInputOrderList extends ListParam
 {
-    constructor(node, label, table, in_multi_term) {
-        super(node, label, 1, table, Array, { to_string:(v)=>{ return v.name } })
+    constructor(node, label, table, sorted_order) {
+        super(node, label, 1, table, Array, { create_elem:(parent, start_val, index, change_func, get_cur_val)=>{
+            let wrap = add_div(parent, "param_lst_order_cell")
+            let elem = add_div(wrap, "")
+            elem.innerText = start_val.name
+            elem.p_lst_index = index // index of the item in the lst, before sorting
+            elem.setAttribute('draggable', "true")
+            elem.addEventListener('dragstart', (ev)=>{
+                ev.dataTransfer.setData("text/plain", ev.target.p_lst_index);
+            })
+            //let drop_elem = add_div(wrap, "param_lst_order_drop")
+            elem.addEventListener('dragover', (ev)=>{
+                //console.log('++', ev.target.p_lst_index)
+                ev.preventDefault();
+            })
+            elem.addEventListener('drop', (ev)=>{
+                ev.preventDefault();
+                const data = ev.dataTransfer.getData("text/plain");     
+                console.log('~~', data, ev.target.p_lst_index)
+                const from = parseInt(data), to = ev.target.p_lst_index
+                const from_i = this.sorted_d.findIndex((d)=>{return d.lst_index == from})
+                const to_i = this.sorted_d.findIndex((d)=>{return d.lst_index == to})
+                // swap
+                const tmpd = this.sorted_d[to_i]
+                this.sorted_d[to_i] = this.sorted_d[from_i]
+                this.sorted_d[from_i] = tmpd
+                this.redo_sort()
+            })
+    
+            return elem
+        }, external_update:(elem, value, index)=>{
+            // nothing to do?
+        }})
+        this.sorted_order = sorted_order
+        this.sorted_d = []
 
+        // TBD handle name change
     }
+
+    idx_from_id(id) {
+        return this.lst.findIndex((e)=>{return e.id === id})
+    }    
+
+    redo_sort() {
+        this.sorted_order.length = 0
+        for(let d of this.sorted_d)
+            this.sorted_order.push(d.lst_index)
+        this.table.remake_table()
+    }    
+    add(v) {
+        v.lst_index = this.lst.length // index in this.lst
+        this.sorted_d.push(v)
+        super.add(v) // need to be before redo_sort which recreates the table
+        this.redo_sort()
+    }
+    remove(idx_lst) {
+        console.assert(idx_lst.length == 1, "expected only single item to remove")
+        let idx = idx_lst[0]
+        let d = this.lst[idx]
+        super.remove(idx_lst)
+        // fix the indices of all the items that came after this item. (adjust for the culling of lst)
+        for(let od of this.sorted_d)
+            if (od.lst_index > d.lst_index)
+                od.lst_index--;
+        this.redo_sort()        
+    }
+    
 }
 
 
@@ -632,10 +695,12 @@ class NodeGroupObjects extends NodeCls {
     static name() { return "Group_Objects" }
     constructor(node) {
         super(node)
+        this.sorted_order = []
+        
         this.in_m = new InTerminalMulti(node, "in_multi_mesh")
         this.out = new OutTerminal(node, "out_mesh")
-        this.table = new ParamTable(node, "Order")
-        this.order = new ParamInputOrderList(node, "Order", this.table, this.in_m)
+        this.table = new ParamTable(node, "Order", this.sorted_order)
+        this.order = new ParamInputOrderList(node, "Order", this.table, this.sorted_order)
     }
     run() {
         this.node.display_values = []
@@ -648,25 +713,27 @@ class NodeGroupObjects extends NodeCls {
         }
         this.out.set(r)
     }
-    idx_from_id(id) {
-        return this.order.lst.findIndex((e)=>{return e.id === id})
-    }
+
+
     did_connect(to_term, line) {
         if (to_term !== this.in_m)
             return
         let node = line.from_term.owner
-        if (this.idx_from_id(node.id) !== -1)
+        if (this.order.idx_from_id(node.id) !== -1)
             return // already there
-        let d = { name:node.name, id:node.id }
+        let d = { name:node.name, 
+                  id:node.id  } 
         this.order.add(d)
     }
     doing_disconnect(to_term, line) {
         if (to_term !== this.in_m)
             return
         let node = line.from_term.owner
-        let idx = this.idx_from_id(node.id)
+        let idx = this.order.idx_from_id(node.id)
         console.assert(idx != -1)
+
         this.order.remove([idx])
+
     }
 
 }

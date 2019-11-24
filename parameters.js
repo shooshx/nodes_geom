@@ -927,7 +927,7 @@ class ListParam extends Parameter {
 
     add(v) { // for multiple lists in a table, needs to be called in the right order of the columns
         let av = v
-        if (typeof(v) !== 'string' && typeof(v) !== 'object') {
+        if (Array.isArray(v) || typeof(v) == 'number') {
             if (v.length === undefined)  // support single value and list of values for vec
                 av = [v]
             console.assert(av.length == this.values_per_entry, "Unexpected number of values")
@@ -985,7 +985,8 @@ class ListParam extends Parameter {
                 this.pset_dirty()
                 trigger_frame_draw(true)
             }, 
-            (index)=>{ return this.get_value(index*this.values_per_entry) })
+            // get_cur_val
+            (index)=>{ return this.get_value(index*this.values_per_entry) }) 
         }
         else {
             let clss = this.elem_prm.get_clss ? this.elem_prm.get_clss(vindex / this.values_per_entry) : [this.elem_prm.cls]
@@ -1091,11 +1092,12 @@ class ParamEditableValueList extends ListParam {
                 clss += " param_list_selected_line"
             text_elem.classList = clss
             text_elem.innerText = to_string(value)
-            text_elem.p_lst_index = index
+            text_elem.p_lst_index = index // elem remembers it's index in the list for when its edited
         }
         super(node, label, values_per_entry, table, lst_type, { create_elem: (parent, start_val, index, change_func, get_cur_val)=>{
             let text_elem = add_div(parent, "") // create elem for a single cell in the column of this list
             text_elem_content(text_elem, start_val, index)
+            // handle click for edit
             myAddEventListener(text_elem, "click", ()=>{ // open input edits on click
                 // index should not be used inside here becase removals might have changed this elem index. instead use the 
                 // index saved in the text_elem which is kept up to date with removals
@@ -1172,13 +1174,12 @@ class ParamColorList extends ListParam {
 
 
 class ParamTable extends Parameter {
-    constructor(node, label, sorted_order=null, redo_sort=null) {
+    constructor(node, label, sorted_order=null) {
         super(node, label)
         this.list_params = []  // registered ListParams
         this.elem_cols = null
 
         this.sorted_order = sorted_order // list of the indices in the sorted order they are supposed to be displayed in
-        this.redo_sort = redo_sort
     }
     register(list_param) {
         this.list_params.push(list_param)

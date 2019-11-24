@@ -449,7 +449,7 @@ class NodeGradient extends NodeCls
         tmparr.sort(function(a,b) { return a[0]-b[0] })
         let changed = false;
         for(let i = 0; i < tmparr.length; ++i)
-            if (tmparr[i][1] !== this.sorted_order[i]) {
+            if (tmparr[i][1] !== this.sorted_order[i]) { // anything changed?
                 changed = true
                 break
             }

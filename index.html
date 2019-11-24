@@ -178,7 +178,9 @@ class Program {
 
 
     delete_line(line, redraw) {
-        line.to_term.get_attachee().node.cls.doing_disconnect(line.to_term.get_attachee(), line)
+        try {
+            line.to_term.get_attachee().node.cls.doing_disconnect(line.to_term.get_attachee(), line)
+        } catch(e) {}
         line.from_term.lines.splice(line.from_term.lines.indexOf(line), 1)
         line.to_term.lines.splice(line.to_term.lines.indexOf(line), 1)
         line.to_term.tset_dirty(true)
