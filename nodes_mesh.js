@@ -617,54 +617,121 @@ class PObjGroup extends PObject{
     }
 }
 
+//function wrap_drag(
+
 
 // items are maps with { name: id: } only name is displayed
+// simple reference: https://www.cssscript.com/demo/drag-drop-dragonflyjs/
 class ParamInputOrderList extends ListParam
 {
     constructor(node, label, table, sorted_order) {
-        super(node, label, 1, table, Array, { create_elem:(parent, start_val, index, change_func, get_cur_val)=>{
-            let wrap = add_div(parent, "param_lst_order_cell")
-            let elem = add_div(wrap, "")
-            elem.innerText = start_val.name
-            elem.p_lst_index = index // index of the item in the lst, before sorting
-            elem.setAttribute('draggable', "true")
-            elem.addEventListener('dragstart', (ev)=>{
-                ev.dataTransfer.setData("text/plain", ev.target.p_lst_index);
-            })
-            //let drop_elem = add_div(wrap, "param_lst_order_drop")
-            elem.addEventListener('dragover', (ev)=>{
-                //console.log('++', ev.target.p_lst_index)
-                ev.preventDefault();
-            })
-            elem.addEventListener('drop', (ev)=>{
-                ev.preventDefault();
-                const data = ev.dataTransfer.getData("text/plain");     
-                console.log('~~', data, ev.target.p_lst_index)
-                const from = parseInt(data), to = ev.target.p_lst_index
-                const from_i = this.sorted_d.findIndex((d)=>{return d.lst_index == from})
-                const to_i = this.sorted_d.findIndex((d)=>{return d.lst_index == to})
-                // swap
-                const tmpd = this.sorted_d[to_i]
-                this.sorted_d[to_i] = this.sorted_d[from_i]
-                this.sorted_d[from_i] = tmpd
-                this.redo_sort()
-            })
-    
-            return elem
-        }, external_update:(elem, value, index)=>{
-            // nothing to do?
-        }})
+        super(node, label, 1, table, Array)
         this.sorted_order = sorted_order
-        this.sorted_d = []
-
+        this.sorted_d = [] // list of object that just contain the index. need to be an object since this number is modified on the fly
+        this.dragged = {lst_index:null, elem:null}
         // TBD handle name change
     }
+    // TBD save,load
+    save() { return { sorted_order: this.sorted_order }}
+    load(v) { 
+        this.sorted_order.length = 0
+        for(let n of v.sorted_order)
+            this.sorted_order.push(n)
+    }
+
+    create_elem(parent, start_val, index, change_func, get_cur_val) {
+        let wrap = add_div(parent, "param_lst_order_cell")
+        let elem = add_div(wrap, "")
+        elem.innerText = start_val.name
+        elem.classList = ['param_lst_order_item']
+        elem.p_lst_index = index // index of the item in the lst, before sorting
+        //elem.setAttribute('draggable', "true")
+
+        elem.addEventListener('mousedown', (ev)=>{
+            //console.log("~~ down")
+            if (ev.buttons !== 1)
+                return
+            let e = ev.target.cloneNode(true)
+            e.style.position = 'fixed'
+            e.style.top = ev.pageY + "px"
+            e.style.left = ev.pageX + "px"
+            e.style.pointerEvents = "none"
+            edit_params.appendChild(e)
+            
+            //edit_params.appendChild(ev.target)
+
+            this.dragged.lst_index = ev.target.p_lst_index
+            this.dragged.elem = e
+            toggle_dragged_style(true)
+            //const from_i = this.sorted_d.findIndex((d)=>{return d.lst_index == this.dragged.lst_index})
+            //this.sorted_d[from_i] = {lst_index:-1}
+            //this.redo_sort()
+        })
+
+        let toggle_dragged_style = (v)=>{
+            this.elem_lst[this.dragged.lst_index].classList.toggle("param_lst_order_drag_placeholder", v)
+        }
+
+        let do_drop = (to)=> {
+            if (this.dragged.lst_index === to) 
+                return
+            const from_i = this.sorted_d.findIndex((d)=>{return d.lst_index == this.dragged.lst_index})
+            delete this.sorted_d[from_i]
+            this.sorted_d = cull_list(this.sorted_d)
+
+            const to_i = this.sorted_d.findIndex((d)=>{return d.lst_index == to})
+            let offset = (to_i >= from_i)?1:0
+            this.sorted_d.splice(to_i+offset, 0, {lst_index:this.dragged.lst_index})
+
+            this.redo_sort()
+            toggle_dragged_style(true)
+        }
+        elem.addEventListener('mousemove', (ev)=>{
+            if (this.dragged.elem === null)
+                return
+            this.dragged.elem.style.top = ev.pageY + "px"
+            this.dragged.elem.style.left = ev.pageX + "px"
+            const to = ev.target.p_lst_index
+            do_drop(to)
+        })
+
+        document.addEventListener('mousemove', (ev)=>{
+            if (this.dragged.elem === null)
+                return
+            this.dragged.elem.style.top = ev.pageY + "px"
+            this.dragged.elem.style.left = ev.pageX + "px"
+        })
+        elem.addEventListener('mouseup', (ev)=>{
+            if (this.dragged.elem === null)
+                return
+            const to = ev.target.p_lst_index
+            //console.log('~~ drop', this.dragged.lst_index, to)
+            //do_drop(to, false)
+            let e = this.elem_lst[this.dragged.lst_index]
+            toggle_dragged_style(false)
+
+            edit_params.removeChild(this.dragged.elem)
+            this.dragged.elem = null, this.dragged.lst_index = null
+        })
+        document.addEventListener('mouseup', (ev)=>{
+            if (this.dragged.elem === null)
+                return            
+            edit_params.removeChild(this.dragged.elem)
+            //toggle_dragged_style(false)
+            this.dragged.elem = null, this.dragged.lst_index = null
+        })
+
+        return elem
+    }
+    external_update(elem, value, index) {
+        // nothing to do?
+    }    
 
     idx_from_id(id) {
         return this.lst.findIndex((e)=>{return e.id === id})
     }    
 
-    redo_sort() {
+    redo_sort() {  // produce sorted_order frmo sorted_d
         this.sorted_order.length = 0
         for(let d of this.sorted_d)
             this.sorted_order.push(d.lst_index)
@@ -672,7 +739,7 @@ class ParamInputOrderList extends ListParam
     }    
     add(v) {
         v.lst_index = this.lst.length // index in this.lst
-        this.sorted_d.push(v)
+        this.sorted_d.push({lst_index:v.lst_index})
         super.add(v) // need to be before redo_sort which recreates the table
         this.redo_sort()
     }

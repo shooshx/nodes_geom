@@ -906,9 +906,9 @@ function cull_list(lst) {
 }
 
 class ListParam extends Parameter {
-    constructor(node, label, values_per_entry, in_table, lst_type, elem_prm) {
+    constructor(node, label, values_per_entry, in_table, lst_type) {
         super(node, label)
-        this.elem_prm = elem_prm
+        //this.elem_prm = elem_prm
         this.values_per_entry = values_per_entry
         this.lst_type = lst_type
         this.lst = new lst_type()  // flat list
@@ -927,7 +927,7 @@ class ListParam extends Parameter {
 
     add(v) { // for multiple lists in a table, needs to be called in the right order of the columns
         let av = v
-        if (Array.isArray(v) || typeof(v) == 'number') {
+        if (Array.isArray(v) || ArrayBuffer.isView(v) || typeof(v) == 'number') {
             if (v.length === undefined)  // support single value and list of values for vec
                 av = [v]
             console.assert(av.length == this.values_per_entry, "Unexpected number of values")
@@ -968,9 +968,9 @@ class ListParam extends Parameter {
 
     create_entry_elems(v, parent, vindex) {
         let e
-        if (this.elem_prm.create_elem !== undefined) {
+        if (this.create_elem !== undefined) {
             let idx = vindex / this.values_per_entry
-            e = this.elem_prm.create_elem(parent, v, idx, (v, ch_index, elem_idx=undefined) => {
+            e = this.create_elem(parent, v, idx, (v, ch_index, elem_idx=undefined) => {
                 // change that come from the input element in the list
                 let ch_vindex = ch_index * this.values_per_entry
                 if (elem_idx === undefined) { // given a list
@@ -989,9 +989,9 @@ class ListParam extends Parameter {
             (index)=>{ return this.get_value(index*this.values_per_entry) }) 
         }
         else {
-            let clss = this.elem_prm.get_clss ? this.elem_prm.get_clss(vindex / this.values_per_entry) : [this.elem_prm.cls]
+            let clss = this.get_clss ? this.get_clss(vindex / this.values_per_entry) : [this.elem_prm.cls]
             e = create_div(clss)
-            e.innerText = this.elem_prm.to_string(v)
+            e.innerText = this.to_string(v)
             parent.appendChild(e)
         }
         this.elem_lst.push(e)
@@ -1026,13 +1026,13 @@ class ListParam extends Parameter {
     reprint_line(vidx, v) {
         let idx = vidx / this.values_per_entry
         let elem = this.elem_lst[idx]
-        if (this.elem_prm.external_update) {
-            this.elem_prm.external_update(elem, v, idx)
+        if (this.external_update) {
+            this.external_update(elem, v, idx)
         }
         else {
-            if (this.elem_prm.get_clss)
-                elem.classList = this.elem_prm.get_clss(idx).join(" ")
-            elem.innerText = this.elem_prm.to_string(v)
+            if (this.get_clss)
+                elem.classList = this.get_clss(idx).join(" ")
+            elem.innerText = this.to_string(v)
         }
     }
 
@@ -1079,48 +1079,55 @@ class ListParam extends Parameter {
 
 // a list for a column for a numerical value with an editor that pops up when its clicked. for float and vec2
 class ParamEditableValueList extends ListParam {
-    constructor(node, label, table, lst_type, selected_indices, values_per_entry, to_string, changed_func_to_node=null) 
+    constructor(node, label, table, lst_type, selected_indices, values_per_entry, changed_func_to_node=null) 
     {
-        let text_elem_content = function(text_elem, value, index) {
-            let clss = "param_monospace param_lst_clickable"
-            let mark_sel;
-            if (selected_indices.includes_shifted !== undefined)
-                mark_sel = selected_indices.includes_shifted(index) // see Gradient points
-            else
-                mark_sel = selected_indices.includes(index)
-            if (mark_sel)
-                clss += " param_list_selected_line"
-            text_elem.classList = clss
-            text_elem.innerText = to_string(value)
-            text_elem.p_lst_index = index // elem remembers it's index in the list for when its edited
-        }
-        super(node, label, values_per_entry, table, lst_type, { create_elem: (parent, start_val, index, change_func, get_cur_val)=>{
-            let text_elem = add_div(parent, "") // create elem for a single cell in the column of this list
-            text_elem_content(text_elem, start_val, index)
-            // handle click for edit
-            myAddEventListener(text_elem, "click", ()=>{ // open input edits on click
-                // index should not be used inside here becase removals might have changed this elem index. instead use the 
-                // index saved in the text_elem which is kept up to date with removals
-                let cur_val = get_cur_val(text_elem.p_lst_index)
-                if (this.edit_wrap !== null) {
-                    this.edit_wrap.parentNode.removeChild(this.edit_wrap)
-                }
-                this.edit_wrap = create_div("param_lst_coord_edit_wrap")
-                for(let i = 0; i < values_per_entry; ++i) {
-                    add_param_edit(this.edit_wrap, (values_per_entry == 1)?cur_val:cur_val[i], ED_FLOAT, (v)=> { 
-                        change_func(v, text_elem.p_lst_index, i); // do the change in the lst
-                        text_elem_content(text_elem, get_cur_val(text_elem.p_lst_index), text_elem.p_lst_index) 
-                        if (changed_func_to_node) // redo_sort in Gradient
-                            changed_func_to_node()
-                    })
-                }
-                stop_propogation_on("mousedown", this.edit_wrap)
-                text_elem.parentNode.insertBefore(this.edit_wrap, text_elem.nextSibling) // re-parent
-            })
-            return text_elem
-        }, external_update: text_elem_content})
+        super(node, label, values_per_entry, table, lst_type)
         this.edit_wrap = null
+        this.selected_indices = selected_indices
+        this.changed_func_to_node = changed_func_to_node
     }
+
+    external_update(text_elem, value, index) {
+        let clss = "param_monospace param_lst_clickable"
+        let mark_sel;
+        if (this.selected_indices.includes_shifted !== undefined)
+            mark_sel = this.selected_indices.includes_shifted(index) // see Gradient points
+        else
+            mark_sel = this.selected_indices.includes(index)
+        if (mark_sel)
+            clss += " param_list_selected_line"
+        text_elem.classList = clss
+        text_elem.innerText = this.to_string(value)
+        text_elem.p_lst_index = index // elem remembers it's index in the list for when its edited
+    }
+
+    create_elem(parent, start_val, index, change_func, get_cur_val) {
+        let text_elem = add_div(parent, "") // create elem for a single cell in the column of this list
+        this.external_update(text_elem, start_val, index)
+        // handle click for edit
+        myAddEventListener(text_elem, "click", ()=>{ // open input edits on click
+            // index should not be used inside here becase removals might have changed this elem index. instead use the 
+            // index saved in the text_elem which is kept up to date with removals
+            let cur_val = get_cur_val(text_elem.p_lst_index)
+            if (this.edit_wrap !== null) {
+                this.edit_wrap.parentNode.removeChild(this.edit_wrap)
+            }
+            this.edit_wrap = create_div("param_lst_coord_edit_wrap")
+            for(let i = 0; i < this.values_per_entry; ++i) {
+                add_param_edit(this.edit_wrap, (this.values_per_entry == 1)?cur_val:cur_val[i], ED_FLOAT, (v)=> { 
+                    change_func(v, text_elem.p_lst_index, i); // do the change in the lst
+                    this.external_update(text_elem, get_cur_val(text_elem.p_lst_index), text_elem.p_lst_index) 
+                    if (this.changed_func_to_node) // redo_sort in Gradient
+                        this.changed_func_to_node()
+                })
+            }
+            stop_propogation_on("mousedown", this.edit_wrap)
+            // !!!TBD Enter dismiss
+            text_elem.parentNode.insertBefore(this.edit_wrap, text_elem.nextSibling) // re-parent
+        })
+        return text_elem
+    }
+
     add_elems(parent) {
         super.add_elems(parent)
         param_reg_for_dismiss(()=>{ 
@@ -1134,19 +1141,19 @@ class ParamEditableValueList extends ListParam {
 
 class ParamCoordList extends ParamEditableValueList {
     constructor(node, label, table, selected_indices) {
-        super(node, label, table, TVtxArr, selected_indices, 2, 
-            function(value) { return "(" + value[0].toFixed(3) + "," + value[1].toFixed(3) + ")" })
+        super(node, label, table, TVtxArr, selected_indices, 2)
         this.need_normalize = false  // not really needed for coordinates but just for remembering    
     }
+    to_string(v)  { return "(" + v[0].toFixed(3) + "," + v[1].toFixed(3) + ")" }
     def_value() { return [0,0] }
 }
 
 class ParamFloatList extends ParamEditableValueList {
     constructor(node, label, table, selected_indices, changed_func_to_node=null) {
-        super(node, label, table, Float32Array, selected_indices, 1,
-            function(v) { return v.toFixed(3) }, changed_func_to_node)
+        super(node, label, table, Float32Array, selected_indices, 1, changed_func_to_node)
         this.need_normalize = false
     }
+    to_string(v) { return v.toFixed(3) }
     def_value() { return 0; }
 }
 
@@ -1158,15 +1165,19 @@ function color_to_uint8arr(c) {
 }
 class ParamColorList extends ListParam {
     constructor(node, label, table) {
-        super(node, label, 4, table, TColorArr, { create_elem: function(parent, start_val, index, changed_func) { 
-            let wdiv = add_div(parent, "col_elem_wrap") // needed so that the input+canvas would be a in single elem for reorder on gradient
-            let [col,elem,ce] = add_param_color(wdiv, uint8arr_to_color(start_val), "param_table_input_color", function(c) {
-                changed_func(color_to_uint8arr(c), elem.p_lst_index)
-            })
-            elem.p_lst_index = index
-            return elem
-        }, external_update:(elem,value,index)=>{ elem.p_lst_index = index } })
+        super(node, label, 4, table, TColorArr)
         this.need_normalize = true
+    }
+    external_update(elem,value,index) { 
+        elem.p_lst_index = index 
+    } 
+    create_elem(parent, start_val, index, changed_func) { 
+        let wdiv = add_div(parent, "col_elem_wrap") // needed so that the input+canvas would be a in single elem for reorder on gradient
+        let [col,elem,ce] = add_param_color(wdiv, uint8arr_to_color(start_val), "param_table_input_color", function(c) {
+            changed_func(color_to_uint8arr(c), elem.p_lst_index)
+        })
+        elem.p_lst_index = index
+        return elem
     }
     def_value() { return [0xcc, 0xcc, 0xcc, 0xff] }
 }

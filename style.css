@@ -269,17 +269,18 @@ input {
 .param_lst_order_cell {
     position: relative; /* for the drop absoute */
 }
-.param_lst_order_drop {
-    position: absolute;
-    opacity: 0.3;
-    background: #ff0000;
-    width: 100%;
-    height: 100%;
-    top: -40%;
-    border: 1px solid white;
-    box-sizing: border-box;
-    pointer-events: none;
+.param_lst_order_drag_placeholder {
+    color: rgba(0,0,0,0);
+    border: 2px dashed #aaa !important;
 }
+.param_lst_order_item {
+    border: 2px solid #8282ff;
+    border-radius: 5px;
+    height: 19px;
+    margin-top: 2px;
+    padding: 0 4px 0 3px;
+}
+
 
 .param_table_input_color {
     display: block;
