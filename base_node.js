@@ -729,7 +729,15 @@ class Node {
         
         this.recalc_bounding_box() 
     }
-    
+    register_rename_observer(func) {
+        this.rename_observers.push(func)
+    }
+    remove_rename_observer(func) {
+        let idx = this.rename_observers.findIndex((v)=>{ return v === func })
+        if (idx !== -1)
+            this.rename_observers.splice(idx, 1)
+    }
+
     // geom including terminals and name
     recalc_bounding_box() {
         this.tx = this.x
@@ -821,13 +829,16 @@ function find_node_obj(px, py, cvs_x, cvs_y) {
         }
     }
 
+    // TBD cache the data, don't sample each time
     let shadow_col = ctx_nd_shadow.getImageData(cvs_x, cvs_y, 1, 1).data
     let shadow_val = new Uint32Array(shadow_col.buffer)[0]
     let obj_id = uid_from_color(shadow_val)
     //console.log("obj",obj_id)
     if (obj_id != 0 && obj_id !== null) {
         let obj = program.obj_map[obj_id]
-        console.assert(obj !== undefined, "can't find object with id " + obj_id)
+        if (obj === undefined) // can still happen in the aliasing between two colors
+            return null
+        // the right way to do this is to take a majority vote between the pixels around
         return obj
     }
 

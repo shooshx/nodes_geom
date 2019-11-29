@@ -119,6 +119,14 @@ function load_program(sprog)
         program.add_line(new Line(from_term.get_attachment(), to_term.get_attachment()), sl.uid)
     }
 
+    for(let n of program.nodes) {
+        if (n.cls.post_load_hook)
+            n.cls.post_load_hook()
+        for(let p of n.parameters)
+            if (p.post_load_hook)
+                p.post_load_hook()
+    }
+
     program.display_node = (sprog.display_node_id == null) ? null : program.obj_map[sprog.display_node_id]
 }
 

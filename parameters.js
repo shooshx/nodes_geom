@@ -1007,8 +1007,10 @@ class ListParam extends Parameter {
             for(let i = 0; i < this.values_per_entry; ++i)
                 delete tmplst[vindex+i]
             tmplen -= this.values_per_entry
-            this.elem_lst[index].remove() // remove from DOM tree
-            delete this.elem_lst[index]  // make it undefined for later cull
+            if (this.elem_lst.length > 0) { // displayed even?
+                this.elem_lst[index].remove() // remove from DOM tree
+                delete this.elem_lst[index]  // make it undefined for later cull
+            }
         }
 
         this.lst = new this.lst.constructor(tmplen)
@@ -1209,6 +1211,7 @@ class ParamTable extends Parameter {
         this.line_elem = add_param_block(parent)
         this.label_elem = add_div(this.line_elem, "param_list_title")
         this.label_elem.innerText = this.label + ":"
+        this.table_elem = add_div(this.line_elem, "param_list_body")
 
         this.make_table()
     }
@@ -1216,12 +1219,11 @@ class ParamTable extends Parameter {
     remake_table() {
         if (this.line_elem === null)
             return
-        clear_elem(this.table_elem)
+        this.table_elem = clear_elem(this.table_elem)
         this.make_table()
     }
 
     make_table() {
-        this.table_elem = add_div(this.line_elem, "param_list_body")
         this.elem_cols = []
         
         for(let lst_prm of this.list_params) {
@@ -1279,7 +1281,7 @@ class ParamTextBlock extends Parameter
         this.text_input = null
         this.dlg_rect = null
         this.text = ""
-        node.rename_observers.push((name)=>{
+        node.register_rename_observer((name)=>{
             this.dlg.set_title(this.title())
         })
     }

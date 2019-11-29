@@ -447,12 +447,13 @@ class NodeGradient extends NodeCls
         for(let i = 0; i < this.values.lst.length; ++i)
             tmparr.push([this.values.lst[i],i])
         tmparr.sort(function(a,b) { return a[0]-b[0] })
-        let changed = false;
-        for(let i = 0; i < tmparr.length; ++i)
-            if (tmparr[i][1] !== this.sorted_order[i]) { // anything changed?
-                changed = true
-                break
-            }
+        let changed = (tmparr.length !== this.sorted_order.length)
+        if (!changed)
+            for(let i = 0; i < tmparr.length; ++i)
+                if (tmparr[i][1] !== this.sorted_order[i]) { // anything changed?
+                    changed = true
+                    break
+                }
         if (!changed)
             return
         this.sorted_order.length = 0

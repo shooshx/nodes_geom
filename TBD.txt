@@ -47,7 +47,7 @@ NODES:
 - interactive
     mouse input
 - Group objects
-    display checkboxes
+    display checkboxes (accumulate from connections?)
 - GLSL node
     - render not into a frame-buffer that covers all the canavas, but a buffer that can be placed and moved
         (solves SetAttr sampling outside the screen so it doesn't have a color)
@@ -72,7 +72,9 @@ NODES:
     for loop?
 - Boolean ops from Inkscape https://gitlab.com/inkscape/lib2geom/blob/master/src/2geom/intersection-graph.h
 - Shrink for paths (not trivial)
-- !!! Gradient object, fill, stroke, 
+- Gradient
+    fill, stroke, 
+    presets
 - random points  - https://www.sidefx.com/docs/houdini/nodes/sop/scatter.html
     on a surface
     on a line

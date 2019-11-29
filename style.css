@@ -272,13 +272,14 @@ input {
 .param_lst_order_drag_placeholder {
     color: rgba(0,0,0,0);
     border: 2px dashed #aaa !important;
+    background: #000 !important;
 }
 .param_lst_order_item {
     border: 2px solid #8282ff;
     border-radius: 5px;
-    height: 19px;
     margin-top: 2px;
-    padding: 0 4px 0 3px;
+    padding: 0 4px 1px 3px;
+    background: rgba(29, 29, 214, 0.52);
 }
 
 
@@ -323,7 +324,9 @@ input {
 }
 #canvas_nd_shadow {
     border: solid 1px;
-    display: none;
+    z-index: 3;
+    position: absolute;    
+    display: none; /* comment out to debug nodes shadow */
 }
 #canvas_image {
     /*display: none; /*TEMP*/

@@ -617,9 +617,7 @@ class PObjGroup extends PObject{
     }
 }
 
-//function wrap_drag(
-
-
+// list of order in of items
 // items are maps with { name: id: } only name is displayed
 // simple reference: https://www.cssscript.com/demo/drag-drop-dragonflyjs/
 class ParamInputOrderList extends ListParam
@@ -628,44 +626,45 @@ class ParamInputOrderList extends ListParam
         super(node, label, 1, table, Array)
         this.sorted_order = sorted_order
         this.sorted_d = [] // list of object that just contain the index. need to be an object since this number is modified on the fly
-        this.dragged = {lst_index:null, elem:null}
-        // TBD handle name change
+        this.dragged = null
+        this.loaded_order = null
     }
-    // TBD save,load
     save() { return { sorted_order: this.sorted_order }}
-    load(v) { 
-        this.sorted_order.length = 0
-        for(let n of v.sorted_order)
-            this.sorted_order.push(n)
+    load(v) { this.loaded_order = v.sorted_order }
+    post_load_hook() {
+        // postpone loading sorted_order to after all lines are loaded for a final sort
+        let new_d = []
+        for(let n of this.loaded_order) {
+            console.assert(n >= 0 && n < this.sorted_d.length)
+            new_d.push(this.sorted_d[n])
+        }
+        this.sorted_d = new_d
+        this.loaded_order = null
+        this.redo_sort()
     }
 
     create_elem(parent, start_val, index, change_func, get_cur_val) {
         let wrap = add_div(parent, "param_lst_order_cell")
-        let elem = add_div(wrap, "")
+        let elem = add_div(wrap, "param_lst_order_item")
         elem.innerText = start_val.name
-        elem.classList = ['param_lst_order_item']
         elem.p_lst_index = index // index of the item in the lst, before sorting
-        //elem.setAttribute('draggable', "true")
 
         elem.addEventListener('mousedown', (ev)=>{
-            //console.log("~~ down")
             if (ev.buttons !== 1)
                 return
+            let trect = ev.target.getBoundingClientRect()
+            let offset = [trect.left - ev.pageX, trect.top - ev.pageY - 2] // 2 for border
+
             let e = ev.target.cloneNode(true)
             e.style.position = 'fixed'
-            e.style.top = ev.pageY + "px"
-            e.style.left = ev.pageX + "px"
+            e.style.top = ev.pageY + offset[1] + "px"
+            e.style.left = ev.pageX + offset[0] + "px"
+            e.style.width = trect.width - 11 + "px" // no idea
             e.style.pointerEvents = "none"
             edit_params.appendChild(e)
-            
-            //edit_params.appendChild(ev.target)
 
-            this.dragged.lst_index = ev.target.p_lst_index
-            this.dragged.elem = e
+            this.dragged = {lst_index: ev.target.p_lst_index, elem: e, mouse_offset: offset }
             toggle_dragged_style(true)
-            //const from_i = this.sorted_d.findIndex((d)=>{return d.lst_index == this.dragged.lst_index})
-            //this.sorted_d[from_i] = {lst_index:-1}
-            //this.redo_sort()
         })
 
         let toggle_dragged_style = (v)=>{
@@ -676,8 +675,7 @@ class ParamInputOrderList extends ListParam
             if (this.dragged.lst_index === to) 
                 return
             const from_i = this.sorted_d.findIndex((d)=>{return d.lst_index == this.dragged.lst_index})
-            delete this.sorted_d[from_i]
-            this.sorted_d = cull_list(this.sorted_d)
+            this.sorted_d.splice(from_i, 1)
 
             const to_i = this.sorted_d.findIndex((d)=>{return d.lst_index == to})
             let offset = (to_i >= from_i)?1:0
@@ -686,39 +684,27 @@ class ParamInputOrderList extends ListParam
             this.redo_sort()
             toggle_dragged_style(true)
         }
-        elem.addEventListener('mousemove', (ev)=>{
-            if (this.dragged.elem === null)
+        myAddEventListener(elem, 'mousemove', (ev)=>{
+            if (this.dragged === null)
                 return
-            this.dragged.elem.style.top = ev.pageY + "px"
-            this.dragged.elem.style.left = ev.pageX + "px"
+            this.dragged.elem.style.top = ev.pageY + this.dragged.mouse_offset[1] + "px"
+            this.dragged.elem.style.left = ev.pageX + this.dragged.mouse_offset[0] + "px"
             const to = ev.target.p_lst_index
             do_drop(to)
         })
 
         document.addEventListener('mousemove', (ev)=>{
-            if (this.dragged.elem === null)
+            if (this.dragged === null)
                 return
-            this.dragged.elem.style.top = ev.pageY + "px"
-            this.dragged.elem.style.left = ev.pageX + "px"
-        })
-        elem.addEventListener('mouseup', (ev)=>{
-            if (this.dragged.elem === null)
-                return
-            const to = ev.target.p_lst_index
-            //console.log('~~ drop', this.dragged.lst_index, to)
-            //do_drop(to, false)
-            let e = this.elem_lst[this.dragged.lst_index]
-            toggle_dragged_style(false)
-
-            edit_params.removeChild(this.dragged.elem)
-            this.dragged.elem = null, this.dragged.lst_index = null
+            this.dragged.elem.style.top = ev.pageY + this.dragged.mouse_offset[1] + "px"
+            this.dragged.elem.style.left = ev.pageX + this.dragged.mouse_offset[0] + "px"
         })
         document.addEventListener('mouseup', (ev)=>{
-            if (this.dragged.elem === null)
+            if (this.dragged === null)
                 return            
             edit_params.removeChild(this.dragged.elem)
-            //toggle_dragged_style(false)
-            this.dragged.elem = null, this.dragged.lst_index = null
+            toggle_dragged_style(false)
+            this.dragged = null
         })
 
         return elem
@@ -732,10 +718,20 @@ class ParamInputOrderList extends ListParam
     }    
 
     redo_sort() {  // produce sorted_order frmo sorted_d
+        let changed = (this.sorted_d.length !== this.sorted_order.length)
+        if (!changed)
+            for(let i = 0; i < this.sorted_d.length; ++i)
+                if (this.sorted_d[i].lst_index !== this.sorted_order[i]) {
+                    changed = true
+                    break
+                }
+        if (!changed)
+            return
         this.sorted_order.length = 0
         for(let d of this.sorted_d)
             this.sorted_order.push(d.lst_index)
         this.table.remake_table()
+        this.pset_dirty()
     }    
     add(v) {
         v.lst_index = this.lst.length // index in this.lst
@@ -748,18 +744,21 @@ class ParamInputOrderList extends ListParam
         let idx = idx_lst[0]
         let d = this.lst[idx]
         super.remove(idx_lst)
+        let rm = this.sorted_d.findIndex((v)=>{return v.lst_index == d.lst_index})
+        this.sorted_d.splice(rm, 1)
         // fix the indices of all the items that came after this item. (adjust for the culling of lst)
         for(let od of this.sorted_d)
             if (od.lst_index > d.lst_index)
                 od.lst_index--;
-        this.redo_sort()        
+        this.redo_sort()  
+        return d      
     }
     
 }
 
 
 class NodeGroupObjects extends NodeCls {
-    static name() { return "Group_Objects" }
+    static name() { return "Group Objects" }
     constructor(node) {
         super(node)
         this.sorted_order = []
@@ -772,8 +771,10 @@ class NodeGroupObjects extends NodeCls {
     run() {
         this.node.display_values = []
         let r = new PObjGroup()
-        for(let line of this.in_m.lines) {
-            let obj = line.to_term.get_const()
+        //for(let line of this.in_m.lines) {
+        for(let idx of this.sorted_order) {
+            const line = this.in_m.lines[idx]
+            const obj = line.to_term.get_const()
             r.v.push(obj)
             // gather the display nodes from the nodes that output the thing
             this.node.display_values.push(line.from_term.owner.display_values) 
@@ -785,22 +786,25 @@ class NodeGroupObjects extends NodeCls {
     did_connect(to_term, line) {
         if (to_term !== this.in_m)
             return
-        let node = line.from_term.owner
+        const node = line.from_term.owner
         if (this.order.idx_from_id(node.id) !== -1)
             return // already there
-        let d = { name:node.name, 
-                  id:node.id  } 
+        const d = { name:node.name, 
+                    id:node.id  } 
+        d.rename_func = (new_name)=>{d.name = new_name; this.table.remake_table()}
+        node.register_rename_observer(d.rename_func)
+
         this.order.add(d)
     }
     doing_disconnect(to_term, line) {
         if (to_term !== this.in_m)
             return
-        let node = line.from_term.owner
-        let idx = this.order.idx_from_id(node.id)
+        const node = line.from_term.owner
+        const idx = this.order.idx_from_id(node.id)
         console.assert(idx != -1)
 
-        this.order.remove([idx])
-
+        let d = this.order.remove([idx])
+        node.remove_rename_observer(d.rename_func)
     }
 
 }
