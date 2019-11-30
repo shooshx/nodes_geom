@@ -41,6 +41,15 @@ function preload_images() {
     }
 }
 
+var scratch_canvas = null // canvas for temporary jobs
+var ctx_scratch = null
+function ensure_scratch_canvas() {
+    if (scratch_canvas !== null)
+        return
+    scratch_canvas = addTextChild(main_view, "<canvas id='scratch_canvas'></canvas>")
+    ctx_scratch = scratch_canvas.getContext('2d')
+}
+
 function _resize_img_panel(w, h) {
     if (w !== null) {
         image_panel.style.width = w + "px"

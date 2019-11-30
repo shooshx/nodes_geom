@@ -398,6 +398,86 @@ function project_dist(cp, p1, p2) {
     return [dist,d]
 }
 
+
+// not a proper combo-box, more line a combo-box of buttons, each with an image
+class ParamImageSelectBtn extends Parameter
+{
+    constructor(node, label, opts, get_img_func) {
+        super(node, label)
+        this.opts = opts
+        this.get_img_func = get_img_func
+        this.menu_elem = null
+    }
+    save() { return null }
+    load(v) {}
+    add_elems(parent) {
+        this.line_elem = add_param_line(parent, this)
+        const [ein,btn] = add_checkbox_btn(this.line_elem, this.label, false, (v)=>{
+            if (!v) {
+                this.menu_elem.parentElement.removeChild(this.menu_elem)
+                return
+            }
+            this.menu_elem = add_div(this.line_elem, "param_img_menu")
+
+            this.menu_elem.style.top = btn.offsetTop + btn.offsetHeight + 2 + "px"
+            this.menu_elem.style.left = btn.offsetLeft + "px"
+            for(let o of this.opts) {
+                const img_div = add_div(this.menu_elem, "param_img_item")
+                const img = this.get_img_func(o)
+                img_div.appendChild(img)
+            }
+        })
+    }
+}
+
+const GRADIENT_PRESETS = [
+    [ {v:0, c:'#000'}, {v:1, c:"#fff"} ],
+    [ {v:0, c:'#000'}, {v:1, c:"rgba(0,0,0,0)"} ],
+
+    [ {v:0, c:'#f00'}, {v:1, c:"#fff"} ],
+    [ {v:0, c:'#0f0'}, {v:1, c:"#fff"} ],
+    [ {v:0, c:'#00f'}, {v:1, c:"#fff"} ],
+    [ {v:0, c:'#0ff'}, {v:1, c:"#fff"} ],
+    [ {v:0, c:'#ff0'}, {v:1, c:"#fff"} ],
+    [ {v:0, c:'#f0f'}, {v:1, c:"#fff"} ],
+
+]
+
+function checkers_rect(ctx, w, h) {
+    const l = ColorPicker.CHECKERS.light, d = ColorPicker.CHECKERS.dark, cw = ColorPicker.CHECKERS.width
+    ctx.fillStyle = "rgb(" + l + "," + l + "," + l + ")"
+    ctx.fillRect(0, 0, w, h)
+    ctx.fillStyle = "rgb(" + d + "," + d + "," + d + ")"
+    for(let x = 0, xi = 0; x < w; x += cw, ++xi) {
+        for(let y = 0, yi = 0; y < h; y += cw, ++yi) {
+            if (xi % 2 == yi % 2)
+                continue
+            ctx.fillRect(x, y, cw, cw)
+        }
+    }
+}
+
+const PRESET_RECT_SZ = 45
+function make_preset_img(pr) {
+    if (pr.img !== undefined)
+        return pr.img
+    ensure_scratch_canvas()
+    scratch_canvas.width = PRESET_RECT_SZ
+    scratch_canvas.height = PRESET_RECT_SZ
+    checkers_rect(ctx_scratch, PRESET_RECT_SZ, PRESET_RECT_SZ)
+    let g = ctx_scratch.createLinearGradient(0,0,PRESET_RECT_SZ,PRESET_RECT_SZ)
+    for(let stop of pr) {
+        g.addColorStop(stop.v, stop.c)
+    }
+    ctx_scratch.fillStyle = g
+    ctx_scratch.fillRect(0, 0, PRESET_RECT_SZ, PRESET_RECT_SZ)
+    let url = scratch_canvas.toDataURL()
+    let img = new Image()
+    img.src = url
+    pr.img = img // cache
+    return img
+}
+
 class NodeGradient extends NodeCls
 {
     static name() { return "Gradient" }
@@ -417,7 +497,6 @@ class NodeGradient extends NodeCls
                 this.points_adapter = new Linear_GradPointsAdapterParam(this.p1, this.p2, this.values, this)
             else
                 this.points_adapter = new Radial_GradPointsAdapterParam(this.p1, this.r1, this.p2, this.r2, this.values, this)
-            let ad = this.points_adapter
             this.selected_indices.includes_shifted = function(v) { return this.includes(v + NODE_POINT_LST_OFFSET) } // used for yellow mark of the selected point
             add_point_select_mixin(this, this.selected_indices, this.points_adapter)
         })
@@ -427,6 +506,8 @@ class NodeGradient extends NodeCls
         this.r2 = new ParamFloat(node, "Radius 2", 0.7)
         this.add_stops_btn = new ParamBool(node, "Add stops", true, null)
         this.add_stops_btn.display_as_btn(true)
+        const presets_btn = new ParamImageSelectBtn(node, "Presets", GRADIENT_PRESETS, make_preset_img)
+        presets_btn.share_line_elem_from(this.add_stops_btn)
         this.table = new ParamTable(node, "Stops", this.sorted_order)
         this.values = new ParamFloatList(node, "Value", this.table, this.selected_indices, ()=>{this.redo_sort()})
         this.colors = new ParamColorList(node, "Color", this.table)

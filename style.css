@@ -336,6 +336,12 @@ input {
     display: none;  /* comment out to see canvas_img_shadow */
 }
 
+#scratch_canvas {
+    border: solid 1px;
+    display: block;
+    display: none;  /* comment out to debug scratch */
+}
+
 .param_btn {
     display: inline-block;
     cursor: pointer;
@@ -392,6 +398,24 @@ input {
 .param_file_progress::-webkit-progress-value {
     background-color: #8e8ef7;
     border-radius: 3px;
+}
+
+.param_img_menu {
+    position: absolute;
+    background-color: #656565;
+    padding: 7px 0;
+    border-radius: 4px;
+    border: solid 2px #7d7d7d;
+    width: 229px;
+    z-index: 4;  /* above the display params panel */
+    white-space: normal;
+    padding-left: 7px;
+}
+.param_img_item {
+    display: inline-block;
+    margin: 4px 4px 1px 4px;
+    border: solid 1px #ccc;
+    line-height: 0;
 }
 
 .dlg {

@@ -13,6 +13,7 @@ class Parameter
         this.owner = node
         this.dirty = true  // was it changed since the last run?
         this.change_func = null
+        this.shares_line_from = null
     }
     set_label(text) {
         this.label = text
@@ -49,7 +50,10 @@ class Parameter
     call_change() { // reimplemet this if this.v is not the value
         if (this.change_func) 
             this.change_func(this.v)
-    }    
+    }
+    share_line_elem_from(param) {
+        this.shares_line_from = param   
+    }
 }
 
 // if the text of one of the labels is too long, fix the length of all of them
@@ -140,7 +144,11 @@ function add_div(parent, cls) {
     parent.appendChild(e)
     return e
 }
-function add_param_line(parent) { return add_div(parent, 'param_line') }
+function add_param_line(parent, param) { 
+    if (param !== undefined && param.shares_line_from)
+        return param.shares_line_from.line_elem
+    return add_div(parent, 'param_line') 
+}
 function add_param_multiline(parent) { return add_div(parent, 'param_multi_line') }
 function add_param_block(parent) { return add_div(parent, 'param_block') } // for multi-line params
 
@@ -281,7 +289,7 @@ class ParamBool extends Parameter {
     save() { return {v:this.v} }
     load(v) { this.v = v.v; this.call_change()  }
     add_elems(parent) {
-        this.line_elem = add_param_line(parent)
+        this.line_elem = add_param_line(parent, this)
         add_param_label(this.line_elem, null)  // empty space
         let add_func = this.as_btn ? add_checkbox_btn : add_param_checkbox
         this.label_elem = add_func(this.line_elem, this.label, this.v, (v) => { 
@@ -304,6 +312,8 @@ class DispParamBool extends ParamBool {
     }
     pset_dirty() {} // this override is needed to avoid draw triggers that mess with the controls
 }
+
+
 
 
 // represents a single value (item in a single edit box) that can be an expression and everything it needs to do
@@ -1330,6 +1340,7 @@ class ParamSelect extends Parameter
             this.change_func(this.sel_idx)
     }        
 }
+
 
 class ParamFileUpload extends Parameter
 {

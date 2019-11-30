@@ -57,7 +57,7 @@ NODES:
     title of window with different color for fragment and vertex shaders
     tabbed view?
 - Image processing  http://evanw.github.io/webgl-filter/
-- Perlin Noise GLSL?
+- !!!!Perlin Noise GLSL?
     https://github.com/ashima/webgl-noise/tree/master/src
 - point size to path circle
     and lines -- according to changing width
