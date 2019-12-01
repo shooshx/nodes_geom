@@ -1,4 +1,5 @@
 "use strict"
+// inspired by https://github.com/PitPik/colorPicker
 
 var ColorPicker = (function(){
 
@@ -71,6 +72,81 @@ function RGBtoHSV(r, g, b, into) {
     into.v = v
     into.is_gray = is_gray;
 }
+
+// from https://github.com/jmthompson2015/colors/blob/47a1d08d41c03ad2219459155d82bd7d9fcf0bfc/model/ColorUtilities.js
+function HSLtoRGB(h0, s0, l0, into) {
+    const h = h0 / 360;
+    const s = s0 / 100;
+    const l = l0 / 100;
+    let r, g, b, is_gray;
+  
+    if (s === 0) {
+      r = l; // achromatic
+      g = l; // achromatic
+      b = l; // achromatic
+      is_gray = true
+    } else {
+      const hue2rgb = (p, q, t0) => {
+        let t = t0;
+        if (t < 0) t += 1;
+        if (t > 1) t -= 1;
+        if (t < 1 / 6) return p + (q - p) * 6 * t;
+        if (t < 1 / 2) return q;
+        if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+        return p;
+      };
+  
+      const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+      const p = 2 * l - q;
+      r = hue2rgb(p, q, h + 1 / 3);
+      g = hue2rgb(p, q, h);
+      b = hue2rgb(p, q, h - 1 / 3);
+    }
+  
+    into.r = Math.round(r * 255)
+    into.g = Math.round(g * 255)
+    into.b = Math.round(b * 255)
+    into.is_gray = true
+}
+  
+
+function RGBtoHSL(r0, g0, b0, into) {
+    const r = r0 / 255;
+    const g = g0 / 255;
+    const b = b0 / 255;
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    let h;
+    let s;
+    const l = (max + min) / 2;
+  
+    if (max === min) {
+      h = 0; // achromatic
+      s = 0; // achromatic
+    } else {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      switch (max) {
+        case r:
+          h = (g - b) / d + (g < b ? 6 : 0);
+          break;
+        case g:
+          h = (b - r) / d + 2;
+          break;
+        case b:
+          h = (r - g) / d + 4;
+          break;
+        default:
+          throw new Error(`Unknown max: ${max}`);
+      }
+      h /= 6;
+    }
+  
+    into.h = h * 360
+    into.s = s * 100
+    into.l = l * 100
+}
+
 
 var MARGIN = 10
 var BAR_SZ = 18
@@ -232,23 +308,40 @@ function parse_hex(s) {
     let ret = null
     if (s === null)
         return null
+    s = s.trim()
     if (s[0] == 'r') {
-        if (s.substr(0,4) == 'rbg(') {
-            let sp = s.substr(4).split(',')
+        const with_alpha = s.substr(0,5) == 'rgba('
+        if (s.substr(0,4) == 'rgb(' || with_alpha) {
+            const sp = s.substr(4 + (with_alpha?1:0)).split(',')
             ret = { r: parseInt(sp[0]), g: parseInt(sp[1]), b: parseInt(sp[2]), alpha:1, alphai:255 }
+            if (with_alpha) {
+                const a = parseFloat(sp[3])
+                ret.alpha  = a, ret.alphai = Math.round(a*255)
+            }
         }
-        if (s.substr(0,5) == 'rgba(') {
-            let sp = s.substr(5).split(',')
-            let a = parseFloat(sp[3])
-            ret = { r: parseInt(sp[0]), g: parseInt(sp[1]), b: parseInt(sp[2]), alpha:a, alphai:Math.round(a*255) }
+    }
+    else if (s[0] == 'h') {
+        ret = {}
+        // doesn't need the `%` at the end of the s and l
+        const with_alpha = s.substr(0,5) == 'hsla('
+        if (s.substr(0,4) == 'hsl(' || with_alpha) {
+            const sp = s.substr(4 + (with_alpha?1:0)).split(',')
+            HSLtoRGB(parseInt(sp[0]), parseInt(sp[1]), parseInt(sp[2]), ret)
+            if (with_alpha) {
+                const a = parseFloat(sp[3])
+                ret.alpha = a; ret.alphai = Math.round(a*255)
+            }
+            else {
+                ret.alpha = 1; ret.alphai = 255;
+            }
         }
     }
     else {
-        if (s[0] == '#')
+        if (s[0] == '#') // can do without it
             s = s.substr(1)
         if (s.length == 6)
             ret = { r: parseInt(s.substr(0,2), 16), g: parseInt(s.substr(2,2), 16), b: parseInt(s.substr(4,2), 16), alpha:1, alphai:255 }
-        if (s.length == 3) {
+        else if (s.length == 3) {
             ret =  { r: parseInt(s[0]+s[0], 16), g: parseInt(s[1]+s[1], 16), b: parseInt(s[2]+s[2], 16), alpha:1, alphai:255 }
         }
     }

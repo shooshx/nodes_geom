@@ -306,6 +306,8 @@ class GradPointsAdapterParam {
 
     get_value(vidx) {
         let idx = vidx / 2
+        //if (idx == 0 || idx == 1)
+        //    return [null,null] // test, select only radius points
         if (idx < this.move_prm.length) {
             if (this.move_prm[idx] === null) // 2,3 of linear are not used
                 return [null,null]
@@ -345,6 +347,13 @@ class Linear_GradPointsAdapterParam extends GradPointsAdapterParam {
         return [this.p1, this.p2]
     }
 }
+
+function went_other_way(pr2, pcenter, pv) {
+    const to_pr2 = vec2.fromValues(pr2.x-pcenter.x, pr2.y-pcenter.y)
+    const to_pv = vec2.fromValues(pv[0]-pcenter.x, pv[1]-pcenter.y)
+    return vec2.dot(to_pr2, to_pv) < 0
+}
+
 class Radial_GradPointsAdapterParam extends GradPointsAdapterParam {
     constructor(p1, r1, p2, r2, range_lst_param, nodecls) {
         super(p1, p2, range_lst_param, nodecls)
@@ -369,16 +378,24 @@ class Radial_GradPointsAdapterParam extends GradPointsAdapterParam {
     increment(idx, dv) {
         // special handling of the points on the radius
         if (idx == 2) {
-            let [pa,pb] = this.get_pa_pb()
-            let pv = vec2.fromValues(pa.x + dv[0], pa.y + dv[1])
-            let r = vec2.distance(pv, vec2.fromValues(this.p1.x, this.p1.y))
+            const [pa,pb] = this.get_pa_pb()
+            const pv = vec2.fromValues(pa.x + dv[0], pa.y + dv[1])
+            const r = vec2.distance(pv, vec2.fromValues(this.p1.x, this.p1.y))
             this.r1.modify(r)
+
+            const [pa2,pb2] = this.get_pa_pb()
+            if (went_other_way(pa2, this.p1, pv))
+                this.r1.modify(0)
         }
         else if (idx == 3) {
-            let [pa,pb] = this.get_pa_pb()
-            let pv = vec2.fromValues(pb.x + dv[0], pb.y + dv[1])
-            let r = vec2.distance(pv, vec2.fromValues(this.p2.x, this.p2.y))
-            this.r2.modify(r)            
+            const [pa,pb] = this.get_pa_pb()
+            const pv = vec2.fromValues(pb.x + dv[0], pb.y + dv[1])
+            const r = vec2.distance(pv, vec2.fromValues(this.p2.x, this.p2.y))
+            this.r2.modify(r)
+            
+            const [pa2,pb2] = this.get_pa_pb()
+            if (went_other_way(pb2, this.p2, pv))
+                this.r2.modify(0)            
         }
         else
             super.increment(idx, dv)
@@ -402,19 +419,27 @@ function project_dist(cp, p1, p2) {
 // not a proper combo-box, more line a combo-box of buttons, each with an image
 class ParamImageSelectBtn extends Parameter
 {
-    constructor(node, label, opts, get_img_func) {
+    constructor(node, label, opts, get_img_func, set_selected_func) {
         super(node, label)
         this.opts = opts
         this.get_img_func = get_img_func
         this.menu_elem = null
+        this.set_selected_func = set_selected_func
     }
     save() { return null }
     load(v) {}
     add_elems(parent) {
         this.line_elem = add_param_line(parent, this)
+        const dismiss_menu = ()=>{
+            if (this.menu_elem !== null) {
+                this.menu_elem.parentElement.removeChild(this.menu_elem)
+                this.menu_elem = null
+            }
+            ein.checked = false
+        }
         const [ein,btn] = add_checkbox_btn(this.line_elem, this.label, false, (v)=>{
             if (!v) {
-                this.menu_elem.parentElement.removeChild(this.menu_elem)
+                dismiss_menu()
                 return
             }
             this.menu_elem = add_div(this.line_elem, "param_img_menu")
@@ -425,12 +450,19 @@ class ParamImageSelectBtn extends Parameter
                 const img_div = add_div(this.menu_elem, "param_img_item")
                 const img = this.get_img_func(o)
                 img_div.appendChild(img)
+                myAddEventListener(img_div, "click", ()=>{
+                    this.set_selected_func(o)
+                    dismiss_menu()
+                })
             }
         })
     }
 }
 
 const GRADIENT_PRESETS = [
+    [ {v:0, c:'#f00'}, {v:0.5, c:'#ff0'}, {v:1, c:'#0f0'}],
+    [ {v:0, c:'hsl(0,100%,50%)'},{v:60/300, c:'hsl(60,100%,50%)'},{v:120/300, c:'hsl(120,100%,50%)'},
+      {v:180/300, c:'hsl(180,100%,50%)'},{v:240/300, c:'hsl(240,100%,50%)'},{v:1, c:'hsl(300,100%,50%)'} ],
     [ {v:0, c:'#000'}, {v:1, c:"#fff"} ],
     [ {v:0, c:'#000'}, {v:1, c:"rgba(0,0,0,0)"} ],
 
@@ -506,29 +538,24 @@ class NodeGradient extends NodeCls
         this.r2 = new ParamFloat(node, "Radius 2", 0.7)
         this.add_stops_btn = new ParamBool(node, "Add stops", true, null)
         this.add_stops_btn.display_as_btn(true)
-        const presets_btn = new ParamImageSelectBtn(node, "Presets", GRADIENT_PRESETS, make_preset_img)
+        const presets_btn = new ParamImageSelectBtn(node, "Presets", GRADIENT_PRESETS, make_preset_img, (pr)=>{this.load_preset(pr)})
         presets_btn.share_line_elem_from(this.add_stops_btn)
         this.table = new ParamTable(node, "Stops", this.sorted_order)
         this.values = new ParamFloatList(node, "Value", this.table, this.selected_indices, ()=>{this.redo_sort()})
         this.colors = new ParamColorList(node, "Color", this.table)
 
-        this.values.add(0); this.colors.add([0xff, 0x00, 0x00, 0xff])
-        this.values.add(0.5); this.colors.add([0xff, 0xff, 0x00, 0xff])
-        this.values.add(1); this.colors.add([0x00, 0xff, 0x00, 0xff])
+        this.load_preset(GRADIENT_PRESETS[0])
  
-        // list sized line this.values.lst with indices of values in the order they should be displayed
-        this.redo_sort()
-
         // TBD points as expressions
     }
     is_radial() { return this.type.sel_idx == 1 }
     post_load_hook() { this.redo_sort() } // sort loaded values for the table
-    redo_sort() {
+    redo_sort(force) {
         let tmparr = []
         for(let i = 0; i < this.values.lst.length; ++i)
             tmparr.push([this.values.lst[i],i])
         tmparr.sort(function(a,b) { return a[0]-b[0] })
-        let changed = (tmparr.length !== this.sorted_order.length)
+        let changed = force || (tmparr.length !== this.sorted_order.length)
         if (!changed)
             for(let i = 0; i < tmparr.length; ++i)
                 if (tmparr[i][1] !== this.sorted_order[i]) { // anything changed?
@@ -581,6 +608,18 @@ class NodeGradient extends NodeCls
         this.colors.remove(rm_indices)
         this.redo_sort()
         this.clear_selection()
+        trigger_frame_draw(true)
+    }
+
+    load_preset(pr) {
+        this.values.clear()
+        this.colors.clear()
+        for(let stop of pr) {
+            this.values.add(stop.v)
+            let c = ColorPicker.parse_hex(stop.c)            
+            this.colors.add([c.r, c.g, c.b, c.alphai])
+        }
+        this.redo_sort(true) // force sort since we want to force a remake_table 
         trigger_frame_draw(true)
     }
 }

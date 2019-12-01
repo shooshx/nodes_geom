@@ -1034,6 +1034,10 @@ class ListParam extends Parameter {
         this.reprint_all_lines()
         console.assert(this.lst.length == this.elem_lst.length * this.values_per_entry, "unexpected number of elements")
     }
+    clear() {
+        this.lst = new this.lst.constructor()
+        this.elem_lst.length = 0
+    }
 
     reprint_line(vidx, v) {
         let idx = vidx / this.values_per_entry
