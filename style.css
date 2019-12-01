@@ -154,7 +154,6 @@ input {
     height: 24px;
     border-radius: 3px;
     padding: 0 5px;
-    width: 25%;
     min-width: 100px;
     font-family: Verdana;
     font-size: 14px;        
@@ -168,7 +167,9 @@ input {
     background-color: #a22;
 }
 .param_editbox {
-    
+    flex-grow: 1;
+    width: 0;
+    min-width: 0px; /* override the default width so that flex would work correctly */
 }
 .param_edit_err_box {
     position:absolute;
@@ -340,6 +341,34 @@ input {
     border: solid 1px;
     display: block;
     display: none;  /* comment out to debug scratch */
+}
+
+.slider_line {
+    position: relative;
+    background-color: #757575;
+    height: 7px;
+    border-radius:3px;
+    flex-grow: 1.8;
+    margin: 0 15px 0 11px;    
+}
+.slider_thumb {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 12px;
+    height: 19px;
+    border-radius:4px;
+    background-color: #cacaca;
+    margin: -6px 0 0 -6px;
+}
+.slider_thumb_disabled {
+    opacity: 0.5;
+}
+.slider_fill {
+    position: absolute;
+    height: 7px;
+    border-radius:3px;
+    background: #7777ce;
 }
 
 .param_btn {

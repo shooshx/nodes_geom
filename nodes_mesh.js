@@ -878,7 +878,7 @@ class NodeRandomPoints extends NodeCls
         this.in_obj = new InTerminal(node, "in_obj")
         this.out_mesh = new OutTerminal(node, "out_mesh")
         this.seed = new ParamInt(node, "Seed", 1)
-        this.min_dist = new ParamFloat(node, "Min Distance", 0.02)
+        this.min_dist = new ParamFloat(node, "Min Distance", 0.02, [0.02, 0.5])
 
         //this.by_density.change_func() // enact the changes it does
         node.set_state_evaluators({"vtx_pos":  (m,s)=>{ return new ObjSubscriptEvaluator(m,s) }} )        
@@ -943,7 +943,7 @@ class NodeRandomPoints extends NodeCls
             cand.x = p[0]; cand.y = p[1]
 
             r = (value_need_src === null)?this.min_dist.v : this.min_dist.dyn_eval(0)
-            if (r == 0 && ++got_zeros > 100) {
+            if (r < 0.02 && ++got_zeros > 100) { // TBD this would be better with grid
                 too_many_zeros = true
                 break
             }

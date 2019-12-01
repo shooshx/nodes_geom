@@ -172,6 +172,12 @@ function add_param_label(line, text, cls) {
     }
     return e
 }
+
+function formatType(value, type) {
+    const is_float = (type == ED_FLOAT || type == ED_FLOAT_OUT_ONLY)
+    return is_float ? toFixedMag(value) : value
+}
+
 const ED_FLOAT=0
 const ED_INT=1
 const ED_STR=2
@@ -181,13 +187,64 @@ function add_param_edit(line, value, type, set_func) {
     e.classList = 'param_input param_editbox'
     e.type = 'text'
     e.spellcheck = false
-    e.value = (type == ED_FLOAT || type == ED_FLOAT_OUT_ONLY) ? toFixedMag(value) : value
+    e.value = formatType(value, type)
     // TBD parse error
     myAddEventListener(e, "input", function() { 
         set_func( (type == ED_FLOAT)? parseFloat(e.value) : e.value); 
     })
+    /*if (is_float) {
+        myAddEventListener(e, "mousedown", function(ev) {
+            console.log("~~", ev.buttons, ev.button)
+        })
+    }*/
     line.appendChild(e)
     return e
+}
+function add_param_slider(line, min_val, max_val, start_value, set_func) {
+    const center = add_div(line, "slider_line")
+    const fill = add_div(center, "slider_fill")
+    const thumb = add_div(center, "slider_thumb")
+    let v;
+    const set_len = (len)=>{
+        thumb.style.left = len + "px"
+        fill.style.width = len + "px"
+    }
+    const update = (value)=>{
+        if (value === null) {
+            thumb.classList.toggle('slider_thumb_disabled', true)
+            return
+        }
+        thumb.classList.toggle('slider_thumb_disabled', false)
+        const crect = center.getBoundingClientRect()
+        v = (value - min_val)/(max_val - min_val)
+        v = clamp(0, v, 1) // don't show the thumb outside the line, even though it's wrong
+        set_len(v * crect.width)
+    }    
+    update(start_value)
+    let dragging = false
+    thumb.addEventListener("mousedown", (ev)=>{
+        if (ev.buttons != 1)
+            return
+        dragging = true
+    });
+    myAddEventListener(document, "mousemove", (ev)=>{
+        if (!dragging)
+            return
+        const crect = center.getBoundingClientRect()
+        const nv = (ev.pageX - crect.left)/crect.width
+        if (nv == v)
+            return
+        v = clamp(0, nv, 1)
+        set_len(v * crect.width)
+        const exv = v*(max_val - min_val) + min_val
+        set_func(exv)
+    })
+    document.addEventListener("mouseup", (ev)=>{
+        dragging = false
+    })
+
+    return { update: update }
+    // TBD refactor capture
 }
 function add_param_color(line, value, cls, set_func) {
     let e = document.createElement('input')
@@ -318,18 +375,20 @@ class DispParamBool extends ParamBool {
 
 // represents a single value (item in a single edit box) that can be an expression and everything it needs to do
 class ExpressionItem {
-    constructor(in_param, prop_name, prop_type, set_prop=null, get_prop=null) {
+    constructor(in_param, prop_name, prop_type, set_prop=null, get_prop=null, slider_range=null) {
         this.in_param = in_param
         this.prop_name = prop_name // name of property to set in the containing param ("v", "r")
         this.set_prop = (set_prop !== null) ? set_prop : (v)=>{ this.in_param[this.prop_name] = v }
         this.get_prop = (get_prop !== null) ? get_prop : ()=>{ return this.in_param[this.prop_name] }
         this.prop_type = prop_type = prop_type  // constant like ED_FLOAT used for formatting the value
         this.elem = null
-        this.e = null  // expression AST, can call eval() on this
+        this.e = null  // expression AST, can call eval() on this or null of the value is just a number
         this.se = null // expression string
         this.last_error = null // string of the error if there was one or null
         this.need_inputs = null // map string names of the inputs needed, already verified that they exist to the ObjRef that needs filling
         this.err_elem = null
+        this.slider_range = slider_range
+        this.slider = null
     }
     save_to(r) { r["se_" + this.prop_name] = this.se }
     load(v) {
@@ -339,8 +398,17 @@ class ExpressionItem {
         else {
             let lv = v[this.prop_name]
             console.assert(lv !== undefined, "failed load value")
-            this.set_prop(lv)
+            this.do_set_prop(lv)
         }
+    }
+    do_set_prop(v) {
+        if (this.slider !== null)
+            this.slider.update(v) // slider needs to know if it's disabled or not, called on add_elem
+        const ov = this.get_prop()
+        if (v === ov)
+            return false
+        this.set_prop(v)
+        return true
     }
     show_err() {
         //let edit_rect = this.elem.getBoundingClientRect(), line_rect = this.this.elem.parentElement.getBoundingClientRect()
@@ -385,24 +453,26 @@ class ExpressionItem {
         // score determines if the expression depends on anything
         let expr_score = this.in_param.owner.state_access.score
         if (expr_score == EXPR_CONST) { // depends on anything?
-            this.set_prop(this.e.eval())
+            if (this.do_set_prop(this.e.eval()))
+                this.in_param.pset_dirty() 
             if (this.e.is_decimal_num && this.e.is_decimal_num()) { // if we've just inputted a number without any expression, don't save the expression
                 this.e = null 
-                this.se = null
+                //this.se = null
             }
             this.need_inputs = null
         }
         else {
-            this.set_prop(null) // it's dynamic so best if it doesn't have a proper value from before
+            this.do_set_prop(null) // it's dynamic so best if it doesn't have a proper value from before
             if ((expr_score & EXPR_NEED_INPUT) != 0) {
                 this.need_inputs = this.in_param.owner.state_access.need_inputs
             }
+            this.in_param.pset_dirty() // TBD maybe expression didn't change?
         }
-        this.in_param.pset_dirty() 
+        
     } 
-    add_editbox(line, cls=null) {
+    add_editbox(line, is_single_value) {
         let show_v, ed_type
-        if (this.se != null && this.se !== undefined) {
+        if (this.e != null && this.e !== undefined) {
             show_v = this.se; 
             ed_type = ED_STR
         } else {
@@ -410,8 +480,16 @@ class ExpressionItem {
             ed_type = this.prop_type
         }
         this.elem = add_param_edit(line, show_v, (ed_type == ED_FLOAT)?ED_FLOAT_OUT_ONLY:ed_type, (se)=>{this.peval(se)})
-        if (cls)
-            this.elem.classList.add(cls) // if it's a single value (long line)
+        if (is_single_value) {
+            //this.elem.classList.add('param_input_long')
+            if (this.slider_range !== null) {
+                this.slider = add_param_slider(line, this.slider_range[0], this.slider_range[1], null, (v)=>{
+                    this.set_to_const(v)
+                    this.in_param.pset_dirty() 
+                })
+                this.peval(this.se) // this will set the slider position and enablement (but not do pset_dirty since nothing changed)
+            }
+        }
         if (this.last_error !== null) {
             this.elem.classList.toggle("param_input_error", true)
             this.show_err()
@@ -420,10 +498,10 @@ class ExpressionItem {
     }
     set_to_const(v) {
         this.e = null 
-        this.se = null
+        this.se = formatType(v, this.prop_type)
         this.need_inputs = null
-        this.elem.value = toFixedMag(v)
-        this.set_prop(v) // in color, need it the picker style to not be italic
+        this.elem.value = this.se
+        this.do_set_prop(v) // in color, need it the picker style to not be italic
     }
     dyn_eval() {
         this.eclear_error()
@@ -452,10 +530,10 @@ class ExpressionItem {
 
 
 class ParamFloat extends Parameter {
-    constructor(node, label, start_v) {
+    constructor(node, label, start_v, slider_range=null) {
         super(node, label)
         this.v = start_v  // numerical value in case of const
-        this.item = new ExpressionItem(this, "v", ED_FLOAT)
+        this.item = new ExpressionItem(this, "v", ED_FLOAT, null, null, slider_range)
     }
     save() { let r = { v:this.v }; this.item.save_to(r); return r }
     load(v) { this.item.load(v) }
@@ -464,7 +542,7 @@ class ParamFloat extends Parameter {
         this.line_elem = add_param_line(parent)
         this.label_elem = add_param_label(this.line_elem, this.label)
 
-        let elem = this.item.add_editbox(this.line_elem, 'param_input_long')
+        let elem = this.item.add_editbox(this.line_elem, true)
     }
 
     dyn_eval(item_index) {
@@ -506,9 +584,9 @@ class ParamVec2 extends Parameter {
         else {
             this.line_elem = add_param_multiline(parent)
             let line_x = add_param_line(this.line_elem); add_param_label(line_x, "X", 'param_label_pre_indent')
-            this.item_x.add_editbox(line_x, 'param_input_long')
+            this.item_x.add_editbox(line_x, true)
             let line_y = add_param_line(this.line_elem); add_param_label(line_y, "Y", 'param_label_pre_indent')
-            this.item_y.add_editbox(line_y, 'param_input_long')            
+            this.item_y.add_editbox(line_y, true)            
         }
     }
     get_value() {
@@ -623,13 +701,13 @@ class ParamColor extends Parameter {
         })
         this.v = v; this.picker_elem = elem; this.picker = picker
         let line_r = add_param_line(this.line_elem); add_param_label(line_r, "Red", 'param_label_pre_indent')
-        this.item_r.add_editbox(line_r, 'param_input_long')
+        this.item_r.add_editbox(line_r, true)
         let line_g = add_param_line(this.line_elem); add_param_label(line_g, "Green", 'param_label_pre_indent')
-        this.item_g.add_editbox(line_g, 'param_input_long')
+        this.item_g.add_editbox(line_g, true)
         let line_b = add_param_line(this.line_elem); add_param_label(line_b, "Blue", 'param_label_pre_indent')
-        this.item_b.add_editbox(line_b, 'param_input_long')
+        this.item_b.add_editbox(line_b, true)
         let line_alpha = add_param_line(this.line_elem); add_param_label(line_alpha, "Alpha", 'param_label_pre_indent')
-        this.item_alpha.add_editbox(line_alpha, 'param_input_long')       
+        this.item_alpha.add_editbox(line_alpha, true)       
         this.items_to_picker() 
     }
     dyn_eval(item_index) {

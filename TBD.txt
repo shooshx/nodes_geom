@@ -59,7 +59,9 @@ NODES:
     tabbed view?
 - Image processing  http://evanw.github.io/webgl-filter/
 - !!!!Perlin Noise GLSL?
-    https://github.com/ashima/webgl-noise/tree/master/src
+    https://github.com/stegu/webgl-noise/tree/master/src
+    https://github.com/shooshx/kawaiigl/blob/0f403512b49187b677865179f3ef5eb18433b68b/NoiseGenerator.cpp
+    simplex?
 - point size to path circle
     and lines -- according to changing width
 - bitmap trace
@@ -75,7 +77,6 @@ NODES:
 - Shrink for paths (not trivial)
 - Gradient
     fill, stroke, 
-    presets
 - random points  - https://www.sidefx.com/docs/houdini/nodes/sop/scatter.html
     on a surface
     on a line
@@ -101,7 +102,7 @@ NODE-VIEW
 - better lines the go up
 - don't allow connect more than one thing into an input, unless it's a multi-input
 - terminal color according to type
-
+- comments, frames, change color of node
 
 DISCOVERABILITY
 - hover tooltip on terminals

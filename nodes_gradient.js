@@ -450,12 +450,15 @@ class ParamImageSelectBtn extends Parameter
                 const img_div = add_div(this.menu_elem, "param_img_item")
                 const img = this.get_img_func(o)
                 img_div.appendChild(img)
-                myAddEventListener(img_div, "click", ()=>{
+                myAddEventListener(img_div, "mousedown", ()=>{
                     this.set_selected_func(o)
                     dismiss_menu()
                 })
             }
         })
+        // prevent two calls to dismiss when pressing the button
+        btn.addEventListener("mousedown", (ev)=>{ ev.stopPropagation() })
+        param_reg_for_dismiss(()=>{dismiss_menu()})
     }
 }
 
