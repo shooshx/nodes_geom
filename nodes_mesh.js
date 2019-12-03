@@ -34,13 +34,22 @@ class NodeTestDummy extends NodeCls {
 }
 
 
+function make_mesh_quadtri(hx, hy) {
+    const obj = new Mesh()
+    // center at 0,0
+    obj.set('vtx_pos', new TVtxArr([-hx, -hy, -hx, hy, hx, hy, hx, -hy]), 2)
+    obj.set('idx', new TIdxArr([0, 1, 2, 0, 2, 3]))
+    obj.set_type(MESH_TRI)
+    return obj
+}
+
 class NodeGeomPrimitive extends NodeCls
 {
     static name() { return "Geom_Primitive" }
     constructor(node) {
         super(node)
         this.out = new OutTerminal(node, "out_mesh")
-        this.shape = new ParamSelect(node, "Shape", 0, ["Rectangle", "Ellipse"])
+        this.shape = new ParamSelect(node, "Shape", 0, ["Rectangle", "Rectangle from triangles", "Ellipse"])
         this.size = new ParamVec2(node, "Size", 0.5, 0.5)
         this.transform = new ParamTransform(node, "Transform")
     }
@@ -55,7 +64,10 @@ class NodeGeomPrimitive extends NodeCls
             obj.set('idx', new TIdxArr([0, 1, 2, 3]))
             obj.set_type(MESH_QUAD)
         }
-        else {
+        else if (this.shape.sel_idx == 1) {
+            obj = make_mesh_quadtri(hx, hy)
+        }
+        else if (this.shape.sel_idx == 2) {
             obj = new MultiPath()
             obj.set('vtx_pos', new TVtxArr([hx,0, 0,-hy, -hx,0, 0,hy]))
             let dc = 0.5 * 4*(Math.sqrt(2)-1)/3 // see https://stackoverflow.com/questions/1734745/how-to-create-circle-with-b%C3%A9zier-curves

@@ -233,6 +233,7 @@ class NodeShader extends NodeCls
         this.vtx_text = new ParamTextBlock(node, "Vertex Shader")
         this.frag_text = new ParamTextBlock(node, "Fragment Shader")
 
+        this.attr_names = null // will be set by caller
         this.program = null
         // it's ok for the texture to belong to this node since texture is const only so it won't be modified
         //this.render_to_tex = null 
@@ -244,22 +245,37 @@ class NodeShader extends NodeCls
         //    gl.deleteTexture(this.render_to_tex)
     }
 
+    make_tex_aligned_mesh(tex) {
+        let obj = make_mesh_quadtri(2, 2)
+        obj.transform(tex.t_mat);
+        return obj
+    }
+
     run() {
         ensure_webgl()
-        let mesh = this.in_mesh.get_const()
-        assert(mesh !== null, this, "missing input mesh") 
-        assert(mesh.type == MESH_TRI, this, "No triangle faces in input mesh")
-
         let tex = this.in_tex.get_const() // TBD wrong
         assert(tex !== null, this, "missing input texture")
+
+        let mesh = this.in_mesh.get_const()
+        if (mesh === null)
+            mesh = this.make_tex_aligned_mesh(tex)
+        //assert(mesh !== null, this, "missing input mesh") 
+        assert(mesh.type == MESH_TRI, this, "No triangle faces in input mesh")
+        assert(this.attr_names !== null, this, "Missing attr_names") // TBD parse this from the shaders
+
         
         this.program = createProgram(gl, this.vtx_text.text, this.frag_text.text);
         assert(this.program, this, "failed to compile shaders")
 
         this.program.attrs = {}
-        for(let attr_name of ["vtx_pos", "vtx_color"])
+        for(let attr_name of this.attr_names)
             this.program.attrs[attr_name] = gl.getAttribLocation(this.program, attr_name);
-    
+            
+        this.program.uniforms = {}
+        for(let uniform_name of []) {
+            this.program.uniforms[uniform_name] = gl.getUniformLocation(this.program, uniform_name);
+        }
+
         // draw
         canvas_webgl.width = tex.width()
         canvas_webgl.height = tex.height()
@@ -267,13 +283,14 @@ class NodeShader extends NodeCls
 
         gl.useProgram(this.program);
 
+        let transform = mat3.create()
+        mat3.invert(transform, tex.t_mat)
+
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex.tex_obj, 0);
 
         gl.clearColor(0, 0, 0, 0);
         gl.clear(gl.COLOR_BUFFER_BIT);
 
-        let transform = mat3.create()
-        mat3.invert(transform, tex.t_mat) 
 
         try {
             mesh.gl_draw(transform, this.program.attrs)
@@ -310,6 +327,7 @@ class PointGradFill extends NodeCls
         super(node)
         this.prog = new Program()
         this.shader_node = this.prog.add_node(0, 0, null, NodeShader, null)
+        this.shader_node.cls.attr_names = ["vtx_pos", "vtx_color"]
         this.in_mesh = new TerminalProxy(node, this.shader_node.cls.in_mesh)
         this.in_tex = new TerminalProxy(node, this.shader_node.cls.in_tex)
         this.out_tex = new TerminalProxy(node, this.shader_node.cls.out_tex)
@@ -336,6 +354,7 @@ out vec4 outColor;
 
 void main() {
     outColor = v_color;
+    //outColor = vec4(v_coord.xy, 1.0, 1.0);
 }
 `)
     }

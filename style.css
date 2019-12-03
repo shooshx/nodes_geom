@@ -282,7 +282,9 @@ input {
     padding: 0 4px 1px 3px;
     background: rgba(29, 29, 214, 0.52);
 }
-
+.param_lst_edit_popup_input {
+    width: 25%;
+}
 
 .param_table_input_color {
     display: block;

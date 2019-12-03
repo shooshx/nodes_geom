@@ -12,14 +12,12 @@ GUI:
 - fix jumping of splits on page load
 - template display
 - Math.round lines just before drawing to avoid thinning artifacts when zooming?
-- icons for nodes
-- save the image view transform
-- !!! ColorPicker parse hsl()
+- save the image-canvas view transform
+
 
 ENGINE:
-- parser in parameter
-    - attributes in parameters?
 - serialization - save only if something is changed
+- same to SVG
 
 NODES:
 - frame buffer
@@ -44,7 +42,6 @@ NODES:
     point size
 - round edges
 - transform invert
-- single value input using a slider
 - interactive
     mouse input
 - Group objects
@@ -76,6 +73,7 @@ NODES:
 - Boolean ops from Inkscape https://gitlab.com/inkscape/lib2geom/blob/master/src/2geom/intersection-graph.h
 - Shrink for paths (not trivial)
 - Gradient
+    spreadMethod with SVG  https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/spreadMethod
     fill, stroke, 
 - random points  - https://www.sidefx.com/docs/houdini/nodes/sop/scatter.html
     on a surface

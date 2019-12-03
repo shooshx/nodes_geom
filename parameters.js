@@ -182,9 +182,11 @@ const ED_FLOAT=0
 const ED_INT=1
 const ED_STR=2
 const ED_FLOAT_OUT_ONLY=3
-function add_param_edit(line, value, type, set_func) {
+function add_param_edit(line, value, type, set_func, cls=null) {
     let e = document.createElement('input')
-    e.classList = 'param_input param_editbox'
+    if (cls === null)
+        cls = "param_editbox"
+    e.classList = ['param_input', cls].join(" ")
     e.type = 'text'
     e.spellcheck = false
     e.value = formatType(value, type)
@@ -1007,7 +1009,7 @@ class ListParam extends Parameter {
     add_elems(parent) {}
     save() { return {lst:this.lst} }
     load(v) { 
-        if (Array.isArray(v.lst)) // not a typed array
+        if (Array.isArray(this.lst)) // not a typed array
             this.lst = v.lst
         else
             this.lst = new this.lst_type(v.lst) 
@@ -1213,7 +1215,7 @@ class ParamEditableValueList extends ListParam {
                     this.external_update(text_elem, get_cur_val(text_elem.p_lst_index), text_elem.p_lst_index) 
                     if (this.changed_func_to_node) // redo_sort in Gradient
                         this.changed_func_to_node()
-                })
+                }, "param_lst_edit_popup_input")
             }
             stop_propogation_on("mousedown", this.edit_wrap)
             // !!!TBD Enter dismiss

@@ -16,6 +16,7 @@ MIME_TYPES = {".html": "text/html",
               ".map":"application/wasm",
               ".ico":"image/x-icon",
               ".png":"image/png",
+              ".svg":"image/svg+xml",
               }
 
 CPP_SOURCES = []
