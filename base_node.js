@@ -788,6 +788,11 @@ class Node {
             if (p.call_change)
                 p.call_change()
     }
+    remove_param(prm) {
+        const i = this.parameters.findIndex(function(p) { return Object.is(prm, p) })
+        console.assert(i !== -1)
+        this.parameters.splice(i, 1)
+    }
 }
 
 function nodes_unselect_all(redraw) {

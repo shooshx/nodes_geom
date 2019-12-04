@@ -105,9 +105,13 @@ input {
 }
 .param_line {
     display: flex;
+    flex-grow: 1; /* if it's part of a flex */
     padding: 5px 0 0 0;
     align-items: center;
     position: relative;  /* for error messages to appear relative to its line */
+}
+.param_line_group {
+    display: block; /* override the display flex from the parent .param_line */
 }
 .param_multi_line {
     padding: 5px 0 0 0;
@@ -455,7 +459,7 @@ input {
     left: calc( 50% - 300px );
     height: 600px;
     border-radius: 10px;
-    background-color: #5a5a5a;
+    background-color: #686868;
     border: solid #333 2px;
     box-sizing: border-box;
     top: 70px;
@@ -505,7 +509,7 @@ input {
     margin: 5px;
     height: calc( 100% - 10px - 21px);
     width: calc( 100% - 10px );
-    background-color: #686868;
+    background-color: #5a5a5a;
 }
 .panel_param_text_area {
     flex-grow: 1;

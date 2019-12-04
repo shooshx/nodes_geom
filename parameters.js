@@ -14,6 +14,7 @@ class Parameter
         this.dirty = true  // was it changed since the last run?
         this.change_func = null
         this.shares_line_from = null
+        this.group_line_elem = null
     }
     set_label(text) {
         this.label = text
@@ -54,19 +55,26 @@ class Parameter
     share_line_elem_from(param) {
         this.shares_line_from = param   
     }
+    set_group(group_param) {
+        this.group_param = group_param
+    }
 }
 
 // if the text of one of the labels is too long, fix the length of all of them
 function fix_label_lengths(parameters) {
     let max_width = 0
     for(let p of parameters) {
-        if (p.label_elem && p.label_elem.scrollWidth > p.label_elem.offsetWidth) {
-            max_width = Math.max(max_width, p.label_elem.scrollWidth + 5)
+        if (p.label_elem) {
+            if (p.label_elem.scrollWidth > p.label_elem.offsetWidth) // it's bigger that the space for it
+                max_width = Math.max(max_width, p.label_elem.scrollWidth + 5)
+            else if (p.label_elem.style.width !== '')  // we previosly set a width to it (needed for groups readding params)
+                max_width = Math.max(max_width, p.label_elem.scrollWidth)
         }
     }
     if (max_width != 0) {
         for(let p of parameters) {
-            p.label_elem.style.width = max_width + "px"
+            if (p.label_elem !== null)
+                p.label_elem.style.width = max_width + "px"
         }
     }
 }
@@ -144,12 +152,24 @@ function add_div(parent, cls) {
     parent.appendChild(e)
     return e
 }
-function add_param_line(parent, param) { 
-    if (param !== undefined && param.shares_line_from)
-        return param.shares_line_from.line_elem
+function add_param_line(parent, param=null) { 
+    if (param !== null) {
+        if (param.shares_line_from)
+            return param.shares_line_from.line_elem
+        if (param.group_param)
+            parent = param.group_param.line_elem
+    }
     return add_div(parent, 'param_line') 
 }
-function add_param_multiline(parent) { return add_div(parent, 'param_multi_line') }
+function add_param_multiline(parent, param=null) { 
+    if (param !== null) {
+        if (param.shares_line_from)
+            return param.shares_line_from.line_elem
+        if (param.group_line_elem)
+            parent = param.group_line_elem
+    }    
+    return add_div(parent, 'param_multi_line') 
+}
 function add_param_block(parent) { return add_div(parent, 'param_block') } // for multi-line params
 
 function add_param_label(line, text, cls) {
@@ -317,7 +337,7 @@ class ParamInt extends Parameter {
     save() { return {v:this.v}}
     load(v) { this.v = v.v }
     add_elems(parent) {
-        this.line_elem = add_param_line(parent)
+        this.line_elem = add_param_line(parent, this)
         this.label_elem = add_param_label(this.line_elem, this.label)
         add_param_edit(this.line_elem, this.v, ED_INT, (v)=>{ this.v = parseInt(v); this.pset_dirty() }) // TBD enforce int with parsing
     }
@@ -385,7 +405,7 @@ class ExpressionItem {
         this.prop_type = prop_type = prop_type  // constant like ED_FLOAT used for formatting the value
         this.elem = null
         this.e = null  // expression AST, can call eval() on this or null of the value is just a number
-        this.se = null // expression string
+        this.se = "" + this.get_prop() // expression string
         this.last_error = null // string of the error if there was one or null
         this.need_inputs = null // map string names of the inputs needed, already verified that they exist to the ObjRef that needs filling
         this.err_elem = null
@@ -541,7 +561,7 @@ class ParamFloat extends Parameter {
     load(v) { this.item.load(v) }
 
     add_elems(parent) {
-        this.line_elem = add_param_line(parent)
+        this.line_elem = add_param_line(parent, this)
         this.label_elem = add_param_label(this.line_elem, this.label)
 
         let elem = this.item.add_editbox(this.line_elem, true)
@@ -577,14 +597,14 @@ class ParamVec2 extends Parameter {
     load(v) { this.item_x.load(v); this.item_y.load(v) }
     add_elems(parent) {
         if (!this.long_form) {
-            this.line_elem = add_param_line(parent)
+            this.line_elem = add_param_line(parent, this)
             this.label_elem = add_param_label(this.line_elem, this.label)
 
             this.item_x.add_editbox(this.line_elem)
             this.item_y.add_editbox(this.line_elem)
         }
         else {
-            this.line_elem = add_param_multiline(parent)
+            this.line_elem = add_param_multiline(parent, this)
             let line_x = add_param_line(this.line_elem); add_param_label(line_x, "X", 'param_label_pre_indent')
             this.item_x.add_editbox(line_x, true)
             let line_y = add_param_line(this.line_elem); add_param_label(line_y, "Y", 'param_label_pre_indent')
@@ -733,7 +753,7 @@ class ParamColor extends Parameter {
 }
 
 // contains a text box that holds a piece of code that can modify 
-// multiple variables
+// multiple variables (NOT USED)
 class ParamCode extends Parameter
 {
     constructor(node, label) {
@@ -751,6 +771,7 @@ class ParamCode extends Parameter
         this.input_elem.rows = 6
 
     }
+
 }
 
 
@@ -1365,25 +1386,26 @@ function add_grip_handlers(grip, cell) {
     });
 }
 
-
+// used for glsl
 class ParamTextBlock extends Parameter 
 {
-    constructor(node, label) {
+    constructor(node, label, change_func) {
         super(node, label)
         this.dlg = null
         this.dlg_elem = null
         this.text_input = null
         this.dlg_rect = null
         this.text = ""
+        this.change_func = change_func
         node.register_rename_observer((name)=>{
             this.dlg.set_title(this.title())
         })
     }
     save() { return { dlg_rect: this.dlg_rect, text:this.text } }
-    load(v) { this.text = v.text; this.dlg_rect = v.dlg_rect; }
+    load(v) { this.text = v.text; this.dlg_rect = v.dlg_rect;  }
     
     title() { return this.owner.name + " - " + this.label }
-    set_text(v) { this.text = v; this.pset_dirty() }
+    set_text(v) { this.text = v; this.pset_dirty(); this.call_change() }
 
     add_elems(parent) {
         this.line_elem = add_param_line(parent)
@@ -1395,9 +1417,15 @@ class ParamTextBlock extends Parameter
         this.text_input = add_elem(this.dlg_elem, "textarea", ["dlg_param_text_area","param_text_area"])
         this.text_input.spellcheck = false
         this.text_input.value = this.text
-        myAddEventListener(this.text_input, "input", ()=>{ this.text = this.text_input.value; this.pset_dirty() }) // TBD save and trigger draw after timeout
+        myAddEventListener(this.text_input, "input", ()=>{ this.text = this.text_input.value; this.pset_dirty(); this.call_change() }) // TBD save and trigger draw after timeout
         //this.text_input.value = this.text        
     }
+
+    
+    call_change() { 
+        if (this.change_func) 
+            this.change_func(this.text)
+    }    
 }
 
 class ParamSelect extends Parameter
@@ -1583,5 +1611,35 @@ class ParamButton extends Parameter
         this.line_elem = add_param_line(parent)
         add_param_label(this.line_elem, null)  // empty space
         add_push_btn(this.line_elem, this.label, this.onclick)
+    }
+}
+
+// doesn't hold any data, just container of other parameters for order
+class ParamGroup extends Parameter
+{
+    constructor(node, label) {
+        super(node, label)
+    }
+    save() { return null }
+    load(v) { }
+    add_elems(parent) {
+        this.line_elem = add_param_line(parent)
+        this.line_elem.classList.toggle('param_line_group', true)
+    }
+    update_elems() { // will still work (and do nothing visible) if the node is not selected
+        // remove all previous children
+        if (this.line_elem === null)
+            return
+        while (this.line_elem.firstChild) {
+            this.line_elem.removeChild(this.line_elem.firstChild);
+        }
+        // re-add up to date children
+        for(let p of this.owner.parameters) {
+            if (p.group_param !== null && Object.is(p.group_param, this)) {
+                p.add_elems(null) // will get their parent from the group they have set
+                p.init_enable_visible()
+            }
+        }
+        fix_label_lengths(this.owner.parameters)
     }
 }

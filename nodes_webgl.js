@@ -222,6 +222,47 @@ function ensure_webgl() {
        // gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, gl.my_depthBuffer);
 }
 
+
+function is_ws(c) {
+    return c == ' ' || c == '\t' || c == '\n' || c == '\r'
+}
+const SUPPORTED_TYPES = ['float', 'int', 'vec2']
+function parse_glsl_uniforms(text) {
+    let uniforms = []
+    let ci = 0, len = text.length
+    const consume_identifier = ()=>{
+        // skip whitespace
+        while (is_ws(text[ci]) && ci < len)
+            ++ci;
+        if (ci == len)
+            return null
+        const start = ci
+        while (!is_ws(text[ci]) && ci < len)
+            ++ci;       
+        const value = text.substring(start, ci)
+        if (value.length == 0)
+            return null
+        return value
+    }
+    while(true) {
+        ci = text.indexOf('uniform', ci);
+        if (ci === -1)
+            break
+        ci += 7
+        const type = consume_identifier()
+        let name = consume_identifier()
+        if (type === null || name === null)
+            break
+        if (name[name.length-1] == ';')
+            name = name.substring(0, name.length - 1)
+        if (!SUPPORTED_TYPES.includes(type))
+            continue
+        uniforms.push({type:type, name:name})
+    }
+    return uniforms
+}
+
+
 class NodeShader extends NodeCls
 {
     static name() { return "Shader" }
@@ -230,11 +271,20 @@ class NodeShader extends NodeCls
         this.in_mesh = new InTerminal(node, "in_mesh")
         this.in_tex = new InTerminal(node, "in_tex")
         this.out_tex = new OutTerminal(node, "out_texture")
-        this.vtx_text = new ParamTextBlock(node, "Vertex Shader")
-        this.frag_text = new ParamTextBlock(node, "Fragment Shader")
+        this.vtx_text = new ParamTextBlock(node, "Vertex Shader", (text)=>{
+            this.update_uniforms(text, this.vert_uniforms, this.frag_uniforms, this.vert_group)
+        })
+        this.frag_text = new ParamTextBlock(node, "Fragment Shader", (text)=>{
+            this.update_uniforms(text, this.frag_uniforms, this.vert_uniforms, this.frag_group)
+        })
+        // used so that the uniforms would get mixed up and rearranged each time they are parsed
+        this.vert_group = new ParamGroup(node, "Vertex Shader Uniforms")
+        this.frag_group = new ParamGroup(node, "Fragment Shader Uniforms")
 
         this.attr_names = null // will be set by caller
         this.program = null
+        this.vert_uniforms = [] // array of {name:,type:}
+        this.frag_uniforms = []
         // it's ok for the texture to belong to this node since texture is const only so it won't be modified
         //this.render_to_tex = null 
     }
@@ -243,6 +293,48 @@ class NodeShader extends NodeCls
             gl.deleteProgram(this.program)
         //if (this.render_to_tex)
         //    gl.deleteTexture(this.render_to_tex)
+    }
+    uniform_by_name(lst, name) {
+        for(let eu of lst) 
+            if (eu.name === name) 
+                return eu
+        return null
+    }
+
+    update_uniforms(text, into, other, in_group) 
+    {
+        let new_uniforms = parse_glsl_uniforms(text)
+        let changed = new_uniforms.length !== into.length
+        // need to this the iteration anyway to do the type check
+        for(let nu of new_uniforms) {
+            const eu = this.uniform_by_name(into, nu.name)
+            if (eu === null || eu.type !== nu.type) {
+                changed = true // new name not found in old or it changed type in the same source
+            }
+            const oeu = this.uniform_by_name(other, nu.name)
+            if (oeu !== null) {
+                assert(oeu.type === nu.type, this, "type mismatch for uniform " + nu.name)
+            }
+        }  
+
+        if (!changed)
+            return
+        for(let eu of into)
+            this.node.remove_param(eu.param)
+        into.length = 0
+        for(let nu of new_uniforms) {
+            if (nu.type == 'float')
+                nu.param = new ParamFloat(this.node, nu.name, 0, [0,1])
+            else if (nu.type == 'int')
+                nu.param = new ParamInt(this.node, nu.name, 0)
+            else if (nu.type == 'vec2')
+                nu.param = new ParamVec2(this.node, nu.name, 0, 0, false)
+            else
+                continue
+            into.push(nu)
+            nu.param.set_group(in_group)
+        }
+        in_group.update_elems()
     }
 
     make_tex_aligned_mesh(tex) {
