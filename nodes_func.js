@@ -19,10 +19,12 @@ class NodeFuncFill extends NodeCls
         this.shader_node.cls.vtx_text.set_text(`#version 300 es
 in vec4 vtx_pos;
 out vec2 v_coord;
+uniform mat3 t_mat;
 
 void main(void)
 {
-    v_coord = vtx_pos.xy;
+    vec3 tmp = t_mat * vec3(vtx_pos.xy, 1.0);
+    v_coord = tmp.xy;
     gl_Position = vec4(vtx_pos.xy, 1.0, 1.0);
 }
 `)
@@ -98,6 +100,7 @@ float snoise(vec2 v)
 void main() {
     float v = snoise(v_coord);
     outColor = vec4(v, v, v, 1.0);
+    //outColor = vec4(abs(v_coord.x), abs(v_coord.y), 1.0, 1.0);
 }
 `)
     }

@@ -272,7 +272,7 @@ class NodeShader extends NodeCls
             this.program.attrs[attr_name] = gl.getAttribLocation(this.program, attr_name);
             
         this.program.uniforms = {}
-        for(let uniform_name of []) {
+        for(let uniform_name of ['t_mat']) {
             this.program.uniforms[uniform_name] = gl.getUniformLocation(this.program, uniform_name);
         }
 
@@ -285,6 +285,8 @@ class NodeShader extends NodeCls
 
         let transform = mat3.create()
         mat3.invert(transform, tex.t_mat)
+        if (this.program.uniforms['t_mat'] !== null)
+            gl.uniformMatrix3fv(this.program.uniforms['t_mat'], false, tex.t_mat)
 
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex.tex_obj, 0);
 
