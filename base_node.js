@@ -767,7 +767,7 @@ class Node {
         if (this.self_dirty)
             return true
         for(let p of this.parameters)
-            if (p.dirty)
+            if (p.pis_dirty())
                 return true
         for(let t of this.inputs) 
             if (t.is_dirty())
@@ -778,9 +778,10 @@ class Node {
         this._node_dirty = false
         this.self_dirty = false
         for(let p of this.parameters)
-            p.dirty = false
+            p.pclear_dirty()
         for(let t of this.inputs) 
             t.tset_dirty(false)
+        this.cls.cclear_dirty()
     }
     
     call_params_change() {

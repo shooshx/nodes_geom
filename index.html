@@ -370,15 +370,31 @@ function trigger_frame_draw(do_run, clear_all=false)  {
     draw_request.do_run |= do_run
     draw_request.clear_all |= clear_all
 }
+function clear_draw_req() {
+    draw_request.draw = false
+    draw_request.do_run = false
+    draw_request.clear_all = false    
+}
 
 function myAddEventListener(obj, event_name, func) {
     obj.addEventListener(event_name, function() {
-        let r = func.apply(null, arguments)
+        let r
+        try {
+            r = func.apply(null, arguments)
+        }
+        catch(e) {
+            if (e.node_cls === undefined) {
+                throw e
+            }
+            clear_draw_req() // don't want the next iteration here to draw
+            set_error(e.node_cls, e.message)
+            console.error(e)
+            return
+        }
+        
         if (draw_request.draw) {
             let do_run = draw_request.do_run, clear_all = draw_request.clear_all
-            draw_request.draw = false
-            draw_request.do_run = false
-            draw_request.clear_all = false
+            clear_draw_req()
             do_frame_draw(do_run, clear_all)
         }
         return r;

@@ -227,7 +227,9 @@ function is_ws(c) {
     return c == ' ' || c == '\t' || c == '\n' || c == '\r'
 }
 const SUPPORTED_TYPES = ['float', 'int', 'vec2']
-function parse_glsl_uniforms(text) {
+function parse_glsl_uniforms(text) 
+{
+    // not handling comments or pre-processor
     let uniforms = []
     let ci = 0, len = text.length
     const consume_identifier = ()=>{
@@ -272,10 +274,10 @@ class NodeShader extends NodeCls
         this.in_tex = new InTerminal(node, "in_tex")
         this.out_tex = new OutTerminal(node, "out_texture")
         this.vtx_text = new ParamTextBlock(node, "Vertex Shader", (text)=>{
-            this.update_uniforms(text, this.vert_uniforms, this.frag_uniforms, this.vert_group)
+            this.update_uniforms(text, this.uniforms_vert, this.vert_group)
         })
         this.frag_text = new ParamTextBlock(node, "Fragment Shader", (text)=>{
-            this.update_uniforms(text, this.frag_uniforms, this.vert_uniforms, this.frag_group)
+            this.update_uniforms(text, this.uniforms_frag, this.frag_group)
         })
         // used so that the uniforms would get mixed up and rearranged each time they are parsed
         this.vert_group = new ParamGroup(node, "Vertex Shader Uniforms")
@@ -283,8 +285,11 @@ class NodeShader extends NodeCls
 
         this.attr_names = null // will be set by caller
         this.program = null
-        this.vert_uniforms = [] // array of {name:,type:}
-        this.frag_uniforms = []
+        this.uniforms_frag = [] // list of {name:,type:}
+        this.uniforms_vert = [] 
+        this.uniforms = {} // (unified) map name to {param:}
+        this.last_uniforms_err = null
+
         // it's ok for the texture to belong to this node since texture is const only so it won't be modified
         //this.render_to_tex = null 
     }
@@ -294,47 +299,78 @@ class NodeShader extends NodeCls
         //if (this.render_to_tex)
         //    gl.deleteTexture(this.render_to_tex)
     }
-    uniform_by_name(lst, name) {
-        for(let eu of lst) 
-            if (eu.name === name) 
-                return eu
+    uniform_by_name(name) {
+        return this.uniforms[name]
+    }
+    uniform_by_name_in(lst, name) {
+        for(let u of lst)
+            if (u.name === name)
+                return u
         return null
     }
 
-    update_uniforms(text, into, other, in_group) 
+    update_uniforms(text, into, in_group) 
     {
+        this.last_uniforms_err = null
         let new_uniforms = parse_glsl_uniforms(text)
-        let changed = new_uniforms.length !== into.length
+        let changed = into.length !== new_uniforms.length
+
         // need to this the iteration anyway to do the type check
         for(let nu of new_uniforms) {
-            const eu = this.uniform_by_name(into, nu.name)
+            const eu = this.uniform_by_name_in(into, nu.name)
             if (eu === null || eu.type !== nu.type) {
                 changed = true // new name not found in old or it changed type in the same source
+                continue
             }
-            const oeu = this.uniform_by_name(other, nu.name)
-            if (oeu !== null) {
-                assert(oeu.type === nu.type, this, "type mismatch for uniform " + nu.name)
-            }
-        }  
-
+        } 
         if (!changed)
             return
-        for(let eu of into)
-            this.node.remove_param(eu.param)
-        into.length = 0
-        for(let nu of new_uniforms) {
+        into.length = 0;
+        for(let nu of new_uniforms)
+            into.push(nu)
+        let new_unified = {}
+        for(let u of this.uniforms_vert)
+            new_unified[u.name] = u
+        for(let u of this.uniforms_frag) {
+            if (new_unified[u.name] !== undefined) {
+                if (new_unified[u.name].type !== u.type) {
+                    this.last_uniforms_err = "Mismatch type"
+                    return
+                }
+            }
+            else
+                new_unified[u.name] = u
+        }
+
+        // something there that should not be there?
+        for(let ename in this.uniforms) {
+            if (new_unified[ename] === undefined) {
+                this.node.remove_param(this.uniforms[ename].param)
+                delete this.uniforms[ename]
+            }
+        }
+        // create new ones that were just added
+        for(let new_name in new_unified) {
+            if (this.uniforms[new_name] !== undefined)
+                continue
+            const nu = new_unified[new_name]
+            let p = {}
             if (nu.type == 'float')
-                nu.param = new ParamFloat(this.node, nu.name, 0, [0,1])
+                p.param = new ParamFloat(this.node, nu.name, 0, [0,1])
             else if (nu.type == 'int')
-                nu.param = new ParamInt(this.node, nu.name, 0)
+                p.param = new ParamInt(this.node, nu.name, 0)
             else if (nu.type == 'vec2')
-                nu.param = new ParamVec2(this.node, nu.name, 0, 0, false)
+                p.param = new ParamVec2(this.node, nu.name, 0, 0, false)
             else
                 continue
-            into.push(nu)
-            nu.param.set_group(in_group)
+            this.uniforms[new_name] = p
+            p.param.set_group(in_group)
         }
-        in_group.update_elems()
+        // both groups need to update since we might have removed something from the other group
+        this.vert_group.update_elems()
+        this.frag_group.update_elems()
+        // TBD - save,load
+
     }
 
     make_tex_aligned_mesh(tex) {
@@ -345,6 +381,7 @@ class NodeShader extends NodeCls
 
     run() {
         ensure_webgl()
+        assert(this.last_uniforms_err === null, this, this.last_uniforms_err)
         let tex = this.in_tex.get_const() // TBD wrong
         assert(tex !== null, this, "missing input texture")
 
@@ -355,17 +392,22 @@ class NodeShader extends NodeCls
         assert(mesh.type == MESH_TRI, this, "No triangle faces in input mesh")
         assert(this.attr_names !== null, this, "Missing attr_names") // TBD parse this from the shaders
 
-        
-        this.program = createProgram(gl, this.vtx_text.text, this.frag_text.text);
-        assert(this.program, this, "failed to compile shaders")
+        // TBD do this only if the code actually changed
+        if (this.vtx_text.pis_dirty() || this.frag_text.pis_dirty()) 
+        {
+            if (this.program)
+                gl.deleteProgram(this.program)            
+            this.program = createProgram(gl, this.vtx_text.text, this.frag_text.text);
+            assert(this.program, this, "failed to compile shaders")
 
-        this.program.attrs = {}
-        for(let attr_name of this.attr_names)
-            this.program.attrs[attr_name] = gl.getAttribLocation(this.program, attr_name);
-            
-        this.program.uniforms = {}
-        for(let uniform_name of ['t_mat']) {
-            this.program.uniforms[uniform_name] = gl.getUniformLocation(this.program, uniform_name);
+            this.program.attrs = {}
+            for(let attr_name of this.attr_names)
+                this.program.attrs[attr_name] = gl.getAttribLocation(this.program, attr_name);
+                
+            this.program.uniforms = {}
+            for(let uniform_name of Object.keys(this.uniforms).concat(['t_mat'])) {
+                this.program.uniforms[uniform_name] = gl.getUniformLocation(this.program, uniform_name);
+            }
         }
 
         // draw
@@ -379,6 +421,11 @@ class NodeShader extends NodeCls
         mat3.invert(transform, tex.t_mat)
         if (this.program.uniforms['t_mat'] !== null)
             gl.uniformMatrix3fv(this.program.uniforms['t_mat'], false, tex.t_mat)
+        
+        for(let uniform_name in this.uniforms) {
+            if (this.program.uniforms[uniform_name] !== null)
+                this.uniforms[uniform_name].param.gl_set_value(this.program.uniforms[uniform_name])
+        }
 
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex.tex_obj, 0);
 

@@ -2,33 +2,7 @@
 
 // Perlin noise: https://github.com/stegu/webgl-noise/tree/master/src
 
-class NodeFuncFill extends NodeCls
-{
-    static name() { return "Function Fill" }
-    constructor(node) {
-        super(node)
-        this.prog = new Program()
-        this.shader_node = this.prog.add_node(0, 0, null, NodeShader, null)
-        this.shader_node.cls.attr_names = ["vtx_pos"]
-
-        this.in_mesh = new TerminalProxy(node, this.shader_node.cls.in_mesh)
-
-        this.in_tex = new TerminalProxy(node, this.shader_node.cls.in_tex)
-        this.out_tex = new TerminalProxy(node, this.shader_node.cls.out_tex)
-
-        this.shader_node.cls.vtx_text.set_text(`#version 300 es
-in vec4 vtx_pos;
-out vec2 v_coord;
-uniform mat3 t_mat;
-
-void main(void)
-{
-    vec3 tmp = t_mat * vec3(vtx_pos.xy, 1.0);
-    v_coord = tmp.xy;
-    gl_Position = vec4(vtx_pos.xy, 1.0, 1.0);
-}
-`)
-        this.shader_node.cls.frag_text.set_text( `#version 300 es
+const NOISE_FRAG_SRC =  `#version 300 es
 precision mediump float;
 
 in vec2 v_coord;
@@ -184,13 +158,85 @@ float snoise_3d(vec3 v)
                                 dot(p2,x2), dot(p3,x3) ) );
 }
 
-void main() {
-    float v = snoise_3d(vec3(v_coord.xy, 0.0));
+uniform float time;
+
+void main_x() {
+    float v = snoise_3d(vec3(v_coord.xy, time));
     //float v = snoise_2d(v_coord);
     outColor = vec4(v, v, v, 1.0);
-    //outColor = vec4(abs(v_coord.x), abs(v_coord.y), 1.0, 1.0);
+    //outColor = vec4(abs(v_coord.x), abs(v_coord.y), time, 1.0);
+
 }
-`)
+
+
+
+void main() {
+    vec3 v_coord3 = vec3(v_coord.xy, 0.0);
+    // Perturb the texcoords with three components of noise
+    vec3 uvw = v_coord3 + 0.1*vec3(snoise_3d(v_coord3 + vec3(0.0, 0.0, time)),
+                                   snoise_3d(v_coord3 + vec3(43.0, 17.0, time)),
+                                   snoise_3d(v_coord3 + vec3(-17.0, -43.0, time)));
+    //uvw = v_coord3;                                   
+    // Six components of noise in a fractal sum
+    float n = snoise_3d(uvw - vec3(0.0, 0.0, time));
+    n += 0.5 * snoise_3d(uvw * 2.0 - vec3(0.0, 0.0, time*1.4)); 
+    n += 0.25 * snoise_3d(uvw * 4.0 - vec3(0.0, 0.0, time*2.0)); 
+    n += 0.125 * snoise_3d(uvw * 8.0 - vec3(0.0, 0.0, time*2.8)); 
+    n += 0.0625 * snoise_3d(uvw * 16.0 - vec3(0.0, 0.0, time*4.0)); 
+    n += 0.03125 * snoise_3d(uvw * 32.0 - vec3(0.0, 0.0, time*5.6)); 
+    n = n * 0.7;
+    // A "hot" colormap - cheesy but effective 
+    outColor = vec4(vec3(1.0, 0.5, 0.0) + vec3(n, n, n), 1.0);    
+
+}
+
+`
+
+const NOSE_VERT_SRC = `#version 300 es
+in vec4 vtx_pos;
+out vec2 v_coord;
+uniform mat3 t_mat;
+
+void main(void)
+{
+    vec3 tmp = t_mat * vec3(vtx_pos.xy, 1.0);
+    v_coord = tmp.xy;
+    gl_Position = vec4(vtx_pos.xy, 1.0, 1.0);
+}
+`
+
+class ParamProxy extends Parameter {
+    constructor(node, wrap) {
+        super(node, wrap.label)
+        this.wrap = wrap
+    }
+    save() { return this.wrap.save() }
+    load(v) { this.wrap.load(v) }
+    add_elems(parent) {
+        this.wrap.add_elems(parent)
+    }
+    pis_dirty() { return this.wrap.pis_dirty() }
+    pclear_dirty() { this.wrap.pclear_dirty() }
+}
+
+class NodeFuncFill extends NodeCls
+{
+    static name() { return "Function Fill" }
+    constructor(node) {
+        super(node)
+        this.prog = new Program()
+        this.shader_node = this.prog.add_node(0, 0, null, NodeShader, null)
+        this.shader_node.cls.attr_names = ["vtx_pos"]
+
+        this.in_mesh = new TerminalProxy(node, this.shader_node.cls.in_mesh)
+
+        this.in_tex = new TerminalProxy(node, this.shader_node.cls.in_tex)
+        this.out_tex = new TerminalProxy(node, this.shader_node.cls.out_tex)
+
+        this.shader_node.cls.vtx_text.set_text(NOSE_VERT_SRC)
+        this.shader_node.cls.frag_text.set_text(NOISE_FRAG_SRC)
+
+        this.time = new ParamProxy(node, this.shader_node.cls.uniform_by_name('time').param)
     }
     destructtor() {
         this.shader_node.cls.destructtor()
@@ -203,6 +249,10 @@ void main() {
     }
     clear_error() {
         this.shader_node.cls.clear_error()
+    }
+
+    cclear_dirty() {
+        this.shader_node.clear_dirty()
     }
 }
 

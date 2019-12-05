@@ -20,6 +20,7 @@ class NodeCls {
     clear_error() { this.error = null }
     did_connect(to_term, line) {}
     doing_disconnect(to_term, line) {}
+    cclear_dirty() {} // clear the dirty things in a NodeCls that are not exposed to the outside via proxies
 }
 
 

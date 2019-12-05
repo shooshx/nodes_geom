@@ -463,6 +463,7 @@ input {
     border: solid #333 2px;
     box-sizing: border-box;
     top: 70px;
+    z-index: 100;
 }
 .dlg_resize_rb {
     position: absolute;

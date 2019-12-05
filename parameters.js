@@ -14,7 +14,7 @@ class Parameter
         this.dirty = true  // was it changed since the last run?
         this.change_func = null
         this.shares_line_from = null
-        this.group_line_elem = null
+        this.group_param = null
     }
     set_label(text) {
         this.label = text
@@ -47,6 +47,12 @@ class Parameter
         this.dirty = true
         if (draw)
             trigger_frame_draw(true)
+    }
+    pclear_dirty() {
+        this.dirty = false
+    }
+    pis_dirty() {
+        return this.dirty
     }
     call_change() { // reimplemet this if this.v is not the value
         if (this.change_func) 
@@ -154,9 +160,10 @@ function add_div(parent, cls) {
 }
 function add_param_line(parent, param=null) { 
     if (param !== null) {
-        if (param.shares_line_from)
+        if (param.shares_line_from !== null)
             return param.shares_line_from.line_elem
-        if (param.group_param)
+        // line_elem of the group may be null if the group is not displayed since it's an internal node    
+        if (param.group_param !== null && param.group_param.line_elem !== null)
             parent = param.group_param.line_elem
     }
     return add_div(parent, 'param_line') 
@@ -341,6 +348,9 @@ class ParamInt extends Parameter {
         this.label_elem = add_param_label(this.line_elem, this.label)
         add_param_edit(this.line_elem, this.v, ED_INT, (v)=>{ this.v = parseInt(v); this.pset_dirty() }) // TBD enforce int with parsing
     }
+    gl_set_value(loc) {
+        gl.uniform1i(loc, this.v)
+    }    
 }
 
 class ParamStr extends Parameter {
@@ -581,6 +591,9 @@ class ParamFloat extends Parameter {
         this.item.set_to_const(v)
         this.pset_dirty()
     }
+    gl_set_value(loc) {
+        gl.uniform1f(loc, this.v)
+    }
 }
 
 
@@ -632,7 +645,10 @@ class ParamVec2 extends Parameter {
     }
     get_last_error() {
         return this.item_x.get_last_error() || this.item_y.get_last_error()
-    }    
+    }
+    gl_set_value(loc) {
+        gl.uniform2f(loc, this.x, this.y)
+    }
 }
 
 class ParamVec2Int extends Parameter {
