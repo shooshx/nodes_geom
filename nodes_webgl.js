@@ -392,7 +392,6 @@ class NodeShader extends NodeCls
         assert(mesh.type == MESH_TRI, this, "No triangle faces in input mesh")
         assert(this.attr_names !== null, this, "Missing attr_names") // TBD parse this from the shaders
 
-        // TBD do this only if the code actually changed
         if (this.vtx_text.pis_dirty() || this.frag_text.pis_dirty()) 
         {
             if (this.program)

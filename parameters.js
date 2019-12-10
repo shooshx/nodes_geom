@@ -61,6 +61,9 @@ class Parameter
     share_line_elem_from(param) {
         this.shares_line_from = param   
     }
+    is_sharing_line_elem() {
+        return this.shares_line_from !== null && this.shares_line_from.visible
+    }
     set_group(group_param) {
         this.group_param = group_param
     }
@@ -160,7 +163,7 @@ function add_div(parent, cls) {
 }
 function add_param_line(parent, param=null) { 
     if (param !== null) {
-        if (param.shares_line_from !== null)
+        if (param.is_sharing_line_elem())
             return param.shares_line_from.line_elem
         // line_elem of the group may be null if the group is not displayed since it's an internal node    
         if (param.group_param !== null && param.group_param.line_elem !== null)
@@ -294,7 +297,7 @@ function add_param_checkbox(line, label, value, set_func) {
     let etext = add_elem(line, 'label', 'param_checkbox_text')
     etext.setAttribute("for", ein.id)
     etext.innerText = label
-    return etext
+    return [ein, etext]
 }
 function add_push_btn(parent, label, onclick) {
     let btn = add_div(parent, "param_btn")
@@ -379,13 +382,15 @@ class ParamBool extends Parameter {
     load(v) { this.v = v.v; this.call_change()  }
     add_elems(parent) {
         this.line_elem = add_param_line(parent, this)
-        add_param_label(this.line_elem, null)  // empty space
+        if (!this.is_sharing_line_elem()) 
+            add_param_label(this.line_elem, null) 
         let add_func = this.as_btn ? add_checkbox_btn : add_param_checkbox
-        this.label_elem = add_func(this.line_elem, this.label, this.v, (v) => { 
+        const [ein,label] = add_func(this.line_elem, this.label, this.v, (v) => { 
             this.v = v; 
             this.call_change()
             this.pset_dirty()
         })
+        this.label_elem = label
     }
 }
 
@@ -1455,7 +1460,7 @@ class ParamSelect extends Parameter
     save() { return { sel_str: this.opts[this.sel_idx] } }
     load(v) { this.sel_idx = this.opts.indexOf(v.sel_str); }
     add_elems(parent) {
-        this.line_elem = add_param_line(parent)
+        this.line_elem = add_param_line(parent, this)
         this.label_elem = add_param_label(this.line_elem, this.label)
         add_combobox(this.line_elem, this.opts, this.sel_idx, (v)=>{ 
             this.sel_idx = v; 

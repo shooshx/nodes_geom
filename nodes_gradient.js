@@ -430,6 +430,8 @@ class ParamImageSelectBtn extends Parameter
     load(v) {}
     add_elems(parent) {
         this.line_elem = add_param_line(parent, this)
+        if (!this.is_sharing_line_elem()) 
+            add_param_label(this.line_elem, null) 
         const dismiss_menu = ()=>{
             if (this.menu_elem !== null) {
                 this.menu_elem.parentElement.removeChild(this.menu_elem)
@@ -535,17 +537,25 @@ class NodeGradient extends NodeCls
             this.selected_indices.includes_shifted = function(v) { return this.includes(v + NODE_POINT_LST_OFFSET) } // used for yellow mark of the selected point
             add_point_select_mixin(this, this.selected_indices, this.points_adapter)
         })
+        this.method = new ParamSelect(node, "Method", 0, ["Stops", "Function"], (sel_idx)=>{
+            this.table.set_visible(sel_idx == 0)
+            this.add_stops_btn.set_visible(sel_idx == 0)
+            this.func.set_visible(sel_idx == 1)
+        })
+        this.method.share_line_elem_from(this.type)
         this.p1 = new ParamVec2(node, "Point 1", -0.5, 0)
         this.r1 = new ParamFloat(node, "Radius 1", 0.1)
         this.p2 = new ParamVec2(node, "Point 2", 0.5, 0)
         this.r2 = new ParamFloat(node, "Radius 2", 0.7)
+        this.func = new ParamStr(node, "f(t)=", "")
+        const presets_btn = new ParamImageSelectBtn(node, "Presets", GRADIENT_PRESETS, make_preset_img, (pr)=>{this.load_preset(pr)})
         this.add_stops_btn = new ParamBool(node, "Add stops", true, null)
         this.add_stops_btn.display_as_btn(true)
-        const presets_btn = new ParamImageSelectBtn(node, "Presets", GRADIENT_PRESETS, make_preset_img, (pr)=>{this.load_preset(pr)})
-        presets_btn.share_line_elem_from(this.add_stops_btn)
+        this.add_stops_btn.share_line_elem_from(presets_btn)
         this.table = new ParamTable(node, "Stops", this.sorted_order)
         this.values = new ParamFloatList(node, "Value", this.table, this.selected_indices, ()=>{this.redo_sort()})
         this.colors = new ParamColorList(node, "Color", this.table)
+
 
         this.load_preset(GRADIENT_PRESETS[0])
  
