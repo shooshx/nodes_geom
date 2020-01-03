@@ -71,7 +71,8 @@ class Mesh extends PObject
 
     invalidate_pos() {
         this.tcache.vtx_pos = null  // invalidate
-        this.meta.vtx_pos.made_glbuf = false
+        if (this.meta.vtx_pos !== null)
+            this.meta.vtx_pos.made_glbuf = false
         this.paths = null
     }
 

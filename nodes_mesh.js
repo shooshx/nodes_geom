@@ -1203,6 +1203,29 @@ function mesh_lines(idxs, vtx, face_size) {
     return lines
 }
 
+// TBD skip open paths
+function path_lines(paths_ranges, vtx) {
+    let lines = [], face_sizes = []
+    for(let pri = 0; pri < paths_ranges.length; pri += 3) {
+        let start_idx = paths_ranges[pri]
+        let end_idx = paths_ranges[pri+1]
+        let start_vidx = start_idx*2, end_vidx = end_idx*2
+        let prev_x = vtx[end_vidx-2], prev_y = vtx[end_vidx-1]
+        let prev_from_idx = end_idx-1
+        for(let vidx = start_vidx; vidx < end_vidx; vidx += 2) {
+            let p_prev = vec2.fromValues(prev_x, prev_y)
+            p_prev.from_idx = prev_from_idx
+            let x = vtx[vidx], y = vtx[vidx+1]
+            let p_cur = vec2.fromValues(x, y)
+            p_cur.from_idx = vidx/2
+            prev_x = x, prev_y = y, prev_from_idx = p_cur.from_idx
+            lines.push([p_prev, p_cur])
+        }
+        face_sizes.push(end_idx - start_idx)
+    }
+    return [lines, face_sizes]
+}
+
 function inset_lines(lines, width) {
     let from_to = vec2.create(), ort = vec2.create()
 
@@ -1215,7 +1238,60 @@ function inset_lines(lines, width) {
         vec2.scaleAndAdd(l[1], l[1], ort, width)     
     }
     return lines
-}    
+}
+
+// with paths, detect and skip a line that goes the other way that the rest of the poly since it was too short
+// https://stackoverflow.com/questions/1165647/how-to-determine-if-a-list-of-polygon-points-are-in-clockwise-order
+function skip_short_knots(intersections) 
+{    
+    let path_lines = []
+    for(let i = 0; i < intersections.length; ++i)
+        path_lines.push([intersections[i], intersections[(i+1)%intersections.length]])
+
+    let found, len = path_lines.length
+    do {
+        found = false
+        // go over the path with 3 indices, look for middle that's different in sign from ends
+        let a, b, c, np;
+        for(a = 0; a < len; ++a) {
+            b = (a+1)%len, c = (a+2)%len
+            np = get_line_intersection(path_lines[a], path_lines[c], false)
+            if (np !== null) {
+                found = true;
+                break;
+            }
+        }
+        if (found) {
+            np.from_idx = intersections[b].from_idx
+            intersections.splice(b, 1, np)
+            intersections.splice((b+1)%len, 1)
+            path_lines.splice(b, 1)
+        }
+        len = path_lines.length
+    } while(found && len > 3) // if we found one knot and removed it, try to find another one
+}
+
+function get_line_intersection(l0, l1, allow_overshoot) 
+{
+    var p0_x = l0[0][0], p0_y = l0[0][1]
+    var p1_x = l0[1][0], p1_y = l0[1][1]
+    var p2_x = l1[0][0], p2_y = l1[0][1]
+    var p3_x = l1[1][0], p3_y = l1[1][1]
+    var s1_x = p1_x - p0_x;
+    var s1_y = p1_y - p0_y;
+    var s2_x = p3_x - p2_x;
+    var s2_y = p3_y - p2_y;
+    var s = (-s1_y * (p0_x - p2_x) + s1_x * (p0_y - p2_y)) / (-s2_x * s1_y + s1_x * s2_y);
+    var t = ( s2_x * (p0_y - p2_y) - s2_y * (p0_x - p2_x)) / (-s2_x * s1_y + s1_x * s2_y);
+    if (allow_overshoot || (s >= 0 && s <= 1 && t >= 0 && t <= 1))
+    {
+        // intersect detected
+        var i_x = p0_x + (t * s1_x);
+        var i_y = p0_y + (t * s1_y);
+        return vec2.fromValues(i_x, i_y);
+    }
+    return null; // No collision
+}
 
 
 class ShrinkFaces extends NodeCls
@@ -1223,54 +1299,52 @@ class ShrinkFaces extends NodeCls
     static name() { return "Shrink Faces" }
     constructor(node) {
         super(node)
-        this.in_mesh = new InTerminal(node, "in_mesh")
-        this.out_mesh = new OutTerminal(node, "out_mesh")    
+        this.in_obj = new InTerminal(node, "in_obj")
+        this.out_obj = new OutTerminal(node, "out_obj")    
         this.offset = new ParamFloat(node, "Offset", 0.01)
-        this.allow_overshoot = new ParamBool(node, "Allow over-shoot", false)
+        // over-shoot happens when the triangle is thinner than the offset, in that case the intersctions are going to be reversed
+        this.allow_overshoot = new ParamBool(node, "Allow over-shoot", false) 
     }
 
-    get_line_intersection(l0, l1) 
-    {
-        var p0_x = l0[0][0], p0_y = l0[0][1]
-        var p1_x = l0[1][0], p1_y = l0[1][1]
-        var p2_x = l1[0][0], p2_y = l1[0][1]
-        var p3_x = l1[1][0], p3_y = l1[1][1]
-        var s1_x = p1_x - p0_x;
-        var s1_y = p1_y - p0_y;
-        var s2_x = p3_x - p2_x;
-        var s2_y = p3_y - p2_y;
-        var s = (-s1_y * (p0_x - p2_x) + s1_x * (p0_y - p2_y)) / (-s2_x * s1_y + s1_x * s2_y);
-        var t = ( s2_x * (p0_y - p2_y) - s2_y * (p0_x - p2_x)) / (-s2_x * s1_y + s1_x * s2_y);
-        if (this.allow_overshoot.v || (s >= 0 && s <= 1 && t >= 0 && t <= 1))
-        {
-            // intersect detected
-            var i_x = p0_x + (t * s1_x);
-            var i_y = p0_y + (t * s1_y);
-            return [i_x, i_y];
-        }
-        return null; // No collision
-    }
 
     run() {
-        let mesh = this.in_mesh.get_const()
+        let mesh = this.in_obj.get_const()
         assert(mesh !== null, this, "missing input mesh")
-        assert(mesh.face_size !== undefined, this, "input needs to be a mesh")
+        //assert(mesh.face_size !== undefined, this, "input needs to be a mesh")
 
-        let face_size = mesh.face_size()
         // a line is a list of two points. `lines` has `face_size` lines for each face
-        let lines = mesh_lines(mesh.arrs.idx, mesh.arrs.vtx_pos, face_size)
+        // if face_sizes is not null, then it's different size for every face
+        if (mesh.constructor == Mesh) {
+            var const_face_size = mesh.face_size()
+            var lines = mesh_lines(mesh.arrs.idx, mesh.arrs.vtx_pos, const_face_size)
+            var face_sizes = null
+        }
+        else if (mesh.constructor == MultiPath) {
+            var const_face_size = null
+            var [lines, face_sizes] = path_lines(mesh.paths_ranges, mesh.arrs.vtx_pos)
+        }
+        else {
+            assert(false, this, "input needs to be mesh or paths")
+        }
         lines = inset_lines(lines, this.offset.v) // in-place
+
 
         //this.out_mesh.set(new LinesObj(lines))
         //return
 
-        let new_vtx = [], new_idx = [], from_vidx = [], from_face = []
+        let new_vtx = [], new_idx = [], from_face = [], new_ranges = []
+        let from_vidx = [] // for every vertex pushed to new_vtx, what's the index of the vertex in the original object it came from
 
         let ri = 0
-        for (let i = 0, fi=0; i < lines.length; i += face_size, ++fi) {
+        let cur_face_size = const_face_size
+        for (let i = 0, fi = 0; i < lines.length; i += cur_face_size, ++fi) 
+        {
+            if (face_sizes !== null)
+                cur_face_size = face_sizes[fi]
+
             let got_null = false, intersections = []
-            for(let j = 0; j < face_size; ++j) {
-                var p = this.get_line_intersection(lines[i+j], lines[i+((j+1) % face_size)])
+            for(let j = 0; j < cur_face_size; ++j) {
+                var p = get_line_intersection(lines[i+j], lines[i+((j+1) % cur_face_size)], this.allow_overshoot.v)
                 if (p === null) {
                     got_null = true
                     break
@@ -1278,19 +1352,33 @@ class ShrinkFaces extends NodeCls
                 p.from_idx = lines[i+j][1].from_idx
                 intersections.push(p)
             }
+            if (mesh.constructor == MultiPath) { // knots
+                skip_short_knots(intersections)
+            }
+
             if (got_null)
                 continue
+            let start_idx = ri
             for(let p of intersections) {
                 new_vtx.push(p[0], p[1])
                 from_vidx.push(p.from_idx)
                 new_idx.push(ri)
                 ri += 1
             }
+            new_ranges.push(start_idx, ri, PATH_CLOSED)
             from_face.push(fi)
         }
-        let out_obj = new Mesh()
+
+        if (mesh.constructor == Mesh) {
+            var out_obj = new Mesh()
+            out_obj.set('idx', new TIdxArr(new_idx))
+            out_obj.set_type(mesh.type)
+        }
+        else { // MultiPath
+            var out_obj = new MultiPath()
+            out_obj.paths_ranges = new_ranges;
+        }
         out_obj.set('vtx_pos', new TVtxArr(new_vtx), 2)
-        out_obj.set('idx', new TIdxArr(new_idx))
         // duplicate other attributes
         for(let arr_name in mesh.arrs) {
             if (arr_name == "idx" || arr_name == "vtx_pos")
@@ -1317,9 +1405,8 @@ class ShrinkFaces extends NodeCls
             out_obj.set(arr_name, new_arr, num_elems, mesh.meta[arr_name].need_normalize)
 
         }
-        // TBD dup other attributes?
-        // TBD Quads
-        out_obj.set_type(mesh.type)
-        this.out_mesh.set(out_obj)
+
+
+        this.out_obj.set(out_obj)
     }
 }

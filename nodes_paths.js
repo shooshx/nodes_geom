@@ -10,10 +10,9 @@ class MultiPath extends PObject
     static name() { return "MultiPath" }
     constructor() {
         super()
-        //this.cmds = [] // list of paths, each a list of ['M', 0, 'L', 1] where 0,1 are indices of vertices
-        this.paths_ranges = [] // index in (normal index) of start, one-past-end of every path, flags (1 for closed)
-        this.paths = null
-        this.arrs = { vtx_pos:null, ctrl_to_prev:null, ctrl_from_prev:null }  // common to all paths
+        this.paths_ranges = [] // index (normal index, not multiplied) of start, one-past-end of every path, flags (1 for closed)
+        this.paths = null // if created, for every triplet in paths_ranges, a Path2D
+        this.arrs = { vtx_pos:null }  // common to all paths
         // bezier control points: for every point i in vtx_pos, ctrl_xx are the two control points of the line coming into i
         //   ctrl_to_prev is the control point coming from i towards the previous point in the path
         //   ctrl_from_prev is the control point coming from (i-1)%len towards point i
@@ -104,7 +103,7 @@ class MultiPath extends PObject
 
     is_curve(vidx) {
         let ctp = this.arrs.ctrl_to_prev, cfp = this.arrs.ctrl_from_prev
-        return ctp !== null && (ctp[vidx] != 0 || ctp[vidx+1] != 0 || cfp[vidx] != 0 || cfp[vidx+1] != 0)
+        return ctp !== undefined && (ctp[vidx] != 0 || ctp[vidx+1] != 0 || cfp[vidx] != 0 || cfp[vidx+1] != 0)
     }
 
     ensure_paths_created() {
@@ -114,7 +113,8 @@ class MultiPath extends PObject
         this.paths = []
         let vtx = this.arrs.vtx_pos;
         let ctp = this.arrs.ctrl_to_prev, cfp = this.arrs.ctrl_from_prev
-        for(let pri = 0; pri < this.paths_ranges.length; pri += 3) {
+        for(let pri = 0; pri < this.paths_ranges.length; pri += 3) 
+        {
             let start_vidx = this.paths_ranges[pri]*2
             let end_vidx = this.paths_ranges[pri+1]*2
             let prev_x = vtx[start_vidx], prev_y = vtx[start_vidx+1]
@@ -145,13 +145,14 @@ class MultiPath extends PObject
         let cidx = 0
         let fcol = this.arrs.face_color
         do_fill = do_fill && (fcol !== undefined)
+        let line_width = 1 / image_view.viewport_zoom
         for(let p of this.paths) {
             if (do_fill) {
                 let col = "rgba(" + fcol[cidx] + "," + fcol[cidx+1] + "," + fcol[cidx+2] + "," + (fcol[cidx+3]/255) + ")"
                 cidx += 4
                 ctx_img.fillStyle = col
                 ctx_img.fill(p)
-                ctx_img.lineWidth = 1 / image_view.viewport_zoom
+                ctx_img.lineWidth = line_width
                 ctx_img.strokeStyle = col
                 ctx_img.stroke(p) // fill antialiasing gaps
             }
@@ -351,6 +352,8 @@ function triangulate_path(obj, node)
     }
     for(let attrname in obj.arrs) {
         let attrarr = obj.arrs[attrname]
+        if (attrarr === null) // ctrl_to_x would be null if there's no rounded corners
+            continue
         console.assert(isTypedArray(attrarr), "not a typed-array " + attrname)
         out_mesh.set(attrname, new attrarr.constructor(attrarr), obj.meta[attrname].num_elems, obj.meta[attrname].need_normalize)
     }
@@ -434,5 +437,14 @@ class NodeRoundCorners extends NodeCls
         new_obj.set('ctrl_from_prev', new TVtxArr(cfp), 2, false)
         new_obj.paths_ranges = new_ranges
         this.out_paths.set(new_obj)
+
+        // preserve face attributes. vertices changed place so are not preserved
+        for(let arr_name in obj.arrs) {
+            if (!arr_name.startsWith("face_")) 
+                continue
+            let from_arr = obj.arrs[arr_name]
+            let new_arr = new from_arr.constructor(from_arr)
+            new_obj.set(arr_name, new_arr, obj.meta[arr_name].need_normalize)
+        }
     }
 }
