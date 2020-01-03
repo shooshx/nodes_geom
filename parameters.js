@@ -236,10 +236,16 @@ function add_param_slider(line, min_val, max_val, start_value, set_func) {
     const center = add_div(line, "slider_line")
     const fill = add_div(center, "slider_fill")
     const thumb = add_div(center, "slider_thumb")
-    let v;
+    const cfg = { min_val: min_val, max_val: max_val, v: null } // v is always in range [0,1]
     const set_len = (len)=>{
         thumb.style.left = len + "px"
         fill.style.width = len + "px"
+    }
+    const r01_to_range = (v)=>{
+        return v*(cfg.max_val - cfg.min_val) + cfg.min_val
+    }
+    const range_to_r01 = (exv)=>{
+        return (exv - cfg.min_val)/(cfg.max_val - cfg.min_val)
     }
     const update = (value)=>{
         if (value === null) {
@@ -248,9 +254,9 @@ function add_param_slider(line, min_val, max_val, start_value, set_func) {
         }
         thumb.classList.toggle('slider_thumb_disabled', false)
         const crect = center.getBoundingClientRect()
-        v = (value - min_val)/(max_val - min_val)
-        v = clamp(0, v, 1) // don't show the thumb outside the line, even though it's wrong
-        set_len(v * crect.width)
+        cfg.v = range_to_r01(value)
+        cfg.v = clamp(0, cfg.v, 1) // don't show the thumb outside the line, even though it's wrong
+        set_len(cfg.v * crect.width)
     }    
     update(start_value)
     let dragging = false
@@ -264,18 +270,24 @@ function add_param_slider(line, min_val, max_val, start_value, set_func) {
             return
         const crect = center.getBoundingClientRect()
         const nv = (ev.pageX - crect.left)/crect.width
-        if (nv == v)
+        if (nv == cfg.v)
             return
-        v = clamp(0, nv, 1)
-        set_len(v * crect.width)
-        const exv = v*(max_val - min_val) + min_val
+        cfg.v = clamp(0, nv, 1)
+        set_len(cfg.v * crect.width)
+        const exv = r01_to_range(cfg.v)
         set_func(exv)
     })
     document.addEventListener("mouseup", (ev)=>{
         dragging = false
     })
 
-    return { update: update }
+    const update_range = (min,max)=>{
+        let exv = r01_to_range(cfg.v)
+        cfg.min_val = min; cfg.max_val = max        
+        update(exv)
+    }
+
+    return { update: update, elem: center, update_range: update_range }
     // TBD refactor capture
 }
 function add_param_color(line, value, cls, set_func) {
@@ -424,10 +436,16 @@ class ExpressionItem {
         this.last_error = null // string of the error if there was one or null
         this.need_inputs = null // map string names of the inputs needed, already verified that they exist to the ObjRef that needs filling
         this.err_elem = null
-        this.slider_range = slider_range
-        this.slider = null
+        this.slider_enabled = (slider_range !== null)
+        this.slider_range = (this.slider_enabled) ? slider_range : [0,1]  // needs to be valid anyway
+        this.slider = null // object returned by add_param_slider
+        this.ctx_menu_elem = null // when the context menu is visible, otherwise null
     }
-    save_to(r) { r["se_" + this.prop_name] = this.se }
+    save_to(r) { 
+        r["se_" + this.prop_name] = this.se 
+        r["sldrng_" + this.prop_name] = this.slider_range
+        r["slden_" + this.prop_name] = this.slider_enabled
+    }
     load(v) {
         let vk = v["se_" + this.prop_name]
         if (vk !== undefined && vk !== null) 
@@ -437,6 +455,10 @@ class ExpressionItem {
             console.assert(lv !== undefined, "failed load value")
             this.do_set_prop(lv)
         }
+        let slden = v["slden_" + this.prop_name]
+        if (slden !== undefined)
+            this.slider_enabled = slden
+        this.slider_range = v["sldrng_" + this.prop_name] || this.slider_range
     }
     do_set_prop(v) {
         if (this.slider !== null)
@@ -507,6 +529,65 @@ class ExpressionItem {
         }
         
     } 
+
+    add_slider_mechanism(line) 
+    {
+        let disp_slider = (is_first)=> {
+            if (this.slider_enabled && (this.slider == null || is_first)) {
+                this.slider = add_param_slider(line, this.slider_range[0], this.slider_range[1], null, (v)=>{
+                    this.set_to_const(v)
+                    this.in_param.pset_dirty() 
+                })
+                this.peval(this.se) // this will set the slider position and enablement (but not do pset_dirty since nothing changed)
+            }
+            else if (!this.slider_enabled && this.slider != null) {
+                this.slider.elem.parentNode.removeChild(this.slider.elem)
+                this.slider = null
+            }
+        }
+        disp_slider(true) // on first display, always add the element if enabled
+
+        let update_range = ()=>{
+            if (this.slider === null)
+                return
+            this.slider.update_range(this.slider_range[0], this.slider_range[1])
+            save_state()
+        }
+
+        let dismiss_menu = ()=>{
+            if (this.ctx_menu_elem) {
+                this.ctx_menu_elem.parentNode.removeChild(this.ctx_menu_elem);   
+                this.ctx_menu_elem = null
+            }
+        }
+        myAddEventListener(line, "contextmenu", (e)=>{
+            let enable_slider_checkbox = (parent)=>{ 
+                let sld_line = add_div(parent, 'prm_slider_ctx_line')
+                let [ein,etext] = add_param_checkbox(sld_line, "Slider", this.slider_enabled, (v)=>{ 
+                    this.slider_enabled = v; disp_slider(false)
+                    toggle_en(v)
+                    save_state() // nothing else save the state since this is just a GUI change
+                })
+                //etext.classList.add('ctx_menu_opt')
+                let min_line = add_div(parent, 'prm_slider_ctx_line')
+                add_elem(min_line, 'SPAN', 'prm_slider_ctx_label').innerText = "Min:"
+                add_param_edit(min_line, this.slider_range[0], ED_FLOAT, (v)=>{ this.slider_range[0]=v; update_range() })
+                let max_line = add_div(parent, 'prm_slider_ctx_line')
+                add_elem(max_line, 'SPAN', 'prm_slider_ctx_label').innerText = "Max:"
+                add_param_edit(max_line, this.slider_range[1], ED_FLOAT, (v)=>{ this.slider_range[1]=v; update_range() })
+                let toggle_en = (v)=>{
+                    min_line.classList.toggle('param_disabled', !v)
+                    max_line.classList.toggle('param_disabled', !v)
+                }
+                toggle_en(this.slider_enabled)
+            } 
+            this.ctx_menu_elem = open_context_menu([{cmake_elems: enable_slider_checkbox}], e.pageX, e.pageY, main_view, ()=>{ dismiss_menu() } )
+            e.preventDefault()
+        })
+        param_reg_for_dismiss(()=>{dismiss_menu()})
+    }
+
+    // is_single_value is false for things like vec2 that have multiple values in the same line
     add_editbox(line, is_single_value) {
         let show_v, ed_type
         if (this.e != null && this.e !== undefined) {
@@ -517,20 +598,15 @@ class ExpressionItem {
             ed_type = this.prop_type
         }
         this.elem = add_param_edit(line, show_v, (ed_type == ED_FLOAT)?ED_FLOAT_OUT_ONLY:ed_type, (se)=>{this.peval(se)})
-        if (is_single_value) {
-            //this.elem.classList.add('param_input_long')
-            if (this.slider_range !== null) {
-                this.slider = add_param_slider(line, this.slider_range[0], this.slider_range[1], null, (v)=>{
-                    this.set_to_const(v)
-                    this.in_param.pset_dirty() 
-                })
-                this.peval(this.se) // this will set the slider position and enablement (but not do pset_dirty since nothing changed)
-            }
-        }
         if (this.last_error !== null) {
             this.elem.classList.toggle("param_input_error", true)
             this.show_err()
         }
+
+        if (is_single_value) {
+            this.add_slider_mechanism(line)
+        }
+
         return this.elem
     }
     set_to_const(v) {

@@ -1301,7 +1301,7 @@ class ShrinkFaces extends NodeCls
         super(node)
         this.in_obj = new InTerminal(node, "in_obj")
         this.out_obj = new OutTerminal(node, "out_obj")    
-        this.offset = new ParamFloat(node, "Offset", 0.01)
+        this.offset = new ParamFloat(node, "Offset", 0.01, [-0.1,0.1])
         // over-shoot happens when the triangle is thinner than the offset, in that case the intersctions are going to be reversed
         this.allow_overshoot = new ParamBool(node, "Allow over-shoot", false) 
     }

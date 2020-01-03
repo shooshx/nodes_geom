@@ -1,5 +1,4 @@
 GUI:
-- !!! parameter slider context menu - on/off, control range
 - parameter value change with drag and right button like in houdini
 - before running - do type checking
 - color picker with null
@@ -73,9 +72,8 @@ NODES:
     how to control parameters of the copies?
     for loop?
 - Boolean ops from Inkscape https://gitlab.com/inkscape/lib2geom/blob/master/src/2geom/intersection-graph.h
-- !!!! Shrink for paths (not trivial)
 - Gradient
-    with a 1d expression function
+    !!!with a 1d expression function
     spreadMethod with SVG  https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/spreadMethod
     fill, stroke,
 - !! 2d color function, sampling gradient
@@ -83,8 +81,7 @@ NODES:
     on a surface
     on a line
     interpolate property from input geometry
-- round corners
-    !!!!!!! pass face attributes
+
 
 - animate? modify a property for the next frame
 - random color with r,g,b ranges and seed parameter

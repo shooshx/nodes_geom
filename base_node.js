@@ -855,15 +855,20 @@ function find_node_obj(px, py, cvs_x, cvs_y) {
 function nodes_context_menu(px, py, wx, wy, cvs_x, cvs_y) {
     let obj = find_node_obj(px, py, cvs_x, cvs_y)
     
-    let opt
+    let opt, node = null;
     if (obj != null) {
         if (obj.constructor === Node)
-            opt = [{text:"Delete Node", func:function() { program.delete_node(obj, true)} }]
+            node = obj
+        else if (obj.constructor === DisplayFlagProxy)
+            node = obj.node
         else if (obj.constructor === Line)
-            opt = [{text:"Delete Line", func:function() { program.delete_line(obj, true)} }]
+            opt = [{text:"Delete Line", func:function() { program.delete_line(obj, true)} }]            
         else
             return null
     }
+    if (node !== null)
+        opt = [{text:"Delete Node", func:function() { program.delete_node(obj, true)} }]
+        
     else {
         opt = [{text:"Clear", func:()=>{ clear_program(); draw_nodes() } }, {text:"-"}]
         for(let c of nodes_classes)

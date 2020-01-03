@@ -378,21 +378,30 @@ function addTextChild(elem, txt) {
 }
 
 
+
 function open_context_menu(options, wx, wy, parent_elem, dismiss_func)
 {
-    let text = "<div class='ctx_menu'>"
+    let menu_elem = add_div(parent_elem, "ctx_menu")
+    let child_elems = []
     for(let opt of options) {
-        if (opt.text == '-') 
-            text += "<hr class='ctx_menu_sep'>"
-        else
-            text += "<div class='ctx_menu_opt'>" + opt.text + "</div>"
+        if (opt.cmake_elems)
+            child_elems.push(opt.cmake_elems(menu_elem))
+        else if (opt.text == '-') 
+            child_elems.push(add_elem(menu_elem, 'HR', "ctx_menu_sep"))
+        else {
+            let e = add_div(menu_elem, 'ctx_menu_opt')
+            e.innerText = opt.text
+            child_elems.push(e)
+        }
     }
-    text += "</div>" 
     
+    stop_propogation_on("mousedown", menu_elem) // stop it from dismissing on click due to other handlers in the document
+
     let parent_width = parent_elem.offsetWidth, parent_height = parent_elem.offsetHeight
-    let menu_elem = addTextChild(parent_elem, text)    
-    for(let i = 0; i < menu_elem.childNodes.length; ++i) {
-        let child = menu_elem.childNodes[i]
+    for(let i = 0; i < child_elems.length; ++i) {
+        if (options[i].func === undefined)
+            continue
+        let child = child_elems[i]
         stop_propogation_on("mousedown", child)
         myAddEventListener(child, 'click', function() {
             options[i].func()

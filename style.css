@@ -325,6 +325,16 @@ input {
     z-index: 1;  /* don't put z-index in cell to avoid it being above it for some reason */
 }
 
+.prm_slider_ctx_line {
+    display: flex;
+    width: 150px;
+    margin: 3px 0 0 5px;
+    align-items: center;
+}
+.prm_slider_ctx_label {
+    width: 40px;
+}
+
 #canvas_webgl{ 
     border: solid 1px;
     display: none; /* TEMP */
