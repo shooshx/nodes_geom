@@ -287,6 +287,23 @@ class ObjRef { // top level variable that references an object
         this.idx = idx
     }       
 }
+
+class ObjSingleEvaluator {
+    constructor(objref, subscripts) {
+        if (subscripts.length != 0)
+            throw new Error("Wrong subscript given to variable " + name)
+        this.objref = objref
+    }
+
+    eval() {
+        // single obj needs to be a reference object we make it a 1 item array
+        return this.objref.obj[0]
+    }
+    check_type() {
+        return TYPE_NUM
+    }
+}
+
 class ObjSubscriptEvaluator {
     constructor(objref, subscripts) {
         if (subscripts.length != 1)
@@ -300,6 +317,9 @@ class ObjSubscriptEvaluator {
         eassert(v !== undefined, "subscript not found " + this.subscript)        
         return v
     }
+    check_type() {
+        return TYPE_NUM
+    }    
 }
 
 const VAL_INDICES = { r:0, g:1, b:2, alpha:3, x:0, y:1, z:2, w:3, index:-1 } // TBD add HSV 
@@ -341,6 +361,9 @@ class MeshPropEvaluator {
             return this.meshref.idx
         return this.attr[this.meshref.idx * this.num_elems + this.valindex]
     }
+    check_type() {
+        return TYPE_NUM
+    }    
 }
 
 // examples:

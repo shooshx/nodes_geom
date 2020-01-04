@@ -369,16 +369,21 @@ class ParamInt extends Parameter {
 }
 
 class ParamStr extends Parameter {
-    constructor(node, label, start_v) {
+    constructor(node, label, start_v, change_func) {
         super(node, label)
         this.v = start_v
+        this.change_func = change_func
     }
     save() { return {v:this.v}}
     load(v) { this.v = v.v }
     add_elems(parent) {
         this.line_elem = add_param_line(parent)
         this.label_elem = add_param_label(this.line_elem, this.label)
-        add_param_edit(this.line_elem, this.v, ED_STR, (v)=>{ this.v = v; this.pset_dirty() }) // TBD enforce int with parsing
+        add_param_edit(this.line_elem, this.v, ED_STR, (v)=>{ 
+            this.v = v; 
+            this.call_change()
+            this.pset_dirty() 
+        }) 
     }
 }
 
@@ -503,6 +508,7 @@ class ExpressionItem {
         try {
             this.in_param.owner.state_access.reset_check()
             this.e = ExprParser.eval(se, this.in_param.owner.state_access)
+            const type = this.e.check_type()
         }
         catch(ex) { // TBD better show the error somewhere
             this.eset_error(ex)
@@ -1238,6 +1244,8 @@ class ListParam extends Parameter {
     }
 
     reprint_line(vidx, v) {
+        if (this.elem_lst.length == 0)
+            return // happens if the table is not visible (Gradient with function)
         let idx = vidx / this.values_per_entry
         let elem = this.elem_lst[idx]
         if (this.external_update) {
@@ -1378,7 +1386,7 @@ function color_to_uint8arr(c) {
     return [c.r, c.g, c.b, c.alpha*255]
 }
 class ParamColorList extends ListParam {
-    constructor(node, label, table) {
+    constructor(node, label, table, arr_type=TColorArr) {
         super(node, label, 4, table, TColorArr)
         this.need_normalize = true
     }
@@ -1403,6 +1411,7 @@ class ParamTable extends Parameter {
         super(node, label)
         this.list_params = []  // registered ListParams
         this.elem_cols = null
+        this.elem_visible = true  // for when we don't want to render the table because it's not visible (Gradient with function)
 
         this.sorted_order = sorted_order // list of the indices in the sorted order they are supposed to be displayed in
     }
@@ -1411,7 +1420,7 @@ class ParamTable extends Parameter {
         return this.list_params.length - 1
     }
     get_column_elem(column) {
-        if (this.elem_cols === null)
+        if (this.elem_cols === null || !this.visible)
             return null
         console.assert(column < this.elem_cols.length, "column index too high")
         return this.elem_cols[column]
@@ -1425,11 +1434,14 @@ class ParamTable extends Parameter {
         this.label_elem.innerText = this.label + ":"
         this.table_elem = add_div(this.line_elem, "param_list_body")
 
+        if (!this.visible)
+            return
+
         this.make_table()
     }
 
     remake_table() {
-        if (this.line_elem === null)
+        if (this.line_elem === null || !this.visible)
             return
         this.table_elem = clear_elem(this.table_elem)
         this.make_table()

@@ -610,7 +610,7 @@ class Node {
         // kept per-node since every node can want something different
         this.display_values = {}
 
-        this.state_access = new StateAccess(this.state_evaluators)
+        this.state_access = new StateAccess(this.state_evaluators) // evaluators created in the cls ctor
     }
 
     set_state_evaluators(d) { // called in cls ctor to configure how StateAccess accesses state
@@ -868,7 +868,7 @@ function nodes_context_menu(px, py, wx, wy, cvs_x, cvs_y) {
     }
     if (node !== null)
         opt = [{text:"Delete Node", func:function() { program.delete_node(obj, true)} }]
-        
+
     else {
         opt = [{text:"Clear", func:()=>{ clear_program(); draw_nodes() } }, {text:"-"}]
         for(let c of nodes_classes)

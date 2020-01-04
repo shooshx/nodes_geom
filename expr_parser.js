@@ -2,10 +2,17 @@
 
 // https://github.com/NishadSaraf/First-Order-Differentiation-In-C/blob/d6965c15bef4fe84837105eb0e5ed8f21ae9f80b/calculator.hpp
 
+const TYPE_BY_COMPONENT = 0; // not a real type, run the function component by component
+const TYPE_NUM = 1;
+const TYPE_VEC3 = 2; 
+const TYPE_VEC4 = 3;
+
+
 class ExprErr extends Error {
-    constructor(msg) {
-        super(msg)
-    }
+    constructor(msg) { super(msg) }
+}
+class TypeErr extends Error {
+    constructor(msg) { super(msg) }
 }
 
 function clamp(a, v, b) {
@@ -25,6 +32,9 @@ class NumNode  {
         return this.v;
     }
     is_decimal_num() { return this.decimal }
+    check_type() {
+        return TYPE_NUM
+    }
 }
 
 function checkZero(v) {
@@ -34,47 +44,95 @@ function checkZero(v) {
     return v;
 }
 
+function call_operator(v1, v2, op) {
+    let ret;
+    switch (op) {
+        case OPERATOR_BITWISE_OR:     ret = v1 | v2; break;
+        case OPERATOR_BITWISE_XOR:    ret = v1 ^ v2; break;
+        case OPERATOR_BITWISE_AND:    ret = v1 & v2; break;
+        case OPERATOR_BITWISE_SHL:    ret = v1 << v2; break;
+        case OPERATOR_BITWISE_SHR:    ret = v1 >> v2; break;
+        case OPERATOR_ADDITION:       ret = v1 + v2; break;
+        case OPERATOR_SUBTRACTION:    ret = v1 - v2; break;
+        case OPERATOR_MULTIPLICATION: ret = v1 * v2; break;
+        case OPERATOR_DIVISION:       ret = v1 / checkZero(v2); break;
+        case OPERATOR_MODULO:         ret = v1 % checkZero(v2); break;
+        case OPERATOR_POWER:          ret = Math.pow(v1, v2); break;
+        case OPERATOR_EXPONENT:       ret = v1 * Math.pow(10, v2); break;
+
+        case OPERATOR_LESS:           ret = v1 < v2; break
+        case OPERATOR_LESS_EQ:        ret = v1 <= v2; break
+        case OPERATOR_GREATER:        ret = v1 > v2; break
+        case OPERATOR_GREATER_EQ:     ret = v1 >= v2; break
+        case OPERATOR_EQ:             ret = v1 == v2; break
+        default:  throw new ExprErr("unexpected operator");
+    }
+    return ret;
+}
+
 class BinaryOpNode {
     constructor(l, r, _op) {
         this.left = l;
         this.right = r;
         this.op = _op;
+        this.type = null
+        this.t1 = null; this.t2 = null
+    }
+    check_type() {
+        if (this.type === null) {
+            let t1 = this.left.check_type(), t2 = this.right.check_type()
+            this.t1 = t1; this.t2 = t2
+            if (t1 > t2) {  let tmp = t1; t1 = t2; t2 = tmp } // t1 is lower
+            if (t1 == TYPE_NUM)
+                this.type = t2 // the vec (or float) type
+            else if (t1 != t2)
+                throw TypeErr("can't handle different vec types")
+            else 
+                this.type = t1 // both same vec type
+        }
+        return this.type
     }
 
     eval() {
-        let v1 = this.left.eval();
-        let v2 = this.right.eval();
-        let ret;
-        switch (this.op) {
-            case OPERATOR_BITWISE_OR:     ret = v1 | v2; break;
-            case OPERATOR_BITWISE_XOR:    ret = v1 ^ v2; break;
-            case OPERATOR_BITWISE_AND:    ret = v1 & v2; break;
-            case OPERATOR_BITWISE_SHL:    ret = v1 << v2; break;
-            case OPERATOR_BITWISE_SHR:    ret = v1 >> v2; break;
-            case OPERATOR_ADDITION:       ret = v1 + v2; break;
-            case OPERATOR_SUBTRACTION:    ret = v1 - v2; break;
-            case OPERATOR_MULTIPLICATION: ret = v1 * v2; break;
-            case OPERATOR_DIVISION:       ret = v1 / checkZero(v2); break;
-            case OPERATOR_MODULO:         ret = v1 % checkZero(v2); break;
-            case OPERATOR_POWER:          ret = Math.pow(v1, v2); break;
-            case OPERATOR_EXPONENT:       ret = v1 * Math.pow(10, v2); break;
-
-            case OPERATOR_LESS:           ret = v1 < v2; break
-            case OPERATOR_LESS_EQ:        ret = v1 <= v2; break
-            case OPERATOR_GREATER:        ret = v1 > v2; break
-            case OPERATOR_GREATER_EQ:     ret = v1 >= v2; break
-            case OPERATOR_EQ:             ret = v1 == v2; break
-            default:  throw new ExprErr("unexpected operator");
-        }
-        return ret;
+        console.assert(this.type !== null)
+        const v1 = this.left.eval();
+        const v2 = this.right.eval();
+        if (this.type == TYPE_NUM)
+            return call_operator(v1, v2, this.op)
+        if (this.t1 == this.t2) // save vec type
+            return apply_by_component([v1, v2], (v1, v2)=>{ return call_operator(v1, v2, this.op)})
+        // vec and num
+        let v,n
+        if (this.t1 == TYPE_NUM)
+            v = v2, n = v1
+        else
+            v = v1, n = v2
+        const num_comp = v.length
+        const ret = new v.constructor(num_comp)
+        for(let i = 0; i < num_comp; ++i) 
+            ret[i] = call_operator(v[i], n, this.op)
+        return ret
     }
 }
 class UnaryNegNode {
     constructor(c) {
         this.child = c;
+        this.type = null
     }
     eval() {
-        return -this.child.eval();
+        const v = this.child.eval();
+        if (this.type == TYPE_NUM)
+            return -v
+        const num_comp = v.length
+        const ret = new v.constructor(num_comp)
+        for(let i = 0; i < num_comp; ++i) 
+            ret[i] = -v[i]
+        return ret
+    }
+    check_type() {
+        if (this.type === null)            
+            this.type = this.child.check_type()
+        return this.type
     }
 }
 
@@ -239,9 +297,10 @@ function parseOp()
 }
 
 class FuncDef {
-    constructor(jsfunc, num_args) {
+    constructor(jsfunc, num_args, type=TYPE_BY_COMPONENT) {
         this.f = jsfunc
         this.num_args = num_args
+        this.dtype = type
     }
 }
 
@@ -266,7 +325,12 @@ function fit01(v, nmin, nmax) { return fit(v, 0, 1, nmin, nmax) }
 function fit11(v, nmin, nmax) { return fit(v, -1, 1, nmin, nmax) }
 function ifelse(v, vt, vf) { return v?vt:vf }
 
-// cos,sin,tan,acos,asin.atan,atan2,log,log10,log2,round,ceil,floor,trunc,abs,sqrt,max(multi),min,clamp(to range),sign
+function rgb(r, g, b) { return vec3.fromValues(r, g, b) }
+function rgba(r, g, b, a) { 
+    return vec4.fromValues(r, g, b, a) 
+}
+
+
 const func_defs = {
     'cos': new FuncDef(Math.cos, 1), 'sin': new FuncDef(Math.sin, 1), 'tan': new FuncDef(Math.tan, 1),
     'acos': new FuncDef(Math.acos, 1), 'asin': new FuncDef(Math.acos, 1), 'atan': new FuncDef(Math.atan, 1), 'atan2': new FuncDef(Math.atan2, 2),
@@ -277,21 +341,58 @@ const func_defs = {
     'rand': new FuncDef(myrand, 1),
     'fit': new FuncDef(fit, 5), 'fit01': new FuncDef(fit01, 3), 'fit11': new FuncDef(fit11, 3),
     'if': new FuncDef(ifelse, 3),
+    'rgb': new FuncDef(rgb, 3, TYPE_VEC3), 'rgba': new FuncDef(rgba, 4, TYPE_VEC3)
+}
+
+// given a function f that takes num and a list of vecs, apply f individually on the components of f
+function apply_by_component(argvals, f) {
+    let num_comp = argvals[0].length // 3 or 4
+    let ret = new argvals[0].constructor(num_comp)
+    let c_argvals = new Array(num_comp)
+    for(let ci = 0; ci < num_comp; ++ci) {
+        for(let ai = 0; ai < argvals.length; ++ai)
+            c_argvals[ai] = argvals[ai][ci]
+        const r = f.apply(null, c_argvals)
+        ret[ci] = r
+    } 
+    return ret
 }
 
 class FuncCallNode {
     constructor(jsfunc, funcname, args) {
+        this.def = func_defs[funcname]
         if (jsfunc === undefined) // from serializaton
-            this.f = func_defs[funcname].f
+            this.f = def.f
         else
-            this.f = jsfunc
-        this.args = args
+            this.f = jsfunc // optimization
+        this.args = args // input nodes
+        this.type = null
     }
     eval() {
         let argvals = []
         for(let arg of this.args)
             argvals.push(arg.eval())
-        return this.f.apply(null, argvals)
+        if (this.def.dtype != TYPE_BY_COMPONENT || this.type == TYPE_NUM)
+            return this.f.apply(null, argvals)            
+        apply_by_component(argvals, this.f)
+    }
+    check_type() {
+        if (this.type === null) {
+            let t = this.def.dtype
+            if (t == TYPE_BY_COMPONENT) {
+                t = this.args[0].check_type()
+                for(let arg of this.args)
+                    if (arg.check_type() !== t)
+                        throw TypeErr("function needs all arguments of the same type")
+            }
+            else { // return value has a specific type
+                for(let arg of this.args)
+                    if (arg.check_type() !== TYPE_NUM) // assume this right now since it's only rgb,rgba
+                        throw TypeErr("function needs all arguments to be numbers")
+            }
+            this.type = t
+        }
+        return this.type
     }
 }
 
@@ -516,6 +617,8 @@ var state_access_ = null
 function eeval(expr, state_access) {
     if (typeof expr != "string")
         return new NumNode(expr)
+    if (expr == "")
+        throw ExprErr("empty expression")
     index_ = 0;
     expr_ = expr;
     if (state_access) {

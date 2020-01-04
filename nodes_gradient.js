@@ -515,6 +515,19 @@ function make_preset_img(pr) {
     return img
 }
 
+
+function vec2col(c) {
+    return [clamp(0, Math.round(c[0]), 255), 
+            clamp(0, Math.round(c[1]), 255), 
+            clamp(0, Math.round(c[2]), 255), 
+            (c.length == 4) ? clamp(0, Math.round(c[3]), 255) : 255]
+}
+
+function col_equals(a, b) {
+    const ACCURACY = 1
+    return Math.abs(a[0]-b[0]) < ACCURACY && Math.abs(a[1]-b[1]) < ACCURACY && Math.abs(a[2]-b[2]) < ACCURACY && Math.abs(a[3]-b[3]) < ACCURACY
+}
+
 class NodeGradient extends NodeCls
 {
     static name() { return "Gradient" }
@@ -539,6 +552,8 @@ class NodeGradient extends NodeCls
         })
         this.method = new ParamSelect(node, "Method", 0, ["Stops", "Function"], (sel_idx)=>{
             this.table.set_visible(sel_idx == 0)
+            if (sel_idx == 0) 
+                this.table.remake_table() // when it was not visible, it wasn't updated
             this.add_stops_btn.set_visible(sel_idx == 0)
             this.func.set_visible(sel_idx == 1)
         })
@@ -547,7 +562,8 @@ class NodeGradient extends NodeCls
         this.r1 = new ParamFloat(node, "Radius 1", 0.1)
         this.p2 = new ParamVec2(node, "Point 2", 0.5, 0)
         this.r2 = new ParamFloat(node, "Radius 2", 0.7)
-        this.func = new ParamStr(node, "f(t)=", "")
+        this.func = new ParamFloat(node, "f(t)=", "") // just a way to generate points TBD not actally float
+        this.func_samples = new ParamInt(node, "Sample Num", 10)
         const presets_btn = new ParamImageSelectBtn(node, "Presets", GRADIENT_PRESETS, make_preset_img, (pr)=>{this.load_preset(pr)})
         this.add_stops_btn = new ParamBool(node, "Add stops", true, null)
         this.add_stops_btn.display_as_btn(true)
@@ -556,9 +572,9 @@ class NodeGradient extends NodeCls
         this.values = new ParamFloatList(node, "Value", this.table, this.selected_indices, ()=>{this.redo_sort()})
         this.colors = new ParamColorList(node, "Color", this.table)
 
-
         this.load_preset(GRADIENT_PRESETS[0])
- 
+        
+        node.set_state_evaluators({"t":  (m,s)=>{ return new ObjSingleEvaluator(m,s) }})
         // TBD points as expressions
     }
     is_radial() { return this.type.sel_idx == 1 }
@@ -598,6 +614,9 @@ class NodeGradient extends NodeCls
         trigger_frame_draw(true)
     }
     run() {
+        if (this.method.sel_idx == 1) {
+            this.load_from_func()
+        }
         let obj
         if (!this.is_radial()) 
             obj = new LinearGradient(this.p1.x, this.p1.y, this.p2.x, this.p2.y)
@@ -634,5 +653,58 @@ class NodeGradient extends NodeCls
         }
         this.redo_sort(true) // force sort since we want to force a remake_table 
         trigger_frame_draw(true)
+    }
+
+    load_from_func() {
+        const value_need_t = this.func.need_input_evaler("t")
+        this.values.clear()
+        this.colors.clear()
+        let samples = [] // array of [stop-val, color]
+
+        if (value_need_t == null) { // doesn't depend on t
+            const c = this.func.dyn_eval(0)
+            samples.push({v:0, c:vec2col(c)})
+        }
+        else {
+            let t_wrap = [0]
+            value_need_t.dyn_set_obj(t_wrap)
+
+            // start with sampling in steps of 0.1
+            const STEPS = this.func_samples.v
+            for(let i = 0; i <= STEPS; ++i) {
+                t_wrap[0] = 1/STEPS*i
+                const c = this.func.dyn_eval(0)
+                samples.push({v:t_wrap[0], c:vec2col(c)})
+            }
+            
+
+            // remove points that are not contributing (are a linear iterp of the two adjacent points)
+            let did_remove = true
+            while(did_remove) {
+                did_remove = false
+                let a=0, b=1, c=2
+                while (c < samples.length) {
+                    const va = samples[a].v, vb = samples[b].v, vc = samples[c].v
+                    const fb = (vb-va)/(vc-va) // the fraction of b as if a=0 and c=1
+                    const intrp = vec4.create()
+                    vec4.lerp(intrp, samples[a].c, samples[c].c, fb)
+                    if (col_equals(intrp, samples[b].c)) {
+                        samples.splice(b, 1)
+                        did_remove = true
+                    }
+                    ++a; ++b; ++c 
+                    // skip anyway to the next triplet since we don't want to examine each time points that were adjacent in the 
+                    // original sample since if there are many many samples, they would always be close to each other
+                    // this is why we need the outer loop
+                }
+            }
+        }
+        for(let s of samples) {
+            this.values.add(s.v)
+            this.colors.add(s.c)
+        }             
+        this.redo_sort(true)
+
+        // TBD don't do all the color table on every click (when doing colors.add)
     }
 }
