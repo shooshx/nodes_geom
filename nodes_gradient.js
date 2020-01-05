@@ -536,6 +536,7 @@ class NodeGradient extends NodeCls
         this.sorted_order = [] // list is not recreated, just overwritten
         this.selected_indices = []
         this.points_adapter = null
+        node.set_state_evaluators({"t":  (m,s)=>{ return new ObjSingleEvaluator(m,s) }})
 
         this.out = new OutTerminal(node, "out_gradient")
         this.type = new ParamSelect(node, "Type", 0, ["Linear", "Radial"], (sel_idx)=>{
@@ -562,7 +563,7 @@ class NodeGradient extends NodeCls
         this.r1 = new ParamFloat(node, "Radius 1", 0.1)
         this.p2 = new ParamVec2(node, "Point 2", 0.5, 0)
         this.r2 = new ParamFloat(node, "Radius 2", 0.7)
-        this.func = new ParamFloat(node, "f(t)=", "") // just a way to generate points TBD not actally float
+        this.func = new ParamColorExpr(node, "f(t)=", "rgb(255,128,t*128)") // just a way to generate points TBD not actally float example: rgb(255,128,0)+rgb(t,t,t)*255
         this.func_samples = new ParamInt(node, "Sample Num", 10)
         const presets_btn = new ParamImageSelectBtn(node, "Presets", GRADIENT_PRESETS, make_preset_img, (pr)=>{this.load_preset(pr)})
         this.add_stops_btn = new ParamBool(node, "Add stops", true, null)
@@ -574,7 +575,6 @@ class NodeGradient extends NodeCls
 
         this.load_preset(GRADIENT_PRESETS[0])
         
-        node.set_state_evaluators({"t":  (m,s)=>{ return new ObjSingleEvaluator(m,s) }})
         // TBD points as expressions
     }
     is_radial() { return this.type.sel_idx == 1 }

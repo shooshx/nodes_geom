@@ -41,8 +41,11 @@ class MultiPath extends PObject
         Mesh.transform_arr(m, this.arrs.vtx_pos, this.arrs.vtx_pos)
         let vm = mat3.clone(m)
         vm[6] = 0; vm[7] = 0
-        Mesh.transform_arr(vm, this.arrs.ctrl_to_prev, this.arrs.ctrl_to_prev)
-        Mesh.transform_arr(vm, this.arrs.ctrl_from_prev, this.arrs.ctrl_from_prev)
+        if (this.is_curve()) {
+            Mesh.transform_arr(vm, this.arrs.ctrl_to_prev, this.arrs.ctrl_to_prev)
+            Mesh.transform_arr(vm, this.arrs.ctrl_from_prev, this.arrs.ctrl_from_prev)
+        }
+        this.paths = null
     }
     // API
     is_point_inside(x, y) {
@@ -50,7 +53,7 @@ class MultiPath extends PObject
     }
     // API
     get_bbox() {
-        if (this.arrs.ctrl_to_prev === null) {
+        if (!this.is_curve()) {
             return Mesh.prototype.get_bbox.call(this)
         }
         else { // add control points as well (see pritive circle rotated)

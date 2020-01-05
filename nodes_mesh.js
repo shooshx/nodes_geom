@@ -46,7 +46,7 @@ function make_mesh_quadtri(hx, hy) {
 
 class NodeGeomPrimitive extends NodeCls
 {
-    static name() { return "Geom_Primitive" }
+    static name() { return "Geom Primitive" }
     constructor(node) {
         super(node)
         this.out = new OutTerminal(node, "out_mesh")
@@ -378,6 +378,10 @@ class NodeSetAttr extends NodeCls
         this.in_source = new InTerminal(node, "in_src") // future - may not be an image? proximity to other mesh?
         this.out_mesh = new OutTerminal(node, "out_mesh")
 
+        // node says what evaluators it wants for its inputs
+        node.set_state_evaluators({"in_src":  (m,s)=>{ return new ObjSubscriptEvaluator(m,s) }, 
+                                   "in_mesh": (m,s)=>{ return new MeshPropEvaluator(m,s, this.bind_to) }})
+
         //this.use_code = new ParamBool(node, "Use Code", false, (v)=>{})
         this.bind_to = new ParamSelect(node, "Bind To", 0, ["Vertices", "Faces"]) // TBD also lines?
         this.attr_name = new ParamStr(node, "Name", "color")
@@ -391,9 +395,6 @@ class NodeSetAttr extends NodeCls
         this.expr_vec2 = new ParamVec2(node, "Float2", 0, 0, true)
         //this.expr_code = new ParamCode(node, "Code")
 
-        // node says what evaluators it wants for its inputs
-        node.set_state_evaluators({"in_src":  (m,s)=>{ return new ObjSubscriptEvaluator(m,s) }, 
-                                   "in_mesh": (m,s)=>{ return new MeshPropEvaluator(m,s, this.bind_to) }})
     }
 
     prop_from_const(prop, src) {
@@ -911,13 +912,14 @@ class NodeRandomPoints extends NodeCls
     static name() { return "Scatter" }
     constructor(node) {
         super(node)
+        node.set_state_evaluators({"vtx_pos":  (m,s)=>{ return new ObjSubscriptEvaluator(m,s) }} )        
+
         this.in_obj = new InTerminal(node, "in_obj")
         this.out_mesh = new OutTerminal(node, "out_mesh")
         this.seed = new ParamInt(node, "Seed", 1)
         this.min_dist = new ParamFloat(node, "Min Distance", 0.02, [0.02, 0.5])
 
         //this.by_density.change_func() // enact the changes it does
-        node.set_state_evaluators({"vtx_pos":  (m,s)=>{ return new ObjSubscriptEvaluator(m,s) }} )        
     }
         
     run() {

@@ -589,6 +589,7 @@ class Node {
         this.inputs = []
         this.outputs = [] 
         this.state_evaluators = {} // map variable name to its evaluator type. Evaluator instance will be created with its subscripts when the expression is parsed
+        this.state_access = null
         this.cls = new cls(this)
         this.call_params_change() // set the enables or other changes that functions attached to params do
         this.make_term_offset(this.inputs)
@@ -610,11 +611,13 @@ class Node {
         // kept per-node since every node can want something different
         this.display_values = {}
 
-        this.state_access = new StateAccess(this.state_evaluators) // evaluators created in the cls ctor
+        if (this.state_access === null)
+            this.set_state_evaluators([]) // if cls ctor did not call it
     }
 
     set_state_evaluators(d) { // called in cls ctor to configure how StateAccess accesses state
         this.state_evaluators = d
+        this.state_access = new StateAccess(this.state_evaluators) // evaluators created in the cls ctor
     }
 
     make_term_offset(lst) {

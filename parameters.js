@@ -209,9 +209,11 @@ function formatType(value, type) {
 }
 
 const ED_FLOAT=0
-const ED_INT=1
+const ED_INT=1    // "not float" - not formatted as float
 const ED_STR=2
 const ED_FLOAT_OUT_ONLY=3
+const ED_COLOR_EXPR=4 // used for expression type check
+
 function add_param_edit(line, value, type, set_func, cls=null) {
     let e = document.createElement('input')
     if (cls === null)
@@ -424,8 +426,14 @@ class DispParamBool extends ParamBool {
     pset_dirty() {} // this override is needed to avoid draw triggers that mess with the controls
 }
 
-
-
+function arr_equals(a, b) {
+    if (a.length !== b.length)
+        return false
+    for(let i = 0; i < a.length; ++i)
+        if (a[i] !== b[i])
+            return false;
+    return true
+}
 
 // represents a single value (item in a single edit box) that can be an expression and everything it needs to do
 class ExpressionItem {
@@ -434,7 +442,7 @@ class ExpressionItem {
         this.prop_name = prop_name // name of property to set in the containing param ("v", "r")
         this.set_prop = (set_prop !== null) ? set_prop : (v)=>{ this.in_param[this.prop_name] = v }
         this.get_prop = (get_prop !== null) ? get_prop : ()=>{ return this.in_param[this.prop_name] }
-        this.prop_type = prop_type = prop_type  // constant like ED_FLOAT used for formatting the value
+        this.prop_type = prop_type  // constant like ED_FLOAT used for formatting the value
         this.elem = null
         this.e = null  // expression AST, can call eval() on this or null of the value is just a number
         this.se = "" + this.get_prop() // expression string
@@ -469,8 +477,12 @@ class ExpressionItem {
         if (this.slider !== null)
             this.slider.update(v) // slider needs to know if it's disabled or not, called on add_elem
         const ov = this.get_prop()
-        if (v === ov)
-            return false
+        if (this.prop_type == ED_COLOR_EXPR)
+            if (arr_equals(v, ov))
+                return false
+        else
+            if (v === ov)
+                return false
         this.set_prop(v)
         return true
     }
@@ -480,7 +492,7 @@ class ExpressionItem {
         this.err_elem.innerText = this.last_error
         this.err_elem.style.left = Math.round(this.elem.offsetLeft) + "px"
         this.err_elem.style.top = Math.round(this.elem.offsetHeight) + "px"
-        this.elem.parentElement.appendChild(this.err_elem)
+        this.elem.parentElement.insertBefore(this.err_elem, this.elem.nextSibling)
     }
     eset_error(ex) {
         if (this.last_error !== null)
@@ -509,6 +521,10 @@ class ExpressionItem {
             this.in_param.owner.state_access.reset_check()
             this.e = ExprParser.eval(se, this.in_param.owner.state_access)
             const type = this.e.check_type()
+            if (this.prop_type == ED_COLOR_EXPR)
+                eassert(type === TYPE_VEC3 || type === TYPE_VEC4, "Wrong type, expected a vector")
+            else
+                eassert(type === TYPE_NUM, "Wrong type, expected a number") 
         }
         catch(ex) { // TBD better show the error somewhere
             this.eset_error(ex)
@@ -648,11 +664,11 @@ class ExpressionItem {
 }
 
 
-class ParamFloat extends Parameter {
-    constructor(node, label, start_v, slider_range=null) {
+class ParamBaseExpr extends Parameter {
+    constructor(node, label, start_v, ed_type, slider_range) {
         super(node, label)
         this.v = start_v  // numerical value in case of const
-        this.item = new ExpressionItem(this, "v", ED_FLOAT, null, null, slider_range)
+        this.item = new ExpressionItem(this, "v", ed_type, null, null, slider_range)
     }
     save() { let r = { v:this.v }; this.item.save_to(r); return r }
     load(v) { this.item.load(v) }
@@ -678,10 +694,24 @@ class ParamFloat extends Parameter {
         this.item.set_to_const(v)
         this.pset_dirty()
     }
-    gl_set_value(loc) {
-        gl.uniform1f(loc, this.v)
+
+}
+
+class ParamColorExpr extends ParamBaseExpr {
+    constructor(node, label, start_v, slider_range=null) {
+        super(node, label, start_v, ED_COLOR_EXPR, slider_range)
+        this.item.peval(this.v)
     }
 }
+class ParamFloat extends ParamBaseExpr {
+    constructor(node, label, start_v, slider_range=null) {
+        super(node, label, start_v, ED_FLOAT, slider_range)
+    }
+    gl_set_value(loc) {
+        gl.uniform1f(loc, this.v)
+    }    
+}
+
 
 
 class ParamVec2 extends Parameter {
