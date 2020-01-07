@@ -35,6 +35,8 @@ class BBox {
     }
 }
 
+
+
 class Mesh extends PObject
 {
     static name() { return "Mesh" }
@@ -50,6 +52,10 @@ class Mesh extends PObject
         this.tcache = { vtx_pos:null, m:null }  // transformed cache
         //this.lines_cache = null  // cache lines for stroke (so that every line be repeated twice
         this.glbufs = { vtx_pos:null, idx:null }
+        this.fill_objs = []  // list of ObjConstProxy, used for face_fill, vtx_fill attribute
+                             // the mesh caches the clip_path for each object in the proxy object
+                             // it's the nodes responsibility that there would not be left objects that are not needed
+
     }
     destructor() {
         for(let bi in this.glbufs) {
@@ -261,20 +267,68 @@ class Mesh extends PObject
         }        
     }
 
-    draw_poly_fill() {
+    draw_poly_fill_color() {
         this.ensure_paths_created()
-        let fcol = this.arrs.face_color
+        const fcol = this.arrs.face_color
+
         ctx_img.lineWidth = 1 / image_view.viewport_zoom
-        let vidx = 0
+        let vidx = 0, style
         for(let p of this.paths) {
-            let col = "rgba(" + fcol[vidx] + "," + fcol[vidx+1] + "," + fcol[vidx+2] + "," + (fcol[vidx+3]/255) + ")"
-            ctx_img.fillStyle = col
+            style = "rgba(" + fcol[vidx] + "," + fcol[vidx+1] + "," + fcol[vidx+2] + "," + (fcol[vidx+3]/255) + ")"
+
+            ctx_img.fillStyle = style
             ctx_img.fill(p)
-            ctx_img.strokeStyle = col
+            ctx_img.strokeStyle = style
             ctx_img.stroke(p) // need to stroke as well as as fill to fix the stupid stitching bug caused by per-poly antialiasing 
                              // https://stackoverflow.com/questions/15631426/svg-fill-not-filling-boundary/15638764#comment22224474_15638764
-                             // This is still wrong if the fill has alpha
+                             // This is wrong if the fill has alpha lower than 1 or ==1
             vidx += 4
+        }
+    }
+
+    make_clip_path(face_fill, foi) {
+        let vtx = this.arrs.vtx_pos
+        let idxs = this.arrs.idx        
+        let p = new Path2D(), idx
+        if (this.type == MESH_QUAD) {
+            for(let vi = 0, i = 0; vi < idxs.length; vi += 4, ++i) {
+                if (face_fill[i] != foi)
+                    continue
+                idx = idxs[vi]<<1; p.moveTo(vtx[idx], vtx[idx+1])
+                idx = idxs[vi+1]<<1; p.lineTo(vtx[idx], vtx[idx+1])
+                idx = idxs[vi+2]<<1; p.lineTo(vtx[idx], vtx[idx+1])
+                idx = idxs[vi+3]<<1; p.lineTo(vtx[idx], vtx[idx+1])
+                p.closePath()
+            }
+        }
+        else if (this.type == MESH_TRI) {
+            for(let vi = 0, i = 0; vi < idxs.length; vi += 3, ++i) {
+                if (face_fill[i] != foi)
+                    continue
+                idx = idxs[vi]<<1; p.moveTo(vtx[idx], vtx[idx+1])
+                idx = idxs[vi+1]<<1; p.lineTo(vtx[idx], vtx[idx+1])
+                idx = idxs[vi+2]<<1; p.lineTo(vtx[idx], vtx[idx+1])
+                p.closePath()
+            }
+        }       
+        return p
+    }
+
+    async draw_poly_fill_clip(m) 
+    {
+        for(let foi in this.fill_objs) 
+        {
+            const fo = this.fill_objs[foi]
+            if (fo.clip_path === undefined || fo.clip_path === null)  // it's going to be undefined at the first time, null if it's invalidated?
+                fo.clip_path = this.make_clip_path(this.arrs.face_fill, foi)
+            ctx_img.save()
+            ctx_img.clip(fo.clip_path);
+            try {
+                await fo.draw(m)
+                
+            } finally {
+                ctx_img.restore()
+            }
         }
     }
     
@@ -306,13 +360,17 @@ class Mesh extends PObject
     }
 
     // API
-    draw_m(m, disp_values) {
+    async draw_m(m, disp_values) {
         if (!disp_values)
             disp_values = { show_faces:true, show_lines:true, show_vtx:true } // hack for group to work
         //this.ensure_tcache(m)
 
-        if (disp_values.show_faces && this.arrs.face_color) 
-            this.draw_poly_fill()
+        if (disp_values.show_faces) {
+            if (this.arrs.face_color)
+                this.draw_poly_fill_color()
+            else if (this.arrs.face_fill) 
+                await this.draw_poly_fill_clip(m)
+        }
         if (disp_values.show_lines)
             this.draw_poly_stroke()
         if (disp_values.show_vtx)
@@ -386,6 +444,12 @@ class Mesh extends PObject
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.glbufs.idx);
         gl.drawElements(gl.TRIANGLES, this.arrs.idx.length, arr_gl_type(this.arrs.idx), 0);
+    }
+
+    add_fillobj(proxy) {
+        const id = this.fill_objs.length
+        this.fill_objs.push(proxy)
+        return id
     }
 }
 

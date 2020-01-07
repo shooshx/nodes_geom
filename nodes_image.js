@@ -71,6 +71,8 @@ class NodeLoadImage extends NodeCls
         outimg.draw_border(m)
     }    
     image_find_obj(vx, vy, ex, ey) {
+        if (this.transform.dial === null)
+            return null
         return this.transform.dial.find_obj(ex, ey)
     }
 }

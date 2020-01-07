@@ -344,9 +344,9 @@ class MeshPropEvaluator {
             eassert(this.meshref.obj !== null, "unexpecrted null mesh")
             eassert(this.meshref.idx !== null, "unexpecrted null mesh")
             if (this.param_bind_to.sel_idx == 0) // vertices
-                eassert(this.attrname.startsWith("vtx"), "bind to Vertices can only sample vertex attribute")
+                eassert(this.attrname.startsWith("vtx_"), "bind to Vertices can only sample vertex attribute")
             else if (this.param_bind_to.sel_idx == 1) // faces
-                eassert(this.attrname.startsWith("face"), "bind to Faces can only sample face attribute")
+                eassert(this.attrname.startsWith("face_"), "bind to Faces can only sample face attribute")
             let attr = this.meshref.obj.arrs[this.attrname]
             eassert(attr !== undefined, "unknown attribute " + this.attrname + " of mesh")
             this.num_elems = this.meshref.obj.meta[this.attrname].num_elems
@@ -385,7 +385,7 @@ class NodeSetAttr extends NodeCls
         //this.use_code = new ParamBool(node, "Use Code", false, (v)=>{})
         this.bind_to = new ParamSelect(node, "Bind To", 0, ["Vertices", "Faces"]) // TBD also lines?
         this.attr_name = new ParamStr(node, "Name", "color")
-        this.attr_type = new ParamSelect(node, "Type", 0, ["Color", "Float", "Float2"], (v)=>{
+        this.attr_type = new ParamSelect(node, "Type", 0, ["Color", "Float", "Float2", "Image Fill"], (v)=>{
             this.expr_color.set_visible(v == 0)
             this.expr_float.set_visible(v == 1)
             this.expr_vec2.set_visible(v == 2)
@@ -501,7 +501,7 @@ class NodeSetAttr extends NodeCls
             return // TBD warning
         }*/
 
-        let elem_num, attr_prefix;
+        let elem_num, attr_name;
         // check that the mesh has face to bind to, otherwise this is a noop
         if (this.bind_to.sel_idx == 1) { 
             elem_num = mesh.face_count()
@@ -509,12 +509,13 @@ class NodeSetAttr extends NodeCls
                 this.out_mesh.set(mesh)
                 return  // TBD warning
             }
-            attr_prefix = 'face_'
+            attr_name = 'face_'
         }
         else {
             elem_num = mesh.vtx_count()
-            attr_prefix = 'vtx_'
+            attr_name = 'vtx_'
         }
+        attr_name += this.attr_name.v
 
         let prop, src_param
         if (this.attr_type.sel_idx == 0) { // color
@@ -531,6 +532,11 @@ class NodeSetAttr extends NodeCls
             prop = new Float32Array(elem_num * 2)
             prop.elem_sz = 2
             src_param = this.expr_vec2
+        }
+        else if (this.attr_type.sel_idx == 3) { // image-fill
+            // TBD warning that the attr name to should be "fill"
+            this.set_image_fill(attr_name, elem_num)
+            return
         }
         else {
             assert(false, this, "unknown type")
@@ -576,8 +582,32 @@ class NodeSetAttr extends NodeCls
                 throw e
         }
 
-        mesh.set(attr_prefix + this.attr_name.v, prop, 4, true)
+        mesh.set(attr_name, prop, 4, true)
         this.out_mesh.set(mesh)
+    }
+
+    set_image_fill(attr_name, elem_num) {
+        const src = this.in_source.get_const()
+        assert(src !== null, this, this, "missing input source image")
+
+        const mesh = this.in_mesh.get_mutable()
+        // there's going to be a single line since it's not a multi terminal
+        const disp_values = this.in_source.lines[0].from_term.node.display_values
+        const id = mesh.add_fillobj(new ObjConstProxy(src, clone(disp_values)))
+        const prop = new Uint16Array(elem_num)
+        prop.fill(id)
+        mesh.set(attr_name, prop, 1, false)
+        this.out_mesh.set(mesh)
+    }
+}
+
+class ObjConstProxy {
+    constructor(in_obj, display_values) {
+        this.obj = in_obj
+        this.with_display_values = display_values
+    }
+    draw(m) {
+        this.obj.draw(m, this.with_display_values)
     }
 }
 
@@ -640,9 +670,7 @@ class PObjGroup extends PObject{
     async draw(m, display_values) {
         console.assert(display_values.length == this.v.length, "display_values length mismatch")
         for(let i in this.v) {
-            let p = this.v[i].draw(m, display_values[i])
-            if (p !== undefined)
-                await p
+            await this.v[i].draw(m, display_values[i])
         }
     }
     get_disp_params(values) {
@@ -1057,11 +1085,13 @@ class PathsBuilder {
     constructor() {
         this.vtx_pos = []
         this.paths_ranges = []
+        this.from_arr = [] // for each face, from what vertex index it came from 
     }
-    moveTo(x,y) {
+    moveTo(x,y, from_idx) {
         let l = this.vtx_pos.length / 2
         this.paths_ranges.push(l,l+1,0)
         this.vtx_pos.push(x,y)
+        this.from_arr.push(from_idx)
     }
     lineTo(x,y) {
         ++this.paths_ranges[this.paths_ranges.length-2]
@@ -1092,7 +1122,8 @@ class NodeVoronoi extends NodeCls
         assert(mesh.arrs !== undefined && mesh.arrs.vtx_pos !== undefined, this, "Input doesn't have vertices. type: " + mesh.constructor.name())
         assert(mesh.halfedges !== undefined && mesh.hull !== undefined, this, "missing halfedges or hull")
         // voronoi for multiple paths or of non-convex path is not well-defined
-        // there is a result but it might have holes. To make it do the "right thing" the paths
+        // there is a result but it might have holes (actually degenerate paths with just 2 points). 
+        // To make it do the "right thing" the paths
         // itself need to be the hulls (and not the delaunay hull) as is computed in paths triangulate
         // but that would also not look good since the separate voronois would intersect each other
         // it is possible to introduce the concept of multiple hulls into the algorithm but I didn't do it
@@ -1106,6 +1137,28 @@ class NodeVoronoi extends NodeCls
         voronoi.renderCells(builder)
         let new_paths = new MultiPath()
         builder.finalize(new_paths)
+
+        // transfer vertex attributes to face attributes
+        for(let arr_name in mesh.arrs) {
+            if (!arr_name.startsWith("vtx_") || arr_name === "vtx_pos")
+                continue
+            
+            let from_arr = mesh.arrs[arr_name]
+            let num_elems = mesh.meta[arr_name].num_elems
+            let idx_src = builder.from_arr;
+
+            let new_arr = new from_arr.constructor(idx_src.length * num_elems)
+            let ni = 0
+            for(let idx of idx_src) {
+                for(let i = 0; i < num_elems; ++i) {
+                    new_arr[ni++] = from_arr[idx*num_elems+i]  
+                }
+            }
+            new_paths.set("face_" + arr_name.substr(4), new_arr, num_elems, mesh.meta[arr_name].need_normalize)
+    
+        }
+
+
         this.out_mesh.set(new_paths)
     }
 }
@@ -1404,7 +1457,7 @@ class ShrinkFaces extends NodeCls
             out_obj.paths_ranges = new_ranges;
         }
         out_obj.set('vtx_pos', new TVtxArr(new_vtx), 2)
-        // duplicate other attributes
+        // transfer other attributes
         for(let arr_name in mesh.arrs) {
             if (arr_name == "idx" || arr_name == "vtx_pos")
                 continue

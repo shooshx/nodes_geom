@@ -427,6 +427,16 @@ class DispParamBool extends ParamBool {
 }
 
 function arr_equals(a, b) {
+    if ( (a == null) != (b == null) )
+        return false
+    if (a == null)
+        return true
+    if ( (a == undefined) != (b == undefined) )
+        return false
+    if (a == undefined)
+        return true
+    if (a.length === undefined || b.length === undefined)
+        return a == b
     if (a.length !== b.length)
         return false
     for(let i = 0; i < a.length; ++i)
@@ -1156,7 +1166,7 @@ class ListParam extends Parameter {
         this.values_per_entry = values_per_entry
         this.lst_type = lst_type
         this.lst = new lst_type()  // flat list
-        this.elem_lst = []
+        this.elem_lst = null
         this.table = in_table
         this.column = in_table.register(this)  // columns are vertical, rows are horizontal
     }
@@ -1251,7 +1261,7 @@ class ListParam extends Parameter {
             for(let i = 0; i < this.values_per_entry; ++i)
                 delete tmplst[vindex+i]
             tmplen -= this.values_per_entry
-            if (this.elem_lst.length > 0) { // displayed even?
+            if (this.elem_lst !== null) { // displayed even?
                 this.elem_lst[index].remove() // remove from DOM tree
                 delete this.elem_lst[index]  // make it undefined for later cull
             }
@@ -1264,17 +1274,19 @@ class ListParam extends Parameter {
                 this.lst[addi++] = v
         this.pset_dirty()
 
-        this.elem_lst = cull_list(this.elem_lst)
-        this.reprint_all_lines()
-        console.assert(this.lst.length == this.elem_lst.length * this.values_per_entry, "unexpected number of elements")
+        if (this.elem_lst !== null) {
+            this.elem_lst = cull_list(this.elem_lst)
+            this.reprint_all_lines()
+            console.assert(this.lst.length == this.elem_lst.length * this.values_per_entry, "unexpected number of elements")
+        }
     }
     clear() {
         this.lst = new this.lst.constructor()
-        this.elem_lst.length = 0
+        this.elem_lst = null
     }
 
     reprint_line(vidx, v) {
-        if (this.elem_lst.length == 0)
+        if (this.elem_lst !== null)
             return // happens if the table is not visible (Gradient with function)
         let idx = vidx / this.values_per_entry
         let elem = this.elem_lst[idx]

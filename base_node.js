@@ -230,11 +230,11 @@ class PObject {
     }
     get_disp_params(disp_values) { return null }
     // this is the default that just sets the transform and calls draw_m which doesn't need to worry about it
-    draw(m, disp_values) {
+    async draw(m, disp_values) {
         ctx_img.save()
         try {
             ctx_img.setTransform(m[0], m[1], m[3], m[4], m[6], m[7])
-            this.draw_m(m, disp_values)
+            await this.draw_m(m, disp_values)
         }
         finally {
             ctx_img.restore()
@@ -300,6 +300,9 @@ function clone(obj) {
     }
     if (obj.constructor === HTMLImageElement) {
         return obj // immutable object (once it's loaded) so it's ok for several clones to reference it
+    }
+    if (obj.constructor === ObjConstProxy) {
+        return obj // this is a proxy that wraps another object that is going to remain const so we don't need to copy it further
     }
     // it's ok for a PObject constructor to take arguments
     // as long as it's fine with getting them as undefined and later being assigned the same
@@ -858,7 +861,7 @@ function find_node_obj(px, py, cvs_x, cvs_y) {
 function nodes_context_menu(px, py, wx, wy, cvs_x, cvs_y) {
     let obj = find_node_obj(px, py, cvs_x, cvs_y)
     
-    let opt, node = null;
+    let opt = null, node = null;
     if (obj != null) {
         if (obj.constructor === Node)
             node = obj
@@ -871,8 +874,7 @@ function nodes_context_menu(px, py, wx, wy, cvs_x, cvs_y) {
     }
     if (node !== null)
         opt = [{text:"Delete Node", func:function() { program.delete_node(obj, true)} }]
-
-    else {
+    else if (opt === null) {
         opt = [{text:"Clear", func:()=>{ clear_program(); draw_nodes() } }, {text:"-"}]
         for(let c of nodes_classes)
             opt.push( {text: c.name(), func:function() { program.add_node(px, py, null, c); draw_nodes() } } )

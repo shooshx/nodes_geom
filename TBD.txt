@@ -18,6 +18,8 @@ GUI:
 ENGINE:
 - serialization - save only if something is changed
 - save to SVG
+- !!!!!! faces fill from any Image
+- faces fill from gradient
 
 NODES:
 - frame buffer
@@ -38,7 +40,6 @@ NODES:
     triangulation
         edge case of non-input points coming from triangulate (corner points) ??? don't know how to do this
         add non-hole points?
-    transform?
     show arrows with on the lines to show its direction
 - SetAttr
     pseudo attribute - face center (position) so that it will be possible to sample face color from the position attribute
@@ -71,9 +72,11 @@ NODES:
 - Copy - copy something onto vertices positions
     how to control parameters of the copies?
     for loop?
-- Boolean ops from Inkscape https://gitlab.com/inkscape/lib2geom/blob/master/src/2geom/intersection-graph.h
+- Boolean ops
+    !!!! https://github.com/paperjs/paper.js
+    https://github.com/Delapouite/JsClipper 
+    from Inkscape https://gitlab.com/inkscape/lib2geom/blob/master/src/2geom/intersection-graph.h
 - Gradient
-    !!!with a 1d expression function
     spreadMethod with SVG  https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/spreadMethod
     fill, stroke,
 - !! 2d color function, sampling gradient
@@ -81,7 +84,10 @@ NODES:
     on a surface
     on a line
     interpolate property from input geometry
-
+- Graph (4) coloring - for selecting some vertices at seemingly random
+- 3D model and render
+- Text paths  https://opentype.js.org/
+- Mesh merge, path merge
 
 - animate? modify a property for the next frame
 - random color with r,g,b ranges and seed parameter
