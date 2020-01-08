@@ -20,6 +20,7 @@ class MultiPath extends PObject
         //   all control points are relative to the point
         this.meta = { vtx_pos:null }
         this.tcache = { vtx_pos:null, m:null }  // transformed cache (for setattr)
+        this.fill_objs = []
     }
     set(name, arr, num_elems, need_normalize) {
         name = normalize_attr_name(name)
@@ -109,38 +110,55 @@ class MultiPath extends PObject
         return ctp !== undefined && (ctp[vidx] != 0 || ctp[vidx+1] != 0 || cfp[vidx] != 0 || cfp[vidx+1] != 0)
     }
 
+    make_path_string(pri) 
+    {
+        let vtx = this.arrs.vtx_pos;
+        let ctp = this.arrs.ctrl_to_prev, cfp = this.arrs.ctrl_from_prev
+
+        let start_vidx = this.paths_ranges[pri]*2
+        let end_vidx = this.paths_ranges[pri+1]*2
+        let prev_x = vtx[start_vidx], prev_y = vtx[start_vidx+1]
+        let plst = ['M', prev_x, prev_y]
+        for(let vidx = start_vidx + 2; vidx < end_vidx; vidx += 2) {
+            let vx = vtx[vidx], vy = vtx[vidx+1]
+            if (!this.is_curve(vidx))
+                plst.push('L', vx, vy)
+            else 
+                plst.push('C', prev_x+cfp[vidx], prev_y+cfp[vidx+1], vx+ctp[vidx], vy+ctp[vidx+1], vx, vy)
+            prev_x = vx; prev_y = vy
+        }
+        if (get_flag(this.paths_ranges[pri+2], PATH_CLOSED)) {
+            if (this.is_curve(0)) {
+                let vx = vtx[start_vidx], vy = vtx[start_vidx+1]
+                plst.push('C', prev_x+cfp[start_vidx], prev_y+cfp[start_vidx+1], vx+ctp[start_vidx], vy+ctp[start_vidx+1], vx, vy)
+            }
+            plst.push('Z')
+        }
+        return plst.join(" ")        
+    }
+
     ensure_paths_created() {
         if (this.paths !== null && this.paths.length*3 == this.paths_ranges.length) 
             return
 
         this.paths = []
-        let vtx = this.arrs.vtx_pos;
-        let ctp = this.arrs.ctrl_to_prev, cfp = this.arrs.ctrl_from_prev
-        for(let pri = 0; pri < this.paths_ranges.length; pri += 3) 
-        {
-            let start_vidx = this.paths_ranges[pri]*2
-            let end_vidx = this.paths_ranges[pri+1]*2
-            let prev_x = vtx[start_vidx], prev_y = vtx[start_vidx+1]
-            let plst = ['M', prev_x, prev_y]
-            for(let vidx = start_vidx + 2; vidx < end_vidx; vidx += 2) {
-                let vx = vtx[vidx], vy = vtx[vidx+1]
-                if (!this.is_curve(vidx))
-                    plst.push('L', vx, vy)
-                else 
-                    plst.push('C', prev_x+cfp[vidx], prev_y+cfp[vidx+1], vx+ctp[vidx], vy+ctp[vidx+1], vx, vy)
-                prev_x = vx; prev_y = vy
-            }
-            if (get_flag(this.paths_ranges[pri+2], PATH_CLOSED)) {
-                if (this.is_curve(0)) {
-                    let vx = vtx[start_vidx], vy = vtx[start_vidx+1]
-                    plst.push('C', prev_x+cfp[start_vidx], prev_y+cfp[start_vidx+1], vx+ctp[start_vidx], vy+ctp[start_vidx+1], vx, vy)
-                }
-                plst.push('Z')
-            }
-            let s = plst.join(" ")
+        for(let pri = 0; pri < this.paths_ranges.length; pri += 3) {
+            let s = this.make_path_string(pri)
             let jp = new Path2D(s)
             this.paths.push(jp)
         }
+    }
+
+    
+    make_clip_path(face_fill, foi) 
+    {
+        let s = ""
+        for(let pri = 0, i = 0; pri < this.paths_ranges.length; pri += 3, ++i) {
+            if (face_fill[i] != foi)
+                continue
+            s += this.make_path_string(pri);
+        }
+        return new Path2D(s);
     }
 
     draw_poly(do_lines, do_fill) {
@@ -166,6 +184,7 @@ class MultiPath extends PObject
             }
         }
     }
+
 
     draw_control_points() {
         let vtx = this.arrs.vtx_pos;
@@ -194,9 +213,12 @@ class MultiPath extends PObject
     }
 
     // API
-    draw_m(m, disp_values) {
+    async draw_m(m, disp_values) {
         if (this.arrs.vtx_pos === null)
             return
+        if (!this.arrs.face_color && this.arrs.face_fill)
+            await Mesh.prototype.draw_poly_fill_clip.call(this, m)
+            // do the line after the clip so it would be over it 
         if (disp_values.show_lines || disp_values.show_faces)
             this.draw_poly(disp_values.show_lines, disp_values.show_faces)
         if (disp_values.show_vtx) 
@@ -207,6 +229,10 @@ class MultiPath extends PObject
 
     draw_selection_m(m, select_vindices) {
         Mesh.prototype.draw_selection_m.call(this, m, select_vindices)
+    }
+
+    add_fillobj(proxy) {
+        Mesh.prototype.add_fillobj.call(this, proxy)
     }
 }
 

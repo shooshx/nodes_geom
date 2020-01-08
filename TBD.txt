@@ -43,6 +43,11 @@ NODES:
     show arrows with on the lines to show its direction
 - SetAttr
     pseudo attribute - face center (position) so that it will be possible to sample face color from the position attribute
+- SetAttr fill from node 
+   - transform fill along with the shape or not
+   - boolean expression to choose faces (according to other vertex)
+   - fill vertices circles?
+   - set attr_name automatically, changing according to the selection of type
 - Manual points
     point size
 - round edges

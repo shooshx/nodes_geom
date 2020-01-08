@@ -366,9 +366,13 @@ class MeshPropEvaluator {
     }    
 }
 
+
+
+
 // examples:
 //  abs(in_mesh.vtx_pos.x)*20
 //  in_src.r
+// with "Image Fill" the attr_name needs to be "fill"
 class NodeSetAttr extends NodeCls
 {
     static name() { return "Set Attribute" }
@@ -588,7 +592,7 @@ class NodeSetAttr extends NodeCls
 
     set_image_fill(attr_name, elem_num) {
         const src = this.in_source.get_const()
-        assert(src !== null, this, this, "missing input source image")
+        assert(src !== null, this, "missing input source image")
 
         const mesh = this.in_mesh.get_mutable()
         // there's going to be a single line since it's not a multi terminal
@@ -606,8 +610,8 @@ class ObjConstProxy {
         this.obj = in_obj
         this.with_display_values = display_values
     }
-    draw(m) {
-        this.obj.draw(m, this.with_display_values)
+    async draw(m) {
+        await this.obj.draw(m, this.with_display_values)
     }
 }
 

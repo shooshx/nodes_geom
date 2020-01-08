@@ -322,10 +322,9 @@ class Mesh extends PObject
             if (fo.clip_path === undefined || fo.clip_path === null)  // it's going to be undefined at the first time, null if it's invalidated?
                 fo.clip_path = this.make_clip_path(this.arrs.face_fill, foi)
             ctx_img.save()
-            ctx_img.clip(fo.clip_path);
+            ctx_img.clip(fo.clip_path, "nonzero"); // "evenodd" is not what we usually want
             try {
                 await fo.draw(m)
-                
             } finally {
                 ctx_img.restore()
             }
