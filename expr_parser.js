@@ -65,6 +65,8 @@ function call_operator(v1, v2, op) {
         case OPERATOR_GREATER:        ret = v1 > v2; break
         case OPERATOR_GREATER_EQ:     ret = v1 >= v2; break
         case OPERATOR_EQ:             ret = v1 == v2; break
+        case OPERATOR_LOGIC_AND:      ret = v1 && v2; break // not short-circuting evaluation since that would complicate vector ops
+        case OPERATOR_LOGIC_OR:       ret = v1 || v2; break
         default:  throw new ExprErr("unexpected operator");
     }
     return ret;
@@ -114,19 +116,31 @@ class BinaryOpNode {
         return ret
     }
 }
-class UnaryNegNode {
-    constructor(c) {
+
+
+function call_unary_op(v, op) {
+    switch (op) {
+    case OPERATORU_NEG: return -v;
+    case OPERATORU_BITWISE_NOT: return ~v;
+    case OPERATORU_LOGIC_NOT: return !v;
+    default:  throw new ExprErr("unexpected unary operator");
+    }
+}
+
+class UnaryOpNode {
+    constructor(c, op) {
         this.child = c;
         this.type = null
+        this.op = op
     }
     eval() {
         const v = this.child.eval();
         if (this.type == TYPE_NUM)
-            return -v
+            return call_unary_op(v, this.op)
         const num_comp = v.length
         const ret = new v.constructor(num_comp)
         for(let i = 0; i < num_comp; ++i) 
-            ret[i] = -v[i]
+            ret[i] = call_unary_op(v[i], this.op)
         return ret
     }
     check_type() {
@@ -155,6 +169,12 @@ const OPERATOR_LESS_EQ = 14 // <=
 const OPERATOR_GREATER = 15 // >
 const OPERATOR_GREATER_EQ = 16 // >=
 const OPERATOR_EQ = 17 // ==
+const OPERATOR_LOGIC_AND = 18 // &&
+const OPERATOR_LOGIC_OR = 19 // ||
+
+const OPERATORU_LOGIC_NOT = 100 // !
+const OPERATORU_BITWISE_NOT = 101 // ~
+const OPERATORU_NEG = 102 // -
 
 class Operator
 {
@@ -167,25 +187,34 @@ class Operator
     }
 }
 
+// needs to be ordered by the numbers of the operators, only binary operators
+// higher number = higher precedence
 const ops = [
     new Operator(OPERATOR_NULL, 0, 'L'),
-    new Operator(OPERATOR_BITWISE_OR, 4, 'L'),
-    new Operator(OPERATOR_BITWISE_XOR, 5, 'L'),
-    new Operator(OPERATOR_BITWISE_AND, 6, 'L'),
-    new Operator(OPERATOR_BITWISE_SHL, 9, 'L'),
-    new Operator(OPERATOR_BITWISE_SHR, 9, 'L'),
-    new Operator(OPERATOR_ADDITION, 10, 'L'),
-    new Operator(OPERATOR_SUBTRACTION, 10, 'L'),
-    new Operator(OPERATOR_MULTIPLICATION, 20, 'L'),
-    new Operator(OPERATOR_DIVISION, 20, 'L'),
-    new Operator(OPERATOR_MODULO, 20, 'L'),
-    new Operator(OPERATOR_POWER, 30, 'R'),
-    new Operator(OPERATOR_EXPONENT, 40, 'R'),
-    new Operator(OPERATOR_LESS, 50, 'L'),
-    new Operator(OPERATOR_LESS_EQ, 50, 'L'),
-    new Operator(OPERATOR_GREATER, 50, 'L'),
-    new Operator(OPERATOR_GREATER_EQ, 50, 'L'),
-    new Operator(OPERATOR_EQ, 50, 'L'),
+
+    new Operator(OPERATOR_BITWISE_OR, 40, 'L'),
+    new Operator(OPERATOR_BITWISE_XOR, 50, 'L'),
+    new Operator(OPERATOR_BITWISE_AND, 60, 'L'),
+    new Operator(OPERATOR_BITWISE_SHL, 70, 'L'),
+    new Operator(OPERATOR_BITWISE_SHR, 70, 'L'),
+
+    new Operator(OPERATOR_ADDITION, 100, 'L'),
+    new Operator(OPERATOR_SUBTRACTION, 100, 'L'),
+    new Operator(OPERATOR_MULTIPLICATION, 200, 'L'),
+    new Operator(OPERATOR_DIVISION, 200, 'L'),
+    new Operator(OPERATOR_MODULO, 200, 'L'),
+    new Operator(OPERATOR_POWER, 300, 'R'),
+    new Operator(OPERATOR_EXPONENT, 400, 'R'),
+
+    new Operator(OPERATOR_LESS, 30, 'L'),
+    new Operator(OPERATOR_LESS_EQ, 30, 'L'),
+    new Operator(OPERATOR_GREATER, 30, 'L'),
+    new Operator(OPERATOR_GREATER_EQ, 30, 'L'),
+    new Operator(OPERATOR_EQ, 30, 'L'),
+
+    new Operator(OPERATOR_LOGIC_AND, 20, 'L'),
+    new Operator(OPERATOR_LOGIC_OR, 10, 'L'),
+
 ]
 
 
@@ -206,7 +235,7 @@ function getCharacter() {
 /// @throw error if parsing fails.
 ///
 function expect(str) {
-    if (expr_.substr(index_, index_ + str.length) !== str)
+    if (expr_.substr(index_, str.length) !== str)
         unexpected();
     index_ += str.length;
 }
@@ -233,12 +262,22 @@ function parseOp()
     switch (getCharacter()) {
         case '|':
             index_++;
+            ne = getCharacter()
+            if (ne == '|') {
+                index_++;
+                return ops[OPERATOR_LOGIC_OR];
+            }            
             return ops[OPERATOR_BITWISE_OR];
         case '^':
             index_++;
             return ops[OPERATOR_BITWISE_XOR];
         case '&':
             index_++;
+            ne = getCharacter()
+            if (ne == '&') {
+                index_++;
+                return ops[OPERATOR_LOGIC_AND];
+            }
             return ops[OPERATOR_BITWISE_AND];
         case '<':
             index_++;
@@ -417,6 +456,7 @@ function parseFuncCall(func_name) {
     return new FuncCallNode(def.f, func_name, args)
 }
 
+const constants = {"PI": Math.PI, "true":1, "false":0}
 
 function parseIdentifier() {
     let sb = ''
@@ -437,7 +477,10 @@ function parseIdentifier() {
     eatSpaces()
     if (getCharacter() == '(')  {// function call
         return parseFuncCall(sb) 
-    }   
+    }
+
+    if (constants[sb] !== undefined)
+        return new NumNode(constants[sb])
 
     let e = state_access_.get_evaluator(sb)
     if (e === null) 
@@ -554,8 +597,17 @@ function parseValue() {
             break;
         case '-':
             index_++;
-            val = new UnaryNegNode(parseValue());
+            val = new UnaryOpNode(parseValue(), OPERATORU_NEG);
             break;
+        case '~':
+            index_++;
+            val = new UnaryOpNode(parseValue(), OPERATORU_BITWISE_NOT);
+            break;
+        case '!':
+            index_++;
+            val = new UnaryOpNode(parseValue(), OPERATORU_LOGIC_NOT);
+            break;
+                    
         default:
             if ( (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_') {
                 val = parseIdentifier();

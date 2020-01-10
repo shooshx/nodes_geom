@@ -352,6 +352,20 @@ class ParamSeparator extends Parameter {
     }
 }
 
+// not a real param, just a way to store objects with the params save/load mechanism
+class ParamObjStore extends Parameter {
+    constructor(node, label, start_v) {
+        super(node, label)
+        this.v = start_v
+    }
+    save() { return {v:this.v}}
+    load(v) { this.v = v.v }
+    add_elems(parent) {}
+    modified() {
+        this.pset_dirty() 
+    }
+}
+
 
 class ParamInt extends Parameter {
     constructor(node, label, start_v) {
@@ -375,17 +389,24 @@ class ParamStr extends Parameter {
         super(node, label)
         this.v = start_v
         this.change_func = change_func
+        this.elem = null
     }
     save() { return {v:this.v}}
     load(v) { this.v = v.v }
     add_elems(parent) {
         this.line_elem = add_param_line(parent)
         this.label_elem = add_param_label(this.line_elem, this.label)
-        add_param_edit(this.line_elem, this.v, ED_STR, (v)=>{ 
+        this.elem = add_param_edit(this.line_elem, this.v, ED_STR, (v)=>{ 
             this.v = v; 
             this.call_change()
             this.pset_dirty() 
         }) 
+    }
+    modify(v) {
+        this.v = v
+        if (this.elem !== null)
+            this.elem.value = v
+        this.pset_dirty() 
     }
 }
 
@@ -525,10 +546,12 @@ class ExpressionItem {
         }
     }
     peval(se) {
-        this.se = se
+        this.se = se // might be a plain number as well
         this.eclear_error()
+        const state_access = this.in_param.owner.state_access
         try {
-            this.in_param.owner.state_access.reset_check()
+            if (state_access !== null)  // might be a node that doesn't have state_access
+            state_access.reset_check()
             this.e = ExprParser.eval(se, this.in_param.owner.state_access)
             const type = this.e.check_type()
             if (this.prop_type == ED_COLOR_EXPR)
@@ -542,7 +565,7 @@ class ExpressionItem {
             return
         }
         // score determines if the expression depends on anything
-        let expr_score = this.in_param.owner.state_access.score
+        let expr_score = (state_access !== null) ? state_access.score : EXPR_CONST
         if (expr_score == EXPR_CONST) { // depends on anything?
             if (this.do_set_prop(this.e.eval()))
                 this.in_param.pset_dirty() 
@@ -555,7 +578,7 @@ class ExpressionItem {
         else {
             this.do_set_prop(null) // it's dynamic so best if it doesn't have a proper value from before
             if ((expr_score & EXPR_NEED_INPUT) != 0) {
-                this.need_inputs = this.in_param.owner.state_access.need_inputs
+                this.need_inputs = state_access.need_inputs
             }
             this.in_param.pset_dirty() // TBD maybe expression didn't change?
         }
@@ -716,6 +739,7 @@ class ParamColorExpr extends ParamBaseExpr {
 class ParamFloat extends ParamBaseExpr {
     constructor(node, label, start_v, slider_range=null) {
         super(node, label, start_v, ED_FLOAT, slider_range)
+        this.item.peval(this.v)
     }
     gl_set_value(loc) {
         gl.uniform1f(loc, this.v)

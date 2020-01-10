@@ -467,13 +467,7 @@ function do_frame_draw(do_run, clear_all=false)
             return
         }
 
-        let promise
-        try {
-            promise = disp_obj.draw(image_view.t_viewport, program.display_node.display_values)
-        } catch(e) {
-            set_error(program.display_node.cls, e.message)
-        }
-        let finalize_draw = ()=>{
+        const finalize_draw = ()=>{
             if (selected_node !== null) {
                 try {
                     selected_node.cls.draw_selection(image_view.t_viewport)
@@ -481,12 +475,22 @@ function do_frame_draw(do_run, clear_all=false)
                     set_error(selected_node.cls, e.message)
                 }
             }
-            
         }
-        if (promise !== undefined)
-            promise.then(finalize_draw)
-        else
+        const set_err_and_finalize = (e)=>{
             finalize_draw()
+            set_error(program.display_node.cls, e.message)
+        }
+
+        try {
+            let promise = disp_obj.draw(image_view.t_viewport, program.display_node.display_values)
+            if (promise !== undefined)
+                promise.then(finalize_draw, set_err_and_finalize)
+            else
+                finalize_draw()
+        } catch(e) {
+            set_error(program.display_node.cls, e.message)
+        }
+
     }
     finally {
         in_draw = false

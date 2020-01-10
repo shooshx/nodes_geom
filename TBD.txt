@@ -18,8 +18,7 @@ GUI:
 ENGINE:
 - serialization - save only if something is changed
 - save to SVG
-- !!!!!! faces fill from any Image
-- faces fill from gradient
+
 
 NODES:
 - frame buffer
@@ -27,12 +26,20 @@ NODES:
     merge create and shader
 - any square (primitive, webgl, image)
     !!! dials for resizing
+- Geom primitive
+    - rect round edges
+    - regular polygon
+    - spiral
+    - !!!!! 2d function of t, sampled at intervals
+    - star - number of points, radius1, radius2, with handles?
+    - !!! free-hand path, min step distance
 - manual geom
     - delete point from list control
     - move them even after transform?
     - primitive quad, triangle, path between the points? by selection?
     - curve control points
     - BUG - yellow appears in the second column but isn't updating when changing selection
+    - point size
 - Divide triangles - for better interpolation
     - unifies vertices?
 - polyline fill
@@ -43,17 +50,16 @@ NODES:
     show arrows with on the lines to show its direction
 - SetAttr
     pseudo attribute - face center (position) so that it will be possible to sample face color from the position attribute
+    normals?
 - SetAttr fill from node 
    - transform fill along with the shape or not
-   - boolean expression to choose faces (according to other vertex)
    - fill vertices circles?
-   - set attr_name automatically, changing according to the selection of type
-- Manual points
-    point size
+    
 - round edges
 - transform invert
+- transform - fit one object to another? paper.js fitBounds
 - interactive
-    mouse input
+    mouse input, adjust minimimum step (http://paperjs.org/tutorials/images/color-averaging-image-areas/)
 - Group objects
     display checkboxes (accumulate from connections?)
 - GLSL node
@@ -66,6 +72,8 @@ NODES:
     https://github.com/stegu/webgl-noise/tree/master/src
     https://github.com/shooshx/kawaiigl/blob/0f403512b49187b677865179f3ef5eb18433b68b/NoiseGenerator.cpp
     simplex?
+- Load-Image
+    menu on the side to load presets?
 - point size to path circle
     and lines -- according to changing width
 - bitmap trace
@@ -93,6 +101,9 @@ NODES:
 - 3D model and render
 - Text paths  https://opentype.js.org/
 - Mesh merge, path merge
+- Shrink faces 
+    - with expression depending on vtx_pos or any other attr
+    - bug with saved voronoi
 
 - animate? modify a property for the next frame
 - random color with r,g,b ranges and seed parameter
@@ -100,6 +111,11 @@ NODES:
 nodes the produce transform, invert it
 
 
+PAPER.JS
+- create objects without canvas?
+- internal represnentation
+- smooth, simplify
+- offset - https://github.com/luz-alphacode/paperjs-offset
 
 EXPRESSIONS
 - in transform params
@@ -107,7 +123,8 @@ EXPRESSIONS
 - intellisense
 - vec2 normalize - require vec2 values
     - scale to object space coordinate
-- !!!!! pi
+- !! in any params view that can have expressions, add a custom user parameter that can be used with a slider
+    - added to the object that carries it
 
 
 NODE-VIEW
@@ -132,6 +149,8 @@ demo idea
 - something looking like https://github.com/stolk/allrgb
 - rainbow gradient like clock - radial with rays towards infinity (conic gradient) https://codepen.io/thebabydino/pen/pyOadx/
 - ascii art
+- spiral with width according to color (http://paperjs.org/examples/spiral-raster/)
+- http://paperjs.org/examples/
 
 nice visualizations: https://bost.ocks.org/mike/algorithms/
 d3: https://github.com/d3/d3/wiki/Gallery

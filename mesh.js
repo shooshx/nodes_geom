@@ -35,7 +35,12 @@ class BBox {
     }
 }
 
-
+class FillObj {
+    constructor(obj_proxy) {
+        this.obj_proxy = obj_proxy // ObjConstProxy which is not cloned
+        this.clip_path = null
+    }
+}
 
 class Mesh extends PObject
 {
@@ -52,9 +57,9 @@ class Mesh extends PObject
         this.tcache = { vtx_pos:null, m:null }  // transformed cache
         //this.lines_cache = null  // cache lines for stroke (so that every line be repeated twice
         this.glbufs = { vtx_pos:null, idx:null }
-        this.fill_objs = []  // list of ObjConstProxy, used for face_fill, vtx_fill attribute
-                             // the mesh caches the clip_path for each object in the proxy object
+        this.fill_objs = [null]  // list of FillObj, used for face_fill attribute
                              // it's the nodes responsibility that there would not be left objects that are not needed
+                             // first entry is null so ids start with 1. 0 is reserved to nothing
 
     }
     destructor() {
@@ -80,6 +85,12 @@ class Mesh extends PObject
         if (this.meta.vtx_pos !== null)
             this.meta.vtx_pos.made_glbuf = false
         this.paths = null
+        this.invalidate_fill()
+    }
+    invalidate_fill() {
+        for(let fo of this.fill_objs)
+            if (fo !== null)
+                fo.clip_path = null
     }
 
     set(name, arr, num_elems, need_normalize) {
@@ -91,6 +102,9 @@ class Mesh extends PObject
                            }
         if (name == "vtx_pos") {
             this.invalidate_pos()
+        }
+        if (name == "face_fill") {
+            this.invalidate_fill()
         }
     }
 
@@ -319,12 +333,14 @@ class Mesh extends PObject
         for(let foi in this.fill_objs) 
         {
             const fo = this.fill_objs[foi]
+            if (fo === null)
+                continue
             if (fo.clip_path === undefined || fo.clip_path === null)  // it's going to be undefined at the first time, null if it's invalidated?
                 fo.clip_path = this.make_clip_path(this.arrs.face_fill, foi)
             ctx_img.save()
             ctx_img.clip(fo.clip_path, "nonzero"); // "evenodd" is not what we usually want
             try {
-                await fo.draw(m)
+                await fo.obj_proxy.draw(m)
             } finally {
                 ctx_img.restore()
             }
@@ -447,7 +463,7 @@ class Mesh extends PObject
 
     add_fillobj(proxy) {
         const id = this.fill_objs.length
-        this.fill_objs.push(proxy)
+        this.fill_objs.push(new FillObj(proxy))
         return id
     }
 }
