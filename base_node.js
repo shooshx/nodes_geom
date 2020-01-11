@@ -219,6 +219,13 @@ class TerminalBase {
     mousedown() {}
 }
 
+function canvas_transform(ctx, m) {
+    ctx.transform(m[0], m[1], m[3], m[4], m[6], m[7])
+}
+function canvas_setTransform(ctx, m) {
+    ctx.setTransform(m[0], m[1], m[3], m[4], m[6], m[7])
+}
+
 
 // rules for PObjects (for clone)
 // - should have no-arg constructor
@@ -233,7 +240,7 @@ class PObject {
     async draw(m, disp_values) {
         ctx_img.save()
         try {
-            ctx_img.setTransform(m[0], m[1], m[3], m[4], m[6], m[7])
+            canvas_setTransform(ctx_img, m)
             await this.draw_m(m, disp_values)
         }
         finally {
@@ -243,7 +250,7 @@ class PObject {
     draw_selection(m, select_vindices) {
         ctx_img.save()
         try {
-            ctx_img.setTransform(m[0], m[1], m[3], m[4], m[6], m[7])
+            ccanvas_setTransform(ctx_img, m)
             this.draw_selection_m(m, select_vindices)
         }
         finally {

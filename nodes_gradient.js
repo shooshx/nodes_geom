@@ -53,7 +53,7 @@ class Gradient extends PObject
         }
 
         ctx.save()
-        ctx.transform(this.t_mat[0], this.t_mat[1], this.t_mat[3], this.t_mat[4], this.t_mat[6], this.t_mat[7])
+        canvas_transform(ctx, this.t_mat)
         ctx.fillStyle = this.grd
         ctx.beginPath()
         ctx.moveTo(rp[0][0], rp[0][1]); ctx.lineTo(rp[2][0], rp[2][1])
@@ -173,7 +173,7 @@ class GradientPixelsAdapter {
             // bring to top-left corner of the mesh to 0,0
             let m = mat3.create()
             mat3.scale(m, m, [image_view.viewport_zoom, image_view.viewport_zoom])
-            ctx_img_shadow.setTransform(m[0], m[1], m[3], m[4], m[6], m[7])
+            canvas_setTransform(ctx_img_shadow, m)
             ctx_img_shadow.translate(-this.bbox.min_x, -this.bbox.min_y)
             this.obj.draw_fill_rect(ctx_img_shadow, vec2.fromValues(this.bbox.min_x,this.bbox.min_y), vec2.fromValues(this.w_width, this.w_height), false)
             ctx_img_shadow.restore()
@@ -243,7 +243,7 @@ class RadialGradient extends Gradient {
     draw_circles(tp1, tp2) {
         let p1 = this.p1, p2 = this.p2, r1 = this.r1, r2 = this.r2
         ctx_img.save()
-        ctx_img.transform(this.t_mat[0], this.t_mat[1], this.t_mat[3], this.t_mat[4], this.t_mat[6], this.t_mat[7])
+        canvas_transform(ctx_img, this.t_mat)
         {
             ctx_img.beginPath()
             circle(p1, r1)

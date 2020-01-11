@@ -18,7 +18,8 @@ GUI:
 ENGINE:
 - serialization - save only if something is changed
 - save to SVG
-
+- unify ParamColor and ParamExprColor
+- expression in color in table
 
 NODES:
 - frame buffer

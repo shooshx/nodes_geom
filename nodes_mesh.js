@@ -53,6 +53,8 @@ class NodeGeomPrimitive extends NodeCls
         this.shape = new ParamSelect(node, "Shape", 0, ["Rectangle", "Rectangle from triangles", "Ellipse"])
         this.size = new ParamVec2(node, "Size", 0.5, 0.5)
         this.transform = new ParamTransform(node, "Transform")
+
+        this.size_dial = null
     }
     run() {
         assert(this.transform.is_valid(), this, "invalid transform")
@@ -84,9 +86,19 @@ class NodeGeomPrimitive extends NodeCls
         let outmesh = this.out.get_const()
         dassert(outmesh !== null, "No output object to select")
         this.transform.draw_dial_at_obj(outmesh, m)
+
+        // resize dial
+        if (this.size_dial === null) {
+            this.size_dial = new PointDial((dx, dy)=>{
+                this.size.increment(vec2.fromValues(dx*2, dy*2))
+            })
+        }
+        // /2 since size is the full object and we go from 0 to the corner
+        this.size_dial.draw(this.size.x/2, this.size.y/2, this.transform.v, m)
     }    
     image_find_obj(vx, vy, ex, ey) {
-        return this.transform.dial.find_obj(ex, ey)
+        return this.transform.dial.find_obj(ex, ey) || 
+               this.size_dial.find_obj(ex, ey)
     }
 }
 

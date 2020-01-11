@@ -25,7 +25,7 @@ class ImageBase extends PObject
         mat3.multiply(w_mat, w_mat, this.t_mat)
 
         ctx_img.save()
-        ctx_img.setTransform(w_mat[0], w_mat[1], w_mat[3], w_mat[4], w_mat[6], w_mat[7])
+        canvas_setTransform(ctx_img, w_mat)
         ctx_img.imageSmoothingEnabled = this.smooth
         ctx_img.drawImage(img_impl, tl[0], tl[1], br[0] - tl[0], br[1] - tl[1])
         ctx_img.restore()   

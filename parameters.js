@@ -756,6 +756,7 @@ class ParamVec2 extends Parameter {
         this.y = start_y
         this.item_y = new ExpressionItem(this, "y", ED_FLOAT)
         this.long_form = long_form
+        this.dial = null
     }
     save() { let r = { x:this.x, y:this.y }; this.item_x.save_to(r); this.item_y.save_to(r); return r }
     load(v) { this.item_x.load(v); this.item_y.load(v) }
@@ -781,6 +782,11 @@ class ParamVec2 extends Parameter {
     increment(dv) {
         this.item_x.set_to_const(this.x + dv[0])
         this.item_y.set_to_const(this.y + dv[1])
+        this.pset_dirty() 
+    }
+    modify(v) {
+        this.item_x.set_to_const(v[0])
+        this.item_y.set_to_const(v[1])
         this.pset_dirty() 
     }
     dyn_eval(item_index) {
@@ -1051,13 +1057,6 @@ class ParamTransform extends Parameter {
         this.calc_mat(); 
         this.repaint_elems()
     }
-    draw_dial(cx, cy) {
-        if (this.dial === null)
-            this.dial = new TransformDial(this)
-        this.dial.set_center(cx, cy)
-        this.dial.draw()
-        return this.dial
-    }
     draw_dial_at_obj(obj, m) {
         if (obj === null)
             return // might be it's not connected so it doesn't have output
@@ -1072,13 +1071,51 @@ class ParamTransform extends Parameter {
         center[0] += this.translate[0]
         center[1] += this.translate[1]
         vec2.transformMat3(center, center, m) // to canvas coords
-        this.draw_dial(center[0], center[1])        
+
+        if (this.dial === null)
+            this.dial = new TransformDial(this)
+        this.dial.set_center(center[0], center[1])
+        this.dial.draw()
     }
 }
 
+class PointDial {
+    constructor(callback) {
+        this.callback = callback
+    }
+    draw(x, y, obj_t_mat, m) {
+        this.obj_t_mat = obj_t_mat
+        var p = vec2.fromValues(x, y)
+        vec2.transformMat3(p, p, obj_t_mat)
+        vec2.transformMat3(p, p, m)
+
+        const SZ = 10
+        this.zc = {x:p[0]-SZ, y:p[1]-SZ, w:2*SZ, h:2*SZ}
+
+        ctx_img.beginPath()
+        closed_line(ctx_img, rect_coords(this.zc))
+        double_line(ctx_img)
+    }
+    find_obj(ex, ey) {
+        if (!rect_hit(ex, ey, this.zc)) 
+            return null
+        return new DialMoveHandle(null, true, true, (dx, dy)=>{
+            // dx,dy is not oriented with the object
+            var iv = mat3.clone(this.obj_t_mat)
+            iv[6] = 0; iv[7] = 0  // make a normals matrix to get the dv vector in the proper orientation. TBD good for shear?
+            mat3.invert(iv, iv)
+            let dv = vec2.fromValues(dx, dy)
+            vec2.transformMat3(dv, dv, iv)
+            this.callback(dv[0], dv[1])  
+        })
+    }
+
+}
+
 class DialMoveHandle {
-    constructor(param, do_x, do_y) {
+    constructor(param, do_x, do_y, callback=null) {
         this.param = param
+        this.callback = callback
         this.do_x = do_x; this.do_y = do_y
     }
     mousedown() {}
@@ -1086,7 +1123,10 @@ class DialMoveHandle {
     mousemove(dx,dy, vx,vy, ex,ey) {
         dx /= image_view.viewport_zoom
         dy /= image_view.viewport_zoom        
-        this.param.move(this.do_x ? dx : 0, this.do_y ? dy: 0)
+        if (this.param !== null)
+            this.param.move(this.do_x ? dx : 0, this.do_y ? dy: 0)
+        else
+            this.callback(this.do_x ? dx : 0, this.do_y ? dy: 0)
         trigger_frame_draw(true)
     }
 }
@@ -1120,12 +1160,29 @@ function closed_line(ctx, ln) {
     ctx.lineTo(ln[0], ln[1])
 }
 
+function double_line(ctx) {
+    ctx.strokeStyle = '#ffff00'
+    ctx.lineWidth = 3
+    ctx.stroke()
+    ctx.lineWidth = 1
+    ctx.strokeStyle = '#ff0000'
+    ctx.stroke()
+}
+
 const SQ_HALF = 0.70710678118
+
+function rect_coords(c) {
+    return [c.x,c.y, c.x+c.w,c.y, c.x+c.w,c.y+c.h, c.x,c.y+c.h]
+}
+function rect_hit(ex, ey, c) {
+    return ex >= c.x && ey >= c.y && ex <= c.x + c.w && ey <= c.y + c.h
+}
 
 class TransformDial {
     constructor(param, move_rect) {
         this.param = param
         this.cx = null; this.cy = null
+        this.with_resize = false
     }
     set_center(cx, cy) { 
         this.cx = cx; this.cy = cy
@@ -1136,9 +1193,11 @@ class TransformDial {
         this.rab = {x:this.cx+25, y:this.cy-8, bw:16, bh:20, tw:10, th:40}
         this.rot = {r0:60, r1:75, a0:-0.4*Math.PI, a1:-0.1*Math.PI}
     }
+
+    // called from image_find_obj
     find_obj(ex, ey) { // event coords
         let mv = this.mv, uab = this.uab, rab = this.rab, rot=this.rot
-        if (ex >= mv.x && ey >= mv.y && ex <= mv.x + mv.w && ey <= mv.y + mv.h)
+        if (rect_hit(ex, ey, mv))
             return new DialMoveHandle(this.param, true, true)
         if (ex >= uab.x && ex <= uab.x+uab.bw && ey >= uab.y-uab.th && ey <= uab.y)
             return new DialMoveHandle(this.param, false, true)
@@ -1150,11 +1209,12 @@ class TransformDial {
             return new DialRotHandle(this.param, this.cx, this.cy)
         return null
     }
-    draw() {
+    // called from draw_selection
+    draw() { 
         ctx_img.beginPath()
         // square
-        let mv = this.mv, uab = this.uab, rab = this.rab, rot=this.rot
-        closed_line(ctx_img, [mv.x,mv.y, mv.x+mv.w,mv.y, mv.x+mv.w,mv.y+mv.h, mv.x,mv.y+mv.h])
+        const uab = this.uab, rab = this.rab, rot=this.rot
+        closed_line(ctx_img, rect_coords(this.mv))
         // up arrow
         closed_line(ctx_img, [uab.x,uab.y, uab.x,uab.y-uab.bh, uab.x-uab.tw,uab.y-uab.bh, this.cx,uab.y-uab.th,
                               uab.x+uab.tw+uab.bw,uab.y-uab.bh, uab.x+uab.bw,uab.y-uab.bh, uab.x+uab.bw,uab.y])
@@ -1166,12 +1226,8 @@ class TransformDial {
         ctx_img.arc(this.cx,this.cy, rot.r0, rot.a0, rot.a1)
         ctx_img.arc(this.cx,this.cy, rot.r1, rot.a1, rot.a0, true)
 
-        ctx_img.strokeStyle = '#ffff00'
-        ctx_img.lineWidth = 3
-        ctx_img.stroke()
-        ctx_img.lineWidth = 1
-        ctx_img.strokeStyle = '#ff0000'
-        ctx_img.stroke()
+        double_line(ctx_img)
+
     }
 }
 
