@@ -62,7 +62,13 @@ class Parameter
         this.shares_line_from = param   
     }
     is_sharing_line_elem() {
-        return this.shares_line_from !== null && this.shares_line_from.visible
+        if (this.shares_line_from === null)
+            return false
+        // if we're sharing the same visibility state, it measn we're probably related so anyway put us in the same line
+        if (this.visible == this.shares_line_from.visible)
+            return this.shares_line_from !== null
+        // if we don't have the same visibility, add me to him only if he's visible, otherwise, I'm on my own
+        return this.shares_line_from.visible
     }
     set_group(group_param) {
         this.group_param = group_param
@@ -204,8 +210,11 @@ function add_param_label(line, text, cls) {
 }
 
 function formatType(value, type) {
-    const is_float = (type == ED_FLOAT || type == ED_FLOAT_OUT_ONLY)
-    return is_float ? toFixedMag(value) : value
+    if (type == ED_FLOAT || type == ED_FLOAT_OUT_ONLY)
+        return toFixedMag(value)
+    if (type == ED_INT)
+        return Math.round(value)
+    return value
 }
 
 const ED_FLOAT=0
@@ -234,7 +243,7 @@ function add_param_edit(line, value, type, set_func, cls=null) {
     line.appendChild(e)
     return e
 }
-function add_param_slider(line, min_val, max_val, start_value, set_func) {
+function add_param_slider(line, min_val, max_val, start_value, type, set_func) {
     const center = add_div(line, "slider_line")
     const fill = add_div(center, "slider_fill")
     const thumb = add_div(center, "slider_thumb")
@@ -247,6 +256,8 @@ function add_param_slider(line, min_val, max_val, start_value, set_func) {
         return v*(cfg.max_val - cfg.min_val) + cfg.min_val
     }
     const range_to_r01 = (exv)=>{
+        if (type == ED_INT)
+            exv = Math.round(exv)
         return (exv - cfg.min_val)/(cfg.max_val - cfg.min_val)
     }
     const update = (value)=>{
@@ -367,22 +378,6 @@ class ParamObjStore extends Parameter {
 }
 
 
-class ParamInt extends Parameter {
-    constructor(node, label, start_v) {
-        super(node, label)
-        this.v = start_v
-    }
-    save() { return {v:this.v}}
-    load(v) { this.v = v.v }
-    add_elems(parent) {
-        this.line_elem = add_param_line(parent, this)
-        this.label_elem = add_param_label(this.line_elem, this.label)
-        add_param_edit(this.line_elem, this.v, ED_INT, (v)=>{ this.v = parseInt(v); this.pset_dirty() }) // TBD enforce int with parsing
-    }
-    gl_set_value(loc) {
-        gl.uniform1i(loc, this.v)
-    }    
-}
 
 class ParamStr extends Parameter {
     constructor(node, label, start_v, change_func) {
@@ -589,7 +584,7 @@ class ExpressionItem {
     {
         let disp_slider = (is_first)=> {
             if (this.slider_enabled && (this.slider == null || is_first)) {
-                this.slider = add_param_slider(line, this.slider_range[0], this.slider_range[1], null, (v)=>{
+                this.slider = add_param_slider(line, this.slider_range[0], this.slider_range[1], null, this.prop_type, (v)=>{
                     this.set_to_const(v)
                     this.in_param.pset_dirty() 
                 })
@@ -744,6 +739,15 @@ class ParamFloat extends ParamBaseExpr {
     gl_set_value(loc) {
         gl.uniform1f(loc, this.v)
     }    
+}
+
+
+class ParamInt extends ParamBaseExpr {
+    constructor(node, label, start_v, slider_range=null) {
+        super(node, label, start_v, ED_INT, slider_range)
+        this.item.set_prop = (v)=>{ this.v = Math.round(v) }
+        this.item.peval(this.v)
+    }  
 }
 
 
@@ -1839,8 +1843,9 @@ class ParamButton extends Parameter
     save() { return null }
     load(v) { }
     add_elems(parent) {
-        this.line_elem = add_param_line(parent)
-        add_param_label(this.line_elem, null)  // empty space
+        this.line_elem = add_param_line(parent, this)
+        if (!this.is_sharing_line_elem()) 
+            add_param_label(this.line_elem, null)  // empty space
         add_push_btn(this.line_elem, this.label, this.onclick)
     }
 }

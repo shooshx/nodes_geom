@@ -22,7 +22,7 @@ class MultiPath extends PObject
         this.tcache = { vtx_pos:null, m:null }  // transformed cache (for setattr)
         this.fill_objs = []
     }
-    set(name, arr, num_elems, need_normalize) {
+    set(name, arr, num_elems, need_normalize=false) {
         name = normalize_attr_name(name)
         this.arrs[name] = arr
         this.meta[name] = { num_elems: num_elems,

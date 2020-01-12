@@ -43,6 +43,12 @@ function make_mesh_quadtri(hx, hy) {
     obj.set_type(MESH_TRI)
     return obj
 }
+function vec2_len(x, y) {
+    return Math.sqrt(x*x+y*y)
+}
+function vecs_angle(a, b) {
+    return Math.asin( vec2.dot(a, b) / (vec2.len(a)*vec2.len(b)) )
+}
 
 class NodeGeomPrimitive extends NodeCls
 {
@@ -50,11 +56,29 @@ class NodeGeomPrimitive extends NodeCls
     constructor(node) {
         super(node)
         this.out = new OutTerminal(node, "out_mesh")
-        this.shape = new ParamSelect(node, "Shape", 0, ["Rectangle", "Rectangle from triangles", "Ellipse"])
+        this.shape = new ParamSelect(node, "Shape", 0, ["Rectangle", "Rectangle from triangles", "Ellipse", "Regular Poly", "Star"], (sel_idx)=>{
+            this.num_points.set_visible(sel_idx == 3 || sel_idx == 4)
+            this.inner_point.set_visible(sel_idx == 4)
+            this.center_inner_btn.set_visible(sel_idx == 4)
+        })
         this.size = new ParamVec2(node, "Size", 0.5, 0.5)
+        this.num_points = new ParamInt(node, "Num Points", 5, [3,12]) 
+        this.inner_point = new ParamVec2(node, "Inner Point", 0, 0.2)
+        this.center_inner_btn = new ParamButton(node, "Center", ()=>{
+            const angle = 0.5/this.num_points.v*Math.PI*2
+            const r = vec2_len(this.inner_point.x, this.inner_point.y)
+            this.inner_point.modify(vec2.fromValues(r*Math.sin(angle), -r*Math.cos(angle)))
+        })
+        this.center_inner_btn.share_line_elem_from(this.inner_point)
+
         this.transform = new ParamTransform(node, "Transform")
 
-        this.size_dial = null
+        this.size_dial = new PointDial((dx, dy)=>{
+            this.size.increment(vec2.fromValues(dx*2, dy*2))
+        })
+        this.inner_dial = new PointDial((dx,dy)=>{
+            this.inner_point.increment(vec2.fromValues(dx/this.size.x*2, dy/this.size.y*2))
+        })
     }
     run() {
         assert(this.transform.is_valid(), this, "invalid transform")
@@ -72,13 +96,36 @@ class NodeGeomPrimitive extends NodeCls
         }
         else if (this.shape.sel_idx == 2) {
             obj = new MultiPath()
-            obj.set('vtx_pos', new TVtxArr([hx,0, 0,-hy, -hx,0, 0,hy]))
+            obj.set('vtx_pos', new TVtxArr([hx,0, 0,-hy, -hx,0, 0,hy]), 2)
             let dc = 0.5 * 4*(Math.sqrt(2)-1)/3 // see https://stackoverflow.com/questions/1734745/how-to-create-circle-with-b%C3%A9zier-curves
             let dc_x = this.size.x * dc, dc_y = this.size.y * dc
-            obj.set('ctrl_to_prev',   new TVtxArr([0,dc_y, dc_x,0,  0,-dc_y,  -dc_x,0] ))
-            obj.set('ctrl_from_prev', new TVtxArr([dc_x,0,  0,-dc_y, -dc_x,0, 0,dc_y] ))
+            obj.set('ctrl_to_prev',   new TVtxArr([0,dc_y, dc_x,0,  0,-dc_y,  -dc_x,0] ), 2)
+            obj.set('ctrl_from_prev', new TVtxArr([dc_x,0,  0,-dc_y, -dc_x,0, 0,dc_y] ), 2)
             obj.paths_ranges = [0,4,PATH_CLOSED]
         }
+        else if (this.shape.sel_idx == 3 || this.shape.sel_idx == 4) { // regular poly
+            const vtx = [], np = this.num_points.v
+            const rx = this.size.x*0.5, ry = this.size.y*0.5
+
+            const isStar = this.shape.sel_idx == 4
+            const ha = 0.5/np*Math.PI*2
+            const inner = vec2.fromValues(this.inner_point.x, this.inner_point.y)
+            const start_inner_angle = Math.atan2(this.inner_point.y, this.inner_point.x)+Math.PI/2
+            const r_inner = vec2.len(inner)
+            for(let i = 0; i < np; ++i) {
+                const angle = i/np*Math.PI*2
+                vtx.push(rx*Math.sin(angle), -ry*Math.cos(angle))
+                if (isStar) {
+                    const inner_angle = start_inner_angle + i/np*Math.PI*2
+                    vtx.push(rx*r_inner*Math.sin(inner_angle), -ry*r_inner*Math.cos(inner_angle))
+                }
+            }
+            obj = new MultiPath()
+            obj.set('vtx_pos', new TVtxArr(vtx), 2)
+            obj.paths_ranges = [0,np*(isStar?2:1),PATH_CLOSED]
+        }
+        else 
+            assert("unknown shape")
         obj.transform(this.transform.v)
         this.out.set(obj)
     }
@@ -87,18 +134,15 @@ class NodeGeomPrimitive extends NodeCls
         dassert(outmesh !== null, "No output object to select")
         this.transform.draw_dial_at_obj(outmesh, m)
 
-        // resize dial
-        if (this.size_dial === null) {
-            this.size_dial = new PointDial((dx, dy)=>{
-                this.size.increment(vec2.fromValues(dx*2, dy*2))
-            })
-        }
-        // /2 since size is the full object and we go from 0 to the corner
+        //  resize dial, /2 since size is the full object and we go from 0 to the corner
         this.size_dial.draw(this.size.x/2, this.size.y/2, this.transform.v, m)
+        // the inner point needs to move along with the entire size
+        this.inner_dial.draw(this.inner_point.x*this.size.x/2, this.inner_point.y*this.size.y/2, this.transform.v, m)
     }    
     image_find_obj(vx, vy, ex, ey) {
         return this.transform.dial.find_obj(ex, ey) || 
-               this.size_dial.find_obj(ex, ey)
+               this.size_dial.find_obj(ex, ey) ||
+               this.inner_dial.find_obj(ex, ey) 
     }
 }
 
