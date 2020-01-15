@@ -18,15 +18,12 @@ GUI:
 ENGINE:
 - serialization - save only if something is changed
 - save to SVG
-- unify ParamColor and ParamExprColor
-- expression in color in table
+
 
 NODES:
 - frame buffer
     clone object
     merge create and shader
-- any square (primitive, webgl, image)
-    !!! dials for resizing
 - Geom primitive
     - rect round edges
     - regular polygon
@@ -119,14 +116,15 @@ PAPER.JS
 - offset - https://github.com/luz-alphacode/paperjs-offset
 
 EXPRESSIONS
-- in transform params
+- !!!!! in transform params
 - boolean comparisons operator ?:
 - intellisense
 - vec2 normalize - require vec2 values
     - scale to object space coordinate
 - !! in any params view that can have expressions, add a custom user parameter that can be used with a slider
     - added to the object that carries it
-
+- unify ParamColor and ParamExprColor
+- expression in color in table
 
 NODE-VIEW
 - better lines the go up

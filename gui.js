@@ -299,7 +299,7 @@ function panel_mouse_control(view, canvas)
         }
         else if (hit !== null) {
             let cvs_x = e.pageX - view.rect.left, cvs_y = e.pageY - view.rect.top
-            hit.mousemove(dx, dy, view.view_x(e.pageX), view.view_y(e.pageY), e.pageX, e.pageY, cvs_x, cvs_y)
+            hit.mousemove(dx, dy, view.view_x(e.pageX), view.view_y(e.pageY), e.pageX, e.pageY, cvs_x, cvs_y, e)
         }
     })
     

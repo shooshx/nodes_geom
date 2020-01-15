@@ -1084,8 +1084,10 @@ class ParamTransform extends Parameter {
 }
 
 class PointDial {
-    constructor(callback) {
-        this.callback = callback
+    constructor(on_move, on_start_drag=null) {
+        this.on_move = on_move
+        this.on_start_drag = on_start_drag || ( ()=>{return null} )
+        this.zc = null
     }
     draw(x, y, obj_t_mat, m) {
         this.obj_t_mat = obj_t_mat
@@ -1101,16 +1103,17 @@ class PointDial {
         double_line(ctx_img)
     }
     find_obj(ex, ey) {
-        if (!rect_hit(ex, ey, this.zc)) 
+        if (this.zc === null || !rect_hit(ex, ey, this.zc)) 
             return null
-        return new DialMoveHandle(null, true, true, (dx, dy)=>{
+        const start_ctx = this.on_start_drag()
+        return new DialMoveHandle(null, true, true, (dx, dy, e)=>{
             // dx,dy is not oriented with the object
             var iv = mat3.clone(this.obj_t_mat)
             iv[6] = 0; iv[7] = 0  // make a normals matrix to get the dv vector in the proper orientation. TBD good for shear?
             mat3.invert(iv, iv)
             let dv = vec2.fromValues(dx, dy)
             vec2.transformMat3(dv, dv, iv)
-            this.callback(dv[0], dv[1])  
+            this.on_move(dv[0], dv[1], start_ctx, e)  
         })
     }
 
@@ -1124,13 +1127,13 @@ class DialMoveHandle {
     }
     mousedown() {}
     mouseup() {}
-    mousemove(dx,dy, vx,vy, ex,ey) {
+    mousemove(dx,dy, vx,vy, ex,ey, cvx, cvy, e) {
         dx /= image_view.viewport_zoom
         dy /= image_view.viewport_zoom        
         if (this.param !== null)
             this.param.move(this.do_x ? dx : 0, this.do_y ? dy: 0)
         else
-            this.callback(this.do_x ? dx : 0, this.do_y ? dy: 0)
+            this.callback(this.do_x ? dx : 0, this.do_y ? dy: 0, e)
         trigger_frame_draw(true)
     }
 }

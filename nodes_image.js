@@ -53,6 +53,13 @@ class NodeLoadImage extends NodeCls
         }
         this.zoom_fit = new ParamButton(node, "Zoom to fit viewport pixel size", zoom_fit_func)
         zoom_fit_func() // fit to the viewport at the time the node is created
+
+        this.size_dial = new ScaleDial(this.transform, ()=>{
+            const oimg = this.out_img.get_const()
+            if (oimg === null)
+                return null
+            return [oimg.width(), oimg.height()]
+        })
     }
 
     run() {
@@ -69,11 +76,50 @@ class NodeLoadImage extends NodeCls
         dassert(outimg !== null, "No output object to select")
         this.transform.draw_dial_at_obj(outimg, m)
         outimg.draw_border(m)
+
+        this.size_dial.draw(m)
+
     }    
     image_find_obj(vx, vy, ex, ey) {
-        if (this.transform.dial === null)
-            return null
-        return this.transform.dial.find_obj(ex, ey)
+        if (this.transform.dial !== null) {
+            const hit = this.transform.dial.find_obj(ex, ey)
+            if (hit)
+                return hit
+        }
+        return this.size_dial.find_obj(ex, ey)
     }
 }
 
+
+class ScaleDial extends PointDial
+{
+    constructor(transform, get_width_height) {
+        super( (dx, dy, ctx, e)=>{ // dx,dy are already transformed with the img transform into image coordinates
+            const wh = get_width_height()
+            if (wh === null)
+                return
+
+            //dx = dx*this.transform.scale[0]*image_view.viewport_zoom // fix dx to be really pixels
+            //let actual_w_pixels = oimg.width()*this.transform.scale[0]*image_view.viewport_zoom // the actual size of the image currenly in pixels
+            //let new_w = actual_w_pixels + dx*2
+            //let sx = new_w/image_view.viewport_zoom/oimg.width() // change back to zoom units
+            // all of this comes down to the following formula
+            let sx = (1 + dx*2/wh[0])*transform.scale[0]
+            let sy = (1 + dy*2/wh[1])*transform.scale[1]
+            if (e.shiftKey) { // don't do the more fancy follow the minimum one like in primitive resize since that would be much harder here
+                sy = sx * ctx.start_yx_ratio
+            }
+            transform.set_scale(sx, sy)
+        }, ()=>{
+            return { start_yx_ratio: (transform.scale[1]/transform.scale[0]) }
+        })
+        this.transform = transform
+        this.get_width_height = get_width_height
+    }
+    draw(m) {
+        const wh = this.get_width_height()
+        if (wh === null)
+            return
+        super.draw(wh[0]/2, wh[1]/2, this.transform.v, m)
+    }
+}

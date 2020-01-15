@@ -73,8 +73,26 @@ class NodeGeomPrimitive extends NodeCls
 
         this.transform = new ParamTransform(node, "Transform")
 
-        this.size_dial = new PointDial((dx, dy)=>{
-            this.size.increment(vec2.fromValues(dx*2, dy*2))
+        this.size_dial = new PointDial((dx, dy, ctx, e)=>{
+            if (!e.shiftKey) {
+                this.size.increment(vec2.fromValues(dx*2, dy*2))
+            }
+            else {
+                ctx.shadow_x = ctx.shadow_x + dx*2
+                ctx.shadow_y = ctx.shadow_y + dy*2
+                let nx, ny
+                if (ctx.shadow_x < ctx.shadow_y) {
+                    nx = ctx.shadow_x
+                    ny = nx * ctx.start_yx_ratio
+                }
+                else {
+                    ny = ctx.shadow_y
+                    nx = ny / ctx.start_yx_ratio
+                }
+                this.size.modify(vec2.fromValues(nx, ny))
+            }
+        }, ()=>{ // on start
+            return { shadow_x: this.size.x, shadow_y: this.size.y, start_yx_ratio: (this.size.y/this.size.x) }
         })
         this.inner_dial = new PointDial((dx,dy)=>{
             this.inner_point.increment(vec2.fromValues(dx/this.size.x*2, dy/this.size.y*2))
@@ -103,12 +121,11 @@ class NodeGeomPrimitive extends NodeCls
             obj.set('ctrl_from_prev', new TVtxArr([dc_x,0,  0,-dc_y, -dc_x,0, 0,dc_y] ), 2)
             obj.paths_ranges = [0,4,PATH_CLOSED]
         }
-        else if (this.shape.sel_idx == 3 || this.shape.sel_idx == 4) { // regular poly
+        else if (this.shape.sel_idx == 3 || this.shape.sel_idx == 4) { // regular poly or star
             const vtx = [], np = this.num_points.v
             const rx = this.size.x*0.5, ry = this.size.y*0.5
 
             const isStar = this.shape.sel_idx == 4
-            const ha = 0.5/np*Math.PI*2
             const inner = vec2.fromValues(this.inner_point.x, this.inner_point.y)
             const start_inner_angle = Math.atan2(this.inner_point.y, this.inner_point.x)+Math.PI/2
             const r_inner = vec2.len(inner)
@@ -137,12 +154,16 @@ class NodeGeomPrimitive extends NodeCls
         //  resize dial, /2 since size is the full object and we go from 0 to the corner
         this.size_dial.draw(this.size.x/2, this.size.y/2, this.transform.v, m)
         // the inner point needs to move along with the entire size
-        this.inner_dial.draw(this.inner_point.x*this.size.x/2, this.inner_point.y*this.size.y/2, this.transform.v, m)
+        if (this.shape.sel_idx == 4)
+            this.inner_dial.draw(this.inner_point.x*this.size.x/2, this.inner_point.y*this.size.y/2, this.transform.v, m)
     }    
     image_find_obj(vx, vy, ex, ey) {
-        return this.transform.dial.find_obj(ex, ey) || 
-               this.size_dial.find_obj(ex, ey) ||
-               this.inner_dial.find_obj(ex, ey) 
+        let hit = this.transform.dial.find_obj(ex, ey) || this.size_dial.find_obj(ex, ey)
+        if (hit)
+            return hit
+        if (this.shape.sel_idx == 4)
+            return this.inner_dial.find_obj(ex, ey)
+        return null
     }
 }
 
