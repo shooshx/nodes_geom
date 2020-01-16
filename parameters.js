@@ -13,8 +13,8 @@ class Parameter
         this.owner = node
         this.dirty = true  // was it changed since the last run?
         this.change_func = null
-        this.shares_line_from = null
-        this.group_param = null
+        this.shares_line_from = null  // to have more than one param in the same line
+        this.group_param = null  // member of a group? used for param aggregation
     }
     set_label(text) {
         this.label = text
@@ -220,7 +220,7 @@ function formatType(value, type) {
 const ED_FLOAT=0
 const ED_INT=1    // "not float" - not formatted as float
 const ED_STR=2
-const ED_FLOAT_OUT_ONLY=3
+const ED_FLOAT_OUT_ONLY=3  // when parsing ParamFloat, don't pass it throu parseFloat because it's an expression
 const ED_COLOR_EXPR=4 // used for expression type check
 
 function add_param_edit(line, value, type, set_func, cls=null) {
@@ -461,11 +461,13 @@ function arr_equals(a, b) {
     return true
 }
 
+const SLIDER_DEFAULT_RANGE = [0,1]
+
 // represents a single value (item in a single edit box) that can be an expression and everything it needs to do
 class ExpressionItem {
     constructor(in_param, prop_name, prop_type, set_prop=null, get_prop=null, slider_range=null) {
         this.in_param = in_param
-        this.prop_name = prop_name // name of property to set in the containing param ("v", "r")
+        this.prop_name = prop_name // name of property to set in the containing param ("v", "r") kept for save,load
         this.set_prop = (set_prop !== null) ? set_prop : (v)=>{ this.in_param[this.prop_name] = v }
         this.get_prop = (get_prop !== null) ? get_prop : ()=>{ return this.in_param[this.prop_name] }
         this.prop_type = prop_type  // constant like ED_FLOAT used for formatting the value
@@ -476,14 +478,16 @@ class ExpressionItem {
         this.need_inputs = null // map string names of the inputs needed, already verified that they exist to the ObjRef that needs filling
         this.err_elem = null
         this.slider_enabled = (slider_range !== null)
-        this.slider_range = (this.slider_enabled) ? slider_range : [0,1]  // needs to be valid anyway
+        this.slider_range = (this.slider_enabled) ? slider_range : SLIDER_DEFAULT_RANGE  // needs to be valid anyway
         this.slider = null // object returned by add_param_slider
         this.ctx_menu_elem = null // when the context menu is visible, otherwise null
     }
     save_to(r) { 
         r["se_" + this.prop_name] = this.se 
-        r["sldrng_" + this.prop_name] = this.slider_range
-        r["slden_" + this.prop_name] = this.slider_enabled
+        if (this.slider_range[0] != SLIDER_DEFAULT_RANGE[0] || this.slider_range[1] != SLIDER_DEFAULT_RANGE[1])
+            r["sldrng_" + this.prop_name] = this.slider_range
+        if (this.slider_enabled) // don't need to litter
+            r["slden_" + this.prop_name] = this.slider_enabled
     }
     load(v) {
         let vk = v["se_" + this.prop_name]
@@ -503,12 +507,13 @@ class ExpressionItem {
         if (this.slider !== null)
             this.slider.update(v) // slider needs to know if it's disabled or not, called on add_elem
         const ov = this.get_prop()
-        if (this.prop_type == ED_COLOR_EXPR)
+        if (this.prop_type == ED_COLOR_EXPR) {
             if (arr_equals(v, ov))
                 return false
-        else
+        } else {
             if (v === ov)
                 return false
+        }
         this.set_prop(v)
         return true
     }
@@ -663,7 +668,8 @@ class ExpressionItem {
         this.e = null 
         this.se = formatType(v, this.prop_type)
         this.need_inputs = null
-        this.elem.value = this.se
+        if (this.elem !== null)
+            this.elem.value = this.se
         this.do_set_prop(v) // in color, need it the picker style to not be italic
     }
     dyn_eval() {
@@ -698,7 +704,7 @@ class ParamBaseExpr extends Parameter {
         this.v = start_v  // numerical value in case of const
         this.item = new ExpressionItem(this, "v", ed_type, null, null, slider_range)
     }
-    save() { let r = { v:this.v }; this.item.save_to(r); return r }
+    save() { let r = {}; this.item.save_to(r); return r }
     load(v) { this.item.load(v) }
 
     add_elems(parent) {
@@ -765,7 +771,7 @@ class ParamVec2 extends Parameter {
     save() { let r = { x:this.x, y:this.y }; this.item_x.save_to(r); this.item_y.save_to(r); return r }
     load(v) { this.item_x.load(v); this.item_y.load(v) }
     add_elems(parent) {
-        if (!this.long_form) {
+        if (!this.long_form) { // two lines
             this.line_elem = add_param_line(parent, this)
             this.label_elem = add_param_label(this.line_elem, this.label)
 
@@ -971,13 +977,28 @@ class ParamTransform extends Parameter {
         
         this.elems = {tx:null, ty:null, r:null, sx:null, sy:null, pvx:null, pvy:null }
         this.dial = null
+        
+        this.item_tx = new ExpressionItem(this, "tx", ED_FLOAT, (v)=>{this.translate[0] = v; this.calc_mat()}, ()=>{ return this.translate[0]} )
+        this.item_ty = new ExpressionItem(this, "ty", ED_FLOAT, (v)=>{this.translate[1] = v; this.calc_mat()}, ()=>{ return this.translate[1]} )
+        this.item_r = new ExpressionItem(this,   "r", ED_FLOAT, (v)=>{this.rotate = v; this.calc_mat()},       ()=>{ return this.rotate} )
+        this.item_pvx = new ExpressionItem(this, "pvx", ED_FLOAT, (v)=>{let dx = parseFloat(v)-this.rotate_pivot[0]; this.calc_pivot_counter(dx, 0) }, ()=>{ return this.rotate_pivot[0]} )
+        this.item_pvy = new ExpressionItem(this, "pvy", ED_FLOAT, (v)=>{let dy = parseFloat(v)-this.rotate_pivot[1]; this.calc_pivot_counter(0, dy) }, ()=>{ return this.rotate_pivot[1]} )
+        this.item_sx = new ExpressionItem(this, "sx", ED_FLOAT, (v)=>{this.scale[0] = v; this.calc_mat()}, ()=>{ return this.scale[0]} )
+        this.item_sy = new ExpressionItem(this, "sy", ED_FLOAT, (v)=>{this.scale[1] = v; this.calc_mat()}, ()=>{ return this.scale[1]} )
     }
-    save() { return {t:this.translate, r:this.rotate, s:this.scale, pv:this.rotate_pivot} }
+    save() { 
+        let r = {} 
+        this.item_tx.save_to(r); this.item_ty.save_to(r)
+        this.item_r.save_to(r)
+        this.item_pvx.save_to(r); this.item_pvy.save_to(r)
+        this.item_sx.save_to(r); this.item_sy.save_to(r)
+        return r
+    }
     load(v) { 
-        this.translate[0] = v.t[0]; this.translate[1] = v.t[1]; 
-        this.rotate = v.r; 
-        if (v.pv) { this.rotate_pivot[0] = v.pv[0]; this.rotate_pivot[1] = v.pv[1] }
-        this.scale[0] = v.s[0]; this.scale[1] = v.s[1]; 
+        this.item_tx.load(v); this.item_ty.load(v)
+        this.item_r.load(v)
+        this.item_pvx.load(v); this.item_pvy.load(v)
+        this.item_sx.load(v); this.item_sy.load(v)
         this.calc_mat() 
     }
     calc_mat() {
@@ -998,7 +1019,7 @@ class ParamTransform extends Parameter {
     calc_pivot_counter(dx, dy) {
         if (isNaN(dx) || isNaN(dy))
             return // parse failed, no change
-        this.rotate_pivot[0] += dx
+        this.rotate_pivot[0] += dx  // this is where the values are being set (expr set_prop)
         this.rotate_pivot[1] += dy
         
         let tt = mat3.create()
@@ -1008,9 +1029,9 @@ class ParamTransform extends Parameter {
         //mat3.invert(tt, tt)
         let dt = vec2.create()
         vec2.transformMat3(dt, dt, tt)
-        this.translate[0] += dt[0]
-        this.translate[1] += dt[1]
-        this.repaint_elems()
+        this.item_tx.set_to_const(this.translate[0] + dt[0]) // TBD does extra calc_mats
+        this.item_ty.set_to_const(this.translate[1] + dt[1])
+        //this.repaint_elems()
         this.calc_mat()
     }
     add_elems(parent) { 
@@ -1018,59 +1039,39 @@ class ParamTransform extends Parameter {
         add_elem(this.line_elem, "hr", "param_separator")
         let line_t = add_param_line(this.line_elem)
         add_param_label(line_t, "Translate")
-        this.elems.tx = add_param_edit(line_t, this.translate[0], ED_FLOAT, (v)=>{ this.translate[0] = parseFloat(v); this.calc_mat() })
-        this.elems.ty = add_param_edit(line_t, this.translate[1], ED_FLOAT, (v)=>{ this.translate[1] = parseFloat(v); this.calc_mat()})
+        this.item_tx.add_editbox(line_t); this.item_ty.add_editbox(line_t)
+
         let line_r = add_param_line(this.line_elem)
         add_param_label(line_r, "Rotate")
+        this.item_r.add_editbox(line_r)
+
         let line_pv = add_param_line(this.line_elem)
         add_param_label(line_pv, "Pivot")
-        this.elems.pvx = add_param_edit(line_pv, this.rotate_pivot[0], ED_FLOAT, (v)=>{ let dx = parseFloat(v)-this.rotate_pivot[0]; this.calc_pivot_counter(dx, 0) })
-        this.elems.pvy = add_param_edit(line_pv, this.rotate_pivot[1], ED_FLOAT, (v)=>{ let dy = parseFloat(v)-this.rotate_pivot[1]; this.calc_pivot_counter(0, dy) })
+        this.item_pvx.add_editbox(line_pv); this.item_pvy.add_editbox(line_pv)
 
-        this.elems.r = add_param_edit(line_r, this.rotate, ED_FLOAT, (v)=>{ this.rotate = parseFloat(v); this.calc_mat()})
         let line_s = add_param_line(this.line_elem)
         add_param_label(line_s, "Scale")
-        this.elems.sx = add_param_edit(line_s, this.scale[0], ED_FLOAT, (v)=>{ this.scale[0] = parseFloat(v); this.calc_mat()})
-        this.elems.sy = add_param_edit(line_s, this.scale[1], ED_FLOAT, (v)=>{ this.scale[1] = parseFloat(v); this.calc_mat()})
-    }
-    repaint_elems() {
-        if (this.elems.tx === null) // not displayed yet
-            return
-        this.elems.tx.value = toFixedMag(this.translate[0])
-        this.elems.ty.value = toFixedMag(this.translate[1])
-        this.elems.r.value = toFixedMag(this.rotate)
-        this.elems.sx.value = toFixedMag(this.scale[0])
-        this.elems.sy.value = toFixedMag(this.scale[1])
+        this.item_sx.add_editbox(line_s); this.item_sy.add_editbox(line_s)
     }
     move(dx, dy) {
-        this.translate[0] += dx; 
-        this.translate[1] += dy; 
-        this.calc_mat(); 
-        this.repaint_elems()
+        this.item_tx.set_to_const(this.translate[0] + dx); 
+        this.item_ty.set_to_const(this.translate[1] + dy); 
     }
     do_rotate(d_angle) {
-        this.rotate += d_angle;
-        if (this.rotate > 360)  this.rotate -= 360
-        if (this.rotate < 0) this.rotate += 360
-        this.calc_mat(); 
-        this.repaint_elems()
+        let r = this.rotate + d_angle;
+        if (r > 360) r -= 360
+        if (r < 0) r += 360
+        this.item_r.set_to_const(r)
     }
     set_scale(sx, sy) {
-        this.scale[0] = sx
-        this.scale[1] = sy
-        this.calc_mat(); 
-        this.repaint_elems()
+        this.sx.set_to_const(sx)
+        this.sy.set_to_const(sy)
     }
     draw_dial_at_obj(obj, m) {
         if (obj === null)
             return // might be it's not connected so it doesn't have output
-        let center;
-        if (false) { // this was replaced with pivot thing. TBD - starting pivot should be the center of the bbox instead of 0,0
-            let bbox = obj.get_bbox()
-            center = vec2.fromValues((bbox.min_x + bbox.max_x) * 0.5, (bbox.min_y + bbox.max_y) * 0.5)
-            //this.set_rotate_pivot(center[0], center[1])
-        }
-        center = vec2.clone(this.rotate_pivot)
+        // this was replaced with pivot thing. TBD - button for starting pivot should be the center of the bbox instead of 0,0
+        let center = vec2.clone(this.rotate_pivot)
 
         center[0] += this.translate[0]
         center[1] += this.translate[1]

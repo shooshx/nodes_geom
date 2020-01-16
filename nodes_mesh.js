@@ -81,7 +81,7 @@ class NodeGeomPrimitive extends NodeCls
                 ctx.shadow_x = ctx.shadow_x + dx*2
                 ctx.shadow_y = ctx.shadow_y + dy*2
                 let nx, ny
-                if (ctx.shadow_x < ctx.shadow_y) {
+                if (ctx.shadow_x < ctx.shadow_y) { // go by the minimum and calc the other one
                     nx = ctx.shadow_x
                     ny = nx * ctx.start_yx_ratio
                 }

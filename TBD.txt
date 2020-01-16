@@ -26,11 +26,9 @@ NODES:
     merge create and shader
 - Geom primitive
     - rect round edges
-    - regular polygon
     - spiral
-    - !!!!! 2d function of t, sampled at intervals
-    - star - number of points, radius1, radius2, with handles?
-    - !!! free-hand path, min step distance
+    - !! 2d function of t, sampled at intervals
+    - free-hand path, min step distance
 - manual geom
     - delete point from list control
     - move them even after transform?
@@ -52,7 +50,6 @@ NODES:
 - SetAttr fill from node 
    - transform fill along with the shape or not
    - fill vertices circles?
-    
 - round edges
 - transform invert
 - transform - fit one object to another? paper.js fitBounds
@@ -89,7 +86,7 @@ NODES:
     from Inkscape https://gitlab.com/inkscape/lib2geom/blob/master/src/2geom/intersection-graph.h
 - Gradient
     spreadMethod with SVG  https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/spreadMethod
-    fill, stroke,
+    stroke,
 - !! 2d color function, sampling gradient
 - random points  - https://www.sidefx.com/docs/houdini/nodes/sop/scatter.html
     on a surface
@@ -116,13 +113,12 @@ PAPER.JS
 - offset - https://github.com/luz-alphacode/paperjs-offset
 
 EXPRESSIONS
-- !!!!! in transform params
 - boolean comparisons operator ?:
 - intellisense
-- vec2 normalize - require vec2 values
+- vec2 normalize - context menu that makes 2 edit boxes into 1 edit box with vec2 expr
     - scale to object space coordinate
 - !! in any params view that can have expressions, add a custom user parameter that can be used with a slider
-    - added to the object that carries it
+    - and added to the object that carries it
 - unify ParamColor and ParamExprColor
 - expression in color in table
 
