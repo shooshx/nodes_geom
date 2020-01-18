@@ -4,6 +4,15 @@ function get_flag(v, f) {
     return (v & f) == f
 }
 
+class PathStringBuilder {
+    constructor() { this.lst = [] }
+    moveTo(x,y) { this.lst.push('M',x,y) }
+    lineTo(x,y) { this.lst.push('L',x,y) }
+    bezierCurveTo(a,b,c,d,x,y) { this.lst.push('C',a,b,c,d,x,y) }
+    closePath() { this.lst.push('Z') }
+    getString() { const l = this.lst; this.lst = []; return l.join(' ') }
+}
+
 // https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths
 class MultiPath extends PObject
 {
@@ -21,6 +30,7 @@ class MultiPath extends PObject
         this.meta = { vtx_pos:null }
         this.tcache = { vtx_pos:null, m:null }  // transformed cache (for setattr)
         this.fill_objs = []
+        this.paper_obj = null // paper.js object
     }
     set(name, arr, num_elems, need_normalize=false) {
         name = normalize_attr_name(name)
@@ -47,6 +57,7 @@ class MultiPath extends PObject
             Mesh.transform_arr(vm, this.arrs.ctrl_from_prev, this.arrs.ctrl_from_prev)
         }
         this.paths = null
+        this.paper_obj = null
     }
     // API
     is_point_inside(x, y) {
@@ -54,7 +65,7 @@ class MultiPath extends PObject
     }
     // API
     get_bbox() {
-        if (!this.is_curve()) {
+        if (!this.has_curves()) {
             return Mesh.prototype.get_bbox.call(this)
         }
         else { // add control points as well (see pritive circle rotated)
@@ -109,42 +120,45 @@ class MultiPath extends PObject
         let ctp = this.arrs.ctrl_to_prev, cfp = this.arrs.ctrl_from_prev
         return ctp !== undefined && (ctp[vidx] != 0 || ctp[vidx+1] != 0 || cfp[vidx] != 0 || cfp[vidx+1] != 0)
     }
+    has_curves() {
+        // can go over the arrays and check if all zeros
+        return (this.arrs.ctrl_to_prev !== undefined)
+    }
 
-    make_path_string(pri) 
-    {
+    call_path_commands(obj, pri) {
         let vtx = this.arrs.vtx_pos;
         let ctp = this.arrs.ctrl_to_prev, cfp = this.arrs.ctrl_from_prev
 
         let start_vidx = this.paths_ranges[pri]*2
         let end_vidx = this.paths_ranges[pri+1]*2
         let prev_x = vtx[start_vidx], prev_y = vtx[start_vidx+1]
-        let plst = ['M', prev_x, prev_y]
+        obj.moveTo(prev_x, prev_y) // 'M'
         for(let vidx = start_vidx + 2; vidx < end_vidx; vidx += 2) {
             let vx = vtx[vidx], vy = vtx[vidx+1]
             if (!this.is_curve(vidx))
-                plst.push('L', vx, vy)
+                obj.lineTo(vx, vy) // 'L'
             else 
-                plst.push('C', prev_x+cfp[vidx], prev_y+cfp[vidx+1], vx+ctp[vidx], vy+ctp[vidx+1], vx, vy)
+                obj.bezierCurveTo(prev_x+cfp[vidx], prev_y+cfp[vidx+1], vx+ctp[vidx], vy+ctp[vidx+1], vx, vy) // 'C'
             prev_x = vx; prev_y = vy
         }
         if (get_flag(this.paths_ranges[pri+2], PATH_CLOSED)) {
             if (this.is_curve(0)) {
                 let vx = vtx[start_vidx], vy = vtx[start_vidx+1]
-                plst.push('C', prev_x+cfp[start_vidx], prev_y+cfp[start_vidx+1], vx+ctp[start_vidx], vy+ctp[start_vidx+1], vx, vy)
+                obj.bezierCurveTo(prev_x+cfp[start_vidx], prev_y+cfp[start_vidx+1], vx+ctp[start_vidx], vy+ctp[start_vidx+1], vx, vy) //'C'
             }
-            plst.push('Z')
+            obj.closePath() // 'Z'
         }
-        return plst.join(" ")        
     }
 
+
     ensure_paths_created() {
-        if (this.paths !== null && this.paths.length*3 == this.paths_ranges.length) 
+        if (this.paths !== null && this.paths.length*3 === this.paths_ranges.length) 
             return
 
         this.paths = []
         for(let pri = 0; pri < this.paths_ranges.length; pri += 3) {
-            let s = this.make_path_string(pri)
-            let jp = new Path2D(s)
+            let jp = new Path2D()
+            this.call_path_commands(jp, pri)
             this.paths.push(jp)
         }
     }
@@ -152,13 +166,13 @@ class MultiPath extends PObject
     
     make_clip_path(face_fill, foi) 
     {
-        let s = ""
+        let jp = new Path2D()
         for(let pri = 0, i = 0; pri < this.paths_ranges.length; pri += 3, ++i) {
             if (face_fill[i] != foi)
                 continue
-            s += this.make_path_string(pri);
+            this.call_path_commands(jp, pri);
         }
-        return new Path2D(s);
+        return jp;
     }
 
     draw_poly(do_lines, do_fill) {
@@ -234,6 +248,51 @@ class MultiPath extends PObject
     add_fillobj(proxy) {
         Mesh.prototype.add_fillobj.call(this, proxy)
     }
+
+    
+    ensure_paper() {
+        if (this.paper_obj !== null && this.paper_obj.children.length*3 === this.paths_ranges.length)
+            return this.paper_obj
+        const p = new paper.CompoundPath()
+        p.remove()  // avoid having it drawing to nowhere
+        p.bezierCurveTo = p.cubicCurveTo
+        for(let pri = 0; pri < this.paths_ranges.length; pri += 3) {
+            this.call_path_commands(p, pri)
+        }
+        this.paper_obj = p
+        return this.paper_obj
+    }
+
+    // should be called only after ctor
+    from_paper(paper_obj) {
+        let vtx = [], ctp = [], cfp = [], ranges = [], cur_idx = 0, has_curves = false
+        for(let child of paper_obj.children) {
+            const start_idx = cur_idx
+            let prev_curve = child.lastCurve
+            for(let curve of child.curves) {
+                const p1 = curve.point1
+                vtx.push(p1.x, p1.y)
+                const ph2 = prev_curve.handle2, ph1 = prev_curve.handle1
+                ctp.push(ph2.x, ph2.y)
+                cfp.push(ph1.x, ph1.y)
+                if (ph1.x !== 0 || ph1.y !== 0 || ph2.x !== 0 || ph2.y !== 0) {
+                    has_curves = true
+                }
+                ++cur_idx
+                prev_curve = curve
+            }
+            ranges.push(start_idx, cur_idx, child.closed ? PATH_CLOSED : 0)
+        }
+        this.set('vtx_pos', new TVtxArr(vtx), 2)
+        if (has_curves) {
+            this.set('ctrl_to_prev',   new TVtxArr(ctp), 2)
+            this.set('ctrl_from_prev', new TVtxArr(cfp), 2)
+        }
+        this.paths_ranges = ranges
+        this.paper_obj = paper_obj
+        this.paths = null
+    }
+
 }
 
 
@@ -409,8 +468,19 @@ class NodeRoundCorners extends NodeCls
         this.out_paths = new OutTerminal(node, "out_paths")        
     }
 
-
     run() {
+        let obj = this.in_obj.get_const()
+        assert(obj !== null, this, "No input")
+
+        const p = obj.ensure_paper()
+        obj.paper_obj = null // changed in place
+        //p.simplify(0.06)
+        let new_obj = new MultiPath()
+        new_obj.from_paper(p)
+        this.out_paths.set(new_obj)
+    }
+
+    run_() {
         let obj = this.in_obj.get_const()
         assert(obj !== null, this, "No input")
         let vtx = obj.arrs.vtx_pos
@@ -476,4 +546,47 @@ class NodeRoundCorners extends NodeCls
             new_obj.set(arr_name, new_arr, obj.meta[arr_name].need_normalize)
         }
     }
+}
+
+
+class NodeBoolOp extends NodeCls
+{
+    static name() { return "Boolean Operation" }
+    constructor(node) {
+        super(node)
+        this.in_obj1 = new InTerminal(node, "in_obj1")
+        this.in_obj2 = new InTerminal(node, "in_obj2")
+        this.out_paths = new OutTerminal(node, "out_paths")
+        
+        this.op = new ParamSelect(node, "Operation", 0, ["Union", "Intersection", "Subtract", "Exclude", "Divide"])
+    }
+
+    run() {
+        const obj1 = this.in_obj1.get_const()
+        assert(obj1 !== null, this, "Missing input 1")
+        const obj2 = this.in_obj2.get_const()
+        assert(obj2 !== null, this, "Missing input 2")
+
+        const p1 = obj1.ensure_paper()
+        const p2 = obj2.ensure_paper()
+        let p_res
+        switch (this.op.sel_idx) {
+        case 0: p_res = p1.unite(p2); break;
+        case 1: p_res = p1.intersect(p2); break;
+        case 2: p_res = p1.subtract(p2); break;
+        case 3: p_res = p1.exclude(p2); break;
+        case 4: p_res = p1.divide(p2); break;
+        }
+
+        if (p_res.children === undefined) {
+            const pc = new paper.CompoundPath()
+            pc.addChild(p_res)
+            p_res = pc
+        }
+
+        let new_obj = new MultiPath()
+        new_obj.from_paper(p_res)
+        this.out_paths.set(new_obj)
+    }
+
 }

@@ -50,6 +50,9 @@ NODES:
 - SetAttr fill from node 
    - transform fill along with the shape or not
    - fill vertices circles?
+- RoundCourners
+   - BUG - !!! not working in saved piece paths after SetAttr
+   - BUG - !!! not keeping fill
 - round edges
 - transform invert
 - transform - fit one object to another? paper.js fitBounds
@@ -87,6 +90,7 @@ NODES:
 - Gradient
     spreadMethod with SVG  https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/spreadMethod
     stroke,
+    - !!!! controls should be only part of selection!
 - !! 2d color function, sampling gradient
 - random points  - https://www.sidefx.com/docs/houdini/nodes/sop/scatter.html
     on a surface
@@ -98,10 +102,12 @@ NODES:
 - Mesh merge, path merge
 - Shrink faces 
     - with expression depending on vtx_pos or any other attr
-    - bug with saved voronoi
+    - BUG with saved voronoi - misses some faces on the edges
+    - BUG not keeping fill of the original
 
 - animate? modify a property for the next frame
 - random color with r,g,b ranges and seed parameter
+
 
 nodes the produce transform, invert it
 

@@ -63,7 +63,7 @@ class NodeGeomPrimitive extends NodeCls
         })
         this.size = new ParamVec2(node, "Size", 0.5, 0.5)
         this.num_points = new ParamInt(node, "Num Points", 5, [3,12]) 
-        this.inner_point = new ParamVec2(node, "Inner Point", 0, 0.2)
+        this.inner_point = new ParamVec2(node, "Inner Point", 0.226, -0.311) // for a nice 5 point star
         this.center_inner_btn = new ParamButton(node, "Center", ()=>{
             const angle = 0.5/this.num_points.v*Math.PI*2
             const r = vec2_len(this.inner_point.x, this.inner_point.y)
@@ -109,10 +109,10 @@ class NodeGeomPrimitive extends NodeCls
             obj.set('idx', new TIdxArr([0, 1, 2, 3]))
             obj.set_type(MESH_QUAD)
         }
-        else if (this.shape.sel_idx == 1) {
+        else if (this.shape.sel_idx == 1) { // square
             obj = make_mesh_quadtri(hx, hy)
         }
-        else if (this.shape.sel_idx == 2) {
+        else if (this.shape.sel_idx == 2) { // circle
             obj = new MultiPath()
             obj.set('vtx_pos', new TVtxArr([hx,0, 0,-hy, -hx,0, 0,hy]), 2)
             let dc = 0.5 * 4*(Math.sqrt(2)-1)/3 // see https://stackoverflow.com/questions/1734745/how-to-create-circle-with-b%C3%A9zier-curves
@@ -717,6 +717,11 @@ class ObjConstProxy {
     constructor(in_obj, display_values) {
         this.obj = in_obj
         this.with_display_values = display_values
+        if (Object.keys(this.with_display_values).length == 0) { 
+            // happens if this node was never displayed
+            //   used for the side-effect that it sets the defaults
+            this.obj.get_disp_params(this.with_display_values)
+        }
     }
     async draw(m) {
         await this.obj.draw(m, this.with_display_values)

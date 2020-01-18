@@ -6,6 +6,7 @@
 <script src="lib/delaunator401.js"></script>
 <script src="lib/voronoi.js"></script>
 <script src="lib/poly2tri.js"></script>
+<script src="lib/paper-core.js"></script>
 <script src="ColorPicker.js"></script>
 <script src="base_node.js"></script>
 <script src="gui.js"></script>
@@ -91,6 +92,7 @@ function page_onload()
     ctx_nd_shadow = canvas_nd_shadow.getContext('2d', {alpha: false})
     ctx_img = canvas_image.getContext('2d')
     ctx_img_shadow = canvas_img_shadow.getContext('2d')
+    paper.project = new paper.Project(null)
     
     clear_program()
     try {
@@ -519,6 +521,7 @@ var nodes_classes = [
     ShrinkFaces,
     NodeRoundCorners,
     NodeFuncFill,
+    NodeBoolOp
 ]
 var nodes_classes_by_name = {}
 for(let c of nodes_classes)

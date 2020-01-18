@@ -250,7 +250,7 @@ class PObject {
     draw_selection(m, select_vindices) {
         ctx_img.save()
         try {
-            ccanvas_setTransform(ctx_img, m)
+            canvas_setTransform(ctx_img, m)
             this.draw_selection_m(m, select_vindices)
         }
         finally {
@@ -311,6 +311,8 @@ function clone(obj) {
     if (obj.constructor === ObjConstProxy) {
         return obj // this is a proxy that wraps another object that is going to remain const so we don't need to copy it further
     }
+    if (obj._class !== undefined)
+        return null // paper.js object, can be discarded, it will be regenerated since it's a cache
     // it's ok for a PObject constructor to take arguments
     // as long as it's fine with getting them as undefined and later being assigned the same
     // values as properties
