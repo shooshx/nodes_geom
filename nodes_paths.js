@@ -29,7 +29,7 @@ class MultiPath extends PObject
         //   all control points are relative to the point
         this.meta = { vtx_pos:null }
         this.tcache = { vtx_pos:null, m:null }  // transformed cache (for setattr)
-        this.fill_objs = []
+        this.fill_objs = init_fill_objs()
         this.paper_obj = null // paper.js object
     }
     set(name, arr, num_elems, need_normalize=false) {
@@ -246,7 +246,7 @@ class MultiPath extends PObject
     }
 
     add_fillobj(proxy) {
-        Mesh.prototype.add_fillobj.call(this, proxy)
+        return Mesh.prototype.add_fillobj.call(this, proxy)
     }
 
     
@@ -468,7 +468,7 @@ class NodeRoundCorners extends NodeCls
         this.out_paths = new OutTerminal(node, "out_paths")        
     }
 
-    run() {
+    run__test() {
         let obj = this.in_obj.get_const()
         assert(obj !== null, this, "No input")
 
@@ -480,7 +480,7 @@ class NodeRoundCorners extends NodeCls
         this.out_paths.set(new_obj)
     }
 
-    run_() {
+    run() {
         let obj = this.in_obj.get_const()
         assert(obj !== null, this, "No input")
         let vtx = obj.arrs.vtx_pos
@@ -545,6 +545,7 @@ class NodeRoundCorners extends NodeCls
             let new_arr = new from_arr.constructor(from_arr)
             new_obj.set(arr_name, new_arr, obj.meta[arr_name].need_normalize)
         }
+        new_obj.fill_objs = clone_fill_objs(obj.fill_objs)
     }
 }
 

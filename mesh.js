@@ -42,6 +42,22 @@ class FillObj {
     }
 }
 
+// coping list of fill objs need to clone the FillObj as well since it's part of the state of the original object
+// (the clip_path)
+function clone_fill_objs(from_fill_objs) {
+    const ret = []
+    for(let f of from_fill_objs) {
+        if (f === null)
+            ret.push(null)
+        else 
+            ret.push(new FillObj(f.obj_proxy)) // the reference of the proxy is the only thing remaining shared
+    }
+    return ret
+}
+function init_fill_objs() {
+    return [null]
+}
+
 class Mesh extends PObject
 {
     static name() { return "Mesh" }
@@ -57,9 +73,10 @@ class Mesh extends PObject
         this.tcache = { vtx_pos:null, m:null }  // transformed cache
         //this.lines_cache = null  // cache lines for stroke (so that every line be repeated twice
         this.glbufs = { vtx_pos:null, idx:null }
-        this.fill_objs = [null]  // list of FillObj, used for face_fill attribute
+        this.fill_objs = init_fill_objs()  // list of FillObj, used for face_fill attribute
                              // it's the nodes responsibility that there would not be left objects that are not needed
                              // first entry is null so ids start with 1. 0 is reserved to nothing
+        this.paper_obj = null
 
     }
     destructor() {
@@ -465,6 +482,40 @@ class Mesh extends PObject
         const id = this.fill_objs.length
         this.fill_objs.push(new FillObj(proxy))
         return id
+    }
+
+    make_single_object_calls(p) {
+        let vtx = this.arrs.vtx_pos
+        let idxs = this.arrs.idx        
+        let idx
+        if (this.type == MESH_QUAD) {
+            for(let vi = 0, i = 0; vi < idxs.length; vi += 4, ++i) {
+                idx = idxs[vi]<<1; p.moveTo(vtx[idx], vtx[idx+1])
+                idx = idxs[vi+1]<<1; p.lineTo(vtx[idx], vtx[idx+1])
+                idx = idxs[vi+2]<<1; p.lineTo(vtx[idx], vtx[idx+1])
+                idx = idxs[vi+3]<<1; p.lineTo(vtx[idx], vtx[idx+1])
+                p.closePath()
+            }
+        }
+        else if (this.type == MESH_TRI) {
+            for(let vi = 0, i = 0; vi < idxs.length; vi += 3, ++i) {
+                idx = idxs[vi]<<1; p.moveTo(vtx[idx], vtx[idx+1])
+                idx = idxs[vi+1]<<1; p.lineTo(vtx[idx], vtx[idx+1])
+                idx = idxs[vi+2]<<1; p.lineTo(vtx[idx], vtx[idx+1])
+                p.closePath()
+            }
+        }       
+        return p        
+    }
+
+    ensure_paper() {
+        if (this.paper_obj !== null && this.paper_obj.children.length*this.face_size() == this.arrs.idx.length) 
+            return this.paper_obj
+        const p = new paper.CompoundPath()
+        p.remove()  // avoid having it drawing to nowhere
+        this.make_single_object_calls(p)
+        this.paper_obj = p
+        return this.paper_obj        
     }
 }
 

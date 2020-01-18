@@ -22,8 +22,7 @@ class Gradient extends PObject
         this.obj = null
     }
     get_disp_params(disp_values) {
-        return [ new DispParamBool(disp_values, "Show Controls", 'show_ctrl', true),
-                 new DispParamBool(disp_values, "Show Fill", 'show_fill', true),
+        return [ new DispParamBool(disp_values, "Show Fill", 'show_fill', true),
                 ]
     }
 
@@ -87,7 +86,7 @@ class Gradient extends PObject
         ctx_img.moveTo(tpa[0], tpa[1])
         ctx_img.lineTo(tpb[0], tpb[1])
         ctx_img.lineWidth = 1/image_view.viewport_zoom
-        ctx_img.lineStyle = "#000"
+        ctx_img.strokeStyle = "#000"
         ctx_img.stroke()
         for(let s of this.stops) {
             let [x,y] = this.interp_point(tpa, tpb, s.value)
@@ -116,6 +115,7 @@ class Gradient extends PObject
         }
     }    
 
+    // selected points on the line
     draw_sel_points(selected_indices, pa, pb) {
         let radius = MESH_DISP.vtx_sel_radius/image_view.viewport_zoom
         ctx_img.beginPath();
@@ -202,10 +202,9 @@ class LinearGradient extends Gradient {
     draw_m(m, disp_values) {
         if (disp_values.show_fill)
             this.draw_fill()
-        if (disp_values.show_ctrl)
-            this.draw_line_points(this.p1, this.p2)
     }
     draw_selection_m(m, selected_indices) {
+        this.draw_line_points(this.p1, this.p2)
         this.draw_sel_points(selected_indices, this.p1, this.p2)
     }
 }

@@ -495,7 +495,10 @@ class ExpressionItem {
             this.peval(vk) 
         else {
             let lv = v[this.prop_name]
-            console.assert(lv !== undefined, "failed load value")
+            if (lv === undefined) {
+                console.error(lv !== undefined, "failed load value")
+                return;
+            }
             this.do_set_prop(lv)
         }
         let slden = v["slden_" + this.prop_name]

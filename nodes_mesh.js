@@ -1445,6 +1445,8 @@ function skip_short_knots(intersections)
         path_lines.push([intersections[i], intersections[(i+1)%intersections.length]])
 
     let found, len = path_lines.length
+    if (len == 3)
+        return
     do {
         found = false
         // go over the path with 3 indices, look for middle that's different in sign from ends
@@ -1564,7 +1566,7 @@ class ShrinkFaces extends NodeCls
             new_ranges.push(start_idx, ri, PATH_CLOSED)
             from_face.push(fi)
         }
-
+        // build output vertices and polys
         if (mesh.constructor == Mesh) {
             var out_obj = new Mesh()
             out_obj.set('idx', new TIdxArr(new_idx))
@@ -1599,9 +1601,8 @@ class ShrinkFaces extends NodeCls
                 }
             }
             out_obj.set(arr_name, new_arr, num_elems, mesh.meta[arr_name].need_normalize)
-
         }
-
+        out_obj.fill_objs = clone_fill_objs(mesh.fill_objs)
 
         this.out_obj.set(out_obj)
     }

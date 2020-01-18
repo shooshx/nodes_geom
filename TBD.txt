@@ -18,6 +18,7 @@ GUI:
 ENGINE:
 - serialization - save only if something is changed
 - save to SVG
+- Animation using frame variable
 
 
 NODES:
@@ -51,8 +52,7 @@ NODES:
    - transform fill along with the shape or not
    - fill vertices circles?
 - RoundCourners
-   - BUG - !!! not working in saved piece paths after SetAttr
-   - BUG - !!! not keeping fill
+   - paper.js simplify
 - round edges
 - transform invert
 - transform - fit one object to another? paper.js fitBounds
@@ -84,13 +84,9 @@ NODES:
     how to control parameters of the copies?
     for loop?
 - Boolean ops
-    !!!! https://github.com/paperjs/paper.js
-    https://github.com/Delapouite/JsClipper 
-    from Inkscape https://gitlab.com/inkscape/lib2geom/blob/master/src/2geom/intersection-graph.h
 - Gradient
     spreadMethod with SVG  https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/spreadMethod
     stroke,
-    - !!!! controls should be only part of selection!
 - !! 2d color function, sampling gradient
 - random points  - https://www.sidefx.com/docs/houdini/nodes/sop/scatter.html
     on a surface
@@ -102,12 +98,14 @@ NODES:
 - Mesh merge, path merge
 - Shrink faces 
     - with expression depending on vtx_pos or any other attr
-    - BUG with saved voronoi - misses some faces on the edges
-    - BUG not keeping fill of the original
+- Shader distance from path
+- Flow control 
+    - choose one input or another depending on expression
+    - For loop?
+
 
 - animate? modify a property for the next frame
 - random color with r,g,b ranges and seed parameter
-
 
 nodes the produce transform, invert it
 
