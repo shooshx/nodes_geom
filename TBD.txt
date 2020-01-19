@@ -28,7 +28,7 @@ NODES:
 - Geom primitive
     - rect round edges
     - spiral
-    - !! 2d function of t, sampled at intervals
+    - 2d function of t, sampled at intervals
     - free-hand path, min step distance
 - manual geom
     - delete point from list control
@@ -51,9 +51,6 @@ NODES:
 - SetAttr fill from node 
    - transform fill along with the shape or not
    - fill vertices circles?
-- RoundCourners
-   - paper.js simplify
-- round edges
 - transform invert
 - transform - fit one object to another? paper.js fitBounds
 - interactive
@@ -83,11 +80,11 @@ NODES:
 - Copy - copy something onto vertices positions
     how to control parameters of the copies?
     for loop?
-- Boolean ops
 - Gradient
     spreadMethod with SVG  https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/spreadMethod
     stroke,
 - !! 2d color function, sampling gradient
+- Shader distance from path
 - random points  - https://www.sidefx.com/docs/houdini/nodes/sop/scatter.html
     on a surface
     on a line

@@ -513,6 +513,7 @@ class InTerminalMulti extends TerminalBase
 
 const NODE_NAME_PROPS = { font:"14px Verdana", margin_top:3, margin_left:5, height:15}
 const NODE_FLAG_DISPLAY = {offset: 105, color: "#00A1F7" }
+const NODE_FLAG_TEMPLATE = {offset: 90, color: "#de77f1" }
 
 
 function wrapText(context, text, x, center_y, maxWidth, lineHeight) {
@@ -623,6 +624,8 @@ class Node {
         // kept per-node since every node can want something different
         this.display_values = {}
 
+        this.disp_template = false
+
         if (this.state_access === null)
             this.set_state_evaluators([]) // if cls ctor did not call it
     }
@@ -688,11 +691,7 @@ class Node {
         ctx_nodes.fill()
         ctx_nodes.stroke() 
 
-        // debug rect
-        //ctx_nodes.strokeStyle = "#f00"
-        //ctx_nodes.strokeRect(this.tx + nodes_view.pan_x, this.ty + nodes_view.pan_y, this.twidth, this.theight)
-        //ctx_nodes.strokeStyle = "#000"
-        
+        // selection border
         if (selected_node === this) {
             ctx_nodes.beginPath();            
             ctx_nodes.lineWidth = 1.5
@@ -708,16 +707,26 @@ class Node {
         if (program.display_node === this) {
             ctx_nodes.beginPath();
             rounded_rect_f(ctx_nodes, px + NODE_FLAG_DISPLAY.offset, py, this.width - NODE_FLAG_DISPLAY.offset, this.height, 0, 0, 5, 5)
-            ctx_nodes.fillStyle = "#00A1F7"
+            ctx_nodes.fillStyle = NODE_FLAG_DISPLAY.color
             ctx_nodes.fill()
-            ctx_nodes.stroke() 
+            ctx_nodes.stroke()  // looks bad without this
         }        
-        // flag line
+
+        // template flag
+        if (this.disp_template) {
+            ctx_nodes.fillStyle = NODE_FLAG_TEMPLATE.color
+            ctx_nodes.fillRect(px + NODE_FLAG_TEMPLATE.offset, py, NODE_FLAG_DISPLAY.offset - NODE_FLAG_TEMPLATE.offset, this.height)
+            ctx_nodes.strokeRect(px + NODE_FLAG_TEMPLATE.offset, py, NODE_FLAG_DISPLAY.offset - NODE_FLAG_TEMPLATE.offset, this.height)
+        }
+        
+        // flags lines
         ctx_nodes.beginPath();
         ctx_nodes.moveTo(px + NODE_FLAG_DISPLAY.offset, py)
         ctx_nodes.lineTo(px + NODE_FLAG_DISPLAY.offset, py+this.height)
+        ctx_nodes.moveTo(px + NODE_FLAG_TEMPLATE.offset, py)
+        ctx_nodes.lineTo(px + NODE_FLAG_TEMPLATE.offset, py+this.height)
         ctx_nodes.stroke()
-        
+
         for(let t of this.terminals) {
             t.draw()
         }
@@ -828,6 +837,31 @@ function set_display_node(node) {
     trigger_frame_draw(true)  // need to do run since the const output might have gotten changed
 }
 
+function set_template_node(node) {
+    node.disp_template = !node.disp_template 
+    trigger_frame_draw(true)
+}
+
+// pass along the messages to the node and just flip the display flag
+class NodeFlagProxy
+{
+    constructor(node, func) {
+        this.node = node
+        this.func = func
+    }
+    mousedown(e) {
+        this.func(this.node) 
+        draw_nodes()
+        this.node.mousedown(e)
+    }
+    mouseup() {
+        this.node.mouseup()
+    }
+    mousemove(a,b,c,d) {
+        this.node.mousemove(a,b,c,d)
+    }
+}
+
 function find_node_obj(px, py, cvs_x, cvs_y) {
     for(let n of program.nodes) {
         // in this node (including terminals) ?
@@ -837,7 +871,9 @@ function find_node_obj(px, py, cvs_x, cvs_y) {
         
         if (py >= n.y && py <= n.y + n.height && px <= n.x + n.width) {
             if (px >= n.x + NODE_FLAG_DISPLAY.offset)
-                return new DisplayFlagProxy(n)
+                return new NodeFlagProxy(n, set_display_node)
+            if (px >= n.x + NODE_FLAG_TEMPLATE.offset)
+                return new NodeFlagProxy(n, set_template_node)
             if (px >= n.x)                
                 return n
         }

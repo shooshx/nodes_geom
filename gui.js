@@ -464,25 +464,7 @@ class NameInput
     }
 }
 
-// pass along the messages to the node and just flip the display flag
-class DisplayFlagProxy
-{
-    constructor(node) {
-        this.node = node
-    }
-    mousedown(e) {
-        set_display_node(this.node) 
-        draw_nodes()
-        // no need to draw_nodes since the selection of the node will do that
-        this.node.mousedown(e)
-    }
-    mouseup() {
-        this.node.mouseup()
-    }
-    mousemove(a,b,c,d) {
-        this.node.mousemove(a,b,c,d)
-    }
-}
+
 
 function setup_key_bindings()
 {

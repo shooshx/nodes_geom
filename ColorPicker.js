@@ -418,6 +418,10 @@ function create_at(elem, add_func, sz, visible, onchange, options, start_color)
     }}
     var sel_pos = { sq_x: 0, sq_y: 0, bar_y: 0, alpha_y: 0 } // range:0-1
     var presets = options.global_presets ? GLOBAL_PRESETS : {}
+
+    let do_draw_chart = function() {
+        draw_chart(ctx, cfg, sel_col, sel_pos, presets, options)
+    }
     
     var col_from_pos = function() {
         sel_col.h = sel_pos.bar_y
@@ -474,7 +478,8 @@ function create_at(elem, add_func, sz, visible, onchange, options, start_color)
         else  // get the hue value from the UI instead
             sel_col.h = sel_pos.bar_y
         sel_pos.alpha_y = 1-sel_col.alpha
-        draw_chart(ctx, cfg, sel_col, sel_pos, presets, options)
+        if (visible)
+            do_draw_chart()
         if (trigger_level1 && onchange)
             onchange(sel_col, trigger_level2)
     }
@@ -519,7 +524,7 @@ function create_at(elem, add_func, sz, visible, onchange, options, start_color)
 
         if (changed) {
             col_from_pos()
-            draw_chart(ctx, cfg, sel_col, sel_pos, presets, options)
+            do_draw_chart()
         }
         return changed
     }
@@ -556,7 +561,7 @@ function create_at(elem, add_func, sz, visible, onchange, options, start_color)
                 presets.next_to_set = 0
             presets[presets.next_to_set] = { hex:sel_col.hex, r:sel_col.r, g:sel_col.g, b:sel_col.b, alpha:sel_col.alpha }
             presets.next_to_set = (presets.next_to_set + 1) % cfg.preset_count
-            draw_chart(ctx, cfg, sel_col, sel_pos, presets, options)
+            do_draw_chart()
         }
         // presets bar
         if (x > MARGIN && y > cfg.bar_y && x < cfg.sq_sz && y < cfg.bar_y + BAR_SZ) {
@@ -567,6 +572,9 @@ function create_at(elem, add_func, sz, visible, onchange, options, start_color)
     
     var set_visible = function(v) {
         canvas.style.display = v ? 'initial':'none'
+        if (v && !visible)
+            do_draw_chart()
+        visible = v
     }
     
     return { set_color:set_color, get_color:get_color, set_visible:set_visible, elem:canvas }

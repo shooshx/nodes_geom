@@ -465,16 +465,27 @@ class NodeRoundCorners extends NodeCls
     constructor(node) {
         super(node)
         this.in_obj = new InTerminal(node, "in_obj")
-        this.out_paths = new OutTerminal(node, "out_paths")        
+        this.out_paths = new OutTerminal(node, "out_paths")
+        
+        this.alg = new ParamSelect(node, "Algorithm", 0, ["Chaikin", "Continuous", "Catmull-Rom", "Geometric", "Simplify"],(sel_idx)=>{
+            this.factor.set_visible(sel_idx == 2 || sel_idx == 3 || sel_idx == 4)
+        })
+        this.factor = new ParamFloat(node, "Factor", 0.5, [0,1])
     }
 
-    run__test() {
+    run_paper_alg() {
         let obj = this.in_obj.get_const()
         assert(obj !== null, this, "No input")
 
         const p = obj.ensure_paper()
-        obj.paper_obj = null // changed in place
-        //p.simplify(0.06)
+        obj.paper_obj = null // changed in place        
+        switch(this.alg.sel_idx) {
+        case 1: p.smooth({type:"continuous"}); break;
+        case 2: p.smooth({type:"catmull-rom", factor:this.factor.v }); break;
+        case 3: p.smooth({type:"geometric", factor:this.factor.v }); break;
+        case 4: assert(p.simplify(this.factor.v), this, "Failed simplify"); break; //
+        }
+        
         let new_obj = new MultiPath()
         new_obj.from_paper(p)
         this.out_paths.set(new_obj)
@@ -483,6 +494,11 @@ class NodeRoundCorners extends NodeCls
     run() {
         let obj = this.in_obj.get_const()
         assert(obj !== null, this, "No input")
+        if (this.alg.sel_idx !== 0) {
+            this.run_paper_alg()
+            return
+        }
+        // "Chaikin"
         let vtx = obj.arrs.vtx_pos
         let new_vtx = [], new_ranges = [], ctp = [], cfp = []
 
@@ -559,14 +575,21 @@ class NodeBoolOp extends NodeCls
         this.in_obj2 = new InTerminal(node, "in_obj2")
         this.out_paths = new OutTerminal(node, "out_paths")
         
-        this.op = new ParamSelect(node, "Operation", 0, ["Union", "Intersection", "Subtract", "Exclude", "Divide"])
+        this.op = new ParamSelect(node, "Operation", 0, ["Union", "Intersection", "Subtract", "Exclude", "Divide"], (sel_idx)=>{
+            this.swap.set_visible(sel_idx == 2 || sel_idx == 4);
+        })
+        this.swap = new ParamBool(node, "Swap", false)
     }
 
     run() {
-        const obj1 = this.in_obj1.get_const()
+        let obj1 = this.in_obj1.get_const()
         assert(obj1 !== null, this, "Missing input 1")
-        const obj2 = this.in_obj2.get_const()
+        let obj2 = this.in_obj2.get_const()
         assert(obj2 !== null, this, "Missing input 2")
+
+        if (this.swap.v && (this.op.sel_idx == 2 || this.op.sel_idx == 4)) {
+            const t = obj1; obj1 = obj2; obj2 = t
+        }
 
         const p1 = obj1.ensure_paper()
         const p2 = obj2.ensure_paper()
