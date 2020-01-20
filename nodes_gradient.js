@@ -75,7 +75,7 @@ class Gradient extends PObject
 
     transform(m) { mat3.multiply(this.t_mat, m, this.t_mat) }
 
-    draw_line_points(pa, pb) {
+    draw_line_points(pa, pb, line_color="#000") {
         let tpa = vec2.create(), tpb = vec2.create()
         vec2.transformMat3(tpa, pa, this.t_mat)
         vec2.transformMat3(tpb, pb, this.t_mat)
@@ -85,8 +85,8 @@ class Gradient extends PObject
         ctx_img.beginPath();
         ctx_img.moveTo(tpa[0], tpa[1])
         ctx_img.lineTo(tpb[0], tpb[1])
-        ctx_img.lineWidth = 1/image_view.viewport_zoom
-        ctx_img.strokeStyle = "#000"
+        ctx_img.lineWidth = MESH_DISP.line_width/image_view.viewport_zoom
+        ctx_img.strokeStyle = line_color
         ctx_img.stroke()
         for(let s of this.stops) {
             let [x,y] = this.interp_point(tpa, tpb, s.value)
@@ -99,7 +99,6 @@ class Gradient extends PObject
             ctx_img.arc(x, y, radius, 0, 2*Math.PI)
             ctx_img.fillStyle = make_str_color(s.color)
             ctx_img.fill()
-            ctx_img.strokeStyle = "#000"
             ctx_img.stroke()
             // TBD what if it can't be seen?
         }
@@ -207,6 +206,9 @@ class LinearGradient extends Gradient {
         this.draw_line_points(this.p1, this.p2)
         this.draw_sel_points(selected_indices, this.p1, this.p2)
     }
+    draw_template_m(m) {
+        this.draw_line_points(this.p1, this.p2, TEMPLATE_LINE_COLOR)
+    }
 }
 
 // get the points on the circle that are used for changing the radius
@@ -239,7 +241,7 @@ class RadialGradient extends Gradient {
         this.r2 = r2
         this.ctx_create_func = function() { return ctx_img.createRadialGradient(x1,y1,r1, x2,y2,r2) }
     }
-    draw_circles(tp1, tp2) {
+    draw_circles(tp1, tp2, line_color="#000") {
         let p1 = this.p1, p2 = this.p2, r1 = this.r1, r2 = this.r2
         ctx_img.save()
         canvas_transform(ctx_img, this.t_mat)
@@ -253,8 +255,8 @@ class RadialGradient extends Gradient {
         let radius = MESH_DISP.vtx_radius / image_view.viewport_zoom
         circle(tp1, radius)
         circle(tp2, radius)
-        ctx_img.lineWidth = 1/image_view.viewport_zoom
-        ctx_img.strokeStyle = "#000"
+        ctx_img.lineWidth = MESH_DISP.line_width/image_view.viewport_zoom
+        ctx_img.strokeStyle = line_color
         ctx_img.stroke()
 
         // center circles should be different somehow so mark them with additional white
@@ -266,25 +268,30 @@ class RadialGradient extends Gradient {
         ctx_img.strokeStyle = "#000"
     }
 
+    draw_controls(line_color="#000") {
+        // anything that draws point-marker circles can't use the canvas transform so the points
+        // need to be manually transformed with t_mat.
+        let tp1 = vec2.create(), tp2 = vec2.create()
+        vec2.transformMat3(tp1, this.p1, this.t_mat)
+        vec2.transformMat3(tp2, this.p2, this.t_mat)
+        this.draw_circles(tp1, tp2, line_color)
+        // not using tp1,tp2 for this since r1,r2 can't be transformed
+        let [pa,pb] = get_circle_points(this.p1, this.r1, this.p2, this.r2)
+
+        this.draw_line_points(pa, pb, line_color)        
+    }
+
     draw_m(m, disp_values) {
         if (disp_values.show_fill)
             this.draw_fill()
-        if (disp_values.show_ctrl) {
-            // anything that draws point-marker circles can't use the canvas transform so the points
-            // need to be manually transformed with t_mat.
-            let tp1 = vec2.create(), tp2 = vec2.create()
-            vec2.transformMat3(tp1, this.p1, this.t_mat)
-            vec2.transformMat3(tp2, this.p2, this.t_mat)
-            this.draw_circles(tp1, tp2)
-            // not using tp1,tp2 for this since r1,r2 can't be transformed
-            let [pa,pb] = get_circle_points(this.p1, this.r1, this.p2, this.r2)
-
-            this.draw_line_points(pa, pb)
-        }
     }
     draw_selection_m(m, selected_indices) {
+        this.draw_controls()
         let [pa,pb] = get_circle_points(this.p1, this.r1, this.p2, this.r2)
         this.draw_sel_points(selected_indices, pa, pb)
+    }
+    draw_template_m(m) {
+        this.draw_controls(TEMPLATE_LINE_COLOR)
     }
 }
 

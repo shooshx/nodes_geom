@@ -175,7 +175,7 @@ class MultiPath extends PObject
         return jp;
     }
 
-    draw_poly(do_lines, do_fill) {
+    draw_poly(do_lines, do_fill, lines_color="#000") {
         this.ensure_paths_created()
         let cidx = 0
         let fcol = this.arrs.face_color
@@ -192,8 +192,8 @@ class MultiPath extends PObject
                 ctx_img.stroke(p) // fill antialiasing gaps
             }
             if (do_lines) {
-                ctx_img.strokeStyle = "#000"
-                ctx_img.lineWidth = 0.5/image_view.viewport_zoom
+                ctx_img.strokeStyle = lines_color
+                ctx_img.lineWidth = MESH_DISP.line_width/image_view.viewport_zoom
                 ctx_img.stroke(p)
             }
         }
@@ -222,7 +222,7 @@ class MultiPath extends PObject
                 prev_x = vx; prev_y = vy
             }
         }
-        ctx_img.lineWidth = 0.5/image_view.viewport_zoom
+        ctx_img.lineWidth = MESH_DISP.line_width/image_view.viewport_zoom
         ctx_img.stroke()
     }
 
@@ -244,6 +244,11 @@ class MultiPath extends PObject
     draw_selection_m(m, select_vindices) {
         Mesh.prototype.draw_selection_m.call(this, m, select_vindices)
     }
+
+    draw_template_m(m) {
+        this.draw_poly(true, false, TEMPLATE_LINE_COLOR)
+        Mesh.prototype.draw_vertices.call(this, TEMPLATE_LINE_COLOR, false)
+    }    
 
     add_fillobj(proxy) {
         return Mesh.prototype.add_fillobj.call(this, proxy)

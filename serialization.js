@@ -4,7 +4,8 @@ function save_program() {
     let sprog = { nodes: {}, lines:[], 
         next_node_id: program.next_obj_id, 
         names_idx_s: program.names_indices,
-        display_node_id: (program.display_node == null) ? null : program.display_node.id
+        display_node_id: (program.display_node == null) ? null : program.display_node.id,
+        tdisp_node_ids: []
     }
     for(let n of program.nodes) {
         let sn = { params: {}, name:n.name, cls_name: n.cls.constructor.name(), x:n.x, y:n.y, disp_param:n.display_values }
@@ -19,6 +20,9 @@ function save_program() {
         sprog.lines.push({ from_name: from_term.name, from_id: from_term.owner.id,
                            to_name:   to_term.name,   to_id: to_term.owner.id,
                            uid: line.uid })
+    }
+    for(let tn of program.tdisp_nodes) {
+        sprog.tdisp_node_ids.push(tn.id)
     }
     return sprog
 }
@@ -128,6 +132,12 @@ function load_program(sprog)
     }
 
     program.display_node = (sprog.display_node_id == null) ? null : program.obj_map[sprog.display_node_id]
+    program.tdisp_nodes = []
+    for(let tnid of sprog.tdisp_node_ids) {
+        let tn = program.obj_map[tnid]
+        console.assert(tn !== undefined, "node not found")
+        set_template_node(tn, false)
+    }
 }
 
 var loading = false // used for avoiding spurious saves during load

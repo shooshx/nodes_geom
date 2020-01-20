@@ -1067,8 +1067,8 @@ class ParamTransform extends Parameter {
         this.item_r.set_to_const(r)
     }
     set_scale(sx, sy) {
-        this.sx.set_to_const(sx)
-        this.sy.set_to_const(sy)
+        this.item_sx.set_to_const(sx)
+        this.item_sy.set_to_const(sy)
     }
     draw_dial_at_obj(obj, m) {
         if (obj === null)

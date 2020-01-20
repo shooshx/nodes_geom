@@ -38,7 +38,7 @@ class ImageBase extends PObject
         return new BBox(tl[0], tl[1], br[0], br[1])
     }
 
-    draw_border(m) {
+    draw_border(m, line_color="#000") {
         // we don't want to draw this under the canvas transform since that would also transform the line width
         // need 4 points for the rect to make it rotate
         let tl = vec2.clone(this.top_left), br = vec2.clone(this.bottom_right)
@@ -54,10 +54,14 @@ class ImageBase extends PObject
 
         ctx_img.beginPath()
         closed_line(ctx_img, [tl[0],tl[1], tr[0],tr[1], br[0],br[1], bl[0],bl[1]])
-        ctx_img.strokeStyle = "#000"
-        ctx_img.lineWidth = 0.5
+        ctx_img.strokeStyle = line_color
+        ctx_img.lineWidth = MESH_DISP.line_width
         ctx_img.stroke()
-    }    
+    } 
+
+    draw_template(m) {
+        this.draw_border(m, TEMPLATE_LINE_COLOR)
+    }
 }
 
 // frame buffer is a texture that covers the canvas and only the canvas

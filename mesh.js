@@ -5,7 +5,7 @@ const MESH_NOT_SET = 0
 const MESH_QUAD = 1
 const MESH_TRI = 2
 
-const MESH_DISP = { vtx_radius: 5, vtx_sel_radius: 7, sel_color:"#FFBB55" }
+const MESH_DISP = { vtx_radius: 5, vtx_sel_radius: 7, sel_color:"#FFBB55", line_width:0.5 }
 
 let TVtxArr = Float32Array
 let TIdxArr = Uint16Array
@@ -197,12 +197,12 @@ class Mesh extends PObject
         ctx_img.save()
         canvas_setTransform(ctx_img, m)
         ctx_img.strokeStyle = "#000"
-        ctx_img.lineWidth = 0.5 / image_view.viewport_zoom
+        ctx_img.lineWidth = MESH_DISP.line_width/image_view.viewport_zoom
         ctx_img.strokeRect(bbox.min_x, bbox.min_y, bbox.max_x - bbox.min_x, bbox.max_y - bbox.min_y)
         ctx_img.restore()
     }
 
-    draw_vertices() 
+    draw_vertices(lines_color="#000", do_fill=true) 
     {
         let vtx = this.arrs.vtx_pos
         if (vtx === null)
@@ -212,7 +212,7 @@ class Mesh extends PObject
             vtx_radius = this.arrs.vtx_radius
             dassert(vtx_radius.length == this.arrs.vtx_pos.length / 2, "unexpected size of vtx_radius")
         }
-        if (this.arrs.vtx_color !== undefined) {
+        if (do_fill && this.arrs.vtx_color !== undefined) {
             let vcol = this.arrs.vtx_color
             dassert(vcol.length / 4 == this.arrs.vtx_pos.length / 2, "unexpected size of vtx_color")
             for(let i = 0, vi = 0, icol = 0; vi < vtx.length; ++i, vi += 2, icol += 4) {
@@ -224,7 +224,7 @@ class Mesh extends PObject
                 ctx_img.fillStyle = "rgba(" + vcol[icol] + "," + vcol[icol+1] + "," + vcol[icol+2] + "," + (vcol[icol+3]/255) + ")"
                 ctx_img.fill()
             }
-            ctx_img.lineWidth = 0.5/image_view.viewport_zoom
+            ctx_img.lineWidth = MESH_DISP.line_width/image_view.viewport_zoom
         }
         else {
             ctx_img.lineWidth = 1/image_view.viewport_zoom
@@ -238,7 +238,7 @@ class Mesh extends PObject
             ctx_img.moveTo(x + radius, y)
             ctx_img.arc(x, y, radius, 0, 2*Math.PI)
         }
-        ctx_img.strokeStyle = "#000"
+        ctx_img.strokeStyle = lines_color
         ctx_img.stroke()       
 
         if (this.arrs.vtx_normal !== undefined) {
@@ -249,7 +249,7 @@ class Mesh extends PObject
                 ctx_img.moveTo(vtx[vi], vtx[vi+1])
                 ctx_img.lineTo(vtx[vi] + norm[vi], vtx[vi+1] + norm[vi+1])
             }
-            ctx_img.lineWidth = 0.5/image_view.viewport_zoom
+            ctx_img.lineWidth = MESH_DISP.line_width/image_view.viewport_zoom
             ctx_img.strokeStyle = "#ff0000"
             ctx_img.stroke()
         }        
@@ -289,10 +289,10 @@ class Mesh extends PObject
         }            
     }
 
-    draw_poly_stroke() {
+    draw_poly_stroke(lines_color = "#000") {
         this.ensure_paths_created()       
-        ctx_img.lineWidth = 0.5/image_view.viewport_zoom
-        ctx_img.strokeStyle = "#000"
+        ctx_img.lineWidth = MESH_DISP.line_width/image_view.viewport_zoom
+        ctx_img.strokeStyle = lines_color
         for(let p of this.paths) {
             ctx_img.stroke(p)        
         }        
@@ -423,6 +423,11 @@ class Mesh extends PObject
         ctx_img.lineWidth = 2/image_view.viewport_zoom
         ctx_img.strokeStyle = MESH_DISP.sel_color
         ctx_img.stroke()
+    }
+
+    draw_template_m(m) {
+        this.draw_poly_stroke(TEMPLATE_LINE_COLOR)
+        this.draw_vertices(TEMPLATE_LINE_COLOR, false)
     }
 
     make_buffers() {

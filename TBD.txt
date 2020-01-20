@@ -10,7 +10,6 @@ GUI:
 - progress bar for long run, abort button
 - first node created with display flag (otherwise nothing is visible)
 - fix jumping of splits on page load
-- template display
 - Math.round lines just before drawing to avoid thinning artifacts when zooming?
 - save the image-canvas view transform
 
@@ -147,6 +146,7 @@ demo idea
 - ascii art
 - spiral with width according to color (http://paperjs.org/examples/spiral-raster/)
 - http://paperjs.org/examples/
+- plasma https://stuff.brm.sk/plasma/
 
 nice visualizations: https://bost.ocks.org/mike/algorithms/
 d3: https://github.com/d3/d3/wiki/Gallery

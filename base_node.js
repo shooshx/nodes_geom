@@ -9,6 +9,8 @@ const TERM_MARGIN_Y = 2
 
 const NODE_WIDTH = 120
 
+const TEMPLATE_LINE_COLOR = "#de77f1"
+
 
 // https://github.com/gdenisov/cardinal-spline-js/blob/master/curve_func.min.js
 function curve(d,j,u,g,c){u=(typeof u==="number")?u:0.5;g=g?g:25;var k,e=1,f=j.length,o=0,n=(f-2)*g+2+(c?2*g:0),m=new Float32Array(n),a=new Float32Array((g+2)*4),b=4;k=j.slice(0);if(c){k.unshift(j[f-1]);k.unshift(j[f-2]);k.push(j[0],j[1])}else{k.unshift(j[1]);k.unshift(j[0]);k.push(j[f-2],j[f-1])}a[0]=1;for(;e<g;e++){var p=e/g,q=p*p,s=q*p,r=s*2,t=q*3;a[b++]=r-t+1;a[b++]=t-r;a[b++]=s-2*q+p;a[b++]=s-q}a[++b]=1;h(k,a,f);if(c){k=[];k.push(j[f-4],j[f-3],j[f-2],j[f-1]);k.push(j[0],j[1],j[2],j[3]);h(k,a,4)}function h(H,A,C){for(var B=2,I;B<C;B+=2){var D=H[B],E=H[B+1],F=H[B+2],G=H[B+3],J=(F-H[B-2])*u,K=(G-H[B-1])*u,L=(H[B+4]-D)*u,M=(H[B+5]-E)*u;for(I=0;I<g;I++){var v=I<<2,w=A[v],x=A[v+1],y=A[v+2],z=A[v+3];m[o++]=w*D+x*F+y*J+z*L;m[o++]=w*E+x*G+y*K+z*M}}}f=c?0:j.length-2;m[o++]=j[f];m[o]=j[f+1];for(e=0,f=m.length;e<f;e+=2){d.lineTo(m[e],m[e+1])}return m};
@@ -257,6 +259,18 @@ class PObject {
             ctx_img.restore()
         }        
     }
+
+    draw_template(m) {
+        ctx_img.save()
+        try {
+            canvas_setTransform(ctx_img, m)
+            this.draw_template_m(m)
+        }
+        finally {
+            ctx_img.restore()
+        }
+    }
+
     draw_border() {} // called in NodeTransform
 }
 
@@ -837,9 +851,17 @@ function set_display_node(node) {
     trigger_frame_draw(true)  // need to do run since the const output might have gotten changed
 }
 
-function set_template_node(node) {
+function set_template_node(node, do_draw=true) {
     node.disp_template = !node.disp_template 
-    trigger_frame_draw(true)
+    if (node.disp_template)
+        program.tdisp_nodes.push(node)
+    else {
+        const idx = program.tdisp_nodes.indexOf(node)
+        console.assert(idx !== -1)
+        program.tdisp_nodes.splice(idx, 1);
+    }
+    if (do_draw)
+        trigger_frame_draw(true)
 }
 
 // pass along the messages to the node and just flip the display flag
@@ -910,7 +932,7 @@ function nodes_context_menu(px, py, wx, wy, cvs_x, cvs_y) {
     if (obj != null) {
         if (obj.constructor === Node)
             node = obj
-        else if (obj.constructor === DisplayFlagProxy)
+        else if (obj.constructor === NodeFlagProxy)
             node = obj.node
         else if (obj.constructor === Line)
             opt = [{text:"Delete Line", func:function() { program.delete_line(obj, true)} }]            
