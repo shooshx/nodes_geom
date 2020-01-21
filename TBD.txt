@@ -82,7 +82,10 @@ NODES:
 - Gradient
     spreadMethod with SVG  https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/spreadMethod
     stroke,
-- !! 2d color function, sampling gradient
+- !! 2d color function
+    - float function - code
+    - vec3/4 function? direct color
+    - sampling gradient
 - Shader distance from path
 - random points  - https://www.sidefx.com/docs/houdini/nodes/sop/scatter.html
     on a surface
@@ -146,7 +149,22 @@ demo idea
 - ascii art
 - spiral with width according to color (http://paperjs.org/examples/spiral-raster/)
 - http://paperjs.org/examples/
+- image effects http://iquilezles.org/www/articles/deform/deform.htm
 - plasma https://stuff.brm.sk/plasma/
+        float x = gl_FragCoord.x / (uResolution.y * 0.08);
+        float y = gl_FragCoord.y / (uResolution.y * 0.08);
+        float t = uTime;
+        
+        float da = distance(vec2(x + cos(t / 1110.0)*4.0,y), vec2(1.0, 2.1));
+        float db = distance(vec2(x,y), vec2(8.0 + 16.0*uMouse.x, 6.1 + 8.0*(1.0 - uMouse.y) ));
+        float dc = distance(vec2(x,y + cos(t / 998.0)*2.0), vec2(10.0, 3.1));
+        
+        float c1 = sin(da) + sin(x) * sin(t/1000.0);
+        float c2 = sin(db - t / 500.0)*1.0;
+        float c3 = cos(dc / 2.0) + sin(t/1000.0);
+        float c = (c1 + c2 + c3) / 3.0 - uColorSwitch / 3.0;
+
+
 
 nice visualizations: https://bost.ocks.org/mike/algorithms/
 d3: https://github.com/d3/d3/wiki/Gallery

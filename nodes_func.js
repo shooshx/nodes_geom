@@ -1,5 +1,134 @@
 "use strict"
 
+
+const FUNC_VERT_SRC = `#version 300 es
+in vec4 vtx_pos;
+out vec2 v_coord;
+uniform mat3 t_mat;
+
+void main(void)
+{
+    vec3 tmp = t_mat * vec3(vtx_pos.xy, 1.0);
+    v_coord = tmp.xy;
+    gl_Position = vec4(vtx_pos.xy, 1.0, 1.0);
+}
+`
+
+const EXPR_FRAG_SRC = `#version 300 es
+precision mediump float;
+
+in vec2 v_coord;
+out vec4 outColor;
+
+void main() {
+    float v = $EXPR$;
+    outColor = vec4(vec3(1.0, 0.5, 0.0) + vec3(v, v, v), 1.0);    
+}
+`
+
+
+
+class ParamProxy extends Parameter {
+    constructor(node, wrap) {
+        super(node, wrap.label)
+        this.wrap = wrap
+    }
+    save() { return this.wrap.save() }
+    load(v) { this.wrap.load(v) }
+    add_elems(parent) {
+        this.wrap.add_elems(parent)
+    }
+    pis_dirty() { return this.wrap.pis_dirty() }
+    pclear_dirty() { this.wrap.pclear_dirty() }
+}
+
+class GlslTextEvaluator {
+    constructor(subscripts, glsl_name, allowed_subscripts) {        
+        eassert(subscripts.length == 1, "wrong number of subscripts")
+        const sub = subscripts[0]
+        eassert(allowed_subscripts.indexOf(sub) !== -1, "unknown subscript " + sub)
+        this.name = glsl_name + "." + sub
+    }
+    eval() {
+        eassert(false, "text evaluator can't be evaled")
+    }
+    check_type() {
+        return TYPE_NUM
+    }
+    to_glsl() {
+        return this.name
+    }
+}
+
+
+class NodeFuncFill extends NodeCls
+{
+    static name() { return "Function Fill" }
+    constructor(node) {
+        super(node)
+        this.prog = new Program()
+        this.shader_node = this.prog.add_node(0, 0, null, NodeShader, null)
+        this.shader_node.cls.attr_names = ["vtx_pos"]
+
+        this.in_mesh = new TerminalProxy(node, this.shader_node.cls.in_mesh)
+
+        this.in_tex = new TerminalProxy(node, this.shader_node.cls.in_tex)
+        this.out_tex = new TerminalProxy(node, this.shader_node.cls.out_tex)
+
+        node.set_state_evaluators({"coord":  (m,s)=>{ return new GlslTextEvaluator(s, "v_coord", ['x','y']) }} ) 
+
+        //this.time = new ParamProxy(node, this.shader_node.cls.uniform_by_name('time').param)
+        this.floatExpr = new ParamFloat(node, "Expression", "1+1")
+
+        this.shader_node.cls.vtx_text.set_text(FUNC_VERT_SRC)
+        //this.shader_node.cls.frag_text.set_text(NOISE_FRAG_SRC)
+
+    }
+    destructtor() {
+        this.shader_node.cls.destructtor()
+    }
+    run() {
+        if ( this.floatExpr.item.last_error !== null) {
+            assert(false, this, "Expression error")
+        }
+        let expr = this.floatExpr.item.e, str
+        if (expr !== null) {
+            try {
+                str = expr.to_glsl()
+            }
+            catch(ex) {
+                assert(false, node, ex.message)
+            }
+        }
+        else {  // it's a constant
+            str = this.floatExpr.v 
+            if (Number.isInteger(str))
+                str += ".0"
+        }
+        console.log("EXPR: ", str)
+
+
+        const frag_text = EXPR_FRAG_SRC.replace('$EXPR$', str)
+        this.shader_node.cls.frag_text.set_text(frag_text, false)
+
+        this.shader_node.cls.run()
+    }
+    get_error() {
+        if (this.error !== null)
+            return this.error
+        return this.shader_node.cls.get_error()
+    }
+    clear_error() {
+        this.error = null
+        this.shader_node.cls.clear_error()
+    }
+
+    cclear_dirty() {
+        this.shader_node.clear_dirty()
+    }
+}
+
+
 // Perlin noise: https://github.com/stegu/webgl-noise/tree/master/src
 
 const NOISE_FRAG_SRC =  `#version 300 es
@@ -192,69 +321,7 @@ void main() {
 
 `
 
-const NOSE_VERT_SRC = `#version 300 es
-in vec4 vtx_pos;
-out vec2 v_coord;
-uniform mat3 t_mat;
 
-void main(void)
-{
-    vec3 tmp = t_mat * vec3(vtx_pos.xy, 1.0);
-    v_coord = tmp.xy;
-    gl_Position = vec4(vtx_pos.xy, 1.0, 1.0);
-}
-`
-
-class ParamProxy extends Parameter {
-    constructor(node, wrap) {
-        super(node, wrap.label)
-        this.wrap = wrap
-    }
-    save() { return this.wrap.save() }
-    load(v) { this.wrap.load(v) }
-    add_elems(parent) {
-        this.wrap.add_elems(parent)
-    }
-    pis_dirty() { return this.wrap.pis_dirty() }
-    pclear_dirty() { this.wrap.pclear_dirty() }
-}
-
-class NodeFuncFill extends NodeCls
-{
-    static name() { return "Function Fill" }
-    constructor(node) {
-        super(node)
-        this.prog = new Program()
-        this.shader_node = this.prog.add_node(0, 0, null, NodeShader, null)
-        this.shader_node.cls.attr_names = ["vtx_pos"]
-
-        this.in_mesh = new TerminalProxy(node, this.shader_node.cls.in_mesh)
-
-        this.in_tex = new TerminalProxy(node, this.shader_node.cls.in_tex)
-        this.out_tex = new TerminalProxy(node, this.shader_node.cls.out_tex)
-
-        this.shader_node.cls.vtx_text.set_text(NOSE_VERT_SRC)
-        this.shader_node.cls.frag_text.set_text(NOISE_FRAG_SRC)
-
-        this.time = new ParamProxy(node, this.shader_node.cls.uniform_by_name('time').param)
-    }
-    destructtor() {
-        this.shader_node.cls.destructtor()
-    }
-    run() {
-        this.shader_node.cls.run()
-    }
-    get_error() {
-        return this.shader_node.cls.get_error()
-    }
-    clear_error() {
-        this.shader_node.cls.clear_error()
-    }
-
-    cclear_dirty() {
-        this.shader_node.clear_dirty()
-    }
-}
 
 
 

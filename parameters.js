@@ -1647,7 +1647,11 @@ class ParamTextBlock extends Parameter
     load(v) { this.text = v.text; this.dlg_rect = v.dlg_rect;  }
     
     title() { return this.owner.name + " - " + this.label }
-    set_text(v) { this.text = v; this.pset_dirty(); this.call_change() }
+    set_text(v, do_draw=true) { // when calling this from run(), set to false to avoid endless loop of draws
+        this.text = v; 
+        this.pset_dirty(do_draw); 
+        this.call_change() 
+    }
 
     add_elems(parent) {
         this.line_elem = add_param_line(parent)

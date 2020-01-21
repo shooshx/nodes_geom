@@ -35,6 +35,11 @@ class NumNode  {
     check_type() {
         return TYPE_NUM
     }
+    to_glsl() {
+        if (Number.isInteger(this.v))
+            return this.v + ".0"
+        return this.v;
+    }
 }
 
 function checkZero(v) {
@@ -71,6 +76,7 @@ function call_operator(v1, v2, op) {
     }
     return ret;
 }
+
 
 class BinaryOpNode {
     constructor(l, r, _op) {
@@ -115,6 +121,10 @@ class BinaryOpNode {
             ret[i] = call_operator(v[i], n, this.op)
         return ret
     }
+
+    to_glsl() {
+        return '(' + this.left.to_glsl() + ops[this.op].str + this.right.to_glsl() + ')'
+    }
 }
 
 
@@ -148,6 +158,15 @@ class UnaryOpNode {
             this.type = this.child.check_type()
         return this.type
     }
+    to_glsl() {
+        const v = this.child.to_glsl() + ')'
+        switch (op) {
+        case OPERATORU_NEG: return '(-' + v;
+        case OPERATORU_BITWISE_NOT: return '(~' + v;
+        case OPERATORU_LOGIC_NOT: return '(!' + v;
+        default:  throw new ExprErr("unexpected unary operator");
+        }
+    }
 }
 
 
@@ -176,44 +195,46 @@ const OPERATORU_LOGIC_NOT = 100 // !
 const OPERATORU_BITWISE_NOT = 101 // ~
 const OPERATORU_NEG = 102 // -
 
+
 class Operator
 {
-    constructor(opr, prec, assoc)
+    constructor(opr, prec, assoc, str)
     { 
         this.op = opr; /// Operator, one of the OPERATOR_* enum definitions
         this.precedence = prec;
         /// 'L' = left or 'R' = right
         this.associativity = assoc;
+        this.str = str
     }
 }
 
 // needs to be ordered by the numbers of the operators, only binary operators
 // higher number = higher precedence
 const ops = [
-    new Operator(OPERATOR_NULL, 0, 'L'),
+    new Operator(OPERATOR_NULL, 0, 'L', '<null>'),
 
-    new Operator(OPERATOR_BITWISE_OR, 40, 'L'),
-    new Operator(OPERATOR_BITWISE_XOR, 50, 'L'),
-    new Operator(OPERATOR_BITWISE_AND, 60, 'L'),
-    new Operator(OPERATOR_BITWISE_SHL, 70, 'L'),
-    new Operator(OPERATOR_BITWISE_SHR, 70, 'L'),
+    new Operator(OPERATOR_BITWISE_OR, 40, 'L', '|'),
+    new Operator(OPERATOR_BITWISE_XOR, 50, 'L', '^'),
+    new Operator(OPERATOR_BITWISE_AND, 60, 'L', '&'),
+    new Operator(OPERATOR_BITWISE_SHL, 70, 'L', '<<'),
+    new Operator(OPERATOR_BITWISE_SHR, 70, 'L', '>>'),
 
-    new Operator(OPERATOR_ADDITION, 100, 'L'),
-    new Operator(OPERATOR_SUBTRACTION, 100, 'L'),
-    new Operator(OPERATOR_MULTIPLICATION, 200, 'L'),
-    new Operator(OPERATOR_DIVISION, 200, 'L'),
-    new Operator(OPERATOR_MODULO, 200, 'L'),
-    new Operator(OPERATOR_POWER, 300, 'R'),
-    new Operator(OPERATOR_EXPONENT, 400, 'R'),
+    new Operator(OPERATOR_ADDITION, 100, 'L', '+'),
+    new Operator(OPERATOR_SUBTRACTION, 100, 'L', '-'),
+    new Operator(OPERATOR_MULTIPLICATION, 200, 'L', '*'),
+    new Operator(OPERATOR_DIVISION, 200, 'L', '/'),
+    new Operator(OPERATOR_MODULO, 200, 'L', '%'),
+    new Operator(OPERATOR_POWER, 300, 'R', 'TBD'),
+    new Operator(OPERATOR_EXPONENT, 400, 'R', 'e'),
 
-    new Operator(OPERATOR_LESS, 30, 'L'),
-    new Operator(OPERATOR_LESS_EQ, 30, 'L'),
-    new Operator(OPERATOR_GREATER, 30, 'L'),
-    new Operator(OPERATOR_GREATER_EQ, 30, 'L'),
-    new Operator(OPERATOR_EQ, 30, 'L'),
+    new Operator(OPERATOR_LESS, 30, 'L', '<'),
+    new Operator(OPERATOR_LESS_EQ, 30, 'L', '<='),
+    new Operator(OPERATOR_GREATER, 30, 'L', '>'),
+    new Operator(OPERATOR_GREATER_EQ, 30, 'L', '>='),
+    new Operator(OPERATOR_EQ, 30, 'L', '=='),
 
-    new Operator(OPERATOR_LOGIC_AND, 20, 'L'),
-    new Operator(OPERATOR_LOGIC_OR, 10, 'L'),
+    new Operator(OPERATOR_LOGIC_AND, 20, 'L', '&&'),
+    new Operator(OPERATOR_LOGIC_OR, 10, 'L', '||'),
 
 ]
 
@@ -373,6 +394,7 @@ function rgba(r, g, b, a) {
 const func_defs = {
     'cos': new FuncDef(Math.cos, 1), 'sin': new FuncDef(Math.sin, 1), 'tan': new FuncDef(Math.tan, 1),
     'acos': new FuncDef(Math.acos, 1), 'asin': new FuncDef(Math.acos, 1), 'atan': new FuncDef(Math.atan, 1), 'atan2': new FuncDef(Math.atan2, 2),
+    'sqrt': new FuncDef(Math.sqrt, 1),
     'log': new FuncDef(Math.log, 1), 'log10': new FuncDef(Math.log10, 1), 'log2': new FuncDef(Math.log2, 1),
     'round': new FuncDef(Math.round, 1), 'ceil': new FuncDef(Math.ceil, 1), 'floor': new FuncDef(Math.floor, 1), 'trunc': new FuncDef(Math.trunc, 1),
     'abs': new FuncDef(Math.abs, 1), 'sign': new FuncDef(Math.sign, 1),
@@ -406,6 +428,7 @@ class FuncCallNode {
             this.f = jsfunc // optimization
         this.args = args // input nodes
         this.type = null
+        this.funcname = funcname
     }
     eval() {
         let argvals = []
@@ -433,25 +456,31 @@ class FuncCallNode {
         }
         return this.type
     }
+    to_glsl() {
+        let slst = []
+        for(let arg of this.args)
+            slst.push(arg.to_glsl())
+        return this.funcname + '(' + slst.join(',') + ')'
+    }
 }
 
 function parseFuncCall(func_name) {
     let def = func_defs[func_name]
     if (def === undefined)
-        throw ExprErr("Unknown func " + func_name + " at " + index_)
+        throw new ExprErr("Unknown func " + func_name + " at " + index_)
     let args = []
     do {
         index_++; // first time skips the parent, after that skips the comma
         if (def.num_args > 0 && args.length == def.num_args)
-            throw ExprErr("Too many argument to function " + func_name + " at " + index_)
+            throw new ExprErr("Too many argument to function " + func_name + " at " + index_)
         let arg = parseExpr()
         args.push(arg)
         eatSpaces();
     } while (getCharacter() == ',')
     if ((def.num_args > 0 && args.length != def.num_args) || (def.num_args < 0 && args.length < -def_num_args))
-        throw ExprErr("Not enough arguments to function " + func_name + " at " + index_)
+        throw new ExprErr("Not enough arguments to function " + func_name + " at " + index_)
     if (getCharacter() != ')')
-        throw ExprErr("Expected closing paren for argument list at " + index_)
+        throw new ExprErr("Expected closing paren for argument list at " + index_)
     ++index_; // skip paren
     return new FuncCallNode(def.f, func_name, args)
 }
@@ -670,7 +699,7 @@ function eeval(expr, state_access) {
     if (typeof expr != "string")
         return new NumNode(expr)
     if (expr == "")
-        throw ExprErr("empty expression")
+        throw new ExprErr("empty expression")
     index_ = 0;
     expr_ = expr;
     if (state_access) {
