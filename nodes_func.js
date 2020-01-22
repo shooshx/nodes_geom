@@ -78,7 +78,8 @@ class NodeFuncFill extends NodeCls
         node.set_state_evaluators({"coord":  (m,s)=>{ return new GlslTextEvaluator(s, "v_coord", ['x','y']) }} ) 
 
         //this.time = new ParamProxy(node, this.shader_node.cls.uniform_by_name('time').param)
-        this.floatExpr = new ParamFloat(node, "Expression", "1+1")
+        this.floatExpr = new ParamCode(node, "Expression", "1+1")
+        //this.floatExpr = new ParamFloat(node, "Expression", "1+1")
 
         this.shader_node.cls.vtx_text.set_text(FUNC_VERT_SRC)
         //this.shader_node.cls.frag_text.set_text(NOISE_FRAG_SRC)

@@ -133,10 +133,12 @@ function load_program(sprog)
 
     program.display_node = (sprog.display_node_id == null) ? null : program.obj_map[sprog.display_node_id]
     program.tdisp_nodes = []
-    for(let tnid of sprog.tdisp_node_ids) {
-        let tn = program.obj_map[tnid]
-        console.assert(tn !== undefined, "node not found")
-        set_template_node(tn, false)
+    if (sprog.tdisp_node_ids !== undefined) {
+        for(let tnid of sprog.tdisp_node_ids) {
+            let tn = program.obj_map[tnid]
+            console.assert(tn !== undefined, "node not found")
+            set_template_node(tn, false)
+        }
     }
 }
 

@@ -109,6 +109,7 @@ function clear_elem(e) {
 let g_params_popups = [] 
 function show_params_of(node) {
     // clear children
+    param_dismiss_popups() // we there just happen to be anything left, dismiss it before we forget it
     g_params_popups.length = 0
     let div_params_list = clear_elem_byid('div_params_list')
     if (node === null)
@@ -469,12 +470,12 @@ function arr_equals(a, b) {
 function normalize_slider_conf(sc) {
     if (sc === null || sc === undefined)
         return {min:0, max:1, visible:false, allowed:true} // allowed false means there's no option to activate it
-    else if (sc.min === undefined) // it's just an array of two nums
+    else if (sc.min === undefined && sc.allowed === undefined) // it's just an array of two nums
         return {min:sc[0], max:sc[1], visible:true, allowed:true }
-    if (sc.visible === undefined)
-        sc.visible = true
     if (sc.allowed === undefined)
         sc.allowed = true
+    if (sc.visible === undefined)
+        sc.visible = sc.allowed
     return sc
 }
 function is_default_slider_conf(sc) {
@@ -495,6 +496,7 @@ class ExpressionItem {
         this.last_error = null // string of the error if there was one or null
         this.need_inputs = null // map string names of the inputs needed, already verified that they exist to the ObjRef that needs filling
         this.err_elem = null
+        this.override_create_elem = null
 
         this.slider_conf = normalize_slider_conf(slider_conf)
         this.slider = null // object returned by add_param_slider (has funcs to control slider)
@@ -683,12 +685,19 @@ class ExpressionItem {
             show_v = this.get_prop(); 
             ed_type = this.prop_type
         }
-        this.elem = add_param_edit(line, show_v, (ed_type == ED_FLOAT)?ED_FLOAT_OUT_ONLY:ed_type, (se)=>{this.peval(se)})
+
+        const str_change_callback = (se)=>{this.peval(se)}
+        if (this.override_create_elem === null)
+            this.elem = add_param_edit(line, show_v, (ed_type == ED_FLOAT)?ED_FLOAT_OUT_ONLY:ed_type, str_change_callback)
+        else
+            this.elem = this.override_create_elem(line, show_v, str_change_callback)
+
         if (this.last_error !== null) {
             this.elem.classList.toggle("param_input_error", true)
             this.show_err()
         }
 
+        this.ctx_menu_adders = []
         if (is_single_value && this.slider_conf.allowed) {
             this.add_slider_mechanism(line)
         }
@@ -778,8 +787,6 @@ class ParamFloat extends ParamBaseExpr {
         gl.uniform1f(loc, this.v)
     }    
 }
-
-
 class ParamInt extends ParamBaseExpr {
     constructor(node, label, start_v, slider_conf=null) {
         super(node, label, start_v, ED_INT, slider_conf)
@@ -787,6 +794,26 @@ class ParamInt extends ParamBaseExpr {
         this.item.peval(this.v)
     }  
 }
+
+class ParamCode extends ParamBaseExpr {
+    constructor(node, label, start_v) {
+        super(node, label, start_v, ED_FLOAT, {allowed:false})
+        this.item.override_create_elem = (line, show_v, change_func)=>{
+            const elem = add_elem(line, "textarea", ["param_text_area","panel_param_text_area", "param_editbox"])
+            elem.spellcheck = false
+            elem.rows = 6
+            elem.value = show_v
+            myAddEventListener(elem, "input", function() { 
+                change_func(elem.value); 
+            })
+            return elem
+        }    
+        this.item.peval(this.v)
+    }
+}
+
+
+
 
 
 
@@ -967,27 +994,6 @@ class ParamColor extends Parameter {
     }       
 }
 
-// contains a text box that holds a piece of code that can modify 
-// multiple variables (NOT USED)
-class ParamCode extends Parameter
-{
-    constructor(node, label) {
-        super(node, label)
-        this.text = null
-        this.input_elem = null
-    }
-    save() { return { text:this.text }}
-    load(v) { this.text = v.text }
-    add_elems(parent) {
-        this.line_elem = add_param_line(parent);
-        this.label_elem = add_param_label(this.line_elem, this.label)
-        this.input_elem = add_elem(this.line_elem, "textarea", ["param_text_area","panel_param_text_area"])
-        this.input_elem.spellcheck = false
-        this.input_elem.rows = 6
-
-    }
-
-}
 
 
 function toFixedMag(f) {
