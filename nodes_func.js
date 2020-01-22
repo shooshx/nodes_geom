@@ -97,7 +97,7 @@ class NodeFuncFill extends NodeCls
                 str = expr.to_glsl()
             }
             catch(ex) {
-                assert(false, node, ex.message)
+                assert(false, this, ex.message)
             }
         }
         else {  // it's a constant

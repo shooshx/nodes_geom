@@ -160,7 +160,7 @@ class UnaryOpNode {
     }
     to_glsl() {
         const v = this.child.to_glsl() + ')'
-        switch (op) {
+        switch (this.op) {
         case OPERATORU_NEG: return '(-' + v;
         case OPERATORU_BITWISE_NOT: return '(~' + v;
         case OPERATORU_LOGIC_NOT: return '(!' + v;

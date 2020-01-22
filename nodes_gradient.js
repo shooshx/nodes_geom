@@ -563,6 +563,7 @@ class NodeGradient extends NodeCls
                 this.table.remake_table() // when it was not visible, it wasn't updated
             this.add_stops_btn.set_visible(sel_idx == 0)
             this.func.set_visible(sel_idx == 1)
+            this.func_samples.set_visible(sel_idx == 1)
         })
         this.method.share_line_elem_from(this.type)
         this.p1 = new ParamVec2(node, "Point 1", -0.5, 0)
@@ -570,7 +571,7 @@ class NodeGradient extends NodeCls
         this.p2 = new ParamVec2(node, "Point 2", 0.5, 0)
         this.r2 = new ParamFloat(node, "Radius 2", 0.7)
         this.func = new ParamColorExpr(node, "f(t)=", "rgb(255,128,t*128)") // just a way to generate points TBD not actally float example: rgb(255,128,0)+rgb(t,t,t)*255
-        this.func_samples = new ParamInt(node, "Sample Num", 10)
+        this.func_samples = new ParamInt(node, "Sample Num", 10, {min:1, max:30, visible:false})
         const presets_btn = new ParamImageSelectBtn(node, "Presets", GRADIENT_PRESETS, make_preset_img, (pr)=>{this.load_preset(pr)})
         this.add_stops_btn = new ParamBool(node, "Add stops", true, null)
         this.add_stops_btn.display_as_btn(true)
