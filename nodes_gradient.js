@@ -669,7 +669,7 @@ class NodeGradient extends NodeCls
         let samples = [] // array of [stop-val, color]
 
         if (value_need_t == null) { // doesn't depend on t
-            const c = this.func.dyn_eval(0)
+            const c = this.func.dyn_eval()
             samples.push({v:0, c:vec2col(c)})
         }
         else {
@@ -680,7 +680,7 @@ class NodeGradient extends NodeCls
             const STEPS = this.func_samples.v
             for(let i = 0; i <= STEPS; ++i) {
                 t_wrap[0] = 1/STEPS*i
-                const c = this.func.dyn_eval(0)
+                const c = this.func.dyn_eval()
                 samples.push({v:t_wrap[0], c:vec2col(c)})
             }
             

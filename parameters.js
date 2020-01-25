@@ -223,6 +223,7 @@ const ED_INT=1    // "not float" - not formatted as float
 const ED_STR=2
 const ED_FLOAT_OUT_ONLY=3  // when parsing ParamFloat, don't pass it throu parseFloat because it's an expression
 const ED_COLOR_EXPR=4 // used for expression type check
+const ED_VEC2=5 // for code expression type check
 
 function add_param_edit(line, value, type, set_func, cls=null) {
     let e = document.createElement('input')
@@ -496,7 +497,9 @@ class ExpressionItem {
         this.last_error = null // string of the error if there was one or null
         this.need_inputs = null // map string names of the inputs needed, already verified that they exist to the ObjRef that needs filling
         this.err_elem = null
+
         this.override_create_elem = null
+        this.parse_opt = PARSE_EXPR
 
         this.slider_conf = normalize_slider_conf(slider_conf)
         this.slider = null // object returned by add_param_slider (has funcs to control slider)
@@ -571,16 +574,19 @@ class ExpressionItem {
         try {
             if (state_access !== null)  // might be a node that doesn't have state_access
             state_access.reset_check()
-            this.e = ExprParser.eval(se, this.in_param.owner.state_access)
+            this.e = ExprParser.parse(se, this.in_param.owner.state_access, this.parse_opt)
             const type = this.e.check_type()
             if (this.prop_type == ED_COLOR_EXPR)
                 eassert(type === TYPE_VEC3 || type === TYPE_VEC4, "Wrong type, expected a vector")
+            else if (this.prop_type == ED_VEC2)
+                eassert(type === TYPE_VEC2, "Wrong type, expected vec2")
             else
                 eassert(type === TYPE_NUM, "Wrong type, expected a number") 
         }
         catch(ex) { // TBD better show the error somewhere
             this.eset_error(ex)
-            set_error(this.in_param.owner.cls, "Parameter expression error")
+            if (this.in_param.owner.cls !== undefined) // this can happen if there's an exception in the node initialization value, before cls was assigned to
+                set_error(this.in_param.owner.cls, "Parameter expression error")
             return
         }
         // score determines if the expression depends on anything
@@ -755,8 +761,7 @@ class ParamBaseExpr extends Parameter {
         let elem = this.item.add_editbox(this.line_elem, true)
     }
 
-    dyn_eval(item_index) {
-        console.assert(item_index == 0, "unexpected param item index")
+    dyn_eval() {
         return this.item.dyn_eval()
     }
     need_input_evaler(input_name) {
@@ -807,7 +812,8 @@ class ParamCode extends ParamBaseExpr {
                 change_func(elem.value); 
             })
             return elem
-        }    
+        }
+        this.item.parse_opt = PARSE_CODE
         this.item.peval(this.v)
     }
 }
@@ -858,12 +864,10 @@ class ParamVec2 extends Parameter {
         this.item_y.set_to_const(v[1])
         this.pset_dirty() 
     }
-    dyn_eval(item_index) {
-        if (item_index == 0)
-            return this.item_x.dyn_eval()
-        if (item_index == 1)
-            return this.item_y.dyn_eval()
-        eassert(false, "inaccessible item index " + item_index)
+    dyn_eval() {
+        const x = this.item_x.dyn_eval()
+        const y = this.item_y.dyn_eval()
+        return vec2.fromValues(x, y)
     }
     need_input_evaler(input_name) {
         // the first one that has it is good since all who has it have the same one (objref)
@@ -974,14 +978,12 @@ class ParamColor extends Parameter {
         this.item_alpha.add_editbox(line_alpha, true)       
         this.items_to_picker() 
     }
-    dyn_eval(item_index) {
-        switch(item_index) {
-        case 0: return this.item_r.dyn_eval() & 0xff
-        case 1: return this.item_g.dyn_eval() & 0xff
-        case 2: return this.item_b.dyn_eval() & 0xff
-        case 3: return this.item_alpha.dyn_eval() & 0xff
-        }
-        eassert(false, "inaccessible item index " + item_index)
+    dyn_eval() {        
+        const r = this.item_r.dyn_eval() & 0xff
+        const g = this.item_g.dyn_eval() & 0xff
+        const b = this.item_b.dyn_eval() & 0xff
+        const a = this.item_alpha.dyn_eval() & 0xff
+        return vec4.fromValues(r, g, b, a)
     }
     need_input_evaler(input_name) {
         // the first one that has it is good since all who has it have the same one (objref)

@@ -454,7 +454,7 @@ class MeshPropEvaluator {
 
 
 // examples:
-//  abs(in_mesh.vtx_pos.x)*20
+//  abs(in_obj.vtx_pos.x)*20
 //  in_src.r
 //  center of faces is sampled only when sampling color
 //  rand(in_obj.vtx_pos.index)
@@ -478,13 +478,25 @@ class NodeSetAttr extends NodeCls
         //this.use_code = new ParamBool(node, "Use Code", false, (v)=>{})
         this.bind_to = new ParamSelect(node, "Bind To", 0, ["Vertices", "Faces"]) // TBD also lines?
         // needs to be before attr_name since otherwise the loaded name goes to the initial type (color)
-        this.attr_type = new ParamSelect(node, "Type", 0, ["Color", "Float", "Float2", "Image Fill"], (v)=>{
-            this.expr_color.set_visible(v == 0)
-            this.expr_float.set_visible(v == 1)
-            this.expr_vec2.set_visible(v == 2)
-            this.expr_bool.set_visible(v == 3)
-            this.attr_name.modify(this.name_per_type.v[v])
+        const set_expr_visible = ()=>{
+            const ce = this.edit_code.v
+            const type_idx = this.attr_type.sel_idx
+            this.expr_color.set_visible(!ce && type_idx == 0)
+            this.expr_float.set_visible(!ce && type_idx == 1)
+            this.expr_vec2.set_visible(!ce && type_idx == 2)
+            this.expr_bool.set_visible(!ce && type_idx == 3)
+            this.expr_code.set_visible(ce)
+        }
+        const SEL_IDX_TO_TYPE = [ ED_COLOR_EXPR, ED_FLOAT, ED_VEC2, ED_INT ]
+        this.attr_type = new ParamSelect(node, "Type", 0, ["Color", "Float", "Float2", "Image Fill"], (sel_idx)=>{
+            set_expr_visible()            
+            this.attr_name.modify(this.name_per_type.v[sel_idx])
+            this.expr_code.item.prop_type = SEL_IDX_TO_TYPE[sel_idx]
         })
+        this.edit_code = new ParamBool(node, "Edit code", false, (v)=>{
+            set_expr_visible()
+        })
+        this.edit_code.share_line_elem_from(this.attr_type)
 
         this.attr_name = new ParamStr(node, "Name", "color", (v)=>{
             this.name_per_type.v[this.attr_type.sel_idx] = v
@@ -494,9 +506,7 @@ class NodeSetAttr extends NodeCls
         this.expr_float = new ParamFloat(node, "Float", 0)
         this.expr_vec2 = new ParamVec2(node, "Float2", 0, 0, true)
         this.expr_bool = new ParamFloat(node, "Select", "true")
-        //this.expr_code = new ParamCode(node, "Code")
-
-    
+        this.expr_code = new ParamCode(node, "Code", "return in_obj.vtx_pos.x")    
     }
 
     prop_from_const(prop, src, mutate_value) {
@@ -530,8 +540,9 @@ class NodeSetAttr extends NodeCls
         for(let i = 0, pi = 0; pi < prop.length; ++i, pi += prop.elem_sz) 
         {
             value_need_mesh.dyn_set_prop_index(i)
+            let v = src_param.dyn_eval()
             for(let si = 0; si < prop.elem_sz; ++si) {
-                prop[pi+si] = mutate_value(prop[pi+si], src_param.dyn_eval(si) )
+                prop[pi+si] = mutate_value(prop[pi+si], v[si])
             }
         }
     }
@@ -589,8 +600,9 @@ class NodeSetAttr extends NodeCls
                 expr_input.alpha = pixels[pidx+3]
             }
 
+            const vc = src_param.dyn_eval()
             for(let si = 0; si < prop.elem_sz; ++si) {
-                prop[pi+si] = mutate_value(prop[pi+si], src_param.dyn_eval(si))
+                prop[pi+si] = mutate_value(prop[pi+si], vc[si])
             }
         }
     }
@@ -623,7 +635,7 @@ class NodeSetAttr extends NodeCls
         attr_name += this.attr_name.v
 
         let prop, src_param
-        let mutate_value = (v)=>{return v} // optional transformation on the value that comes from the expression
+        let mutate_value = (prevv, newv)=>{return newv} // optional transformation on the value that comes from the expression
         if (this.attr_type.sel_idx == 0) { // color
             prop = new TColorArr(elem_num * 4)
             prop.elem_sz = 4
@@ -656,6 +668,8 @@ class NodeSetAttr extends NodeCls
         else {
             assert(false, this, "unknown type")
         }
+        if (this.edit_code.v)
+            src_param = this.expr_code
 
         assert(src_param.get_last_error() === null, this, "Parameter expression error " + src_param.get_last_error())
         let value_need_src = src_param.need_input_evaler("in_src")
@@ -1131,7 +1145,7 @@ class NodeRandomPoints extends NodeCls
             let p = queue[i], j
             cand.x = p[0]; cand.y = p[1]
 
-            r = (value_need_src === null)?this.min_dist.v : this.min_dist.dyn_eval(0)
+            r = (value_need_src === null)?this.min_dist.v : this.min_dist.dyn_eval()
             if (r < 0.02 && ++got_zeros > 100) { // TBD this would be better with grid
                 too_many_zeros = true
                 break

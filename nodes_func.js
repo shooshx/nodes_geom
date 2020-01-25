@@ -21,6 +21,7 @@ in vec2 v_coord;
 out vec4 outColor;
 
 void main() {
+    $BEFORE_EXPR$
     float v = $EXPR$;
     outColor = vec4(vec3(1.0, 0.5, 0.0) + vec3(v, v, v), 1.0);    
 }
@@ -78,7 +79,7 @@ class NodeFuncFill extends NodeCls
         node.set_state_evaluators({"coord":  (m,s)=>{ return new GlslTextEvaluator(s, "v_coord", ['x','y']) }} ) 
 
         //this.time = new ParamProxy(node, this.shader_node.cls.uniform_by_name('time').param)
-        this.floatExpr = new ParamCode(node, "Expression", "1+1")
+        this.floatExpr = new ParamCode(node, "Expression", "return coord.x")
         //this.floatExpr = new ParamFloat(node, "Expression", "1+1")
 
         this.shader_node.cls.vtx_text.set_text(FUNC_VERT_SRC)
@@ -93,9 +94,10 @@ class NodeFuncFill extends NodeCls
             assert(false, this, "Expression error")
         }
         let expr = this.floatExpr.item.e, str
+        let emit_ctx = { before_expr:[], add_funcs:[] }
         if (expr !== null) {
             try {
-                str = expr.to_glsl()
+                str = expr.to_glsl(emit_ctx)
             }
             catch(ex) {
                 assert(false, this, ex.message)
@@ -106,10 +108,10 @@ class NodeFuncFill extends NodeCls
             if (Number.isInteger(str))
                 str += ".0"
         }
-        console.log("EXPR: ", str)
+        const frag_text = EXPR_FRAG_SRC.replace('$EXPR$', str).replace('$BEFORE_EXPR$', emit_ctx.before_expr.join('\n'))
 
+        //console.log("TEXT: ", frag_text)
 
-        const frag_text = EXPR_FRAG_SRC.replace('$EXPR$', str)
         this.shader_node.cls.frag_text.set_text(frag_text, false)
 
         this.shader_node.cls.run()

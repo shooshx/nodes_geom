@@ -2,11 +2,16 @@
 
 // https://github.com/NishadSaraf/First-Order-Differentiation-In-C/blob/d6965c15bef4fe84837105eb0e5ed8f21ae9f80b/calculator.hpp
 
-const TYPE_BY_COMPONENT = 0; // not a real type, run the function component by component
+
+const FUNC_TYPE_BY_COMPONENT = 0; // not a real type, run the function component by component
+const FUNC_TYPE_LOOKUP = -1;  // type for function, given func name is actually a dictionary between type and actual func
 const TYPE_NUM = 1;
 const TYPE_VEC3 = 2; 
 const TYPE_VEC4 = 3;
+const TYPE_VEC2 = 4;
 
+const PARSE_EXPR = 1;
+const PARSE_CODE = 2;
 
 class ExprErr extends Error {
     constructor(msg) { super(msg) }
@@ -23,7 +28,7 @@ function clamp(a, v, b) {
 
 var ExprParser = (function() {
 
-class NumNode  {
+class NumNode  {  
     constructor(_v, str_was_decimal) {
         this.v = _v;
         this.decimal = str_was_decimal
@@ -31,7 +36,7 @@ class NumNode  {
     eval() {
         return this.v;
     }
-    is_decimal_num() { return this.decimal }
+    is_decimal_num() { return this.decimal } // used for display
     check_type() {
         return TYPE_NUM
     }
@@ -39,6 +44,18 @@ class NumNode  {
         if (Number.isInteger(this.v))
             return this.v + ".0"
         return this.v;
+    }
+}
+class VecNode {
+    constructor(_v, type) {
+        this.v = _v;
+        this.type = type
+    }
+    eval() {
+        return this.v
+    }
+    check_type() {
+        return this.type
     }
 }
 
@@ -267,10 +284,13 @@ function unexpected() {
 
 /// Eat all white space characters at the
 /// current expression index.
-///
 function eatSpaces() {
-    while (getCharacter() == ' ')
+    while (true) {
+        const c = getCharacter()
+        if (c !== ' ' && c !== '\n')
+            break
         index_++;
+    }
 }
 
 /// Parse a binary operator at the current expression index.
@@ -357,7 +377,7 @@ function parseOp()
 }
 
 class FuncDef {
-    constructor(jsfunc, num_args, type=TYPE_BY_COMPONENT) {
+    constructor(jsfunc, num_args, type=FUNC_TYPE_BY_COMPONENT) {
         this.f = jsfunc
         this.num_args = num_args
         this.dtype = type
@@ -386,15 +406,23 @@ function fit11(v, nmin, nmax) { return fit(v, -1, 1, nmin, nmax) }
 function ifelse(v, vt, vf) { return v?vt:vf }
 
 function rgb(r, g, b) { return vec3.fromValues(r, g, b) }
-function rgba(r, g, b, a) { 
-    return vec4.fromValues(r, g, b, a) 
+function rgba(r, g, b, a) { return vec4.fromValues(r, g, b, a) } 
+function make_vec2(x, y) { return vec2.fromValues(x, y) }
+function make_vec3(x, y, z) { return vec3.fromValues(x, y, z) }
+function make_vec4(x, y, z, w) { return vec4.fromValues(x, y, z, w) }
+
+const distance_lookup = {
+[TYPE_NUM]:  function(a,b) { return Math.abs(a-b) },
+[TYPE_VEC2]: function(a,b) { return vec2.distance(a,b) },
+[TYPE_VEC3]: function(a,b) { return vec3.distance(a,b) },
+[TYPE_VEC4]: function(a,b) { return vec4.distance(a,b) },
 }
 
 
 const func_defs = {
     'cos': new FuncDef(Math.cos, 1), 'sin': new FuncDef(Math.sin, 1), 'tan': new FuncDef(Math.tan, 1),
     'acos': new FuncDef(Math.acos, 1), 'asin': new FuncDef(Math.acos, 1), 'atan': new FuncDef(Math.atan, 1), 'atan2': new FuncDef(Math.atan2, 2),
-    'sqrt': new FuncDef(Math.sqrt, 1),
+    'sqrt': new FuncDef(Math.sqrt, 1), 'distance': new FuncDef(distance_lookup, 2, FUNC_TYPE_LOOKUP),
     'log': new FuncDef(Math.log, 1), 'log10': new FuncDef(Math.log10, 1), 'log2': new FuncDef(Math.log2, 1),
     'round': new FuncDef(Math.round, 1), 'ceil': new FuncDef(Math.ceil, 1), 'floor': new FuncDef(Math.floor, 1), 'trunc': new FuncDef(Math.trunc, 1),
     'abs': new FuncDef(Math.abs, 1), 'sign': new FuncDef(Math.sign, 1),
@@ -402,7 +430,8 @@ const func_defs = {
     'rand': new FuncDef(myrand, 1),
     'fit': new FuncDef(fit, 5), 'fit01': new FuncDef(fit01, 3), 'fit11': new FuncDef(fit11, 3),
     'if': new FuncDef(ifelse, 3),
-    'rgb': new FuncDef(rgb, 3, TYPE_VEC3), 'rgba': new FuncDef(rgba, 4, TYPE_VEC3)
+    'rgb': new FuncDef(rgb, 3, TYPE_VEC3), 'rgba': new FuncDef(rgba, 4, TYPE_VEC3),
+    'vec2': new FuncDef(make_vec2, 2, TYPE_VEC2), 'vec3': new FuncDef(make_vec3, 3, TYPE_VEC3), 'vec4': new FuncDef(make_vec4, 4, TYPE_VEC4),
 }
 
 // given a function f that takes num and a list of vecs, apply f individually on the components of f
@@ -429,30 +458,38 @@ class FuncCallNode {
         this.args = args // input nodes
         this.type = null
         this.funcname = funcname
+        this.args_type = null
     }
     eval() {
         let argvals = []
         for(let arg of this.args)
             argvals.push(arg.eval())
-        if (this.def.dtype != TYPE_BY_COMPONENT || this.type == TYPE_NUM)
-            return this.f.apply(null, argvals)            
+        if (this.def.dtype == FUNC_TYPE_LOOKUP)
+            return this.f[this.args_type].apply(null, argvals)       
+        if (this.def.dtype != FUNC_TYPE_BY_COMPONENT || this.type == TYPE_NUM)
+            return this.f.apply(null, argvals)
         apply_by_component(argvals, this.f)
     }
     check_type() {
         if (this.type === null) {
-            let t = this.def.dtype
-            if (t == TYPE_BY_COMPONENT) {
-                t = this.args[0].check_type()
+            let def_t = this.def.dtype
+            let ret_t = def_t
+            if (def_t == FUNC_TYPE_BY_COMPONENT || def_t == FUNC_TYPE_LOOKUP) { // all arguments need to be the same type
+                this.args_type = this.args[0].check_type()
                 for(let arg of this.args)
-                    if (arg.check_type() !== t)
+                    if (arg.check_type() !== this.args_type)
                         throw TypeErr("function needs all arguments of the same type")
+                if (def_t == FUNC_TYPE_LOOKUP)
+                    ret_t = TYPE_NUM // assumed right now since its only distance
+                else
+                    ret_t = this.args_type
             }
-            else { // return value has a specific type
+            else { // return value has a specific given type
                 for(let arg of this.args)
                     if (arg.check_type() !== TYPE_NUM) // assume this right now since it's only rgb,rgba
                         throw TypeErr("function needs all arguments to be numbers")
             }
-            this.type = t
+            this.type = ret_t
         }
         return this.type
     }
@@ -510,6 +547,16 @@ function parseIdentifier() {
 
     if (constants[sb] !== undefined)
         return new NumNode(constants[sb])
+
+    if (symbol_table_ !== null) {
+        const sps = sb.split('.')
+        const sn = symbol_table_[sps[0]]
+        if (sn !== undefined) {
+            if (sps.length === 1) 
+                return sn
+            return new SubscriptNode(sn, sps.slice(1))
+        }    
+    }
 
     let e = state_access_.get_evaluator(sb)
     if (e === null) 
@@ -688,6 +735,214 @@ function parseExpr() {
     return null;
 }
 
+
+function parseNewIdentifier() {
+    let sb = ''
+    let c = getCharacter();
+    if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')))
+        throw new ExprErr("unexpected char at start of statement " + c)
+    while(true) {
+        let c = getCharacter();
+        if (c === null)
+            break;
+        // identifier can have digits but not start with a digit
+        if ( (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || (c >= '0' && c <= '9') )
+            sb = sb + c;
+        else
+            break;
+        index_++;
+    }
+    return sb
+}
+
+// added to the symbol table when parsing
+// assignment sets a value into it, expression reference it from parseIdentifier
+class SymbolNode {
+    constructor(name) {
+        this.name = name
+        this.valueNode = null  // NumNode or VecNode
+        this.type = null
+    }
+    eval() {
+        if (this.valueNode === null)
+            throw new ExprErr("Symbol " + this.name + " not assigned to yet")
+        return this.valueNode.eval()
+    }
+    check_type() {
+        if (this.type === null)
+            throw new ExprErr("Symbol " + this.name + " not assigned to yet (tyoe)")
+        return this.type
+    }
+    to_glsl() {
+        return this.name
+    }
+}
+
+const SUBSCRIPT_TO_IDX = { x:0, y:1, z: 2, w:3, r:0, g:1, b:2, a: 3 }
+class SubscriptNode {
+    constructor(wrapNode, subscripts) {
+        this.wrapNode = wrapNode
+        if (subscripts.length !== 1)
+            throw new ExprErr("Only one subscript is supported")
+        this.subname = subscripts[0]
+        this.subidx = SUBSCRIPT_TO_IDX[this.subname]
+        if (this.subidx === undefined)
+            throw new ExprErr("unknown subscript: " + this.subname)
+    }
+    eval() {
+        let v = this.wrapNode.eval()
+        let sv = v[this.subidx]
+        if (sv === undefined)
+            throw new ExprErr("object doesn't have this subscript " + this.subname)
+        return sv
+    }
+    check_type() {
+        return TYPE_NUM
+    }
+    to_glsl() {
+        return this.wrapNode.to_glsl() + "." + this.subname
+    }
+}
+
+function parseStmt() {
+    eatSpaces()
+    // statement starts with a variable name to assign to or 'return'
+    const name = parseNewIdentifier()
+    eatSpaces()
+    let assign_type = null
+    if (name !== 'return') {
+        let c = getCharacter();
+        if (c !== '=')
+            throw new ExprErr("expected assignment")
+        index_++;
+        eatSpaces()
+        assign_type = 1
+    }
+    const expr = parseExpr()
+    if (assign_type !== null) {
+        return new AssignNameStmt(name, expr)
+    }
+    return new ReturnStmt(expr)
+}
+
+class ReturnStmt {
+    constructor(expr) {
+        this.expr = expr
+    }
+    isReturn() { return true }
+    invoke() {
+        const v = this.expr.eval()
+        return v
+    }
+    scheck_type() {
+        return this.expr.check_type()
+    }
+    sto_glsl() {
+        return this.expr.to_glsl()  // ; will be added in template
+    }
+}
+
+
+
+const TYPE_TO_STR = { [TYPE_NUM]:'float', [TYPE_VEC2]:'vec2', [TYPE_VEC3]:'vec3', [TYPE_VEC4]:'vec4' }
+class AssignNameStmt {  // not a proper node (no eval, has side-effects)
+    constructor(name, expr) {
+        this.name = name
+        this.expr = expr
+        this.type = null
+        this.symbol = symbol_table_[name]
+        this.first_definition = false
+        if (this.symbol === undefined) { // wasn't already there
+            this.symbol = new SymbolNode(name)
+            symbol_table_[name] = this.symbol
+            this.first_definition = true
+        }
+        this.vNode = (this.type == TYPE_NUM) ? (new NumNode(null, false)) : (new VecNode(null, this.type))
+    }
+    isReturn() { return false }
+    invoke() {
+        const v = this.expr.eval()
+        this.vNode.v = v
+        // valueNode in symbol is null as long as the symbol doesn't have a value
+        this.symbol.valueNode = this.vNode
+        return v
+    }
+    scheck_type() {
+        this.type = this.expr.check_type()
+        this.symbol.type = this.type
+        return this.type
+    }
+    sto_glsl() {
+        let s = this.name + "=" + this.expr.to_glsl() + ";"
+        if (this.first_definition)
+            s = TYPE_TO_STR[this.type] + " " + s
+        return s
+    }
+}
+
+// maps name to SymbolNode with the value that resulted from the expression
+var symbol_table_ = null
+
+
+class CodeNode {
+    constructor(stmts, symbol_table) {
+        this.stmts = stmts
+        this.symbol_table = symbol_table
+    }
+    eval() {
+        // clear values from symbol table 
+        for(let [name,sym] of Object.entries(this.symbol_table)) {
+            sym.valueNode = null
+        }
+
+        symbol_table_ = this.symbol_table
+        let ret = null
+        for(let stmt of this.stmts) {
+            ret = stmt.invoke()
+            if (stmt.isReturn()) {
+                break
+            }
+        }
+        symbol_table_ = null
+        return ret
+    }
+    check_type() {
+        let ret = null
+        for(let stmt of this.stmts) {
+            ret = stmt.scheck_type()
+            if (stmt.isReturn()) {
+                break
+            }
+        }
+        return ret
+    }
+    to_glsl(emit_ctx) {
+        for(let stmt of this.stmts) {
+            let ret = stmt.sto_glsl()
+            if (stmt.isReturn()) {
+                return ret
+            }
+            emit_ctx.before_expr.push(ret)
+        }
+    }
+}
+
+function parseCode() {
+    let lst = [], has_return = false
+    let symbol_table = {}
+    symbol_table_ = symbol_table
+    while(!isEnd()) {
+        let e = parseStmt()
+        if (e.isReturn())
+            has_return = true
+        lst.push(e)
+    }
+    symbol_table_ = null
+    if (!has_return)
+        throw new ExprErr("missing return statement")
+    return new CodeNode(lst, symbol_table)
+}
+
 /// Expression string
 var expr_ = null
 /// Current expression index, incremented whilst parsing
@@ -695,7 +950,7 @@ var index_ = 0
 
 var state_access_ = null
 
-function eeval(expr, state_access) {
+function eparse(expr, state_access, opt) {
     if (typeof expr != "string")
         return new NumNode(expr)
     if (expr == "")
@@ -707,7 +962,12 @@ function eeval(expr, state_access) {
     }
     let result = null;
     try {
-        result = parseExpr();
+        if (opt === PARSE_EXPR)
+            result = parseExpr();   
+        else if (opt == PARSE_CODE)
+            result = parseCode();
+        else 
+            throw new ExprErr("unknown opt " + opt)
         if (!isEnd())
             unexpected();
     }
@@ -717,11 +977,14 @@ function eeval(expr, state_access) {
             stack_.pop();
         throw e;
     }
+    finally {
+        state_access_ = null
+    }
     return result;
 }
 
 
-return {eval:eeval}
+return {parse:eparse}
 })()
 
 
