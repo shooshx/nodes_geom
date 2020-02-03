@@ -17,7 +17,9 @@ GUI:
 ENGINE:
 - serialization - save only if something is changed
 - save to SVG
+- !!! download all saves backup
 - Animation using frame variable
+- ParamSelect - can get value instead of sel_idx (in gradient spread)
 
 
 NODES:
@@ -81,11 +83,16 @@ NODES:
     for loop?
 - Gradient
     spreadMethod with SVG  https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/spreadMethod
+        also when sampling get_pixels
     stroke,
-- !! 2d color function
+- !!!!!!! 2d color function
     - float function - code
     - vec3/4 function? direct color
     - sampling gradient
+        - with repeat
+           - going to need async pre_run
+    - time
+    - mouse
 - Shader distance from path
 - random points  - https://www.sidefx.com/docs/houdini/nodes/sop/scatter.html
     on a surface

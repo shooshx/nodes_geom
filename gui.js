@@ -155,7 +155,7 @@ let nodes_view = null
 
 class ImageView extends ViewBase
 {
-    constructor(canvas) {
+    constructor() {
         super()
         this.pan_x = 0
         this.pan_y = 0

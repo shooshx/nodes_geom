@@ -227,11 +227,17 @@ class MultiPath extends PObject
     }
 
     // API
-    async draw_m(m, disp_values) {
+    async pre_draw(m, disp_values) {
+        if (this.arrs.vtx_pos !== null && !this.arrs.face_color && this.arrs.face_fill)
+            await Mesh.prototype.pre_draw_poly_fill_clip.call(this, m)        
+    }
+
+    // API
+    draw_m(m, disp_values) {
         if (this.arrs.vtx_pos === null)
             return
         if (!this.arrs.face_color && this.arrs.face_fill)
-            await Mesh.prototype.draw_poly_fill_clip.call(this, m)
+            Mesh.prototype.draw_poly_fill_clip.call(this, m)
             // do the line after the clip so it would be over it 
         if (disp_values.show_lines || disp_values.show_faces)
             this.draw_poly(disp_values.show_lines, disp_values.show_faces)

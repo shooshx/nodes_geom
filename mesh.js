@@ -345,7 +345,7 @@ class Mesh extends PObject
         return p
     }
 
-    async draw_poly_fill_clip(m) 
+    draw_poly_fill_clip(m) 
     {
         for(let foi in this.fill_objs) 
         {
@@ -357,11 +357,21 @@ class Mesh extends PObject
             ctx_img.save()
             ctx_img.clip(fo.clip_path, "nonzero"); // "evenodd" is not what we usually want
             try {
-                await fo.obj_proxy.draw(m)
+                fo.obj_proxy.draw(m)
             } finally {
                 ctx_img.restore()
             }
         }
+    }
+
+    async pre_draw_poly_fill_clip(m) 
+    {
+        for(let foi in this.fill_objs) {
+            const fo = this.fill_objs[foi]
+            if (fo === null)
+                continue
+            await fo.obj_proxy.pre_draw(m)       
+        }        
     }
     
     ensure_tcache(m) {  // used for gl_draw and setattr node transform
@@ -392,7 +402,16 @@ class Mesh extends PObject
     }
 
     // API
-    async draw_m(m, disp_values) {
+    async pre_draw(m, disp_values) {
+        if (disp_values.show_faces) {
+            if (!this.arrs.face_color && this.arrs.face_fill) {
+                await this.pre_draw_poly_fill_clip(m)
+            }
+        }
+    }
+
+    // API
+    draw_m(m, disp_values) {
         if (!disp_values)
             disp_values = { show_faces:true, show_lines:true, show_vtx:true } // hack for group to work
         //this.ensure_tcache(m)
@@ -401,7 +420,7 @@ class Mesh extends PObject
             if (this.arrs.face_color)
                 this.draw_poly_fill_color()
             else if (this.arrs.face_fill) 
-                await this.draw_poly_fill_clip(m)
+                this.draw_poly_fill_clip(m)
         }
         if (disp_values.show_lines)
             this.draw_poly_stroke()

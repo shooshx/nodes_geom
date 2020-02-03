@@ -238,12 +238,17 @@ class PObject {
         this.refcount = 0
     }
     get_disp_params(disp_values) { return null }
+
+    // do any work that requires async, before doing any actual drawing to avoid having drawn half a frame
+    async pre_draw(m, disp_values) {
+    }
+
     // this is the default that just sets the transform and calls draw_m which doesn't need to worry about it
-    async draw(m, disp_values) {
+    draw(m, disp_values) {
         ctx_img.save()
         try {
             canvas_setTransform(ctx_img, m)
-            await this.draw_m(m, disp_values)
+            this.draw_m(m, disp_values)
         }
         finally {
             ctx_img.restore()

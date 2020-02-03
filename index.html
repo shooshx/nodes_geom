@@ -57,8 +57,9 @@ function _resize_img_panel(w, h) {
         image_panel.style.width = w + "px"
         canvas_image.width = w
     }
-    if (h !== null)
+    if (h !== null) {
         canvas_image.height = h // Assumes image canvas takes the whole height
+    }
     image_view.resize_redraw()
 }
 function _resize_edit_panel(w, h) {
@@ -86,8 +87,7 @@ function page_onload()
 {
     preload_images()
     nodes_view = new NodesView(canvas_nodes)
-    image_view = new ImageView(canvas_image)
-
+    image_view = new ImageView()
     ctx_nodes = canvas_nodes.getContext('2d')
     ctx_nd_shadow = canvas_nd_shadow.getContext('2d', {alpha: false})
     ctx_img = canvas_image.getContext('2d')
@@ -398,7 +398,7 @@ function myAddEventListener(obj, event_name, func) {
         if (draw_request.draw) {
             let do_run = draw_request.do_run, clear_all = draw_request.clear_all
             clear_draw_req()
-            do_frame_draw(do_run, clear_all)
+            call_frame_draw(do_run, clear_all)
         }
         return r;
     })
@@ -423,108 +423,109 @@ const RUN_ALL = 3
 
 var in_draw = false
 
-// called whenever the display needs to be updated to reflect a change
-function do_frame_draw(do_run, clear_all=false) 
-{
+function call_frame_draw(do_run, clear_all) {
     if (in_draw)
         return // avoid starting a call if the previous async call didn't finish yet (indicated several triggers from the same stack)
     in_draw = true
     try {
-        save_state()
-        ctx_img.fillStyle = '#fff'
-        ctx_img.fillRect(0, 0, canvas_image.width, canvas_image.height)
-        //ctx_img.fillStyle = 'rgba(0,0,0,0)'
-        //ctx_img.fillRect(0, 0, canvas_image.width, canvas_image.height)
-
-        let run_nodes = []
-        let disp_obj = null
-
-        if (program.display_node === null) { 
-            show_display_params(null, null) // remove what's shown
-        }
-        else {
-            run_nodes.push(program.display_node)
-            disp_obj = program.display_node.outputs[0].get_const() // if there's no output object
-        }
-        run_nodes = run_nodes.concat(program.tdisp_nodes)
-        if (run_nodes.length == 0)
-            return
-
-        if (do_run || disp_obj === null) { // TBD or template objs that are not you created?
-            if (clear_all)
-                clear_outputs(program)
-            clear_inputs_errors(program)
-            clear_nodes_status(program)
-            for(let node of run_nodes) // first mark all as dirty
-                mark_dirty_tree(node)
-            for(let node of run_nodes) {
-                try {
-                    run_nodes_tree(node)
-                }
-                catch(e) {
-                    if (e.node_cls === undefined) {
-                        throw e
-                    }
-                    set_error(e.node_cls, e.message)
-                    console.error(e)
-                }
-            }
-            if (program.display_node !== null)
-                disp_obj = program.display_node.outputs[0].get_const() // in case it was null
-        }
-
-        // do this before obj draw so that if there are missing display params, they'll get a default value
-        show_display_params(disp_obj, program.display_node) 
-
-        if (program.display_node !== null && disp_obj === null) {
-            set_error(program.display_node.cls, "No output generated")
-        }
-
-        const finalize_draw = ()=>{
-            if (selected_node !== null) {
-                try {
-                    selected_node.cls.draw_selection(image_view.t_viewport)
-                } catch(e) {
-                    set_error(selected_node.cls, e.message)
-                }
-            }
-            // template displays
-            for(let tn of program.tdisp_nodes) {
-                const tdist_obj = tn.outputs[0].get_const()
-                if (tdist_obj === null) {
-                    set_error(tn, "No output generated")
-                    continue
-                }
-                try {
-                    tdist_obj.draw_template(image_view.t_viewport)
-                } catch(e) {
-                    set_error(tn.cls, e.message)
-                }                
-            }
-        }
-        const set_err_and_finalize = (e)=>{
-            finalize_draw()
-            if (program.display_node !== null)
-                set_error(program.display_node.cls, e.message)
-        }
-
-        try {
-            let promise = undefined
-            if (disp_obj !== null) // can happen if there are only template displays
-                promise = disp_obj.draw(image_view.t_viewport, program.display_node.display_values)
-            if (promise !== undefined)
-                promise.then(finalize_draw, set_err_and_finalize) // skips the catch
-            else
-                finalize_draw()
-        } catch(e) {
-            if (program.display_node !== null)
-                set_error(program.display_node.cls, e.message)
-        }
-
+        do_frame_draw(do_run, clear_all)
     }
     finally {
         in_draw = false
     }
+}
+
+// called whenever the display needs to be updated to reflect a change
+async function do_frame_draw(do_run, clear_all) 
+{
+    save_state()
+
+    let run_nodes = []
+    let disp_obj = null
+
+    if (program.display_node === null) { 
+        show_display_params(null, null) // remove what's shown
+    }
+    else {
+        run_nodes.push(program.display_node)
+        disp_obj = program.display_node.outputs[0].get_const() // if there's no output object
+    }
+    run_nodes = run_nodes.concat(program.tdisp_nodes)
+    if (run_nodes.length == 0)
+        return
+
+    if (do_run || disp_obj === null) { // TBD or template objs that are not you created?
+        if (clear_all)
+            clear_outputs(program)
+        clear_inputs_errors(program)
+        clear_nodes_status(program)
+        for(let node of run_nodes) // first mark all as dirty
+            mark_dirty_tree(node)
+        for(let node of run_nodes) {
+            try {
+                run_nodes_tree(node)
+            }
+            catch(e) {
+                if (e.node_cls === undefined) {
+                    throw e
+                }
+                set_error(e.node_cls, e.message)
+                console.error(e)
+            }
+        }
+        if (program.display_node !== null)
+            disp_obj = program.display_node.outputs[0].get_const() // in case it was null
+    }
+
+    // do this before obj draw so that if there are missing display params, they'll get a default value
+    show_display_params(disp_obj, program.display_node) 
+
+    if (program.display_node !== null && disp_obj === null) {
+        set_error(program.display_node.cls, "No output generated")
+    }
+
+    if (disp_obj !== null) { // can happen if there are only template displays
+        try {
+            await disp_obj.pre_draw(image_view.t_viewport, program.display_node.display_values)
+        } catch(ex) {
+            if (program.display_node !== null)
+                set_error(program.display_node.cls, ex.message)
+        }
+    }
+
+    // all syncronouse from here on (don't want to clear the canvas and then leave for a promise, that would cause fliker)
+    ctx_img.fillStyle = '#fff'
+    ctx_img.fillRect(0, 0, canvas_image.width, canvas_image.height)
+
+    if (disp_obj !== null) {
+        try {
+            disp_obj.draw(image_view.t_viewport, program.display_node.display_values)
+        } catch(e) {
+            if (program.display_node !== null)
+                set_error(program.display_node.cls, e.message)                    
+        }
+    }
+    if (selected_node !== null) {
+        try {
+            selected_node.cls.draw_selection(image_view.t_viewport)
+        } catch(e) {
+            set_error(selected_node.cls, e.message)
+        }
+    }
+    // template displays
+    for(let tn of program.tdisp_nodes) {
+        const tdist_obj = tn.outputs[0].get_const()
+        if (tdist_obj === null) {
+            set_error(tn, "No output generated")
+            continue
+        }
+        try {
+            tdist_obj.draw_template(image_view.t_viewport)
+        } catch(e) {
+            set_error(tn.cls, e.message)
+        }                
+    }    
+
 }
 
 

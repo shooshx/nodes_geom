@@ -88,7 +88,7 @@ class FrameBuffer extends ImageBase
         return this.pixels
     }
 
-    async draw(m) {
+    async pre_draw(m, disp_values) {
         if (this.imgBitmap === null) {
             gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.tex_obj, 0);
             //console.assert(gl.checkFramebufferStatus(gl.FRAMEBUFFER) == gl.FRAMEBUFFER_COMPLETE) //slows things down
@@ -100,8 +100,10 @@ class FrameBuffer extends ImageBase
             let img_data = new ImageData(pixelsc, this.tex_obj.width, this.tex_obj.height)
             // draw the on the shadow canvas
             this.imgBitmap = await createImageBitmap(img_data)
-        }
+        }        
+    }
 
+    draw(m, disp_values) {
         this.draw_image(this.imgBitmap, m)
     }
     

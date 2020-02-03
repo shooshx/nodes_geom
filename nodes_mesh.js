@@ -158,9 +158,11 @@ class NodeGeomPrimitive extends NodeCls
             this.inner_dial.draw(this.inner_point.x*this.size.x/2, this.inner_point.y*this.size.y/2, this.transform.v, m)
     }    
     image_find_obj(vx, vy, ex, ey) {
-        let hit = this.transform.dial.find_obj(ex, ey) || this.size_dial.find_obj(ex, ey)
-        if (hit)
-            return hit
+        if (this.transform.dial !== null) {
+            let hit = this.transform.dial.find_obj(ex, ey) || this.size_dial.find_obj(ex, ey)
+            if (hit)
+                return hit
+        }
         if (this.shape.sel_idx == 4)
             return this.inner_dial.find_obj(ex, ey)
         return null
@@ -737,8 +739,11 @@ class ObjConstProxy {
             this.obj.get_disp_params(this.with_display_values)
         }
     }
-    async draw(m) {
-        await this.obj.draw(m, this.with_display_values)
+    draw(m) {
+        this.obj.draw(m, this.with_display_values)
+    }
+    async pre_draw(m) {
+        await this.obj.pre_draw(m, this.with_display_values)
     }
 }
 
@@ -798,10 +803,16 @@ class PObjGroup extends PObject{
             obj.transform(m)
         }
     }
-    async draw(m, display_values) {
+    async pre_draw(m, display_values) {
         console.assert(display_values.length == this.v.length, "display_values length mismatch")
         for(let i in this.v) {
-            await this.v[i].draw(m, display_values[i])
+            await this.v[i].pre_draw(m, display_values[i])
+        }        
+    }
+    draw(m, display_values) {
+        console.assert(display_values.length == this.v.length, "display_values length mismatch")
+        for(let i in this.v) {
+            this.v[i].draw(m, display_values[i])
         }
     }
     get_disp_params(values) {

@@ -3,6 +3,15 @@ function make_str_color(c) {
     return "rgba(" + c[0] + "," + c[1] + "," + c[2] + "," + (c[3]/255) + ")"
 }
 
+function svg_create_elem(elem_type) {
+    return document.createElementNS("http://www.w3.org/2000/svg", elem_type);
+}
+function svg_add_elem(parent, elem_type) {
+    let e = svg_create_elem(elem_type)
+    parent.appendChild(e)
+    return e
+}
+
 // number of points in the Node's list that are not stop points from the beginning of the index space
 const NODE_POINT_LST_OFFSET = 4
 
@@ -16,6 +25,9 @@ class Gradient extends PObject
         this.grd = null
         this.ctx_create_func = null
         this.t_mat = mat3.create() // transform for circles and fill
+        this.spread = 'pad'
+        this.svg = null
+        this.svg_promise = null
     }
     add_stop(value, color) {
         this.stops.push({value:value,color:color})
@@ -24,6 +36,10 @@ class Gradient extends PObject
     get_disp_params(disp_values) {
         return [ new DispParamBool(disp_values, "Show Fill", 'show_fill', true),
                 ]
+    }
+
+    need_svg() {
+        return this.spread !== 'pad'
     }
 
     ensure_grd() { // it doesn't matter which context creates the gradient object, it will be usable in both img and shadow
@@ -143,7 +159,61 @@ class Gradient extends PObject
         let ad = new GradientPixelsAdapter(bbox, this)
         return ad
     }
+
+    async pre_draw(m, disp_values) {
+        if (disp_values.show_fill && this.need_svg() && this.svg === null)  {
+            this.svg = await this.svg_promise            
+        }
+    }
+
+    draw_m(m, disp_values) {
+        if (disp_values.show_fill) {
+            if (this.need_svg())
+                this.draw_svg()
+            else
+                this.draw_fill()
+        }
+    }
+
+    draw_svg() {  
+        if (this.svg === null) // can happen due to error
+            return    
+        ctx_img.drawImage(this.svg, -1, -1)
+    }
+
+    make_svg_text() {
+        let [elem_name, geom] = this.svg_text_geom()
+        let lst = ['<svg viewBox="-1 -1 2 2" xmlns="http://www.w3.org/2000/svg" width="2" height="2"><', elem_name,
+                   ' id="grad" gradientUnits="userSpaceOnUse" spreadMethod="', this.spread ,'" ']
+        lst = lst.concat(geom)
+        lst.push(' >')
+        for(let s of this.stops) {
+            const c = s.color
+            lst.push('<stop offset="', s.value * 100, '%" stop-color="rgb(', c[0], ',', c[1], ',', c[2], ')" stop-opacity="', c[3]/255, '" />')
+        }
+        lst.push('</', elem_name, '><rect x="-1" y="-1" width="2" height="2" fill="url(\'#grad\')" /></svg>')
+        let text = lst.join('')
+        return text
+    }
+
+    ensure_svg() {
+        if (this.svg !== null)
+            return this.svg
+        const text = this.make_svg_text()
+        let svg = new Image()
+
+        this.svg_promise = new Promise((resolve, reject) => {
+            svg.onload = ()=>{resolve(svg) };
+            svg.onerror = (e)=>{ reject( { message:"SVG error" }) };
+        })
+
+        svg.src = "data:image/svg+xml;base64," + btoa(text)   // TBD on firefox not immediate?
+        //this.svg = svg
+    }
+
+    
 }
+
 
 // adapts the gradient object which doesn't have dimentions to an object that can be used with
 // SetAttr which samples pixels.
@@ -198,16 +268,15 @@ class LinearGradient extends Gradient {
         this.ctx_create_func = function() { return ctx_img.createLinearGradient(x1,y1, x2,y2) }
     }
 
-    draw_m(m, disp_values) {
-        if (disp_values.show_fill)
-            this.draw_fill()
-    }
     draw_selection_m(m, selected_indices) {
         this.draw_line_points(this.p1, this.p2)
         this.draw_sel_points(selected_indices, this.p1, this.p2)
     }
     draw_template_m(m) {
         this.draw_line_points(this.p1, this.p2, TEMPLATE_LINE_COLOR)
+    }
+    svg_text_geom() {
+        return ["linearGradient", ['x1="', this.p1[0], '" y1="', this.p1[1], '" x2="', this.p2[0], '" y2="', this.p2[1], '"']]
     }
 }
 
@@ -281,10 +350,6 @@ class RadialGradient extends Gradient {
         this.draw_line_points(pa, pb, line_color)        
     }
 
-    draw_m(m, disp_values) {
-        if (disp_values.show_fill)
-            this.draw_fill()
-    }
     draw_selection_m(m, selected_indices) {
         this.draw_controls()
         let [pa,pb] = get_circle_points(this.p1, this.r1, this.p2, this.r2)
@@ -292,6 +357,10 @@ class RadialGradient extends Gradient {
     }
     draw_template_m(m) {
         this.draw_controls(TEMPLATE_LINE_COLOR)
+    }
+
+    svg_text_geom(grad) {
+        return ["radialGradient", ['cx="', this.p1[0], '" cy="', this.p1[1], '" r="',  this.r1, '" fx="', this.p2[0], '" fy="', this.p2[1], '" fr="', this.r2, '"']]
     }
 }
 
@@ -534,6 +603,8 @@ function col_equals(a, b) {
     return Math.abs(a[0]-b[0]) < ACCURACY && Math.abs(a[1]-b[1]) < ACCURACY && Math.abs(a[2]-b[2]) < ACCURACY && Math.abs(a[3]-b[3]) < ACCURACY
 }
 
+const GRAD_SPREAD_VALUES = ["pad", "reflect", "repeat"]
+
 class NodeGradient extends NodeCls
 {
     static name() { return "Gradient" }
@@ -570,6 +641,7 @@ class NodeGradient extends NodeCls
         this.r1 = new ParamFloat(node, "Radius 1", 0.1)
         this.p2 = new ParamVec2(node, "Point 2", 0.5, 0)
         this.r2 = new ParamFloat(node, "Radius 2", 0.7)
+        this.spread = new ParamSelect(node, "Spread", 0, ["Pad", "Reflect", "Repeat"])
         this.func = new ParamColorExpr(node, "f(t)=", "rgb(255,128,t*128)") // just a way to generate points TBD not actally float example: rgb(255,128,0)+rgb(t,t,t)*255
         this.func_samples = new ParamInt(node, "Sample Num", 10, {min:1, max:30, visible:false})
         const presets_btn = new ParamImageSelectBtn(node, "Presets", GRADIENT_PRESETS, make_preset_img, (pr)=>{this.load_preset(pr)})
@@ -632,6 +704,10 @@ class NodeGradient extends NodeCls
         
         for(let i = 0, ci = 0; i < this.values.lst.length; ++i, ci += 4) {
             obj.add_stop(this.values.lst[i], this.colors.lst.slice(ci, ci+4))
+        }
+        if (this.spread.sel_idx !== 0) {
+            obj.spread = GRAD_SPREAD_VALUES[this.spread.sel_idx] // TBD do this in ParamSelect
+            obj.ensure_svg()
         }
         this.out.set(obj)
     }
