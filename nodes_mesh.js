@@ -1041,7 +1041,8 @@ class NodeTransform extends NodeCls
     }
     draw_selection(m) {
         let out = this.out.get_const()
-        dassert(out !== null, "No output object to select")
+        if (out === null) // No output object to select
+            return
         this.transform.draw_dial_at_obj(out, m)
         out.draw_border(m)
     }    

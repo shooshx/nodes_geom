@@ -318,7 +318,7 @@ class GradientPixelsAdapter {
         canvas_setTransform(ctx_img_shadow, m)
         ctx_img_shadow.translate(-this.bbox.min_x, -this.bbox.min_y)
 
-        const rp = this.obj.make_rect_points(vec2.fromValues(this.bbox.min_x,this.bbox.min_y), vec2.fromValues(this.w_width, this.w_height), false)
+        const rp = this.obj.make_rect_points(vec2.fromValues(this.bbox.min_x,this.bbox.min_y), vec2.fromValues(this.bbox.max_x, this.bbox.max_y), false)
         await this.obj.draw_fill_rect(ctx_img_shadow, rp, true)
 
         ctx_img_shadow.restore()
