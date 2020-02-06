@@ -67,10 +67,12 @@ class Gradient extends PObject
         for(let i = 0; i < 4; ++i) {
             if (is_viewport_coords)
                 vec2.transformMat3(rp[i], rp[i], image_view.t_inv_viewport)
-            vec2.transformMat3(rp[i], rp[i], tinv)
+            if (!this.need_svg()) { // with svg the transform is in the image
+                vec2.transformMat3(rp[i], rp[i], tinv)
+            }
         }
 
-        let rect = { x: rp[0][0], y: rp[0][1], w: rp[1][0] - rp[0][0], h: rp[1][1] - rp[0][1] }
+        let rect = { x: rp[0][0], y: rp[0][1], w: rp[1][0] - rp[0][0], h: rp[1][1] - rp[0][1], pnts:rp }
         if (this.need_svg()) {
             // drawImage can't handle an image with coordinates that are not int, so enlarge the image
             // to the nearest int size and adjust the (x,y) point its drawn in
@@ -84,36 +86,39 @@ class Gradient extends PObject
         return this.make_rect_points(vec2.fromValues(0,0), vec2.fromValues(canvas_image.width, canvas_image.height), true)
     }
 
-    async draw_fill_rect(ctx, rp, allow_async) {        
+    async draw_fill_rect(ctx, rect, allow_async) {        
         this.ensure_grd()
         // if we're coming from draw(), this would not await since the svg was generated in pre_draw with the same rect
         // if we're coming from SetAttr, this would generate a new svg so we'll need to really await
         if (this.need_svg()) {
-            if (this.need_ensure_svg(rp)) {
+            if (this.need_ensure_svg(rect)) {
                 if (allow_async)
-                    await this.ensure_svg(rp)
+                    await this.ensure_svg(rect)
                 // if not allows to do async ensure_svg (since we're in draw), use the svg from pre_draw()
                 // it should be close enough (only might have changed if there as a small move/resize event since then)
             }
-        }+
+        }
 
-        ctx.save()
-        canvas_transform(ctx, this.t_mat) // circle squash
 
         if (this.need_svg()) {
             dassert(this.svg !== null, "Missing svg") // can happen due to previous error
             
-            ctx.drawImage(this.svg, rp.x, rp.y)         // PROBLEM width,height is in pixels integer   
+            ctx.drawImage(this.svg, rect.x, rect.y)         // PROBLEM width,height is in pixels integer   
         }
         else {
+            ctx.save()
+            canvas_transform(ctx, this.t_mat) // circle squash
+    
+            const rp = rect.pnts
             ctx.fillStyle = this.grd
             ctx.beginPath()
-            ctx.moveTo(rp.x, rp.y); ctx.lineTo(rp.x+rp.w, rp.y)
-            ctx.lineTo(rp.x+rp.w, rp.y+rp.h); ctx.lineTo(rp.x, rp.y+rp.h)
+            // can't use x+w since if there's a transform, we actuall draw a rotated rect
+            ctx.moveTo(rp[0][0], rp[0][1]); ctx.lineTo(rp[2][0], rp[2][1])
+            ctx.lineTo(rp[1][0], rp[1][1]); ctx.lineTo(rp[3][0], rp[3][1])
             ctx.fill()
+            ctx.restore()
         }
 
-        ctx.restore()
     }
 
     draw_fill() {
@@ -199,7 +204,7 @@ class Gradient extends PObject
     async get_pixels_adapter(for_mesh) {
         let bbox = for_mesh.get_bbox()
         let ad = new GradientPixelsAdapter(bbox, this)
-        await ad.make_pixels() // make pixels here so that get_pixels would not need to be async
+        await ad.make_pixels()
         return ad
     }
 
@@ -222,8 +227,9 @@ class Gradient extends PObject
         let [elem_name, geom] = this.svg_text_geom()
 
         //console.log("w=", rect.w, "  h=", rect.h)
+        const m = this.t_mat
         let lst = ['<svg viewBox="', rect.x, " ", rect.y, " ", rect.w, " ", rect.h, '" xmlns="http://www.w3.org/2000/svg" width="', rect.w,'" height="', rect.h,'"><', elem_name,
-                   ' id="grad" gradientUnits="userSpaceOnUse" spreadMethod="', this.spread ,'" ']
+                   ' id="grad" gradientUnits="userSpaceOnUse" spreadMethod="', this.spread ,'" gradientTransform="matrix(', m[0], " ", m[1], " ", m[3], " ", m[4], " ", m[6], " ", m[7] ,')" ']
         lst = lst.concat(geom)
         lst.push(' >')
 
@@ -311,8 +317,10 @@ class GradientPixelsAdapter {
         mat3.scale(m, m, [image_view.viewport_zoom, image_view.viewport_zoom])
         canvas_setTransform(ctx_img_shadow, m)
         ctx_img_shadow.translate(-this.bbox.min_x, -this.bbox.min_y)
+
         const rp = this.obj.make_rect_points(vec2.fromValues(this.bbox.min_x,this.bbox.min_y), vec2.fromValues(this.w_width, this.w_height), false)
-        await this.obj.draw_fill_rect(ctx_img_shadow, rp)
+        await this.obj.draw_fill_rect(ctx_img_shadow, rp, true)
+
         ctx_img_shadow.restore()
         this.pixels = ctx_img_shadow.getImageData(0, 0, this.px_width, this.px_height).data;
     }
