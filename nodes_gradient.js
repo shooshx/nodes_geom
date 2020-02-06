@@ -12,6 +12,10 @@ function svg_add_elem(parent, elem_type) {
     return e
 }
 
+function rectEquals(a, b) {
+    return a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h
+}
+
 // number of points in the Node's list that are not stop points from the beginning of the index space
 const NODE_POINT_LST_OFFSET = 4
 
@@ -26,8 +30,8 @@ class Gradient extends PObject
         this.ctx_create_func = null
         this.t_mat = mat3.create() // transform for circles and fill
         this.spread = 'pad'
-        this.svg = null
-        this.svg_promise = null
+        this.svg = null  // image object
+        this.svg_of_rect = null // the pmin,pmax points of the rect this svg was generated with
     }
     add_stop(value, color) {
         this.stops.push({value:value,color:color})
@@ -53,8 +57,7 @@ class Gradient extends PObject
         }
     }
 
-    draw_fill_rect(ctx, pmin, pmax, is_viewport_coords) {        
-        this.ensure_grd()
+    make_rect_points(pmin, pmax, is_viewport_coords) {
         let tinv = mat3.create()
         mat3.invert(tinv, this.t_mat)
 
@@ -67,20 +70,59 @@ class Gradient extends PObject
             vec2.transformMat3(rp[i], rp[i], tinv)
         }
 
+        let rect = { x: rp[0][0], y: rp[0][1], w: rp[1][0] - rp[0][0], h: rp[1][1] - rp[0][1] }
+        if (this.need_svg()) {
+            // drawImage can't handle an image with coordinates that are not int, so enlarge the image
+            // to the nearest int size and adjust the (x,y) point its drawn in
+            const iw = Math.ceil(rect.w), ih = Math.ceil(rect.h)
+            rect = {x: rect.x - (iw-rect.w), y: rect.y - (ih-rect.h), w: iw, h: ih }
+        }
+        return rect
+    }
+
+    make_viewport_rect_points() {
+        return this.make_rect_points(vec2.fromValues(0,0), vec2.fromValues(canvas_image.width, canvas_image.height), true)
+    }
+
+    async draw_fill_rect(ctx, rp, allow_async) {        
+        this.ensure_grd()
+        // if we're coming from draw(), this would not await since the svg was generated in pre_draw with the same rect
+        // if we're coming from SetAttr, this would generate a new svg so we'll need to really await
+        if (this.need_svg()) {
+            if (this.need_ensure_svg(rp)) {
+                if (allow_async)
+                    await this.ensure_svg(rp)
+                // if not allows to do async ensure_svg (since we're in draw), use the svg from pre_draw()
+                // it should be close enough (only might have changed if there as a small move/resize event since then)
+            }
+        }+
+
         ctx.save()
-        canvas_transform(ctx, this.t_mat)
-        ctx.fillStyle = this.grd
-        ctx.beginPath()
-        ctx.moveTo(rp[0][0], rp[0][1]); ctx.lineTo(rp[2][0], rp[2][1])
-        ctx.lineTo(rp[1][0], rp[1][1]); ctx.lineTo(rp[3][0], rp[3][1])
-        ctx.fill()
+        canvas_transform(ctx, this.t_mat) // circle squash
+
+        if (this.need_svg()) {
+            dassert(this.svg !== null, "Missing svg") // can happen due to previous error
+            
+            ctx.drawImage(this.svg, rp.x, rp.y)         // PROBLEM width,height is in pixels integer   
+        }
+        else {
+            ctx.fillStyle = this.grd
+            ctx.beginPath()
+            ctx.moveTo(rp.x, rp.y); ctx.lineTo(rp.x+rp.w, rp.y)
+            ctx.lineTo(rp.x+rp.w, rp.y+rp.h); ctx.lineTo(rp.x, rp.y+rp.h)
+            ctx.fill()
+        }
 
         ctx.restore()
     }
 
     draw_fill() {
         // rect that fills all the viewport
-        this.draw_fill_rect(ctx_img, vec2.fromValues(0,0), vec2.fromValues(canvas_image.width, canvas_image.height), true)
+        const rp = this.make_viewport_rect_points()
+        //console.log("DRAW ", canvas_image.width)
+        this.draw_fill_rect(ctx_img, rp, false)
+        // we can't do async stuff in draw (since that would cause flicker) so we make sure we didn't make any promise just now
+        
     }
 
     interp_point(pa, pb, t) {
@@ -154,61 +196,84 @@ class Gradient extends PObject
         ctx_img.stroke()        
     }
 
-    get_pixels_adapter(for_mesh) {
+    async get_pixels_adapter(for_mesh) {
         let bbox = for_mesh.get_bbox()
         let ad = new GradientPixelsAdapter(bbox, this)
+        await ad.make_pixels() // make pixels here so that get_pixels would not need to be async
         return ad
     }
 
     async pre_draw(m, disp_values) {
-        if (disp_values.show_fill && this.need_svg() && this.svg === null)  {
-            this.svg = await this.svg_promise            
+        if (this.need_svg() && disp_values.show_fill) {
+            //console.log("PRE-DRAW ", canvas_image.width)
+            const rp = this.make_viewport_rect_points()  
+            await this.ensure_svg(rp)
         }
     }
 
     draw_m(m, disp_values) {
         if (disp_values.show_fill) {
-            if (this.need_svg())
-                this.draw_svg()
-            else
-                this.draw_fill()
+            this.draw_fill()
         }
     }
 
-    draw_svg() {  
-        if (this.svg === null) // can happen due to error
-            return    
-        ctx_img.drawImage(this.svg, -1, -1)
-    }
 
-    make_svg_text() {
+    make_svg_text(rect) {
         let [elem_name, geom] = this.svg_text_geom()
-        let lst = ['<svg viewBox="-1 -1 2 2" xmlns="http://www.w3.org/2000/svg" width="2" height="2"><', elem_name,
+
+        //console.log("w=", rect.w, "  h=", rect.h)
+        let lst = ['<svg viewBox="', rect.x, " ", rect.y, " ", rect.w, " ", rect.h, '" xmlns="http://www.w3.org/2000/svg" width="', rect.w,'" height="', rect.h,'"><', elem_name,
                    ' id="grad" gradientUnits="userSpaceOnUse" spreadMethod="', this.spread ,'" ']
         lst = lst.concat(geom)
         lst.push(' >')
-        for(let s of this.stops) {
-            const c = s.color
-            lst.push('<stop offset="', s.value * 100, '%" stop-color="rgb(', c[0], ',', c[1], ',', c[2], ')" stop-opacity="', c[3]/255, '" />')
+
+        const isRadial = (elem_name == "radialGradient") 
+        const add_stop = (s)=>{
+            const c = s.color, v = (isRadial) ? (1.0 - s.value) : s.value            
+            lst.push('<stop offset="', v * 100, '%" stop-color="rgb(', c[0], ',', c[1], ',', c[2], ')" stop-opacity="', c[3]/255, '" />')
         }
-        lst.push('</', elem_name, '><rect x="-1" y="-1" width="2" height="2" fill="url(\'#grad\')" /></svg>')
+        if (!isRadial)
+            for(let s of this.stops)
+                add_stop(s)
+        else 
+            for(let i = this.stops.length-1; i >= 0; --i)
+                add_stop(this.stops[i])
+        
+        lst.push('</', elem_name, '><rect x="', rect.x,'" y="', rect.y,'" width="', rect.w, '" height="', rect.h, '" fill="url(\'#grad\')" /></svg>')
         let text = lst.join('')
         return text
     }
 
-    ensure_svg() {
-        if (this.svg !== null)
-            return this.svg
-        const text = this.make_svg_text()
-        let svg = new Image()
+    need_ensure_svg(rect) {
+        if (this.svg !== null && this.svg_of_rect !== null && rectEquals(rect, this.svg_of_rect) )
+            return false // cache is good
+        return true
+    }
 
-        this.svg_promise = new Promise((resolve, reject) => {
+    // this will be needed even if we're not going to draw it, for get_pixels, so make this async
+    // rather than pre_draw
+    // this function returns either a promise of an svg image or the svg image if it's already created
+    async ensure_svg(rect) {
+        //let svg_wrap = svg_create_elem("svg")
+        //let im = svg_add_elem(svg_wrap, "image")
+
+
+        const text = this.make_svg_text(rect)
+        let svg = new Image()
+        //let svg = im
+
+        const promise = new Promise((resolve, reject) => {
             svg.onload = ()=>{resolve(svg) };
             svg.onerror = (e)=>{ reject( { message:"SVG error" }) };
         })
 
-        svg.src = "data:image/svg+xml;base64," + btoa(text)   // TBD on firefox not immediate?
-        //this.svg = svg
+        svg.src = "data:image/svg+xml;base64," + btoa(text)
+        //svg.setAttribute("href", "data:image/svg+xml;base64," + btoa(text))
+
+        this.svg = await promise
+        this.svg_of_rect = rect
+        //main_view.appendChild(this.svg)
+        return this.svg
     }
 
     
@@ -231,23 +296,28 @@ class GradientPixelsAdapter {
     }
     width() { return this.px_width }
     height() { return this.px_height }
+
+    async make_pixels() {
+        if (this.pixels !== null) 
+            return
+        this.obj.ensure_grd()
+
+        canvas_img_shadow.width = this.px_width
+        canvas_img_shadow.height = this.px_height
+
+        ctx_img_shadow.save()
+        // bring to top-left corner of the mesh to 0,0
+        let m = mat3.create()
+        mat3.scale(m, m, [image_view.viewport_zoom, image_view.viewport_zoom])
+        canvas_setTransform(ctx_img_shadow, m)
+        ctx_img_shadow.translate(-this.bbox.min_x, -this.bbox.min_y)
+        const rp = this.obj.make_rect_points(vec2.fromValues(this.bbox.min_x,this.bbox.min_y), vec2.fromValues(this.w_width, this.w_height), false)
+        await this.obj.draw_fill_rect(ctx_img_shadow, rp)
+        ctx_img_shadow.restore()
+        this.pixels = ctx_img_shadow.getImageData(0, 0, this.px_width, this.px_height).data;
+    }
+
     get_pixels() {
-        if (this.pixels === null) {
-            this.obj.ensure_grd()
-
-            canvas_img_shadow.width = this.px_width
-            canvas_img_shadow.height = this.px_height
-
-            ctx_img_shadow.save()
-            // bring to top-left corner of the mesh to 0,0
-            let m = mat3.create()
-            mat3.scale(m, m, [image_view.viewport_zoom, image_view.viewport_zoom])
-            canvas_setTransform(ctx_img_shadow, m)
-            ctx_img_shadow.translate(-this.bbox.min_x, -this.bbox.min_y)
-            this.obj.draw_fill_rect(ctx_img_shadow, vec2.fromValues(this.bbox.min_x,this.bbox.min_y), vec2.fromValues(this.w_width, this.w_height), false)
-            ctx_img_shadow.restore()
-            this.pixels = ctx_img_shadow.getImageData(0, 0, this.px_width, this.px_height).data;
-        }
         return this.pixels        
     }
     get_transform_to_pixels() {
@@ -692,7 +762,7 @@ class NodeGradient extends NodeCls
         this.redo_sort()
         trigger_frame_draw(true)
     }
-    run() {
+    async run() {
         if (this.method.sel_idx == 1) {
             this.load_from_func()
         }
@@ -705,10 +775,8 @@ class NodeGradient extends NodeCls
         for(let i = 0, ci = 0; i < this.values.lst.length; ++i, ci += 4) {
             obj.add_stop(this.values.lst[i], this.colors.lst.slice(ci, ci+4))
         }
-        if (this.spread.sel_idx !== 0) {
-            obj.spread = GRAD_SPREAD_VALUES[this.spread.sel_idx] // TBD do this in ParamSelect
-            obj.ensure_svg()
-        }
+        obj.spread = GRAD_SPREAD_VALUES[this.spread.sel_idx] // TBD do this in ParamSelect
+        // making the svg (if needed) is in pre_draw or in adapter's make_pixels()
         this.out.set(obj)
     }
 

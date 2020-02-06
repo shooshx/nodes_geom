@@ -165,7 +165,8 @@ class CreateTexture extends NodeCls
 
     draw_selection(m) {
         let tex = this.out_tex.get_const()
-        dassert(tex !== null, "No output object to select") 
+        if (tex !== null)  // happens if we never did run()
+            return
         this.transform.draw_dial_at_obj(tex, m)
         tex.draw_border(m)
     }    

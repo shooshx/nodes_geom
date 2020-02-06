@@ -12,6 +12,7 @@ GUI:
 - fix jumping of splits on page load
 - Math.round lines just before drawing to avoid thinning artifacts when zooming?
 - save the image-canvas view transform
+- layout: https://github.com/golden-layout/golden-layout
 
 
 ENGINE:
@@ -20,6 +21,7 @@ ENGINE:
 - !!! download all saves backup
 - Animation using frame variable
 - ParamSelect - can get value instead of sel_idx (in gradient spread)
+- https://jshint.com/
 
 
 NODES:
@@ -59,7 +61,8 @@ NODES:
 - Group objects
     display checkboxes (accumulate from connections?)
 - GLSL node
-    https://ace.c9.io/#nav=embedding 
+    https://ace.c9.io/#nav=embedding
+    https://codemirror.net/
     https://stackoverflow.com/questions/27531860/how-to-highlight-a-certain-line-in-ace-editor
     title of window with different color for fragment and vertex shaders
     tabbed view?
@@ -90,7 +93,9 @@ NODES:
     - vec3/4 function? direct color
     - sampling gradient
         - with repeat
-           - going to need async pre_run
+           - flicker on resize and pan
+           - flipeed stops?
+        - when transformed (circle squashed)
     - time
     - mouse
 - Shader distance from path
@@ -108,6 +113,11 @@ NODES:
 - Flow control 
     - choose one input or another depending on expression
     - For loop?
+- physicas
+    - Box2D
+    - 3D - https://schteppe.github.io/cannon.js/
+- SVG in WebGL
+    - paths to triangles https://css-tricks.com/rendering-svg-paths-in-webgl/
 
 
 - animate? modify a property for the next frame
@@ -172,6 +182,7 @@ demo idea
         float c = (c1 + c2 + c3) / 3.0 - uColorSwitch / 3.0;
 
 
+https://two.js.org/examples/
 
 nice visualizations: https://bost.ocks.org/mike/algorithms/
 d3: https://github.com/d3/d3/wiki/Gallery
