@@ -384,6 +384,7 @@ function clear_draw_req() {
 
 function myAddEventListener(obj, event_name, func) {
     obj.addEventListener(event_name, function() {
+        //console.log("Added event ", event_name, " ", obj)
         let r
         try {
             r = func.apply(null, arguments)
@@ -402,6 +403,7 @@ function myAddEventListener(obj, event_name, func) {
             let do_run = draw_request.do_run, clear_all = draw_request.clear_all
             clear_draw_req()
             call_frame_draw(do_run, clear_all)
+            clear_draw_req() // in case any run triggered a frame again (happens with shaders that are generated in run()
         }
         return r;
     })
@@ -431,7 +433,10 @@ function call_frame_draw(do_run, clear_all) {
     if (in_draw)
         return // avoid starting a call if the previous async call didn't finish yet (indicated several triggers from the same stack)
     in_draw = true
-    do_frame_draw(do_run, clear_all).then(()=>{}, (err)=>{ throw err }).finally( ()=>{ in_draw = false })
+    do_frame_draw(do_run, clear_all).then(()=>{}, (err)=>{ throw err }).finally( ()=>{ 
+        in_draw = false 
+        //clear_draw_req()
+    })
 }
 
 // called whenever the display needs to be updated to reflect a change
@@ -545,7 +550,7 @@ var nodes_classes = [
     NodeShader,
     PointGradFill,
     NodeLoadImage,
-    CreateTexture,
+    CreateFrameBuffer,
     ShrinkFaces,
     NodeRoundCorners,
     NodeFuncFill,

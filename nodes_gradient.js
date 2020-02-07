@@ -46,13 +46,17 @@ class Gradient extends PObject
         return this.spread !== 'pad'
     }
 
+    add_stops(grd) {
+        for(let s of this.stops) {
+            dassert(s.value >= 0 && s.value <= 1, "stop out of range")
+            grd.addColorStop(s.value, make_str_color(s.color))
+        }
+    }
+
     ensure_grd() { // it doesn't matter which context creates the gradient object, it will be usable in both img and shadow
         if (this.grd === null) {
             let grd = this.ctx_create_func.call()
-            for(let s of this.stops) {
-                dassert(s.value >= 0 && s.value <= 1, "stop out of range")
-                grd.addColorStop(s.value, make_str_color(s.color))
-            }
+            this.add_stops(grd)
             this.grd = grd
         }
     }
@@ -344,6 +348,13 @@ class LinearGradient extends Gradient {
     constructor(x1,y1, x2,y2) {
         super(x1,y1, x2, y2)
         this.ctx_create_func = function() { return ctx_img.createLinearGradient(x1,y1, x2,y2) }
+
+        this.tex_obj_cache = null
+        this.tex_with_params = null // the generated texture was generated with these params
+    }
+    destructor() {
+        if (this.tex_obj_cache !== null)
+            this.del_texture_cache()
     }
 
     draw_selection_m(m, selected_indices) {
@@ -355,6 +366,60 @@ class LinearGradient extends Gradient {
     }
     svg_text_geom() {
         return ["linearGradient", ['x1="', this.p1[0], '" y1="', this.p1[1], '" x2="', this.p2[0], '" y2="', this.p2[1], '"']]
+    }
+
+    del_texture_cache() {
+        gl.deleteTexture(this.tex_obj_cache)
+        this.tex_obj_cache = null
+        this.tex_with_params = null        
+    }
+
+    make_gl_texture(resolution, smooth) {
+        if (this.tex_obj_cache !== null) {
+            if (this.tex_with_params.resolution === resolution && this.tex_with_params.smooth === smooth)
+                return this.tex_obj_cache
+            // TBD bind...
+            this.del_texture_cache()
+        }
+        // draw canvas
+        const HEIGHT = 10
+        canvas_img_shadow.width = resolution
+        canvas_img_shadow.height = HEIGHT
+
+        const grd = ctx_img_shadow.createLinearGradient(0,0, resolution,0)
+        this.add_stops(grd)
+
+        ctx_img_shadow.fillStyle = grd
+        ctx_img_shadow.beginPath()
+        // can't use x+w since if there's a transform, we actuall draw a rotated rect
+        ctx_img_shadow.moveTo(0,0); ctx_img_shadow.lineTo(resolution, 0)
+        ctx_img_shadow.lineTo(resolution, HEIGHT); ctx_img_shadow.lineTo(0, HEIGHT)
+        ctx_img_shadow.fill()
+        //const im = ctx_img_shadow.getImageData(0, 0, resolution, HEIGHT)
+     
+        let tex = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, resolution, HEIGHT, 0, gl.RGBA, gl.UNSIGNED_BYTE, canvas_img_shadow);
+        tex.width = resolution
+        tex.height = HEIGHT
+        
+        // set the filtering so we don't need mips
+        let minfilt = gl.LINEAR
+        if (!smooth)
+            minfilt = gl.NEAREST
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, minfilt);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, minfilt);
+        let wrap = gl.CLAMP_TO_EDGE
+        if (this.spread == "reflect")
+            wrap = gl.MIRRORED_REPEAT
+        else if (this.spread == "repeat")
+            wrap = gl.REPEAT
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+        this.tex_obj_cache = tex
+        this.tex_with_params = { resolution: resolution, smooth: smooth }
+        return tex
     }
 }
 
@@ -439,6 +504,10 @@ class RadialGradient extends Gradient {
 
     svg_text_geom(grad) {
         return ["radialGradient", ['cx="', this.p1[0], '" cy="', this.p1[1], '" r="',  this.r1, '" fx="', this.p2[0], '" fy="', this.p2[1], '" fr="', this.r2, '"']]
+    }
+
+    make_gl_texture(resolution) {
+        dassert(false, "Radial gradient can't be texture source")
     }
 }
 
@@ -720,7 +789,7 @@ class NodeGradient extends NodeCls
         this.p2 = new ParamVec2(node, "Point 2", 0.5, 0)
         this.r2 = new ParamFloat(node, "Radius 2", 0.7)
         this.spread = new ParamSelect(node, "Spread", 0, ["Pad", "Reflect", "Repeat"])
-        this.func = new ParamColorExpr(node, "f(t)=", "rgb(255,128,t*128)") // just a way to generate points TBD not actally float example: rgb(255,128,0)+rgb(t,t,t)*255
+        this.func = new ParamColorExpr(node, "f(t)=", "rgb(255, 128, 0.0) + rgb(t, t, t)*255") // just a way to generate points TBD not actally float example: rgb(255,128,0)+rgb(t,t,t)*255
         this.func_samples = new ParamInt(node, "Sample Num", 10, {min:1, max:30, visible:false})
         const presets_btn = new ParamImageSelectBtn(node, "Presets", GRADIENT_PRESETS, make_preset_img, (pr)=>{this.load_preset(pr)})
         this.add_stops_btn = new ParamBool(node, "Add stops", true, null)

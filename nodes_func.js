@@ -19,14 +19,15 @@ precision mediump float;
 
 in vec2 v_coord;
 out vec4 outColor;
+$MORE_DEFS$
 
 void main() {
     $BEFORE_EXPR$
     float v = $EXPR$;
-    outColor = vec4(vec3(1.0, 0.5, 0.0) + vec3(v, v, v), 1.0);    
+    outColor = $COL_RESULT$;    
 }
 `
-
+const NO_TEX_COL_RESULT = 'vec4(vec3(1.0, 0.5, 0.0) + vec3(v, v, v), 1.0)'
 
 
 class ParamProxy extends Parameter {
@@ -62,6 +63,7 @@ class GlslTextEvaluator {
 }
 
 
+
 class NodeFuncFill extends NodeCls
 {
     static name() { return "Function Fill" }
@@ -71,29 +73,48 @@ class NodeFuncFill extends NodeCls
         this.shader_node = this.prog.add_node(0, 0, null, NodeShader, null)
         this.shader_node.cls.attr_names = ["vtx_pos"]
 
-        this.in_mesh = new TerminalProxy(node, this.shader_node.cls.in_mesh)
+        //this.in_mesh = new TerminalProxy(node, this.shader_node.cls.in_mesh)
 
+        this.in_gradient = new InTerminal(node, "in_gradient")
         this.in_tex = new TerminalProxy(node, this.shader_node.cls.in_tex)
         this.out_tex = new TerminalProxy(node, this.shader_node.cls.out_tex)
 
         node.set_state_evaluators({"coord":  (m,s)=>{ return new GlslTextEvaluator(s, "v_coord", ['x','y']) }} ) 
 
         //this.time = new ParamProxy(node, this.shader_node.cls.uniform_by_name('time').param)
-        this.floatExpr = new ParamCode(node, "Expression", "return coord.x")
+        this.float_expr = new ParamCode(node, "Expression", "return coord.x")
+        this.grad_res = new ParamInt(node, "Resolution", 128, [8,128])
+        this.grad_res.set_visible(false)  // starting state is invisible, if something is connected, show
+        this.smooth = new ParamBool(node, "Smooth", false)
+        this.smooth.set_visible(false)
+
         //this.floatExpr = new ParamFloat(node, "Expression", "1+1")
 
         this.shader_node.cls.vtx_text.set_text(FUNC_VERT_SRC)
         //this.shader_node.cls.frag_text.set_text(NOISE_FRAG_SRC)
 
     }
+
+    did_connect(to_term, line) {
+        if (to_term === this.in_gradient) {
+            this.grad_res.set_visible(true)
+            this.smooth.set_visible(true)
+        }
+    }
+    doing_disconnect(to_term, line) {
+        if (to_term === this.in_gradient) {
+            this.grad_res.set_visible(false)
+            this.smooth.set_visible(false)
+        }
+    }
     destructtor() {
         this.shader_node.cls.destructtor()
     }
     run() {
-        if ( this.floatExpr.item.last_error !== null) {
+        if ( this.float_expr.item.last_error !== null) {
             assert(false, this, "Expression error")
         }
-        let expr = this.floatExpr.item.e, str
+        let expr = this.float_expr.item.e, str
         let emit_ctx = { before_expr:[], add_funcs:[] }
         if (expr !== null) {
             try {
@@ -104,15 +125,38 @@ class NodeFuncFill extends NodeCls
             }
         }
         else {  // it's a constant
-            str = this.floatExpr.v 
+            str = this.float_expr.v 
             if (Number.isInteger(str))
                 str += ".0"
         }
-        const frag_text = EXPR_FRAG_SRC.replace('$EXPR$', str).replace('$BEFORE_EXPR$', emit_ctx.before_expr.join('\n'))
+
+        let frag_text = EXPR_FRAG_SRC.replace('$EXPR$', str).replace('$BEFORE_EXPR$', emit_ctx.before_expr.join('\n'))
+
+        const grad = this.in_gradient.get_const()
+        if (grad !== null) {
+            assert(grad.make_gl_texture !== undefined, this, "in_gradient should be Gradient object or nothing")
+            frag_text = frag_text.replace('$MORE_DEFS$', 'uniform sampler2D uGradTex;').replace('$COL_RESULT$', "texture(uGradTex, vec2(v,0))")
+        }
+        else {
+            frag_text = frag_text.replace('$MORE_DEFS$', '').replace('$COL_RESULT$', NO_TEX_COL_RESULT)
+        }
 
         //console.log("TEXT: ", frag_text)
 
         this.shader_node.cls.frag_text.set_text(frag_text, false)
+
+        if (grad !== null) {
+            const texParam = this.shader_node.cls.uniforms['uGradTex']
+            assert(texParam !== undefined && texParam !== null, this, "can't find uniform")
+            texParam.param.modify(0, false) // not really needed since that's the default value
+
+            try {                    
+                grad.make_gl_texture(this.grad_res.v, this.smooth.v)
+            }
+            catch(e) {
+                assert(false, this, e.message)
+            }
+        }
 
         this.shader_node.cls.run()
     }

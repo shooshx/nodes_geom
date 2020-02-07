@@ -770,9 +770,10 @@ class ParamBaseExpr extends Parameter {
     get_last_error() {
         return this.item.get_last_error()
     }
-    modify(v) {
+    modify(v, dirtyify=true) {  // dirtify false used in NodeFuncFill
         this.item.set_to_const(v)
-        this.pset_dirty()
+        if (dirtyify)
+            this.pset_dirty()
     }
 
 }
@@ -797,7 +798,10 @@ class ParamInt extends ParamBaseExpr {
         super(node, label, start_v, ED_INT, slider_conf)
         this.item.set_prop = (v)=>{ this.v = Math.round(v) }
         this.item.peval(this.v)
-    }  
+    }
+    gl_set_value(loc) {
+        gl.uniform1i(loc, this.v)
+    }      
 }
 
 class ParamCode extends ParamBaseExpr {
@@ -1410,7 +1414,8 @@ class ListParam extends Parameter {
     }
     clear() {
         this.lst = new this.lst.constructor()
-        this.elem_lst = null
+        if (this.elem_lst !== null) // otherwise keep it null
+            this.elem_lst = [] 
     }
 
     reprint_line(vidx, v) {

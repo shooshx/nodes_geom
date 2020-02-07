@@ -73,7 +73,7 @@ class NodeLoadImage extends NodeCls
 
     draw_selection(m) {
         let outimg = this.out_img.get_const()
-        if (outimg !== null) // happens if we never did run()
+        if (outimg === null) // happens if we never did run()
             return
         this.transform.draw_dial_at_obj(outimg, m)
         outimg.draw_border(m)

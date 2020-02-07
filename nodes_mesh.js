@@ -148,7 +148,8 @@ class NodeGeomPrimitive extends NodeCls
     }
     draw_selection(m) {
         let outmesh = this.out.get_const()
-        dassert(outmesh !== null, "No output object to select")
+        if (outmesh === null)
+            return
         this.transform.draw_dial_at_obj(outmesh, m)
 
         //  resize dial, /2 since size is the full object and we go from 0 to the corner
@@ -261,7 +262,8 @@ function add_point_select_mixin(node_cls, selected_indices, points_param) {
     
     node_cls.draw_selection = function(m) {
         let obj = this.out.get_const()
-        dassert(obj !== null, "No output object to select") // might be it's not connected so it doesn't have output
+        if (obj === null) //, "No output object to select") // might be it's not connected so it doesn't have output
+            return
         obj.draw_selection(m, selected_indices)
     }    
 }

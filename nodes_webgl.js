@@ -124,7 +124,7 @@ class FrameBuffer extends ImageBase
     }
 } 
 
-class CreateTexture extends NodeCls
+class CreateFrameBuffer extends NodeCls
 {
     static name() { return "Create Pixel-Buffer" }
     constructor(node) {
@@ -165,7 +165,7 @@ class CreateTexture extends NodeCls
 
     draw_selection(m) {
         let tex = this.out_tex.get_const()
-        if (tex !== null)  // happens if we never did run()
+        if (tex === null)  // happens if we never did run()
             return
         this.transform.draw_dial_at_obj(tex, m)
         tex.draw_border(m)
@@ -233,7 +233,7 @@ function ensure_webgl() {
 function is_ws(c) {
     return c == ' ' || c == '\t' || c == '\n' || c == '\r'
 }
-const SUPPORTED_TYPES = ['float', 'int', 'vec2']
+const SUPPORTED_TYPES = ['float', 'int', 'vec2', 'sampler2D']
 function parse_glsl_uniforms(text) 
 {
     // not handling comments or pre-processor
@@ -364,12 +364,12 @@ class NodeShader extends NodeCls
             let p = {}
             if (nu.type == 'float')
                 p.param = new ParamFloat(this.node, nu.name, 0, [0,1])
-            else if (nu.type == 'int')
+            else if (nu.type == 'int' || nu.type == 'sampler2D')
                 p.param = new ParamInt(this.node, nu.name, 0)
             else if (nu.type == 'vec2')
                 p.param = new ParamVec2(this.node, nu.name, 0, 0, false)
             else
-                continue
+                assert(false, this, "unexpected uniform type")
             this.uniforms[new_name] = p
             p.param.set_group(in_group)
         }

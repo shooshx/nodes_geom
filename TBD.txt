@@ -22,7 +22,7 @@ ENGINE:
 - Animation using frame variable
 - ParamSelect - can get value instead of sel_idx (in gradient spread)
 - https://jshint.com/
-
+- texture leaks?
 
 NODES:
 - frame buffer
@@ -85,13 +85,10 @@ NODES:
     how to control parameters of the copies?
     for loop?
 - Gradient
-    spreadMethod with SVG  https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/spreadMethod
-        also when sampling get_pixels
-    stroke,
+    function code
+    in stroke,
 - !!!!!!! 2d color function
-    - float function - code
     - vec3/4 function? direct color
-    - sampling gradient
     - time
     - mouse
 - Shader distance from path
