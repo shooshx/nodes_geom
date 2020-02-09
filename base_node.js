@@ -945,7 +945,7 @@ function nodes_context_menu(px, py, wx, wy, cvs_x, cvs_y) {
             return null
     }
     if (node !== null)
-        opt = [{text:"Delete Node", func:function() { program.delete_node(obj, true)} }]
+        opt = [{text:"Delete Node", func:function() { program.delete_node(node, true)} }]
     else if (opt === null) {
         opt = [{text:"Clear", func:()=>{ clear_program(); draw_nodes() } }, {text:"-"}]
         for(let c of nodes_classes)

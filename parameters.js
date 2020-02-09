@@ -26,21 +26,21 @@ class Parameter
             return
         this.enable = v
         if (this.line_elem !== null)
-            this.line_elem.classList.toggle("param_disabled", !this.enable)
+            elem_set_visible(this.line_elem, this.enable)
     }
     set_visible(v) {
         if (this.visible == v)
             return
         this.visible = v
         if (this.line_elem !== null)
-            this.line_elem.classList.toggle("param_invisible", !this.visible)
+            elem_set_visible(this.line_elem, this.visible)
     }
     init_enable_visible() {
         if (this.line_elem !== null) {
             if (!this.enable)
                 this.line_elem.classList.toggle("param_disabled", true)
             if (!this.visible)
-                this.line_elem.classList.toggle("param_invisible", true)
+                elem_set_visible(this.line_elem, false)
         }
     }
     pset_dirty(draw=true) { // p for parameter to differentiate it from the others
@@ -92,6 +92,10 @@ function fix_label_lengths(parameters) {
                 p.label_elem.style.width = max_width + "px"
         }
     }
+}
+
+function elem_set_visible(e, v) {
+    e.classList.toggle("param_invisible", !v)
 }
 
 function clear_elem_byid(id) {
@@ -471,12 +475,16 @@ function arr_equals(a, b) {
 function normalize_slider_conf(sc) {
     if (sc === null || sc === undefined)
         return {min:0, max:1, visible:false, allowed:true} // allowed false means there's no option to activate it
-    else if (sc.min === undefined && sc.allowed === undefined) // it's just an array of two nums
+    else if (sc.min === undefined && sc.allowed === undefined && Array.isArray(sc)) // it's just an array of two nums
         return {min:sc[0], max:sc[1], visible:true, allowed:true }
     if (sc.allowed === undefined)
         sc.allowed = true
     if (sc.visible === undefined)
         sc.visible = sc.allowed
+    if (sc.min === undefined)
+        sc.min = 0
+    if (sc.max === undefined)
+        sc.max = 1
     return sc
 }
 function is_default_slider_conf(sc) {
@@ -488,6 +496,7 @@ class ExpressionItem {
     constructor(in_param, prop_name, prop_type, set_prop=null, get_prop=null, slider_conf=null) {
         this.in_param = in_param
         this.prop_name = prop_name // name of property to set in the containing param ("v", "r") kept for save,load
+        this.prop_name_ser = this.prop_name // can be changed manually if the saved name need to be different (to avoid collision)
         this.set_prop = (set_prop !== null) ? set_prop : (v)=>{ this.in_param[this.prop_name] = v }
         this.get_prop = (get_prop !== null) ? get_prop : ()=>{ return this.in_param[this.prop_name] }
         this.prop_type = prop_type  // constant like ED_FLOAT used for formatting the value
@@ -505,25 +514,29 @@ class ExpressionItem {
         this.slider = null // object returned by add_param_slider (has funcs to control slider)
         this.ctx_menu_elem = null // when the context menu is visible, otherwise null
         this.ctx_menu_adders = [] // list of add_elem(parent) function to populate the context menu
+        if (this.slider_conf.allowed) {
+            this.add_slider_ctx_menu()
+        }
+        this.param_line = null
     }
     save_to(r) { 
-        r["se_" + this.prop_name] = this.se 
+        r["se_" + this.prop_name_ser] = this.se 
         if (!is_default_slider_conf(this.slider_conf)) // don't need to litter
-            r["sldcfg_" + this.prop_name] = this.slider_conf
+            r["sldcfg_" + this.prop_name_ser] = this.slider_conf
     }
     load(v) {
-        let vk = v["se_" + this.prop_name]
+        let vk = v["se_" + this.prop_name_ser]
         if (vk !== undefined && vk !== null) 
             this.peval(vk) 
         else {
-            let lv = v[this.prop_name]
+            let lv = v[this.prop_name_ser]
             if (lv === undefined) {
                 console.error(lv !== undefined, "failed load value")
                 return;
             }
             this.do_set_prop(lv)
         }
-        this.slider_conf = normalize_slider_conf(v["sldcfg_" + this.prop_name])
+        this.slider_conf = normalize_slider_conf(v["sldcfg_" + this.prop_name_ser])
     }
     do_set_prop(v) {
         if (this.slider !== null)
@@ -568,12 +581,13 @@ class ExpressionItem {
         }
     }
     peval(se) {
+        eassert(se !== null && se !== undefined, "unexpected null string-expr")
         this.se = se // might be a plain number as well
         this.eclear_error()
         const state_access = this.in_param.owner.state_access
         try {
             if (state_access !== null)  // might be a node that doesn't have state_access
-            state_access.reset_check()
+                state_access.reset_check()
             this.e = ExprParser.parse(se, this.in_param.owner.state_access, this.parse_opt)
             const type = this.e.check_type()
             if (this.prop_type == ED_COLOR_EXPR)
@@ -633,23 +647,22 @@ class ExpressionItem {
         param_reg_for_dismiss(()=>{dismiss_menu()})          
     }
 
-    add_slider_mechanism(line) 
+    display_slider(is_first)  // on first display, always add the element if enabled
     {
-        let disp_slider = (is_first)=> {
-            if (this.slider_conf.visible && (this.slider == null || is_first)) {
-                this.slider = add_param_slider(line, this.slider_conf.min, this.slider_conf.max, null, this.prop_type, (v)=>{
-                    this.set_to_const(v)
-                    this.in_param.pset_dirty() 
-                })
-                this.peval(this.se) // this will set the slider position and enablement (but not do pset_dirty since nothing changed)
-            }
-            else if (!this.slider_conf.visible && this.slider != null) {
-                this.slider.elem.parentNode.removeChild(this.slider.elem)
-                this.slider = null
-            }
+        if (this.slider_conf.visible && (this.slider == null || is_first)) {
+            this.slider = add_param_slider(this.param_line, this.slider_conf.min, this.slider_conf.max, null, this.prop_type, (v)=>{
+                this.set_to_const(v)
+                this.in_param.pset_dirty() 
+            })
+            this.peval(this.se) // this will set the slider position and enablement (but not do pset_dirty since nothing changed)
         }
-        disp_slider(true) // on first display, always add the element if enabled
-
+        else if (!this.slider_conf.visible && this.slider != null) {
+            this.slider.elem.parentNode.removeChild(this.slider.elem)
+            this.slider = null
+        }
+    }
+    
+    add_slider_ctx_menu() {
         let update_range = ()=>{
             if (this.slider === null)
                 return
@@ -660,7 +673,8 @@ class ExpressionItem {
         let enable_slider_checkbox = (parent)=>{ 
             let sld_line = add_div(parent, 'prm_slider_ctx_line')
             let [ein,etext] = add_param_checkbox(sld_line, "Slider", this.slider_conf.visible, (v)=>{ 
-                this.slider_conf.visible = v; disp_slider(false)
+                this.slider_conf.visible = v; 
+                this.display_slider(false)
                 toggle_en(v)
                 save_state() // nothing else save the state since this is just a GUI change
             })
@@ -682,7 +696,8 @@ class ExpressionItem {
     }
 
     // is_single_value is false for things like vec2 that have multiple values in the same line
-    add_editbox(line, is_single_value) {
+    add_editbox(line) {
+        this.param_line = line
         let show_v, ed_type
         if (this.e != null && this.e !== undefined) {
             show_v = this.se; 
@@ -703,10 +718,8 @@ class ExpressionItem {
             this.show_err()
         }
 
-        this.ctx_menu_adders = []
-        if (is_single_value && this.slider_conf.allowed) {
-            this.add_slider_mechanism(line)
-        }
+        if (this.slider_conf.allowed)
+            this.display_slider(line, true)
         this.show_context_menu(line)
 
         return this.elem
@@ -745,32 +758,91 @@ class ExpressionItem {
 }
 
 
-class ParamBaseExpr extends Parameter {
-    constructor(node, label, start_v, ed_type, slider_conf) {
+class ParamBaseExpr extends Parameter 
+{
+    constructor(node, label, start_v, ed_type, conf) {
         super(node, label)
-        this.v = start_v  // numerical value in case of const
-        this.item = new ExpressionItem(this, "v", ed_type, null, null, slider_conf)
+        //this.v = start_v  // numerical value in case of const
+        this.show_code = (conf !== null && conf.show_code === true) ? true : false  // show code or show line
+        this.item = new ExpressionItem(this, "v", ed_type,  (v)=>{ if (!this.show_code) this.v = v }, null, conf)
+        this.populate_ctx_menu(this.item)
+        this.single_elem = null
+        this.item.peval(start_v)  // if it's a param that can be either code or non-code, it's start_v should be a simgle expression
+        
+        this.make_code_item(ed_type, start_v)
+        this.code_elem = null
     }
-    save() { let r = {}; this.item.save_to(r); return r }
-    load(v) { this.item.load(v) }
+
+    make_code_item(ed_type, start_v) {
+        this.code_item = new ExpressionItem(this, "v", ed_type,  (v)=>{ if (this.show_code) this.v = v }, null, {allowed:false})
+        this.code_item.prop_name_ser = "cv"
+        this.code_item.override_create_elem = (line, show_v, change_func)=>{
+            const elem = add_elem(line, "textarea", ["param_text_area","panel_param_text_area", "param_editbox"])
+            elem.spellcheck = false
+            elem.rows = 6
+            elem.value = show_v
+            myAddEventListener(elem, "input", function() { 
+                change_func(elem.value); 
+            })
+            return elem
+        }
+        this.code_item.parse_opt = PARSE_CODE
+        this.populate_ctx_menu(this.code_item)
+        // initial code string, done even if code is not selected since this is the only place we can do this initialization
+        this.code_item.peval("return " + start_v)  
+    }
+    
+
+    populate_ctx_menu(item) {
+        const add_code_checkbox = (parent)=>{
+            let chk_line = add_div(parent, 'prm_slider_ctx_line')
+            let [ein,etext] = add_param_checkbox(chk_line, "Code", this.show_code, (v)=>{ 
+                this.show_code = v
+                elem_set_visible(this.single_line, !v)
+                elem_set_visible(this.code_line, v)
+                this.pset_dirty() 
+            })            
+        }
+        item.add_to_context_menu(add_code_checkbox)
+    }
+
+    save() { let r = { show_code:this.show_code }; this.item.save_to(r); this.code_item.save_to(r); return r }
+    load(v) { 
+        this.show_code = v.show_code || false; 
+        this.item.load(v); 
+        this.code_item.load(v) 
+    }
 
     add_elems(parent) {
-        this.line_elem = add_param_line(parent, this)
-        this.label_elem = add_param_label(this.line_elem, this.label)
+        this.line_elem = add_param_multiline(parent, this)
 
-        let elem = this.item.add_editbox(this.line_elem, true)
+        this.single_line = add_param_line(this.line_elem, this)
+        elem_set_visible(this.single_line, !this.show_code)
+        add_param_label(this.single_line, this.label)
+        const single_elem = this.item.add_editbox(this.single_line, true)
+
+        this.code_line = add_param_line(this.line_elem, this)
+        elem_set_visible(this.code_line, this.show_code)
+        add_param_label(this.code_line, this.label)
+        const code_elem = this.code_item.add_editbox(this.code_line, true)
+    }
+
+    get_active_item() {
+        return this.show_code ? this.code_item : this.item
     }
 
     dyn_eval() {
-        return this.item.dyn_eval()
+        return this.get_active_item().dyn_eval()
     }
     need_input_evaler(input_name) {
-        return this.item.need_input_evaler(input_name)
+        return this.get_active_item().need_input_evaler(input_name)
     }
     get_last_error() {
-        return this.item.get_last_error()
+        return this.get_active_item().get_last_error()
     }
     modify(v, dirtyify=true) {  // dirtify false used in NodeFuncFill
+        if (this.show_code)
+            return // code item should not be modified since that would erase the code
         this.item.set_to_const(v)
         if (dirtyify)
             this.pset_dirty()
@@ -779,25 +851,22 @@ class ParamBaseExpr extends Parameter {
 }
 
 class ParamColorExpr extends ParamBaseExpr {
-    constructor(node, label, start_v, slider_conf=null) {
-        super(node, label, start_v, ED_COLOR_EXPR, slider_conf)
-        this.item.peval(this.v)
+    constructor(node, label, start_v, conf=null) {
+        super(node, label, start_v, ED_COLOR_EXPR, conf)
     }
 }
 class ParamFloat extends ParamBaseExpr {
-    constructor(node, label, start_v, slider_conf=null) {
-        super(node, label, start_v, ED_FLOAT, slider_conf)
-        this.item.peval(this.v)
+    constructor(node, label, start_v, conf=null) {
+        super(node, label, start_v, ED_FLOAT, conf)
     }
     gl_set_value(loc) {
         gl.uniform1f(loc, this.v)
     }    
 }
 class ParamInt extends ParamBaseExpr {
-    constructor(node, label, start_v, slider_conf=null) {
-        super(node, label, start_v, ED_INT, slider_conf)
+    constructor(node, label, start_v, conf=null) {
+        super(node, label, start_v, ED_INT, conf)
         this.item.set_prop = (v)=>{ this.v = Math.round(v) }
-        this.item.peval(this.v)
     }
     gl_set_value(loc) {
         gl.uniform1i(loc, this.v)
@@ -831,9 +900,9 @@ class ParamVec2 extends Parameter {
     constructor(node, label, start_x, start_y, long_form=false) {
         super(node, label)
         this.x = start_x
-        this.item_x = new ExpressionItem(this, "x", ED_FLOAT)
+        this.item_x = new ExpressionItem(this, "x", ED_FLOAT, null, null, {allowed:false})
         this.y = start_y
-        this.item_y = new ExpressionItem(this, "y", ED_FLOAT)
+        this.item_y = new ExpressionItem(this, "y", ED_FLOAT, null, null, {allowed:false})
         this.long_form = long_form
         this.dial = null
     }
@@ -850,9 +919,9 @@ class ParamVec2 extends Parameter {
         else {
             this.line_elem = add_param_multiline(parent, this)
             let line_x = add_param_line(this.line_elem); add_param_label(line_x, "X", 'param_label_pre_indent')
-            this.item_x.add_editbox(line_x, true)
+            this.item_x.add_editbox(line_x)
             let line_y = add_param_line(this.line_elem); add_param_label(line_y, "Y", 'param_label_pre_indent')
-            this.item_y.add_editbox(line_y, true)            
+            this.item_y.add_editbox(line_y)            
         }
     }
     get_value() {
@@ -973,13 +1042,13 @@ class ParamColor extends Parameter {
         })
         this.v = v; this.picker_elem = elem; this.picker = picker
         let line_r = add_param_line(this.line_elem); add_param_label(line_r, "Red", 'param_label_pre_indent')
-        this.item_r.add_editbox(line_r, true)
+        this.item_r.add_editbox(line_r)
         let line_g = add_param_line(this.line_elem); add_param_label(line_g, "Green", 'param_label_pre_indent')
-        this.item_g.add_editbox(line_g, true)
+        this.item_g.add_editbox(line_g)
         let line_b = add_param_line(this.line_elem); add_param_label(line_b, "Blue", 'param_label_pre_indent')
-        this.item_b.add_editbox(line_b, true)
+        this.item_b.add_editbox(line_b)
         let line_alpha = add_param_line(this.line_elem); add_param_label(line_alpha, "Alpha", 'param_label_pre_indent')
-        this.item_alpha.add_editbox(line_alpha, true)       
+        this.item_alpha.add_editbox(line_alpha)       
         this.items_to_picker() 
     }
     dyn_eval() {        
@@ -1022,13 +1091,14 @@ class ParamTransform extends Parameter {
         this.elems = {tx:null, ty:null, r:null, sx:null, sy:null, pvx:null, pvy:null }
         this.dial = null
         
-        this.item_tx = new ExpressionItem(this, "tx", ED_FLOAT, (v)=>{this.translate[0] = v; this.calc_mat()}, ()=>{ return this.translate[0]} )
-        this.item_ty = new ExpressionItem(this, "ty", ED_FLOAT, (v)=>{this.translate[1] = v; this.calc_mat()}, ()=>{ return this.translate[1]} )
-        this.item_r = new ExpressionItem(this,   "r", ED_FLOAT, (v)=>{this.rotate = v; this.calc_mat()},       ()=>{ return this.rotate} )
-        this.item_pvx = new ExpressionItem(this, "pvx", ED_FLOAT, (v)=>{let dx = parseFloat(v)-this.rotate_pivot[0]; this.calc_pivot_counter(dx, 0) }, ()=>{ return this.rotate_pivot[0]} )
-        this.item_pvy = new ExpressionItem(this, "pvy", ED_FLOAT, (v)=>{let dy = parseFloat(v)-this.rotate_pivot[1]; this.calc_pivot_counter(0, dy) }, ()=>{ return this.rotate_pivot[1]} )
-        this.item_sx = new ExpressionItem(this, "sx", ED_FLOAT, (v)=>{this.scale[0] = v; this.calc_mat()}, ()=>{ return this.scale[0]} )
-        this.item_sy = new ExpressionItem(this, "sy", ED_FLOAT, (v)=>{this.scale[1] = v; this.calc_mat()}, ()=>{ return this.scale[1]} )
+        const sld_conf = {allowed:false}
+        this.item_tx = new ExpressionItem(this, "tx", ED_FLOAT, (v)=>{this.translate[0] = v; this.calc_mat()}, ()=>{ return this.translate[0]}, sld_conf)
+        this.item_ty = new ExpressionItem(this, "ty", ED_FLOAT, (v)=>{this.translate[1] = v; this.calc_mat()}, ()=>{ return this.translate[1]}, sld_conf)
+        this.item_r = new ExpressionItem(this,   "r", ED_FLOAT, (v)=>{this.rotate = v; this.calc_mat()},       ()=>{ return this.rotate}, sld_conf)
+        this.item_pvx = new ExpressionItem(this, "pvx", ED_FLOAT, (v)=>{let dx = parseFloat(v)-this.rotate_pivot[0]; this.calc_pivot_counter(dx, 0) }, ()=>{ return this.rotate_pivot[0]}, sld_conf)
+        this.item_pvy = new ExpressionItem(this, "pvy", ED_FLOAT, (v)=>{let dy = parseFloat(v)-this.rotate_pivot[1]; this.calc_pivot_counter(0, dy) }, ()=>{ return this.rotate_pivot[1]}, sld_conf)
+        this.item_sx = new ExpressionItem(this, "sx", ED_FLOAT, (v)=>{this.scale[0] = v; this.calc_mat()}, ()=>{ return this.scale[0]}, sld_conf)
+        this.item_sy = new ExpressionItem(this, "sy", ED_FLOAT, (v)=>{this.scale[1] = v; this.calc_mat()}, ()=>{ return this.scale[1]}, sld_conf)
     }
     save() { 
         let r = {} 

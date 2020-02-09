@@ -27,8 +27,23 @@ void main() {
     outColor = $COL_RESULT$;    
 }
 `
-const NO_TEX_COL_RESULT = 'vec4(vec3(1.0, 0.5, 0.0) + vec3(v, v, v), 1.0)'
+const NO_TEX_COL_RESULT = 'vec4(vec3(1.0, 0.5, 0.0) + vec3(v*2.0-1.0, v*2.0-1.0, v*2.0-1.0), 1.0)'
 
+/*   plasma
+x = coord.x*10
+y = coord.y*10
+t = 20000 
+uMouse = vec2(0,0)
+da = distance(vec2(x+cos(t/1110)*4,y), vec2(1.0,2.1))
+db = distance(vec2(x,y), vec2(8.0 + 16.0*uMouse.x, 6.1 + 8.0*(1.0 - uMouse.y) ))
+dc = distance(vec2(x,y + cos(t / 998.0)*2.0), vec2(10.0, 3.1))
+c1 = sin(da) + sin(x) * sin(t/1000.0)
+c2 = sin(db - t / 500.0)*1.0
+c3 = cos(dc / 2.0) + sin(t/1000.0)
+c = (c1 + c2 + c3) / 3.0
+
+return c*0.5+0.5
+*/
 
 class ParamProxy extends Parameter {
     constructor(node, wrap) {
@@ -82,7 +97,7 @@ class NodeFuncFill extends NodeCls
         node.set_state_evaluators({"coord":  (m,s)=>{ return new GlslTextEvaluator(s, "v_coord", ['x','y']) }} ) 
 
         //this.time = new ParamProxy(node, this.shader_node.cls.uniform_by_name('time').param)
-        this.float_expr = new ParamCode(node, "Expression", "return coord.x")
+        this.float_expr = new ParamFloat(node, "Expression", "coord.x", {show_code:true})
         this.grad_res = new ParamInt(node, "Resolution", 128, [8,128])
         this.grad_res.set_visible(false)  // starting state is invisible, if something is connected, show
         this.smooth = new ParamBool(node, "Smooth", false)
@@ -111,14 +126,15 @@ class NodeFuncFill extends NodeCls
         this.shader_node.cls.destructtor()
     }
     run() {
-        if ( this.float_expr.item.last_error !== null) {
+        if ( this.float_expr.get_active_item().last_error !== null) {
             assert(false, this, "Expression error")
         }
-        let expr = this.float_expr.item.e, str
+        let expr = this.float_expr.get_active_item().e, str
         let emit_ctx = { before_expr:[], add_funcs:[] }
         if (expr !== null) {
             try {
                 str = expr.to_glsl(emit_ctx)
+                assert(str !== null, this, 'unexpected expression null')
             }
             catch(ex) {
                 assert(false, this, ex.message)

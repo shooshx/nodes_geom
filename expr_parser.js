@@ -30,6 +30,7 @@ var ExprParser = (function() {
 
 class NumNode  {  
     constructor(_v, str_was_decimal) {
+        eassert(_v !== null && _v !== undefined, "unexpected non-number value")
         this.v = _v;
         this.decimal = str_was_decimal
     }
@@ -739,6 +740,8 @@ function parseExpr() {
 function parseNewIdentifier() {
     let sb = ''
     let c = getCharacter();
+    if (c == '#')
+        return null // comment
     if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')))
         throw new ExprErr("unexpected char at start of statement " + c)
     while(true) {
@@ -808,6 +811,8 @@ function parseStmt() {
     eatSpaces()
     // statement starts with a variable name to assign to or 'return'
     const name = parseNewIdentifier()
+    if (name === null) // comment statement
+        return null 
     eatSpaces()
     let assign_type = null
     if (name !== 'return') {
@@ -927,12 +932,27 @@ class CodeNode {
     }
 }
 
+function skip_to_next_line() {
+    while(true) {
+        let c = getCharacter()
+        if (c === null)
+            break;
+        ++index_
+        if (c == '\n')
+            break
+    }
+}
+
 function parseCode() {
     let lst = [], has_return = false
     let symbol_table = {}
     symbol_table_ = symbol_table
     while(!isEnd()) {
         let e = parseStmt()
+        if (e === null) {
+            skip_to_next_line()
+            continue
+        }
         if (e.isReturn())
             has_return = true
         lst.push(e)

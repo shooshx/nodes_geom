@@ -495,7 +495,7 @@ class NodeSetAttr extends NodeCls
         this.attr_type = new ParamSelect(node, "Type", 0, ["Color", "Float", "Float2", "Image Fill"], (sel_idx)=>{
             set_expr_visible()            
             this.attr_name.modify(this.name_per_type.v[sel_idx])
-            this.expr_code.item.prop_type = SEL_IDX_TO_TYPE[sel_idx]
+            this.expr_code.get_active_item().prop_type = SEL_IDX_TO_TYPE[sel_idx]
         })
         this.edit_code = new ParamBool(node, "Edit code", false, (v)=>{
             set_expr_visible()

@@ -114,7 +114,7 @@ input {
     display: block; /* override the display flex from the parent .param_line */
 }
 .param_multi_line {
-    padding: 5px 0 0 0;
+    /*padding: 5px 0 0 0; interferes with ParamBaseExpr */
 }
 
 .param_block {
