@@ -482,23 +482,25 @@ class NodeSetAttr extends NodeCls
         //this.use_code = new ParamBool(node, "Use Code", false, (v)=>{})
         this.bind_to = new ParamSelect(node, "Bind To", 0, ["Vertices", "Faces"]) // TBD also lines?
         // needs to be before attr_name since otherwise the loaded name goes to the initial type (color)
-        const set_expr_visible = ()=>{
-            const ce = this.edit_code.v
-            const type_idx = this.attr_type.sel_idx
-            this.expr_color.set_visible(!ce && type_idx == 0)
-            this.expr_float.set_visible(!ce && type_idx == 1)
-            this.expr_vec2.set_visible(!ce && type_idx == 2)
-            this.expr_bool.set_visible(!ce && type_idx == 3)
-            this.expr_code.set_visible(ce)
-        }
-        const SEL_IDX_TO_TYPE = [ ED_COLOR_EXPR, ED_FLOAT, ED_VEC2, ED_INT ]
+
         this.attr_type = new ParamSelect(node, "Type", 0, ["Color", "Float", "Float2", "Image Fill"], (sel_idx)=>{
-            set_expr_visible()            
+            const type_idx = this.attr_type.sel_idx
+            this.expr_color.set_visible(type_idx == 0)
+            this.expr_float.set_visible(type_idx == 1)
+            this.expr_vec2.set_visible(type_idx == 2)
+            this.expr_bool.set_visible(type_idx == 3)
+
+            const prm = this.param_of_index[type_idx]
+            if (prm.show_code !== undefined) // update show code checkbox according to the type
+                this.edit_code.set_to_const(prm.show_code)
+
             this.attr_name.modify(this.name_per_type.v[sel_idx])
-            this.expr_code.get_active_item().prop_type = SEL_IDX_TO_TYPE[sel_idx]
         })
         this.edit_code = new ParamBool(node, "Edit code", false, (v)=>{
-            set_expr_visible()
+            // can be different for each type
+            const prm = this.param_of_index[this.attr_type.sel_idx]
+            if (prm.set_show_code)
+                prm.set_show_code(v)
         })
         this.edit_code.share_line_elem_from(this.attr_type)
 
@@ -509,8 +511,16 @@ class NodeSetAttr extends NodeCls
         this.expr_color = new ParamColor(node, "Color", "#cccccc")
         this.expr_float = new ParamFloat(node, "Float", 0)
         this.expr_vec2 = new ParamVec2(node, "Float2", 0, 0, true)
-        this.expr_bool = new ParamFloat(node, "Select", "true")
-        this.expr_code = new ParamCode(node, "Code", "return in_obj.vtx_pos.x")    
+        this.expr_bool = new ParamFloat(node, "Select", "true")  
+
+        this.param_of_index = [this.expr_color, this.expr_float, this.expr_vec2, this.expr_bool]
+
+        // connect callback from context menu to the bool param
+        const show_code_callback = (v)=>{this.edit_code.set_to_const(v) }
+        for(let p of this.param_of_index) {
+            if (p.show_code_callback !== undefined) 
+                p.show_code_callback = show_code_callback
+        }
     }
 
     prop_from_const(prop, src, mutate_value) {
@@ -541,12 +551,17 @@ class NodeSetAttr extends NodeCls
 
     prop_from_mesh_attr(prop, value_need_mesh, src_param, mutate_value) 
     {
+        const single_elem = (prop.elem_sz === 1)
         for(let i = 0, pi = 0; pi < prop.length; ++i, pi += prop.elem_sz) 
         {
             value_need_mesh.dyn_set_prop_index(i)
             let v = src_param.dyn_eval()
-            for(let si = 0; si < prop.elem_sz; ++si) {
-                prop[pi+si] = mutate_value(prop[pi+si], v[si])
+            if (single_elem)
+                prop[pi] = v
+            else {                
+                for(let si = 0; si < prop.elem_sz; ++si) {
+                    prop[pi+si] = mutate_value(prop[pi+si], v[si])
+                }
             }
         }
     }
@@ -569,6 +584,7 @@ class NodeSetAttr extends NodeCls
         let vtxi = 0, idxi = 0
         let expr_input = { r:0, g:0, b:0, alpha:0 }
         value_need_src.dyn_set_obj(expr_input)
+        const single_elem = (prop.elem_sz === 1)
 
         for(let i = 0, pi = 0; pi < prop.length; ++i, pi += prop.elem_sz) 
         {
@@ -605,8 +621,12 @@ class NodeSetAttr extends NodeCls
             }
 
             const vc = src_param.dyn_eval()
-            for(let si = 0; si < prop.elem_sz; ++si) {
-                prop[pi+si] = mutate_value(prop[pi+si], vc[si])
+            if (single_elem)
+                prop[pi] = vc
+            else {
+                for(let si = 0; si < prop.elem_sz; ++si) {
+                    prop[pi+si] = mutate_value(prop[pi+si], vc[si])
+                }
             }
         }
     }
@@ -672,8 +692,6 @@ class NodeSetAttr extends NodeCls
         else {
             assert(false, this, "unknown type")
         }
-        if (this.edit_code.v)
-            src_param = this.expr_code
 
         assert(src_param.get_last_error() === null, this, "Parameter expression error " + src_param.get_last_error())
         let value_need_src = src_param.need_input_evaler("in_src")

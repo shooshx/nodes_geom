@@ -174,8 +174,11 @@ function add_div(parent, cls) {
 }
 function add_param_line(parent, param=null) { 
     if (param !== null) {
-        if (param.is_sharing_line_elem())
+        if (param.is_sharing_line_elem()) {
+            if (param.shares_line_from.shared_line_elem !== undefined)
+                return param.shares_line_from.shared_line_elem  // if it's a multiline, the param defines what it wants to share
             return param.shares_line_from.line_elem
+        }
         // line_elem of the group may be null if the group is not displayed since it's an internal node    
         if (param.group_param !== null && param.group_param.line_elem !== null)
             parent = param.group_param.line_elem
@@ -184,7 +187,7 @@ function add_param_line(parent, param=null) {
 }
 function add_param_multiline(parent, param=null) { 
     if (param !== null) {
-        if (param.shares_line_from)
+        if (param.is_sharing_line_elem())
             return param.shares_line_from.line_elem
         if (param.group_line_elem)
             parent = param.group_line_elem
@@ -421,6 +424,7 @@ class ParamBool extends Parameter {
         this.v = start_v
         this.change_func = change_func
         this.as_btn = false
+        this.elem_input = null
     }
     display_as_btn(v) { this.as_btn = v }
     save() { return {v:this.v} }
@@ -430,12 +434,21 @@ class ParamBool extends Parameter {
         if (!this.is_sharing_line_elem()) 
             add_param_label(this.line_elem, null) 
         let add_func = this.as_btn ? add_checkbox_btn : add_param_checkbox
-        const [ein,label] = add_func(this.line_elem, this.label, this.v, (v) => { 
+        const [ein,label] = add_func(this.line_elem, this.label, this.v, (v) => {
             this.v = v; 
             this.call_change()
             this.pset_dirty()
         })
+        this.elem_input = ein
         this.label_elem = label
+    }
+    set_to_const(v) {
+        if (v === this.v)
+            return
+        this.v = v
+        this.elem_input.checked = v
+        this.call_change()
+        this.pset_dirty()
     }
 }
 
@@ -495,10 +508,10 @@ function is_default_slider_conf(sc) {
 class ExpressionItem {
     constructor(in_param, prop_name, prop_type, set_prop=null, get_prop=null, slider_conf=null) {
         this.in_param = in_param
-        this.prop_name = prop_name // name of property to set in the containing param ("v", "r") kept for save,load
-        this.prop_name_ser = this.prop_name // can be changed manually if the saved name need to be different (to avoid collision)
-        this.set_prop = (set_prop !== null) ? set_prop : (v)=>{ this.in_param[this.prop_name] = v }
-        this.get_prop = (get_prop !== null) ? get_prop : ()=>{ return this.in_param[this.prop_name] }
+        //this.prop_name = prop_name // name of property to set in the containing param ("v", "r") kept for save,load
+        this.prop_name_ser = prop_name // can be changed manually if the saved name need to be different (to avoid collision)
+        this.set_prop = (set_prop !== null) ? set_prop : (v)=>{ this.in_param[prop_name] = v }
+        this.get_prop = (get_prop !== null) ? get_prop : ()=>{ return this.in_param[prop_name] }
         this.prop_type = prop_type  // constant like ED_FLOAT used for formatting the value
         this.elem = null
         this.e = null  // expression AST, can call eval() on this or null of the value is just a number
@@ -580,6 +593,9 @@ class ExpressionItem {
             this.err_elem = null
         }
     }
+    peval_self() {
+        this.peval(this.se)
+    }
     peval(se) {
         eassert(se !== null && se !== undefined, "unexpected null string-expr")
         this.se = se // might be a plain number as well
@@ -638,7 +654,7 @@ class ExpressionItem {
         }
         const call_adders = (parent)=>{
             for(let adder of this.ctx_menu_adders)
-                adder(parent)
+                adder(parent, dismiss_menu)
         }
         myAddEventListener(line, "contextmenu", (e)=>{
             this.ctx_menu_elem = open_context_menu([{cmake_elems: call_adders}], e.pageX, e.pageY, main_view, ()=>{ dismiss_menu() } )
@@ -654,7 +670,7 @@ class ExpressionItem {
                 this.set_to_const(v)
                 this.in_param.pset_dirty() 
             })
-            this.peval(this.se) // this will set the slider position and enablement (but not do pset_dirty since nothing changed)
+            this.peval_self() // this will set the slider position and enablement (but not do pset_dirty since nothing changed)
         }
         else if (!this.slider_conf.visible && this.slider != null) {
             this.slider.elem.parentNode.removeChild(this.slider.elem)
@@ -757,24 +773,15 @@ class ExpressionItem {
     }
 }
 
-
-class ParamBaseExpr extends Parameter 
-{
-    constructor(node, label, start_v, ed_type, conf) {
+// used by all params that have code option
+let CodeItemMixin = (superclass) => class extends superclass {
+    constructor(node, label, conf) {
         super(node, label)
-        //this.v = start_v  // numerical value in case of const
         this.show_code = (conf !== null && conf.show_code === true) ? true : false  // show code or show line
-        this.item = new ExpressionItem(this, "v", ed_type,  (v)=>{ if (!this.show_code) this.v = v }, null, conf)
-        this.populate_ctx_menu(this.item)
-        this.single_elem = null
-        this.item.peval(start_v)  // if it's a param that can be either code or non-code, it's start_v should be a simgle expression
-        
-        this.make_code_item(ed_type, start_v)
-        this.code_elem = null
     }
 
-    make_code_item(ed_type, start_v) {
-        this.code_item = new ExpressionItem(this, "v", ed_type,  (v)=>{ if (this.show_code) this.v = v }, null, {allowed:false})
+    make_code_item(code_expr, start_v) {
+        this.code_item = code_expr
         this.code_item.prop_name_ser = "cv"
         this.code_item.override_create_elem = (line, show_v, change_func)=>{
             const elem = add_elem(line, "textarea", ["param_text_area","panel_param_text_area", "param_editbox"])
@@ -790,27 +797,85 @@ class ParamBaseExpr extends Parameter
         this.populate_ctx_menu(this.code_item)
         // initial code string, done even if code is not selected since this is the only place we can do this initialization
         this.code_item.peval("return " + start_v)  
-    }
-    
 
+        this.show_code_callback = null        
+    }
+
+    add_code_elem() {
+        this.code_line = add_param_line(this.line_elem, this)
+        elem_set_visible(this.code_line, this.show_code)
+        add_param_label(this.code_line, this.label)
+        const code_elem = this.code_item.add_editbox(this.code_line, true)        
+    }
+
+    save_code(r) {
+        if (this.show_code)
+            r.show_code = true // default false, don't add to save space
+        this.code_item.save_to(r); 
+    }
+    load_code(v) {
+        this.show_code = v.show_code || false; 
+        this.code_item.load(v) 
+    }
+
+    set_show_code(v) {
+        if (v === this.show_code)
+            return
+        this.show_code = v
+        if (this.single_line !== null) { // displayed?
+            elem_set_visible(this.single_line, !v)
+            elem_set_visible(this.code_line, v)
+        }
+        if (v)  // in case it's a const, set this.v to a value from the right source
+            this.code_item.peval_self()
+        else
+            this.non_code_peval_self()
+        if (this.show_code_callback)
+            this.show_code_callback(v)  // for updating SetAttr param checkbox
+        this.pset_dirty() 
+    }
+
+    
     populate_ctx_menu(item) {
-        const add_code_checkbox = (parent)=>{
+        const add_code_checkbox = (parent, dismiss_func)=>{
             let chk_line = add_div(parent, 'prm_slider_ctx_line')
             let [ein,etext] = add_param_checkbox(chk_line, "Code", this.show_code, (v)=>{ 
-                this.show_code = v
-                elem_set_visible(this.single_line, !v)
-                elem_set_visible(this.code_line, v)
-                this.pset_dirty() 
+                this.set_show_code(v)
+                dismiss_func()
             })            
         }
         item.add_to_context_menu(add_code_checkbox)
     }
+};
 
-    save() { let r = { show_code:this.show_code }; this.item.save_to(r); this.code_item.save_to(r); return r }
+// used by single-value params that have expression and code ability
+class ParamBaseExpr extends CodeItemMixin(Parameter)
+{
+    constructor(node, label, start_v, ed_type, conf) {
+        super(node, label, conf)
+        //this.v = start_v  // numerical value in case of const
+        this.item = new ExpressionItem(this, "v", ed_type,  (v)=>{ if (!this.show_code) this.v = v }, null, conf)
+        this.populate_ctx_menu(this.item)
+        this.single_line = null
+        this.item.peval(start_v)  // if it's a param that can be either code or non-code, it's start_v should be a simgle expression
+        
+        const code_expr = new ExpressionItem(this, "v", ed_type,  (v)=>{ if (this.show_code) this.v = v }, null, {allowed:false})
+        this.make_code_item(code_expr, start_v)
+    }
+
+    non_code_peval_self() {
+        this.item.peval_self()
+    }
+
+    save() { 
+        let r = {}; 
+        this.item.save_to(r); 
+        this.save_code(r)
+        return r
+    }
     load(v) { 
-        this.show_code = v.show_code || false; 
         this.item.load(v); 
-        this.code_item.load(v) 
+        this.load_code(v)
     }
 
     add_elems(parent) {
@@ -821,10 +886,7 @@ class ParamBaseExpr extends Parameter
         add_param_label(this.single_line, this.label)
         const single_elem = this.item.add_editbox(this.single_line, true)
 
-        this.code_line = add_param_line(this.line_elem, this)
-        elem_set_visible(this.code_line, this.show_code)
-        add_param_label(this.code_line, this.label)
-        const code_elem = this.code_item.add_editbox(this.code_line, true)
+        this.add_code_elem()
     }
 
     get_active_item() {
@@ -873,82 +935,97 @@ class ParamInt extends ParamBaseExpr {
     }      
 }
 
-class ParamCode extends ParamBaseExpr {
-    constructor(node, label, start_v) {
-        super(node, label, start_v, ED_FLOAT, {allowed:false})
-        this.item.override_create_elem = (line, show_v, change_func)=>{
-            const elem = add_elem(line, "textarea", ["param_text_area","panel_param_text_area", "param_editbox"])
-            elem.spellcheck = false
-            elem.rows = 6
-            elem.value = show_v
-            myAddEventListener(elem, "input", function() { 
-                change_func(elem.value); 
-            })
-            return elem
-        }
-        this.item.parse_opt = PARSE_CODE
-        this.item.peval(this.v)
-    }
-}
 
 
 
-
-
-
-class ParamVec2 extends Parameter {
-    constructor(node, label, start_x, start_y, long_form=false) {
-        super(node, label)
+class ParamVec2 extends CodeItemMixin(Parameter) {
+    constructor(node, label, start_x, start_y, conf=null) {
+        super(node, label, conf)
         this.x = start_x
-        this.item_x = new ExpressionItem(this, "x", ED_FLOAT, null, null, {allowed:false})
+        this.item_x = new ExpressionItem(this, "x", ED_FLOAT, (v)=>{ if (!this.show_code) this.x = v }, null, {allowed:false})
         this.y = start_y
-        this.item_y = new ExpressionItem(this, "y", ED_FLOAT, null, null, {allowed:false})
-        this.long_form = long_form
+        this.item_y = new ExpressionItem(this, "y", ED_FLOAT, (v)=>{ if (!this.show_code) this.y = v }, null, {allowed:false})
         this.dial = null
-    }
-    save() { let r = { x:this.x, y:this.y }; this.item_x.save_to(r); this.item_y.save_to(r); return r }
-    load(v) { this.item_x.load(v); this.item_y.load(v) }
-    add_elems(parent) {
-        if (!this.long_form) { // two lines
-            this.line_elem = add_param_line(parent, this)
-            this.label_elem = add_param_label(this.line_elem, this.label)
+        this.single_line = null
 
-            this.item_x.add_editbox(this.line_elem)
-            this.item_y.add_editbox(this.line_elem)
-        }
-        else {
-            this.line_elem = add_param_multiline(parent, this)
-            let line_x = add_param_line(this.line_elem); add_param_label(line_x, "X", 'param_label_pre_indent')
-            this.item_x.add_editbox(line_x)
-            let line_y = add_param_line(this.line_elem); add_param_label(line_y, "Y", 'param_label_pre_indent')
-            this.item_y.add_editbox(line_y)            
-        }
+        this.populate_ctx_menu(this.item_x) // need to add only on one of them since it's added on the line
+
+        const code_expr = new ExpressionItem(this, "-unused-", ED_VEC2,  
+            (v)=>{ 
+                if (this.show_code) { 
+                    if (v === null) { this.x = null; this.y = null; } // happens when doing dynamic eval
+                    else { this.x = v[0]; this.y = v[1] }
+                }
+            }, 
+            ()=>{ return [this.x,this.y] }, 
+            {allowed:false})
+        this.make_code_item(code_expr, "vec2(" + start_x + ", " + start_y + ")")
+    }
+
+    non_code_peval_self() {
+        this.item_x.peval_self()
+        this.item_y.peval_self()
+    }    
+    save() { 
+        let r = { x:this.x, y:this.y }; 
+        this.item_x.save_to(r); 
+        this.item_y.save_to(r); 
+        this.save_code(r)
+        return r 
+    }
+    load(v) { 
+        this.item_x.load(v)
+        this.item_y.load(v) 
+        this.load_code(v)
+    }
+    add_elems(parent) {
+        this.line_elem = add_param_multiline(parent, this)
+
+        this.single_line = add_param_line(this.line_elem, this)
+        elem_set_visible(this.single_line, !this.show_code)
+        this.label_elem = add_param_label(this.single_line, this.label)
+        this.item_x.add_editbox(this.single_line)
+        this.item_y.add_editbox(this.single_line)
+        this.shared_line_elem = this.single_line
+
+        this.add_code_elem()
     }
     get_value() {
         return [this.x, this.y]
     }
     increment(dv) {
+        if (this.show_code)
+            return
         this.item_x.set_to_const(this.x + dv[0])
         this.item_y.set_to_const(this.y + dv[1])
         this.pset_dirty() 
     }
     modify(v) {
+        if (this.show_code)
+            return
         this.item_x.set_to_const(v[0])
         this.item_y.set_to_const(v[1])
         this.pset_dirty() 
     }
     dyn_eval() {
+        if (this.show_code)
+            return this.code_item.dyn_eval()
         const x = this.item_x.dyn_eval()
         const y = this.item_y.dyn_eval()
         return vec2.fromValues(x, y)
     }
     need_input_evaler(input_name) {
+        if (this.show_code)
+            return this.code_item.need_input_evaler(input_name)
         // the first one that has it is good since all who has it have the same one (objref)
         return this.item_x.need_input_evaler(input_name) || this.item_y.need_input_evaler(input_name)
     }
     get_last_error() {
+        if (this.show_code)
+            return this.code_item.get_last_error()
         return this.item_x.get_last_error() || this.item_y.get_last_error()
     }
+
     gl_set_value(loc) {
         gl.uniform2f(loc, this.x, this.y)
     }

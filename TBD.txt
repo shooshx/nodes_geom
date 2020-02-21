@@ -23,6 +23,7 @@ ENGINE:
 - ParamSelect - can get value instead of sel_idx (in gradient spread)
 - https://jshint.com/
 - texture leaks?
+- !!!!!!!!! frame buffer transform??
 
 NODES:
 - frame buffer
@@ -49,6 +50,7 @@ NODES:
         add non-hole points?
     show arrows with on the lines to show its direction
 - SetAttr
+    - !!!!!!!! code for float, vec2, color
     pseudo attribute - face center (position) so that it will be possible to sample face color from the position attribute
     normals?
 - SetAttr fill from node 
