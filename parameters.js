@@ -718,7 +718,8 @@ class ExpressionItem {
     // is_single_value is false for things like vec2 that have multiple values in the same line
     add_editbox(line) {
         this.param_line = line
-        console.assert(this.e !== null && this.e !== undefined, "missing e, should not happen, you need to peval() after ctor") 
+        // this.e can be null if it stayed null from ctor and there was an error in peval
+        //console.assert(this.e !== null && this.e !== undefined, "missing e, should not happen, you need to peval() after ctor") 
 
         const str_change_callback = (se)=>{this.peval(se)}
         if (this.override_create_elem === null)
@@ -738,7 +739,7 @@ class ExpressionItem {
         return this.elem
     }
     set_to_const(v) {
-        this.e = null 
+        this.e = ExprParser.make_num_node(this.e, v)
         this.se = formatType(v, this.prop_type)
         this.need_inputs = null
         if (this.elem !== null)
@@ -747,7 +748,7 @@ class ExpressionItem {
     }
     dyn_eval() {
         this.eclear_error()
-        if (this.e === null)  
+        if (this.e === null)  // error in expr
             return this.get_prop()
         try {
             return this.e.eval() // the state_input was put there using the evaler before the call to here
@@ -1588,7 +1589,7 @@ class ListParam extends Parameter {
     }
 
     reprint_line(vidx, v) {
-        if (this.elem_lst !== null)
+        if (this.elem_lst === null)
             return // happens if the table is not visible (Gradient with function)
         let idx = vidx / this.values_per_entry
         let elem = this.elem_lst[idx]

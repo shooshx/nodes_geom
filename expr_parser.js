@@ -47,6 +47,16 @@ class NumNode  {
         return this.v;
     }
 }
+
+function make_num_node(old_node, v) {
+    if (old_node !== null && old_node.is_decimal_num !== undefined) {
+        old_node.v = v
+        return old_node
+    }
+    return new NumNode(v, true)
+}
+
+
 class VecNode {
     constructor(_v, type) {
         this.v = _v;
@@ -1004,7 +1014,7 @@ function eparse(expr, state_access, opt) {
 }
 
 
-return {parse:eparse}
+return {parse:eparse, make_num_node:make_num_node}
 })()
 
 

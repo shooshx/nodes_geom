@@ -143,11 +143,14 @@ function load_program(sprog)
 }
 
 var loading = false // used for avoiding spurious saves during load
+function set_loading(v) {
+    loading = v
+}
+
 function load_state() {
     let state_s = localStorage.getItem("state")
     if (state_s === null)
         return
-    loading = true
     //console.log("LOADING: " + state)
     let state = JSON.parse(state_s)
     main_view_state.load(state.main_view_s)
@@ -163,5 +166,4 @@ function load_state() {
     catch(e) {
         console.error("Failed loading current program" + e)
     }
-    loading = false
 }

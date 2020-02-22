@@ -1,3 +1,4 @@
+"use strict"
 
 function make_str_color(c) {
     return "rgba(" + c[0] + "," + c[1] + "," + c[2] + "," + (c[3]/255) + ")"
@@ -14,6 +15,12 @@ function svg_add_elem(parent, elem_type) {
 
 function rectEquals(a, b) {
     return a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h
+}
+
+function interp_point(pa, pb, t) {
+    let x = pa[0] * (1-t) + pb[0] * t
+    let y = pa[1] * (1-t) + pb[1] * t
+    return [x,y]
 }
 
 // number of points in the Node's list that are not stop points from the beginning of the index space
@@ -134,17 +141,11 @@ class Gradient extends PObject
         
     }
 
-    interp_point(pa, pb, t) {
-        let x = pa[0] * (1-t) + pb[0] * t
-        let y = pa[1] * (1-t) + pb[1] * t
-        return [x,y]
-    }
-
     transform(m) { mat3.multiply(this.t_mat, m, this.t_mat) }
 
     draw_line_points(pa, pb, line_color="#000") {
         let tpa = vec2.create(), tpb = vec2.create()
-        vec2.transformMat3(tpa, pa, this.t_mat)
+        vec2.transformMat3(tpa, pa, this.t_mat)  // needed for correct template
         vec2.transformMat3(tpb, pb, this.t_mat)
 
         let radius = MESH_DISP.vtx_radius / image_view.viewport_zoom
@@ -156,7 +157,7 @@ class Gradient extends PObject
         ctx_img.strokeStyle = line_color
         ctx_img.stroke()
         for(let s of this.stops) {
-            let [x,y] = this.interp_point(tpa, tpb, s.value)
+            let [x,y] = interp_point(tpa, tpb, s.value)
             if (s.value == 1)
                 did1 = true
             else if (s.value == 0)
@@ -181,7 +182,7 @@ class Gradient extends PObject
         }
     }    
 
-    // selected points on the line
+    // selected points on the line (highlights)
     draw_sel_points(selected_indices, pa, pb) {
         let radius = MESH_DISP.vtx_sel_radius/image_view.viewport_zoom
         ctx_img.beginPath();
@@ -195,8 +196,8 @@ class Gradient extends PObject
             else if (idx == 3)
                 var [x,y] = pb
             else 
-                var [x,y] = this.interp_point(pa, pb, this.stops[idx-NODE_POINT_LST_OFFSET].value)
-            
+                var [x,y] = interp_point(pa, pb, this.stops[idx-NODE_POINT_LST_OFFSET].value)
+            // no need to transorm with t_mat since this is done only on the gradient node where t_mat is ident
             ctx_img.moveTo(x + radius, y)
             ctx_img.arc(x, y, radius, 0, 2*Math.PI)
         }
@@ -774,7 +775,7 @@ class NodeGradient extends NodeCls
             else
                 this.points_adapter = new Radial_GradPointsAdapterParam(this.p1, this.r1, this.p2, this.r2, this.values, this)
             this.selected_indices.includes_shifted = function(v) { return this.includes(v + NODE_POINT_LST_OFFSET) } // used for yellow mark of the selected point
-            add_point_select_mixin(this, this.selected_indices, this.points_adapter)
+            add_point_select_mixin(this, this.selected_indices, this.points_adapter) // done here after the adapter is created
         })
         this.method = new ParamSelect(node, "Method", 0, ["Stops", "Function"], (sel_idx)=>{
             this.table.set_visible(sel_idx == 0)

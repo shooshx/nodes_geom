@@ -262,7 +262,7 @@ function add_point_select_mixin(node_cls, selected_indices, points_param) {
     
     node_cls.draw_selection = function(m) {
         let obj = this.out.get_const()
-        if (obj === null) //, "No output object to select") // might be it's not connected so it doesn't have output
+        if (obj === null) 
             return
         obj.draw_selection(m, selected_indices)
     }    
@@ -508,7 +508,7 @@ class NodeSetAttr extends NodeCls
             this.name_per_type.v[this.attr_type.sel_idx] = v
             this.name_per_type.modified()
         })
-        this.expr_color = new ParamColor(node, "Color", "#cccccc")
+        this.expr_color = new ParamColor(node, "Color", "rgb(204, 204, 204)")
         this.expr_float = new ParamFloat(node, "Float", 0)
         this.expr_vec2 = new ParamVec2(node, "Float2", 0, 0, true)
         this.expr_bool = new ParamFloat(node, "Select", "true")  

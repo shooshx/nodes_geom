@@ -1,3 +1,5 @@
+"use strict"
+
 const PATH_CLOSED = 1
 
 function get_flag(v, f) {
