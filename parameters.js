@@ -504,6 +504,38 @@ function is_default_slider_conf(sc) {
     return (sc.min === 0 && sc.max === 1 && sc.visible === false && sc.allowed === true)
 }
 
+class CustomContextMenu  // custom since it has it's own adders
+{
+    constructor() {
+        this.ctx_menu_elem = null // when the context menu is visible, otherwise null
+        this.ctx_menu_adders = [] // list of add_elem(parent) function to populate the context menu
+    }
+    add_to_context_menu(add_elems_func) {
+        this.ctx_menu_adders.push(add_elems_func)
+    }
+
+    add_context_menu(line) {
+        if (this.ctx_menu_adders.length === 0)
+            return
+        const dismiss_menu = ()=>{
+            if (this.ctx_menu_elem) {
+                this.ctx_menu_elem.parentNode.removeChild(this.ctx_menu_elem);   
+                this.ctx_menu_elem = null
+            }
+        }
+        const call_adders = (parent)=>{
+            for(let adder of this.ctx_menu_adders)
+                adder(parent, dismiss_menu)
+        }
+        myAddEventListener(line, "contextmenu", (e)=>{
+            this.ctx_menu_elem = open_context_menu([{cmake_elems: call_adders}], e.pageX, e.pageY, main_view, ()=>{ dismiss_menu() } )
+            e.preventDefault()
+        })
+        param_reg_for_dismiss(()=>{dismiss_menu()})          
+    }
+
+}
+
 // represents a single value (item in a single edit box) that can be an expression and everything it needs to do
 class ExpressionItem {
     constructor(in_param, prop_name, prop_type, set_prop=null, get_prop=null, slider_conf=null) {
@@ -525,8 +557,7 @@ class ExpressionItem {
 
         this.slider_conf = normalize_slider_conf(slider_conf)
         this.slider = null // object returned by add_param_slider (has funcs to control slider)
-        this.ctx_menu_elem = null // when the context menu is visible, otherwise null
-        this.ctx_menu_adders = [] // list of add_elem(parent) function to populate the context menu
+        this.ctx_menu = new CustomContextMenu()
         if (this.slider_conf.allowed) {
             this.add_slider_ctx_menu()
         }
@@ -624,10 +655,6 @@ class ExpressionItem {
         if (expr_score == EXPR_CONST) { // depends on anything?
             if (this.do_set_prop(this.e.eval()))
                 this.in_param.pset_dirty() 
-            if (this.e.is_decimal_num && this.e.is_decimal_num()) { // if we've just inputted a number without any expression, don't save the expression
-                this.e = null 
-                //this.se = null
-            }
             this.need_inputs = null
         }
         else {
@@ -639,29 +666,6 @@ class ExpressionItem {
         }        
     } 
 
-    add_to_context_menu(add_elems_func) {
-        this.ctx_menu_adders.push(add_elems_func)
-    }
-
-    show_context_menu(line) {
-        if (this.ctx_menu_adders.length === 0)
-            return
-        const dismiss_menu = ()=>{
-            if (this.ctx_menu_elem) {
-                this.ctx_menu_elem.parentNode.removeChild(this.ctx_menu_elem);   
-                this.ctx_menu_elem = null
-            }
-        }
-        const call_adders = (parent)=>{
-            for(let adder of this.ctx_menu_adders)
-                adder(parent, dismiss_menu)
-        }
-        myAddEventListener(line, "contextmenu", (e)=>{
-            this.ctx_menu_elem = open_context_menu([{cmake_elems: call_adders}], e.pageX, e.pageY, main_view, ()=>{ dismiss_menu() } )
-            e.preventDefault()
-        })
-        param_reg_for_dismiss(()=>{dismiss_menu()})          
-    }
 
     display_slider(is_first)  // on first display, always add the element if enabled
     {
@@ -707,27 +711,20 @@ class ExpressionItem {
             }
             toggle_en(this.slider_conf.visible)
         }
-        this.add_to_context_menu(enable_slider_checkbox)
+        this.ctx_menu.add_to_context_menu(enable_slider_checkbox)
         
     }
 
     // is_single_value is false for things like vec2 that have multiple values in the same line
     add_editbox(line) {
         this.param_line = line
-        let show_v, ed_type
-        if (this.e != null && this.e !== undefined) {
-            show_v = this.se; 
-            ed_type = ED_STR
-        } else {
-            show_v = this.get_prop(); 
-            ed_type = this.prop_type
-        }
+        console.assert(this.e !== null && this.e !== undefined, "missing e, should not happen, you need to peval() after ctor") 
 
         const str_change_callback = (se)=>{this.peval(se)}
         if (this.override_create_elem === null)
-            this.elem = add_param_edit(line, show_v, (ed_type == ED_FLOAT)?ED_FLOAT_OUT_ONLY:ed_type, str_change_callback)
+            this.elem = add_param_edit(line, this.se, ED_STR, str_change_callback)
         else
-            this.elem = this.override_create_elem(line, show_v, str_change_callback)
+            this.elem = this.override_create_elem(line, this.se, str_change_callback)
 
         if (this.last_error !== null) {
             this.elem.classList.toggle("param_input_error", true)
@@ -736,7 +733,7 @@ class ExpressionItem {
 
         if (this.slider_conf.allowed)
             this.display_slider(line, true)
-        this.show_context_menu(line)
+        this.ctx_menu.add_context_menu(line)
 
         return this.elem
     }
@@ -794,10 +791,12 @@ let CodeItemMixin = (superclass) => class extends superclass {
             return elem
         }
         this.code_item.parse_opt = PARSE_CODE
-        this.populate_ctx_menu(this.code_item)
+        this.populate_code_ctx_menu(this.code_item.ctx_menu)
         // initial code string, done even if code is not selected since this is the only place we can do this initialization
         this.code_item.peval("return " + start_v)  
 
+        this.code_line = null
+        this.single_line = null  // set in the subclass add_elems
         this.show_code_callback = null        
     }
 
@@ -809,6 +808,7 @@ let CodeItemMixin = (superclass) => class extends superclass {
     }
 
     save_code(r) {
+        delete r.show_code
         if (this.show_code)
             r.show_code = true // default false, don't add to save space
         this.code_item.save_to(r); 
@@ -836,7 +836,7 @@ let CodeItemMixin = (superclass) => class extends superclass {
     }
 
     
-    populate_ctx_menu(item) {
+    populate_code_ctx_menu(ctx_menu) {
         const add_code_checkbox = (parent, dismiss_func)=>{
             let chk_line = add_div(parent, 'prm_slider_ctx_line')
             let [ein,etext] = add_param_checkbox(chk_line, "Code", this.show_code, (v)=>{ 
@@ -844,7 +844,7 @@ let CodeItemMixin = (superclass) => class extends superclass {
                 dismiss_func()
             })            
         }
-        item.add_to_context_menu(add_code_checkbox)
+        ctx_menu.add_to_context_menu(add_code_checkbox)
     }
 };
 
@@ -855,7 +855,7 @@ class ParamBaseExpr extends CodeItemMixin(Parameter)
         super(node, label, conf)
         //this.v = start_v  // numerical value in case of const
         this.item = new ExpressionItem(this, "v", ed_type,  (v)=>{ if (!this.show_code) this.v = v }, null, conf)
-        this.populate_ctx_menu(this.item)
+        this.populate_code_ctx_menu(this.item.ctx_menu)
         this.single_line = null
         this.item.peval(start_v)  // if it's a param that can be either code or non-code, it's start_v should be a simgle expression
         
@@ -912,11 +912,7 @@ class ParamBaseExpr extends CodeItemMixin(Parameter)
 
 }
 
-class ParamColorExpr extends ParamBaseExpr {
-    constructor(node, label, start_v, conf=null) {
-        super(node, label, start_v, ED_COLOR_EXPR, conf)
-    }
-}
+
 class ParamFloat extends ParamBaseExpr {
     constructor(node, label, start_v, conf=null) {
         super(node, label, start_v, ED_FLOAT, conf)
@@ -947,15 +943,17 @@ class ParamVec2 extends CodeItemMixin(Parameter) {
         this.item_y = new ExpressionItem(this, "y", ED_FLOAT, (v)=>{ if (!this.show_code) this.y = v }, null, {allowed:false})
         this.dial = null
         this.single_line = null
+        this.item_x.peval_self()
+        this.item_y.peval_self()
 
-        this.populate_ctx_menu(this.item_x) // need to add only on one of them since it's added on the line
+        this.populate_code_ctx_menu(this.item_x.ctx_menu) // need to add only on one of them since it's added on the line
 
         const code_expr = new ExpressionItem(this, "-unused-", ED_VEC2,  
             (v)=>{ 
-                if (this.show_code) { 
-                    if (v === null) { this.x = null; this.y = null; } // happens when doing dynamic eval
-                    else { this.x = v[0]; this.y = v[1] }
-                }
+                if (!this.show_code) 
+                    return 
+                if (v === null) { this.x = null; this.y = null; } // happens when doing dynamic eval
+                else { this.x = v[0]; this.y = v[1] }
             }, 
             ()=>{ return [this.x,this.y] }, 
             {allowed:false})
@@ -1056,93 +1054,117 @@ class ParamVec2Int extends Parameter {
     }
 }
 
+function color_comp_clamp(v) {
+    return clamp(0, v, 255)
+}
+function make_rgb_str(c) {
+    const s = "(" + c.r + ", " + c.g + ", " + c.b
+    if (c.alpha === 1)
+        return "rgb" + s + ")"
+    return "rgba" + s + ", " + c.alpha + ")"
 
-class ParamColor extends Parameter {
-    constructor(node, label, start_c_str) {
-        super(node, label)
+}
+
+class ParamColor extends CodeItemMixin(Parameter) {
+    constructor(node, label, start_c_str, conf=null) {
+        super(node, label, conf)
         this.v = ColorPicker.parse_hex(start_c_str)
-        this.item_r = new ExpressionItem(this, "r", ED_INT, (v)=>{ this.v.r=(v === null)?v:(v & 0xff); this.items_to_picker()}, ()=>{return this.v.r})
-        this.item_g = new ExpressionItem(this, "g", ED_INT, (v)=>{ this.v.g=(v === null)?v:(v & 0xff); this.items_to_picker()}, ()=>{return this.v.g})
-        this.item_b = new ExpressionItem(this, "b", ED_INT, (v)=>{ this.v.b=(v === null)?v:(v & 0xff); this.items_to_picker()}, ()=>{return this.v.b})
-        this.item_alpha = new ExpressionItem(this, "alphai", ED_INT, (v)=>{
-            this.v.alphai=v & 0xff; 
-            this.v.alpha=(v==null)?null:((v&0xff)/255); 
-            this.items_to_picker()
-        }, ()=>{return this.v.alphai})
         this.picker = null
         this.picker_elem = null
+        this.picker_v = clone(this.v)  // basically the same as v, as if there's no code so that the picker state would be saved
+        this.picker_ctx_menu = new CustomContextMenu()
+        this.populate_code_ctx_menu(this.picker_ctx_menu)
+
+        const code_expr = new ExpressionItem(this, "-unused-", ED_COLOR_EXPR, 
+            (v)=>{
+                if (!this.show_code) 
+                    return
+                if (v === null) { 
+                    this.v.r = null; this.v.g = null; this.v.b = null; this.v.alpha = null; this.v.alphai = null 
+                }
+                else {
+                    this.v.r = color_comp_clamp(v[0])
+                    this.v.g = color_comp_clamp(v[1])
+                    this.v.b = color_comp_clamp(v[2])
+                    if (v.length === 3) { // expr result can be either vec3 or vec4
+                        this.v.alphai = 255
+                        this.v.alpha = 1
+                    }
+                    else {
+                        this.v.alphai = color_comp_clamp(v[3])
+                        this.v.alpha = this.v.alphai/255
+                    }
+                }
+            }, 
+            ()=>{ return vec4.fromValues(this.v.r, this.v.g, this.v.b, this.v.alphai) }, 
+            {allowed:false})
+        this.make_code_item(code_expr, start_c_str)
     }
-    items_to_picker() { //  if possible transfer the color from the items to the picker, otherwise, make an indication it's not possible
-        if (this.v.r !== null && this.v.g !== null && this.v.b !== null && this.v.alphai !== null) {
-            if (this.picker !== null) {
-                this.picker.set_color(this.v, false)
-                this.picker_elem.setAttribute("placeholder", "")
-                this.picker_elem.classList.toggle("param_color_from_input", false)
-            }
-        }
-        else {
-            if (this.picker_elem) {
-                this.picker_elem.classList.toggle("param_color_from_input", true)
-                this.picker_elem.value = ""
-                this.picker_elem.setAttribute("placeholder", "[from-input]")
-            }
-        }
+
+    non_code_peval_self() {
+        this.v = clone(this.picker_v)
+        this.pset_dirty()
     }
+
     save() { 
-        //return (this.v !== null) ? this.v.hex : null 
-        let r = {r:this.v.r, g:this.v.g, b:this.v.b, hex:this.v.hex, alpha:this.v.alpha, alphai:this.v.alphai }
-        this.item_r.save_to(r); this.item_g.save_to(r); this.item_b.save_to(r); this.item_alpha.save_to(r)
+        let r = this.picker_v
+        this.save_code(r)  // dirty it abit but it doesn't really matter
         return r 
     }
     load(v) { 
-        this.v = v 
-        this.item_r.load(v); this.item_g.load(v); this.item_b.load(v); this.item_alpha.load(v);
+        this.load_code(v)
+        this.picker_v = v // modify picker state, might not be the same as .v due to code
+        if (!this.show_code)
+            this.v = clone(this.picker_v)
     }
     add_elems(parent) {
-        this.line_elem = add_param_multiline(parent)
-        let line_picker = add_param_line(this.line_elem);
-        this.label_elem = add_param_label(line_picker, this.label)
-        let [v, elem, picker] = add_param_color(line_picker, this.v, 'param_input', (v)=>{ 
+        this.line_elem = add_param_multiline(parent, this)
+
+        this.single_line = add_param_line(this.line_elem);
+        elem_set_visible(this.single_line, !this.show_code)
+
+        this.label_elem = add_param_label(this.single_line, this.label)
+        let [iv, elem, picker] = add_param_color(this.single_line, this.picker_v, 'param_input', (v)=>{ 
             if (this.v !== null && this.v.hex == v.hex) 
                 return;
             if (v === null)
                 this.v = null
             else {
                 this.v = v.copy() // make a copy so that this.v will be different object than the internal object
-                // from color picker to items
-                this.item_r.set_to_const(this.v.r)
-                this.item_g.set_to_const(this.v.g)
-                this.item_b.set_to_const(this.v.b)
-                this.item_alpha.set_to_const(this.v.alphai)
             }
+            this.picker_v = clone(this.v)
             this.pset_dirty()
         })
-        this.v = v; this.picker_elem = elem; this.picker = picker
-        let line_r = add_param_line(this.line_elem); add_param_label(line_r, "Red", 'param_label_pre_indent')
-        this.item_r.add_editbox(line_r)
-        let line_g = add_param_line(this.line_elem); add_param_label(line_g, "Green", 'param_label_pre_indent')
-        this.item_g.add_editbox(line_g)
-        let line_b = add_param_line(this.line_elem); add_param_label(line_b, "Blue", 'param_label_pre_indent')
-        this.item_b.add_editbox(line_b)
-        let line_alpha = add_param_line(this.line_elem); add_param_label(line_alpha, "Alpha", 'param_label_pre_indent')
-        this.item_alpha.add_editbox(line_alpha)       
-        this.items_to_picker() 
+        this.v = iv; 
+        this.picker_elem = elem; 
+        this.picker = picker
+        this.picker_ctx_menu.add_context_menu(this.picker_elem)
+
+        this.add_code_elem()
     }
     dyn_eval() {        
-        const r = this.item_r.dyn_eval() & 0xff
-        const g = this.item_g.dyn_eval() & 0xff
-        const b = this.item_b.dyn_eval() & 0xff
-        const a = this.item_alpha.dyn_eval() & 0xff
-        return vec4.fromValues(r, g, b, a)
+        if (this.show_code) {
+            let v = this.code_item.dyn_eval()
+            v[0] = color_comp_clamp(v[0])
+            v[1] = color_comp_clamp(v[1])
+            v[2] = color_comp_clamp(v[2])            
+            if (v.length == 3)
+                v = vec4.fromValues(v[0], v[1], v[2], 255)
+            else
+                v[3] = color_comp_clamp(v[3])
+            return v
+        }
+        return vec4.fromValues(this.v.r, this.v.g, this.v.b, this.v.alphai) // constant
     }
     need_input_evaler(input_name) {
-        // the first one that has it is good since all who has it have the same one (objref)
-        return this.item_r.need_input_evaler(input_name) || this.item_g.need_input_evaler(input_name) ||
-               this.item_b.need_input_evaler(input_name) || this.item_alpha.need_input_evaler(input_name)
+        if (this.show_code)
+            return this.code_item.need_input_evaler(input_name)
+        return null
     }
     get_last_error() {
-        return this.item_r.get_last_error() || this.item_g.get_last_error() || 
-               this.item_b.get_last_error() || this.item_alpha.get_last_error()
+        if (this.show_code)
+            return this.code_item.get_last_error()
+        return null
     }       
 }
 

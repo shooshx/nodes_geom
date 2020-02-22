@@ -790,7 +790,7 @@ class NodeGradient extends NodeCls
         this.p2 = new ParamVec2(node, "Point 2", 0.5, 0)
         this.r2 = new ParamFloat(node, "Radius 2", 0.7)
         this.spread = new ParamSelect(node, "Spread", 0, ["Pad", "Reflect", "Repeat"])
-        this.func = new ParamColorExpr(node, "f(t)=", "rgb(255, 128, 0.0) + rgb(t, t, t)*255") // just a way to generate points TBD not actally float example: rgb(255,128,0)+rgb(t,t,t)*255
+        this.func = new ParamColor(node, "f(t)=", "rgb(255, 128, 0.0) + rgb(t, t, t)*255", {show_code:true}) // just a way to generate points example: rgb(255,128,0)+rgb(t,t,t)*255
         this.func_samples = new ParamInt(node, "Sample Num", 10, {min:1, max:30, visible:false})
         const presets_btn = new ParamImageSelectBtn(node, "Presets", GRADIENT_PRESETS, make_preset_img, (pr)=>{this.load_preset(pr)})
         this.add_stops_btn = new ParamBool(node, "Add stops", true, null)

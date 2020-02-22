@@ -24,6 +24,21 @@ ENGINE:
 - https://jshint.com/
 - texture leaks?
 - !!!!!!!!! frame buffer transform??
+    - or maybe func transform?
+    - explicit error
+- BUG: save is called as part of loading the page
+
+EXPRESSIONS
+- boolean comparisons operator ?: - better than if(,,) since false side is not evaluated
+- intellisense
+- vec2 normalize - context menu that makes 2 edit boxes into 1 edit box with vec2 expr
+    - scale to object space coordinate
+- ?? in any params view that can have expressions, add a custom user parameter that can be used with a slider
+    - and added to the object that carries it
+- expression in color in table (gradient)
+- op-eq operators: += *= etc
+- glsl added function
+
 
 NODES:
 - frame buffer
@@ -122,20 +137,10 @@ nodes the produce transform, invert it
 
 
 PAPER.JS
-- create objects without canvas?
-- internal represnentation
 - smooth, simplify
 - offset - https://github.com/luz-alphacode/paperjs-offset
 
-EXPRESSIONS
-- boolean comparisons operator ?:
-- intellisense
-- vec2 normalize - context menu that makes 2 edit boxes into 1 edit box with vec2 expr
-    - scale to object space coordinate
-- !! in any params view that can have expressions, add a custom user parameter that can be used with a slider
-    - and added to the object that carries it
-- unify ParamColor and ParamExprColor
-- expression in color in table
+
 
 NODE-VIEW
 - better lines the go up

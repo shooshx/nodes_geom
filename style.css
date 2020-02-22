@@ -71,6 +71,7 @@ input {
     color: #fff;
     line-height: 140%;
     white-space: nowrap;
+    z-index: 101; /* above color picker */
 }
 .ctx_menu_opt {  
     padding: 0 7px;
