@@ -1,7 +1,7 @@
 GUI:
 - parameter value change with drag and right button like in houdini
-- before running - do type checking
-- color picker with null
+- before running - do type checking to nodes in/out
+- color picker with null?
 - BUG: resize the window beyond the size of the nodes panel moves it
 - select *nodes* with Ctrl, rectangle (display params of multiple nodes at once?)
 - zoom nodes view
@@ -66,9 +66,7 @@ NODES:
         add non-hole points?
     show arrows with on the lines to show its direction
 - SetAttr
-    - !!!!!!!! code for float, vec2, color
     pseudo attribute - face center (position) so that it will be possible to sample face color from the position attribute
-    normals?
 - SetAttr fill from node 
    - transform fill along with the shape or not
    - fill vertices circles?
@@ -103,10 +101,8 @@ NODES:
     how to control parameters of the copies?
     for loop?
 - Gradient
-    function code
     in stroke,
-- !!!!!!! 2d color function
-    - vec3/4 function? direct color
+- 2d color function
     - time
     - mouse
 - Shader distance from path
@@ -127,7 +123,7 @@ NODES:
 - physicas
     - Box2D
     - 3D - https://schteppe.github.io/cannon.js/
-- SVG in WebGL
+- SVG in WebGL?
     - paths to triangles https://css-tricks.com/rendering-svg-paths-in-webgl/
 
 

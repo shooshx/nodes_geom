@@ -28,6 +28,9 @@ function clamp(a, v, b) {
 
 var ExprParser = (function() {
 
+const GLSL_TYPES = {[TYPE_NUM]:'float', [TYPE_VEC2]:'vec2', [TYPE_VEC3]:'vec3', [TYPE_VEC4]:'vec4'}
+
+
 class NumNode  {  
     constructor(_v, str_was_decimal) {
         eassert(_v !== null && _v !== undefined, "unexpected non-number value")
@@ -122,7 +125,7 @@ class BinaryOpNode {
             if (t1 == TYPE_NUM)
                 this.type = t2 // the vec (or float) type
             else if (t1 != t2)
-                throw TypeErr("can't handle different vec types")
+                throw new TypeErr("can't handle different vec types")
             else 
                 this.type = t1 // both same vec type
         }
@@ -412,6 +415,14 @@ function fit(v, oldmin, oldmax, newmin, newmax) {
     let nv = (v - oldmin)/(oldmax-oldmin)*(newmax-newmin) + newmin
     return nv;
 }
+function glsl_clamp(v, minv, maxv) {
+    if (v < minv) return minv;
+    if (v > maxv) return maxv;
+    return v;
+}
+function sqr(v) { return v*v }
+function degrees(v) { return v*180/Math.PI }
+function radians(v) { return v*Math.PI/180 }
 function fit01(v, nmin, nmax) { return fit(v, 0, 1, nmin, nmax) }
 function fit11(v, nmin, nmax) { return fit(v, -1, 1, nmin, nmax) }
 function ifelse(v, vt, vf) { return v?vt:vf }
@@ -433,16 +444,28 @@ const distance_lookup = {
 const func_defs = {
     'cos': new FuncDef(Math.cos, 1), 'sin': new FuncDef(Math.sin, 1), 'tan': new FuncDef(Math.tan, 1),
     'acos': new FuncDef(Math.acos, 1), 'asin': new FuncDef(Math.acos, 1), 'atan': new FuncDef(Math.atan, 1), 'atan2': new FuncDef(Math.atan2, 2),
-    'sqrt': new FuncDef(Math.sqrt, 1), 'distance': new FuncDef(distance_lookup, 2, FUNC_TYPE_LOOKUP),
+    'sqrt': new FuncDef(Math.sqrt, 1), 'sqr': new FuncDef(sqr, 1), 'distance': new FuncDef(distance_lookup, 2, FUNC_TYPE_LOOKUP),
     'log': new FuncDef(Math.log, 1), 'log10': new FuncDef(Math.log10, 1), 'log2': new FuncDef(Math.log2, 1),
     'round': new FuncDef(Math.round, 1), 'ceil': new FuncDef(Math.ceil, 1), 'floor': new FuncDef(Math.floor, 1), 'trunc': new FuncDef(Math.trunc, 1),
     'abs': new FuncDef(Math.abs, 1), 'sign': new FuncDef(Math.sign, 1),
-    'min': new FuncDef(Math.min, -2), 'max': new FuncDef(Math.min, -2), 'clamp': new FuncDef(clamp, 3), // negative meants atleast
+    'min': new FuncDef(Math.min, -2), 'max': new FuncDef(Math.min, -2), 'clamp': new FuncDef(glsl_clamp, 3), // negative meants atleast
     'rand': new FuncDef(myrand, 1),
     'fit': new FuncDef(fit, 5), 'fit01': new FuncDef(fit01, 3), 'fit11': new FuncDef(fit11, 3),
+    'degrees': new FuncDef(degrees, 1), 'radians': new FuncDef(radians, 1),
     'if': new FuncDef(ifelse, 3),
     'rgb': new FuncDef(rgb, 3, TYPE_VEC3), 'rgba': new FuncDef(rgba, 4, TYPE_VEC3),
     'vec2': new FuncDef(make_vec2, 2, TYPE_VEC2), 'vec3': new FuncDef(make_vec3, 3, TYPE_VEC3), 'vec4': new FuncDef(make_vec4, 4, TYPE_VEC4),
+}
+
+class AddGlslFunc {
+    constructor(s) { this.func_str = s }
+}
+
+const glsl_translate = {
+    'rgb': "vec3", "rgba": "vec4",
+    'sqr': new AddGlslFunc("$T sqr($T v) { return v*v; }"),
+    'log10': new AddGlslFunc("$T log10($T v) { return log(v)/log(10) }"),
+    'rand': null, 'fit': null, 'fit01': null, 'fit11': null, 'if': null
 }
 
 // given a function f that takes num and a list of vecs, apply f individually on the components of f
@@ -489,7 +512,7 @@ class FuncCallNode {
                 this.args_type = this.args[0].check_type()
                 for(let arg of this.args)
                     if (arg.check_type() !== this.args_type)
-                        throw TypeErr("function needs all arguments of the same type")
+                        throw new TypeErr("function needs all arguments of the same type")
                 if (def_t == FUNC_TYPE_LOOKUP)
                     ret_t = TYPE_NUM // assumed right now since its only distance
                 else
@@ -498,7 +521,7 @@ class FuncCallNode {
             else { // return value has a specific given type
                 for(let arg of this.args)
                     if (arg.check_type() !== TYPE_NUM) // assume this right now since it's only rgb,rgba
-                        throw TypeErr("function needs all arguments to be numbers")
+                        throw new TypeErr("function needs all arguments to be numbers")
             }
             this.type = ret_t
         }
@@ -506,9 +529,24 @@ class FuncCallNode {
     }
     to_glsl() {
         let slst = []
+        const tr = glsl_translate[this.funcname] 
+        let name = this.funcname
+        if (tr !== undefined) {
+            if (tr === null)
+                throw new ExprErr("Function not supported in GLSL: " + this.funcname)
+            if (typeof tr === 'string')
+                name = tr
+            else if (tr.constructor === AddGlslFunc) {
+                const gtype = GLSL_TYPES[this.type]
+                let text = tr.func_str.replace(/\$T/g, gtype) // assume there's only on type, that's the same as the func return type
+                const key = name + "|" + gtype
+                if (g_added_funcs[key] === undefined)
+                    g_added_funcs[key] = text
+            }
+        }
         for(let arg of this.args)
             slst.push(arg.to_glsl())
-        return this.funcname + '(' + slst.join(',') + ')'
+        return name + '(' + slst.join(',') + ')'
     }
 }
 
@@ -559,9 +597,9 @@ function parseIdentifier() {
     if (constants[sb] !== undefined)
         return new NumNode(constants[sb])
 
-    if (symbol_table_ !== null) {
+    if (g_symbol_table !== null) {
         const sps = sb.split('.')
-        const sn = symbol_table_[sps[0]]
+        const sn = g_symbol_table[sps[0]]
         if (sn !== undefined) {
             if (sps.length === 1) 
                 return sn
@@ -569,7 +607,7 @@ function parseIdentifier() {
         }    
     }
 
-    let e = state_access_.get_evaluator(sb)
+    let e = g_state_access.get_evaluator(sb)
     if (e === null) 
         throw new ExprErr("Unknown identifier " + sb + " at " + index_)
 
@@ -865,11 +903,11 @@ class AssignNameStmt {  // not a proper node (no eval, has side-effects)
         this.name = name
         this.expr = expr
         this.type = null
-        this.symbol = symbol_table_[name]
+        this.symbol = g_symbol_table[name]
         this.first_definition = false
         if (this.symbol === undefined) { // wasn't already there
             this.symbol = new SymbolNode(name)
-            symbol_table_[name] = this.symbol
+            g_symbol_table[name] = this.symbol
             this.first_definition = true
         }
         this.vNode = (this.type == TYPE_NUM) ? (new NumNode(null, false)) : (new VecNode(null, this.type))
@@ -896,8 +934,8 @@ class AssignNameStmt {  // not a proper node (no eval, has side-effects)
 }
 
 // maps name to SymbolNode with the value that resulted from the expression
-var symbol_table_ = null
-
+var g_symbol_table = null
+var g_added_funcs = null // map [name of func]_[arg type] to the func text
 
 class CodeNode {
     constructor(stmts, symbol_table) {
@@ -910,7 +948,7 @@ class CodeNode {
             sym.valueNode = null
         }
 
-        symbol_table_ = this.symbol_table
+        g_symbol_table = this.symbol_table
         let ret = null
         for(let stmt of this.stmts) {
             ret = stmt.invoke()
@@ -918,7 +956,7 @@ class CodeNode {
                 break
             }
         }
-        symbol_table_ = null
+        g_symbol_table = null
         return ret
     }
     check_type() {
@@ -932,13 +970,17 @@ class CodeNode {
         return ret
     }
     to_glsl(emit_ctx) {
+        g_added_funcs = {}
         for(let stmt of this.stmts) {
             let ret = stmt.sto_glsl()
             if (stmt.isReturn()) {
+                for(let ti in g_added_funcs)
+                    emit_ctx.add_funcs.push(g_added_funcs[ti])
                 return ret
             }
             emit_ctx.before_expr.push(ret)
         }
+        throw new ExprErr("No return?")
     }
 }
 
@@ -956,7 +998,7 @@ function skip_to_next_line() {
 function parseCode() {
     let lst = [], has_return = false
     let symbol_table = {}
-    symbol_table_ = symbol_table
+    g_symbol_table = symbol_table
     while(!isEnd()) {
         let e = parseStmt()
         if (e === null) {
@@ -967,7 +1009,7 @@ function parseCode() {
             has_return = true
         lst.push(e)
     }
-    symbol_table_ = null
+    g_symbol_table = null
     if (!has_return)
         throw new ExprErr("missing return statement")
     return new CodeNode(lst, symbol_table)
@@ -978,7 +1020,7 @@ var expr_ = null
 /// Current expression index, incremented whilst parsing
 var index_ = 0
 
-var state_access_ = null
+var g_state_access = null
 
 function eparse(expr, state_access, opt) {
     if (typeof expr != "string")
@@ -988,7 +1030,7 @@ function eparse(expr, state_access, opt) {
     index_ = 0;
     expr_ = expr;
     if (state_access) {
-        state_access_ = state_access
+        g_state_access = state_access
     }
     let result = null;
     try {
@@ -1008,7 +1050,7 @@ function eparse(expr, state_access, opt) {
         throw e;
     }
     finally {
-        state_access_ = null
+        g_state_access = null
     }
     return result;
 }

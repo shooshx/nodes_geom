@@ -21,6 +21,8 @@ in vec2 v_coord;
 out vec4 outColor;
 $MORE_DEFS$
 
+$FUNCS$
+
 void main() {
     $BEFORE_EXPR$
     float v = $EXPR$;
@@ -28,6 +30,7 @@ void main() {
 }
 `
 const NO_TEX_COL_RESULT = 'vec4(vec3(1.0, 0.5, 0.0) + vec3(v*2.0-1.0, v*2.0-1.0, v*2.0-1.0), 1.0)'
+
 
 /*   plasma
 x = coord.x*10
@@ -97,13 +100,17 @@ class NodeFuncFill extends NodeCls
         node.set_state_evaluators({"coord":  (m,s)=>{ return new GlslTextEvaluator(s, "v_coord", ['x','y']) }} ) 
 
         //this.time = new ParamProxy(node, this.shader_node.cls.uniform_by_name('time').param)
-        this.float_expr = new ParamFloat(node, "Expression", "coord.x", {show_code:true})
+        this.type = new ParamSelect(node, "Type", 0, ["Float to Gradient", "Direct Color"], (sel_idx)=>{
+            this.float_expr.set_visible(sel_idx === 0)
+            this.color_expr.set_visible(sel_idx === 1)
+        })
+        this.float_expr = new ParamFloat(node, "Float\nExpression", "coord.x", {show_code:true})
+        this.color_expr = new ParamColor(node, "Color\nExpression", ["#cccccc", "rgb(coord.x, coord.y, 1.0)"], {show_code:true})  // TBD make it an expression?
         this.grad_res = new ParamInt(node, "Resolution", 128, [8,128])
         this.grad_res.set_visible(false)  // starting state is invisible, if something is connected, show
         this.smooth = new ParamBool(node, "Smooth", false)
         this.smooth.set_visible(false)
 
-        //this.floatExpr = new ParamFloat(node, "Expression", "1+1")
 
         this.shader_node.cls.vtx_text.set_text(FUNC_VERT_SRC)
         //this.shader_node.cls.frag_text.set_text(NOISE_FRAG_SRC)
@@ -126,14 +133,28 @@ class NodeFuncFill extends NodeCls
         this.shader_node.cls.destructtor()
     }
     run() {
-        if ( this.float_expr.get_active_item().last_error !== null) {
-            assert(false, this, "Expression error")
+        let active_param, active_item
+        if (this.type.sel_idx === 0) {
+            active_param = this.float_expr
+            active_item = this.float_expr.get_active_item()
         }
-        let expr = this.float_expr.get_active_item().e, str
+        else {
+            active_param = this.color_expr
+            active_item = this.color_expr.code_item
+        }
+
         let emit_ctx = { before_expr:[], add_funcs:[] }
-        if (expr !== null) {
+        let str
+        if (active_param.show_code && active_item.e !== null) {
+            if ( active_item.last_error !== null) {
+                assert(false, this, "Expression error")
+            }
             try {
-                str = expr.to_glsl(emit_ctx)
+                str = active_item.e.to_glsl(emit_ctx)
+                if (active_item.e.check_type() === TYPE_VEC3) {
+                    str = "vec4(" + str + ", 1.0)"
+                }
+                // check type if vec3 add alpha
                 assert(str !== null, this, 'unexpected expression null')
             }
             catch(ex) {
@@ -141,21 +162,33 @@ class NodeFuncFill extends NodeCls
             }
         }
         else {  // it's a constant
-            str = this.float_expr.v 
-            if (Number.isInteger(str))
-                str += ".0"
+            if (this.type.sel_idx === 0) {
+                str = this.active_param.v 
+                if (Number.isInteger(str))
+                    str += ".0"
+            }
+            else {
+                str = "vec4(" + v.r + "," + v.g + "," + v.b + "," + v.alpha + ")"
+            }
         }
-
-        let frag_text = EXPR_FRAG_SRC.replace('$EXPR$', str).replace('$BEFORE_EXPR$', emit_ctx.before_expr.join('\n'))
 
         const grad = this.in_gradient.get_const()
-        if (grad !== null) {
-            assert(grad.make_gl_texture !== undefined, this, "in_gradient should be Gradient object or nothing")
-            frag_text = frag_text.replace('$MORE_DEFS$', 'uniform sampler2D uGradTex;').replace('$COL_RESULT$', "texture(uGradTex, vec2(v,0))")
+        let frag_text
+        if (this.type.sel_idx === 0)  // float to gradient
+        {
+            frag_text = EXPR_FRAG_SRC.replace('$EXPR$', str)
+            if (grad !== null) {
+                assert(grad.make_gl_texture !== undefined, this, "in_gradient should be Gradient object or nothing")
+                frag_text = frag_text.replace('$MORE_DEFS$', 'uniform sampler2D uGradTex;').replace('$COL_RESULT$', "texture(uGradTex, vec2(v,0))")
+            }
+            else {
+                frag_text = frag_text.replace('$MORE_DEFS$', '').replace('$COL_RESULT$', NO_TEX_COL_RESULT)
+            }
         }
-        else {
-            frag_text = frag_text.replace('$MORE_DEFS$', '').replace('$COL_RESULT$', NO_TEX_COL_RESULT)
+        else {   // direct color
+            frag_text = EXPR_FRAG_SRC.replace("$EXPR$", "0.0").replace("$COL_RESULT$", str).replace("$MORE_DEFS$", '')
         }
+        frag_text = frag_text.replace('$FUNCS$', emit_ctx.add_funcs.join('\n')).replace('$BEFORE_EXPR$', emit_ctx.before_expr.join('\n'))
 
         //console.log("TEXT: ", frag_text)
 

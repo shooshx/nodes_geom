@@ -1069,7 +1069,7 @@ function make_rgb_str(c) {
 class ParamColor extends CodeItemMixin(Parameter) {
     constructor(node, label, start_c_str, conf=null) {
         super(node, label, conf)
-        this.v = ColorPicker.parse_hex(start_c_str)
+        this.v = ColorPicker.parse_hex(start_c_str[0])
         this.picker = null
         this.picker_elem = null
         this.picker_v = clone(this.v)  // basically the same as v, as if there's no code so that the picker state would be saved
@@ -1099,7 +1099,7 @@ class ParamColor extends CodeItemMixin(Parameter) {
             }, 
             ()=>{ return vec4.fromValues(this.v.r, this.v.g, this.v.b, this.v.alphai) }, 
             {allowed:false})
-        this.make_code_item(code_expr, start_c_str)
+        this.make_code_item(code_expr, start_c_str[1])
     }
 
     non_code_peval_self() {
