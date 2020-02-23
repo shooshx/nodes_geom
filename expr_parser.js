@@ -28,8 +28,6 @@ function clamp(a, v, b) {
 
 var ExprParser = (function() {
 
-const GLSL_TYPES = {[TYPE_NUM]:'float', [TYPE_VEC2]:'vec2', [TYPE_VEC3]:'vec3', [TYPE_VEC4]:'vec4'}
-
 
 class NumNode  {  
     constructor(_v, str_was_decimal) {
@@ -537,7 +535,7 @@ class FuncCallNode {
             if (typeof tr === 'string')
                 name = tr
             else if (tr.constructor === AddGlslFunc) {
-                const gtype = GLSL_TYPES[this.type]
+                const gtype = TYPE_TO_STR[this.type]
                 let text = tr.func_str.replace(/\$T/g, gtype) // assume there's only on type, that's the same as the func return type
                 const key = name + "|" + gtype
                 if (g_added_funcs[key] === undefined)
@@ -863,19 +861,34 @@ function parseStmt() {
         return null 
     eatSpaces()
     let assign_type = null
-    if (name !== 'return') {
+    if (name !== 'return') 
+    {
+        assign_type = OPERATOR_NULL
         let c = getCharacter();
+        switch(c) {
+        case '+': assign_type = OPERATOR_ADDITION; break;
+        case '-': assign_type = OPERATOR_SUBTRACTION; break;
+        case '*': assign_type = OPERATOR_MULTIPLICATION; break;
+        case '/': assign_type = OPERATOR_DIVISION; break;
+        }
+        if (assign_type !== OPERATOR_NULL) {
+            index_++;
+            c = getCharacter();
+        }
         if (c !== '=')
             throw new ExprErr("expected assignment")
         index_++;
         eatSpaces()
-        assign_type = 1
     }
     const expr = parseExpr()
-    if (assign_type !== null) {
-        return new AssignNameStmt(name, expr)
+    if (assign_type === null) {
+        return new ReturnStmt(expr)
     }
-    return new ReturnStmt(expr)
+    if (assign_type === OPERATOR_NULL) {
+        return new AssignNameStmt(name, expr, null)
+    }
+    return new AssignNameStmt(name, expr, assign_type)
+    
 }
 
 class ReturnStmt {
@@ -897,36 +910,50 @@ class ReturnStmt {
 
 
 
+
 const TYPE_TO_STR = { [TYPE_NUM]:'float', [TYPE_VEC2]:'vec2', [TYPE_VEC3]:'vec3', [TYPE_VEC4]:'vec4' }
 class AssignNameStmt {  // not a proper node (no eval, has side-effects)
-    constructor(name, expr) {
+    constructor(name, expr, op) {
         this.name = name
         this.expr = expr
+        this.op = op
         this.type = null
         this.symbol = g_symbol_table[name]
+        this.vNode = null
         this.first_definition = false
         if (this.symbol === undefined) { // wasn't already there
-            this.symbol = new SymbolNode(name)
-            g_symbol_table[name] = this.symbol
-            this.first_definition = true
+            if (this.op === null) {
+                this.symbol = new SymbolNode(name)
+                g_symbol_table[name] = this.symbol
+                this.first_definition = true
+            }
+            else
+                throw new ExprErr("Unassigned symbol used: " + name)
         }
-        this.vNode = (this.type == TYPE_NUM) ? (new NumNode(null, false)) : (new VecNode(null, this.type))
     }
     isReturn() { return false }
     invoke() {
         const v = this.expr.eval()
-        this.vNode.v = v
+        if (this.op === null)
+            this.vNode.v = v
+        else
+            this.vNode.v = call_operator(this.symbol.valueNode.v, v, this.op)
         // valueNode in symbol is null as long as the symbol doesn't have a value
         this.symbol.valueNode = this.vNode
         return v
     }
     scheck_type() {
         this.type = this.expr.check_type()
+        // if there's op, this might or might not change the type
+        this.vNode = (this.type == TYPE_NUM) ? (new NumNode(NaN, false)) : (new VecNode(null, this.type))
         this.symbol.type = this.type
         return this.type
     }
     sto_glsl() {
-        let s = this.name + "=" + this.expr.to_glsl() + ";"
+        let s = this.name
+        if (this.op !== null)
+            s += ops[this.op].str
+        s += "=" + this.expr.to_glsl() + ";"
         if (this.first_definition)
             s = TYPE_TO_STR[this.type] + " " + s
         return s
