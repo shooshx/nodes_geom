@@ -526,6 +526,7 @@ async function do_frame_draw(do_run, clear_all)
 
 var nodes_classes = [
     //NodeTestDummy, 
+    NodeShader,
     NodeGeomPrimitive, 
     NodeManualGeom,
     NodeGradient,
@@ -544,7 +545,7 @@ var nodes_classes = [
     ShrinkFaces,
     NodeRoundCorners,
     NodeFuncFill,
-    NodeBoolOp
+    NodeBoolOp,
 ]
 var nodes_classes_by_name = {}
 for(let c of nodes_classes)

@@ -32,13 +32,10 @@ ENGINE:
 EXPRESSIONS
 - boolean comparisons operator ?: - better than if(,,) since false side is not evaluated
 - intellisense
-- vec2 normalize - context menu that makes 2 edit boxes into 1 edit box with vec2 expr
-    - scale to object space coordinate
 - ?? in any params view that can have expressions, add a custom user parameter that can be used with a slider
     - and added to the object that carries it
 - expression in color in table (gradient)
-- op-eq operators: += *= etc
-- glsl added function
+
 
 
 NODES:
@@ -68,7 +65,7 @@ NODES:
 - SetAttr
     pseudo attribute - face center (position) so that it will be possible to sample face color from the position attribute
 - SetAttr fill from node 
-   - transform fill along with the shape or not
+   - transform fill along with the shape (or not)
    - fill vertices circles?
 - transform invert
 - transform - fit one object to another? paper.js fitBounds
@@ -165,18 +162,7 @@ demo idea
 - http://paperjs.org/examples/
 - image effects http://iquilezles.org/www/articles/deform/deform.htm
 - plasma https://stuff.brm.sk/plasma/
-        float x = gl_FragCoord.x / (uResolution.y * 0.08);
-        float y = gl_FragCoord.y / (uResolution.y * 0.08);
-        float t = uTime;
-        
-        float da = distance(vec2(x + cos(t / 1110.0)*4.0,y), vec2(1.0, 2.1));
-        float db = distance(vec2(x,y), vec2(8.0 + 16.0*uMouse.x, 6.1 + 8.0*(1.0 - uMouse.y) ));
-        float dc = distance(vec2(x,y + cos(t / 998.0)*2.0), vec2(10.0, 3.1));
-        
-        float c1 = sin(da) + sin(x) * sin(t/1000.0);
-        float c2 = sin(db - t / 500.0)*1.0;
-        float c3 = cos(dc / 2.0) + sin(t/1000.0);
-        float c = (c1 + c2 + c3) / 3.0 - uColorSwitch / 3.0;
+
 
 
 https://two.js.org/examples/

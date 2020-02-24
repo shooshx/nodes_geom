@@ -465,16 +465,43 @@ input {
 }
 
 .dlg {
+    display: flex;
+    flex-direction: column;    
     position: fixed;
-    width: 600px;
     left: calc( 50% - 300px );
-    height: 600px;
     border-radius: 10px;
     background-color: #686868;
     border: solid #333 2px;
     box-sizing: border-box;
     top: 70px;
     z-index: 100;
+}
+.dlg_title {
+    padding: 2px 0 6px 7px;
+    height: 21px;
+    line-height: 21px; 
+    cursor: move;
+    overflow: hidden;
+    white-space: nowrap;
+    color: #fff;
+    background-color: #555;
+}
+.dlg_client {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    white-space: nowrap;
+    margin-top: 2px;
+    flex-grow: 1;
+}
+.dlg_buttons_group {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    margin: 5px 0 7px 0;
+}
+.dlg_button {
+    background-image: linear-gradient(to bottom, #989898, #848484);
 }
 .dlg_resize_rb {
     position: absolute;
@@ -522,6 +549,7 @@ input {
     height: calc( 100% - 10px - 21px);
     width: calc( 100% - 10px );
     background-color: #5a5a5a;
+    flex-grow: 1;
 }
 .panel_param_text_area {
     flex-grow: 1;
@@ -539,15 +567,7 @@ input {
     outline: none; /* don't show focus border */
     border: solid 1px #888;
 }
-.dlg_title {
-    margin: 0 0 0 7px;
-    height: 21px;
-    line-height: 21px; 
-    cursor: move;
-    overflow: hidden;
-    white-space: nowrap;
-    color: #fff;
-}
+
 .dlg_close_btn {
     position: absolute;
     right: 0;
@@ -562,9 +582,9 @@ input {
     background-image: url(img/red_ex.png)
 }
 .dlg_label {
-    margin-top: 10px;
     text-align: center;
     color: #fff;
+    margin: 0 10px 0 10px;
 }
 
 .top_menu {
@@ -586,9 +606,13 @@ input {
     left: 10px;
 }
 
-.dlg_save_as {
-    width: 230px;
-    height: 120px;
+.dlg_size_save_as {
+    /*width: 230px;
+    height: 120px;*/
+}
+.dlg_size_shader_edit {
+    width: 600px;
+    height: 600px;
 }
 .dlg_text_input {
     margin: 5px;

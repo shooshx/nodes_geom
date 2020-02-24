@@ -148,6 +148,7 @@ class NodesView extends ViewBase
     dismiss_popups() {
         nodes_dismiss_name_input()
         param_dismiss_popups()
+        dismiss_top_menus()
     }
 }
 
@@ -493,6 +494,8 @@ function create_dialog(parent, title, resizable, rect, visible_changed)
             visible_changed(rect.visible)
         repos()
     })
+    let client = add_div(dlg, "dlg_client")
+
     let set_visible = (v) => {
         rect.visible = v;
         repos()
@@ -516,6 +519,15 @@ function create_dialog(parent, title, resizable, rect, visible_changed)
     }
     repos()
 
+    let move_func = (dx, dy) => {
+        let curstyle = window.getComputedStyle(dlg)
+        rect.left = parseInt(curstyle.left) + dx
+        rect.top = parseInt(curstyle.top) + dy
+        repos()
+    }
+    add_move_handlers(title_line, move_func)
+
+
     if (resizable) {
         let r_resize = add_div(dlg, "dlg_resize_r")
         let l_resize = add_div(dlg, "dlg_resize_l")
@@ -524,19 +536,12 @@ function create_dialog(parent, title, resizable, rect, visible_changed)
         let rb_resize = add_div(dlg, "dlg_resize_rb")
         let lb_resize = add_div(dlg, "dlg_resize_lb")
 
-        let move_func = (dx, dy) => {
-            let curstyle = window.getComputedStyle(dlg)
-            rect.left = parseInt(curstyle.left) + dx
-            rect.top = parseInt(curstyle.top) + dy
-            repos()
-        }
         let resize_func =  (dx,dy) => {
             let curstyle = window.getComputedStyle(dlg)
             rect.width = parseInt(curstyle.width) + dx
             rect.height = parseInt(curstyle.height) + dy            
             repos()
         }
-        add_move_handlers(title_line, move_func)
         add_move_handlers(rb_resize, resize_func)
         add_move_handlers(lb_resize, (dx, dy)=>{resize_func(-dx,dy); move_func(dx,0)})
         add_move_handlers(r_resize, (dx, dy)=>{resize_func(dx, 0)})
@@ -544,7 +549,7 @@ function create_dialog(parent, title, resizable, rect, visible_changed)
         add_move_handlers(b_resize, (dx, dy)=>{resize_func(0, dy)})
     }
 
-    return {elem:dlg, rect:rect, set_visible:set_visible, set_title:set_title}
+    return {elem:dlg, client:client, rect:rect, set_visible:set_visible, set_title:set_title}
 }
 
 function add_move_handlers(grip, func) {
@@ -570,18 +575,25 @@ function add_move_handlers(grip, func) {
     });
 }
 
-function save_as(parent) {
+function input_dlg(parent, caption, text, func) {
     let rect = {visible:true}
     let close_action = ()=> { parent.removeChild(dlg.elem)}
-    let dlg = create_dialog(parent, "Save As...", false, rect, close_action)
-    dlg.elem.classList.add('dlg_save_as')
-    let label = add_div(dlg.elem, "dlg_label")
-    label.innerText = "Select a name to save as:"
-    let name_input = add_elem(dlg.elem, "input", "dlg_text_input")
+    let dlg = create_dialog(parent, caption, false, rect, close_action)
+    dlg.elem.classList.add("dlg_size_save_as")
+    let label = add_div(dlg.client, "dlg_label")
+    label.innerText = text
+    let name_input = add_elem(dlg.client, "input", "dlg_text_input")
     name_input.type = "text"
     name_input.spellcheck = false
-    add_push_btn(dlg.elem, "Save", ()=> {
-        let name = name_input.value
+    let buttons = add_div(dlg.client, "dlg_buttons_group")
+    const sb = add_push_btn(buttons, "Save", ()=>{ func(name_input.value) })
+    sb.classList.add("dlg_button")
+    const cb = add_push_btn(buttons, "Cancel", close_action)    
+    cb.classList.add("dlg_button")
+}
+
+function save_as(parent) {
+    input_dlg(parent, "Save As...", "Select a name to save as:", (name)=>{
         if (name.length == 0) {
             console.error("Can't save with empty name")
             return
@@ -594,28 +606,37 @@ function save_as(parent) {
         save_state()
         close_action()
     })
-    add_push_btn(dlg.elem, "Cancel", close_action)
 }
+
+function export_svg(parent) {
+
+}
+
+
+var open_top_menus = []
 
 function create_top_menu(parent) {
     let menu_btn = add_div(parent, ['top_menu', 'top_menu_file'])
     menu_btn.innerText = "File"
     let cs = window.getComputedStyle(menu_btn)
-    let open_menus = []
-    function dismiss_menus() {
-        for(let m of open_menus)
-            parent.removeChild(m)
-        open_menus.length = 0
-    }
+
     myAddEventListener(menu_btn, 'click', ()=> {
-        let opt = [{text:"Save As...", func:function() { save_as(parent) }}, {text:'-'}]
+        let opt = [{text:"Save As...", func:function() { save_as(parent) }},
+                   {text:"Export SVG...", func: ()=>{ export_svg(parent) }},
+                   {text:'-'}]
         for(let up_name in user_saved_programs) {
             let up = user_saved_programs[up_name]
             opt.push({text:up_name, func:function() { load_prog_json(up) }})
         }
-        let menu = open_context_menu(opt, parseInt(cs.left), menu_btn.offsetHeight, parent, ()=>{ dismiss_menus() } )
-        open_menus.push(menu)     
+        let menu = open_context_menu(opt, parseInt(cs.left), menu_btn.offsetHeight, parent, ()=>{ dismiss_top_menus() } )
+        open_top_menus.push(menu)     
     })
+}
+
+function dismiss_top_menus() {
+    for(let m of open_top_menus)
+        m.parentElement.removeChild(m)
+    open_top_menus.length = 0
 }
 
 

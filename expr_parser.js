@@ -389,10 +389,11 @@ function parseOp()
 }
 
 class FuncDef {
-    constructor(jsfunc, num_args, type=FUNC_TYPE_BY_COMPONENT) {
+    constructor(jsfunc, num_args, type=FUNC_TYPE_BY_COMPONENT, ret_type=null) {
         this.f = jsfunc
         this.num_args = num_args
         this.dtype = type
+        this.ret_type = ret_type // for FUNC_TYPE_LOOKUP - either a type or null to indicate it's the same as the input-arg type
     }
 }
 
@@ -437,12 +438,18 @@ const distance_lookup = {
 [TYPE_VEC3]: function(a,b) { return vec3.distance(a,b) },
 [TYPE_VEC4]: function(a,b) { return vec4.distance(a,b) },
 }
+const normalize_lookup = {
+[TYPE_NUM]:  function(v) { return 1 },
+[TYPE_VEC2]: function(v) { let x = vec2.create(); vec2.normalize(x,v); return x },
+[TYPE_VEC3]: function(v) { let x = vec3.create(); vec3.normalize(x,v); return x },
+[TYPE_VEC4]: function(v) { let x = vec3.create(); vec3.normalize(x,v); return x },
+}
 
 
 const func_defs = {
     'cos': new FuncDef(Math.cos, 1), 'sin': new FuncDef(Math.sin, 1), 'tan': new FuncDef(Math.tan, 1),
     'acos': new FuncDef(Math.acos, 1), 'asin': new FuncDef(Math.acos, 1), 'atan': new FuncDef(Math.atan, 1), 'atan2': new FuncDef(Math.atan2, 2),
-    'sqrt': new FuncDef(Math.sqrt, 1), 'sqr': new FuncDef(sqr, 1), 'distance': new FuncDef(distance_lookup, 2, FUNC_TYPE_LOOKUP),
+    'sqrt': new FuncDef(Math.sqrt, 1), 'sqr': new FuncDef(sqr, 1), 'distance': new FuncDef(distance_lookup, 2, FUNC_TYPE_LOOKUP, TYPE_NUM),
     'log': new FuncDef(Math.log, 1), 'log10': new FuncDef(Math.log10, 1), 'log2': new FuncDef(Math.log2, 1),
     'round': new FuncDef(Math.round, 1), 'ceil': new FuncDef(Math.ceil, 1), 'floor': new FuncDef(Math.floor, 1), 'trunc': new FuncDef(Math.trunc, 1),
     'abs': new FuncDef(Math.abs, 1), 'sign': new FuncDef(Math.sign, 1),
@@ -453,6 +460,7 @@ const func_defs = {
     'if': new FuncDef(ifelse, 3),
     'rgb': new FuncDef(rgb, 3, TYPE_VEC3), 'rgba': new FuncDef(rgba, 4, TYPE_VEC3),
     'vec2': new FuncDef(make_vec2, 2, TYPE_VEC2), 'vec3': new FuncDef(make_vec3, 3, TYPE_VEC3), 'vec4': new FuncDef(make_vec4, 4, TYPE_VEC4),
+    'normalize': new FuncDef(normalize_lookup, 1, FUNC_TYPE_LOOKUP, null)
 }
 
 class AddGlslFunc {
@@ -511,8 +519,12 @@ class FuncCallNode {
                 for(let arg of this.args)
                     if (arg.check_type() !== this.args_type)
                         throw new TypeErr("function needs all arguments of the same type")
-                if (def_t == FUNC_TYPE_LOOKUP)
-                    ret_t = TYPE_NUM // assumed right now since its only distance
+                if (def_t == FUNC_TYPE_LOOKUP) {
+                    if (this.def.ret_type === null)
+                        ret_t = this.args_type
+                    else
+                        ret_t = this.def.ret_type
+                }
                 else
                     ret_t = this.args_type
             }

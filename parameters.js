@@ -1846,7 +1846,7 @@ class ParamTextBlock extends Parameter
     constructor(node, label, change_func) {
         super(node, label)
         this.dlg = null
-        this.dlg_elem = null
+
         this.text_input = null
         this.dlg_rect = null
         this.text = ""
@@ -1869,10 +1869,11 @@ class ParamTextBlock extends Parameter
         this.line_elem = add_param_line(parent)
         this.label_elem = add_param_label(this.line_elem, this.label)
         this.dlg = create_dialog(parent, this.title(), true, this.dlg_rect, (visible)=>{ edit_btn.checked = visible })
-        this.dlg_elem = this.dlg.elem, this.dlg_rect = this.dlg.rect
+        this.dlg.elem.classList.add("dlg_size_shader_edit")
+        this.dlg_rect = this.dlg.rect
         let [edit_btn, edit_disp] = add_checkbox_btn(this.line_elem, "Edit...", this.dlg.rect.visible, this.dlg.set_visible)
 
-        this.text_input = add_elem(this.dlg_elem, "textarea", ["dlg_param_text_area","param_text_area"])
+        this.text_input = add_elem(this.dlg.client, "textarea", ["dlg_param_text_area","param_text_area"])
         this.text_input.spellcheck = false
         this.text_input.value = this.text
         myAddEventListener(this.text_input, "input", ()=>{ this.text = this.text_input.value; this.pset_dirty(); this.call_change() }) // TBD save and trigger draw after timeout
