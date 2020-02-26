@@ -403,7 +403,7 @@ class ObjSubscriptEvaluator {
     }    
 }
 
-const VAL_INDICES = { r:0, g:1, b:2, alpha:3, x:0, y:1, z:2, w:3, index:-1 } // TBD add HSV 
+const VAL_INDICES = { r:0, g:1, b:2, alpha:3, x:0, y:1, z:2, w:3 } // TBD add HSV 
 class MeshPropEvaluator {
     constructor(meshref, subscripts, param_bind_to) {
         console.assert(meshref !== undefined  && meshref !== null)
@@ -429,24 +429,29 @@ class MeshPropEvaluator {
 
     eval() {
         eassert(this.meshref.idx !== null, "unexpected null object")
-        if (this.valindex == -1)
-            return this.meshref.idx        
-        if (this.attr === null || this.last_obj_ver != this.meshref.dirty_obj_ver) {
-            eassert(this.meshref.obj !== null, "unexpected null object")
-            if (this.param_bind_to.sel_idx == 0) // vertices  TBD this is not invalidated if bind_to changes
-                eassert(this.attrname.startsWith("vtx_"), "bind to Vertices can only sample vertex attribute")
-            else if (this.param_bind_to.sel_idx == 1) // faces
-                eassert(this.attrname.startsWith("face_"), "bind to Faces can only sample face attribute")
-            let attr = this.meshref.obj.arrs[this.attrname]
-            eassert(attr !== undefined, "unknown attribute " + this.attrname + " of object")
-            this.num_elems = this.meshref.obj.meta[this.attrname].num_elems
-            if (this.num_elems == 1)
-                eassert(this.valname === null, "unexpected additional subscript to value")
-            else 
-                eassert(this.valname !== null, "missing addtitional subscript to select a value")
-            this.attr = attr
+        if (this.attr === null || this.last_obj_ver != this.meshref.dirty_obj_ver) 
+        {
+            if (this.valindex !== -1) { 
+                eassert(this.meshref.obj !== null, "unexpected null object")
+                if (this.param_bind_to.sel_idx == 0) // vertices  TBD this is not invalidated if bind_to changes
+                    eassert(this.attrname.startsWith("vtx_"), "bind to Vertices can only sample vertex attribute")
+                else if (this.param_bind_to.sel_idx == 1) // faces
+                    eassert(this.attrname.startsWith("face_"), "bind to Faces can only sample face attribute")
+                let attr = this.meshref.obj.arrs[this.attrname]
+                eassert(attr !== undefined, "unknown attribute " + this.attrname + " of object")
+           
+                this.num_elems = this.meshref.obj.meta[this.attrname].num_elems
+                if (this.num_elems == 1)
+                    eassert(this.valname === null, "unexpected additional subscript to value")
+                else 
+                    eassert(this.valname !== null, "missing addtitional subscript to select a value")
+                this.attr = attr
+            }
             this.last_obj_ver = this.meshref.dirty_obj_ver // incrememnted when the object changes so we need to retake its array
         }
+        if (this.valindex === -1)
+            return this.meshref.idx        
+
         return this.attr[this.meshref.idx * this.num_elems + this.valindex]
     }
     check_type() {
@@ -461,7 +466,7 @@ class MeshPropEvaluator {
 //  abs(in_obj.vtx_pos.x)*20
 //  in_src.r
 //  center of faces is sampled only when sampling color
-//  rand(in_obj.vtx_pos.index)
+//  rand(in_obj.index)  - works for vertices and faces
 // with "Image Fill" the attr_name needs to be "fill"
 class NodeSetAttr extends NodeCls
 {
@@ -477,22 +482,26 @@ class NodeSetAttr extends NodeCls
                                    "in_obj": (m,s)=>{ return new MeshPropEvaluator(m,s, this.bind_to) }})
 
         // should be above attr_name that sets it                                    
-        this.name_per_type = new ParamObjStore(node, "npt", { 0:"color", 1:"radius", 2:"normal", 3:"fill" })
+        this.name_per_type = new ParamObjStore(node, "npt", { 0:"color", 1:"radius", 2:"normal", 3:"fill", 4:"[none]" })
 
         //this.use_code = new ParamBool(node, "Use Code", false, (v)=>{})
         this.bind_to = new ParamSelect(node, "Bind To", 0, ["Vertices", "Faces"]) // TBD also lines?
         // needs to be before attr_name since otherwise the loaded name goes to the initial type (color)
 
-        this.attr_type = new ParamSelect(node, "Type", 0, ["Color", "Float", "Float2", "Image Fill"], (sel_idx)=>{
+        this.attr_type = new ParamSelect(node, "Type", 0, ["Color", "Float", "Float2", "Image Fill", "Transform"], (sel_idx)=>{
             const type_idx = this.attr_type.sel_idx
             this.expr_color.set_visible(type_idx == 0)
             this.expr_float.set_visible(type_idx == 1)
             this.expr_vec2.set_visible(type_idx == 2)
             this.expr_bool.set_visible(type_idx == 3)
+            this.expr_transform.set_visible(type_idx == 4)
+            this.attr_name.set_enable(type_idx !== 4) // transform doesn't have a property name
 
             const prm = this.param_of_index[type_idx]
             if (prm.show_code !== undefined) // update show code checkbox according to the type
                 this.edit_code.set_to_const(prm.show_code)
+            else
+                this.edit_code.set_to_const(false)
 
             this.attr_name.modify(this.name_per_type.v[sel_idx])
         })
@@ -512,8 +521,9 @@ class NodeSetAttr extends NodeCls
         this.expr_float = new ParamFloat(node, "Float", 0)
         this.expr_vec2 = new ParamVec2(node, "Float2", 0, 0, true)
         this.expr_bool = new ParamFloat(node, "Select", "true")  
+        this.expr_transform = new ParamTransform(node, "Transform")
 
-        this.param_of_index = [this.expr_color, this.expr_float, this.expr_vec2, this.expr_bool]
+        this.param_of_index = [this.expr_color, this.expr_float, this.expr_vec2, this.expr_bool, this.expr_transform]
 
         // connect callback from context menu to the bool param
         const show_code_callback = (v)=>{this.edit_code.set_to_const(v) }
@@ -523,7 +533,7 @@ class NodeSetAttr extends NodeCls
         }
     }
 
-    prop_from_const(prop, src, mutate_value) {
+    prop_from_const(mesh, prop, src, mutate_assign) {
         if (this.attr_type.sel_idx == 0) {
             let col = src.v
             for(let i = 0; i < prop.length; i += prop.elem_sz) {
@@ -542,31 +552,30 @@ class NodeSetAttr extends NodeCls
                 prop[i+1] = src.y
             }
         }
-        else if (this.attr_type.sel_idx == 3) {
-            prop.fill(mutate_value(undefined, src.v))
+        else if (this.attr_type.sel_idx == 3) { // fill
+            let dummy = []
+            mutate_assign(dummy, 0, src.v)
+            if (src.v !== 0)
+                prop.fill(dummy[0])
+        }
+        else if (this.attr_type.sel_idx == 4) { // transform
+            mesh.transform(src.v)
         }
         else
             assert(false, this, "unknown attr")
     }
 
-    prop_from_mesh_attr(prop, value_need_mesh, src_param, mutate_value) 
+    prop_from_mesh_attr(prop, value_need_mesh, src_param, mutate_assign) 
     {
-        const single_elem = (prop.elem_sz === 1)
         for(let i = 0, pi = 0; pi < prop.length; ++i, pi += prop.elem_sz) 
         {
             value_need_mesh.dyn_set_prop_index(i)
-            let v = src_param.dyn_eval()
-            if (single_elem)
-                prop[pi] = v
-            else {                
-                for(let si = 0; si < prop.elem_sz; ++si) {
-                    prop[pi+si] = mutate_value(prop[pi+si], v[si])
-                }
-            }
+            let vc = src_param.dyn_eval()
+            mutate_assign(prop, pi, vc)
         }
     }
 
-    prop_from_input_framebuffer(prop, mesh, src, value_need_src, value_need_mesh, src_param, transform, mutate_value) 
+    prop_from_input_framebuffer(prop, mesh, src, value_need_src, value_need_mesh, src_param, transform, mutate_assign) 
     {
         mesh.ensure_tcache(transform)
         let vtx = mesh.tcache.vtx_pos
@@ -584,7 +593,6 @@ class NodeSetAttr extends NodeCls
         let vtxi = 0, idxi = 0
         let expr_input = { r:0, g:0, b:0, alpha:0 }
         value_need_src.dyn_set_obj(expr_input)
-        const single_elem = (prop.elem_sz === 1)
 
         for(let i = 0, pi = 0; pi < prop.length; ++i, pi += prop.elem_sz) 
         {
@@ -621,13 +629,7 @@ class NodeSetAttr extends NodeCls
             }
 
             const vc = src_param.dyn_eval()
-            if (single_elem)
-                prop[pi] = vc
-            else {
-                for(let si = 0; si < prop.elem_sz; ++si) {
-                    prop[pi+si] = mutate_value(prop[pi+si], vc[si])
-                }
-            }
+            mutate_assign(prop, pi, vc)
         }
     }
 
@@ -658,22 +660,35 @@ class NodeSetAttr extends NodeCls
         }
         attr_name += this.attr_name.v
 
-        let prop, src_param
-        let mutate_value = (prevv, newv)=>{return newv} // optional transformation on the value that comes from the expression
+        let prop = null, src_param = null
+        //let mutate_value = (prevv, newv)=>{return newv} // optional transformation on the value that comes from the expression
+        let mutate_assign = null
+
         if (this.attr_type.sel_idx == 0) { // color
             prop = new TColorArr(elem_num * 4)
             prop.elem_sz = 4
             src_param = this.expr_color
+            mutate_assign = (prop, pi, vc)=>{
+                for(let si = 0; si < 4; ++si)
+                    prop[pi+si] = vc[si]
+            }
         }
         else if (this.attr_type.sel_idx == 1) { // float
             prop = new Float32Array(elem_num * 1)
             prop.elem_sz = 1
             src_param = this.expr_float
+            mutate_assign = (prop, pi, vc)=>{
+                prop[pi] = vc
+            }            
         }
         else if (this.attr_type.sel_idx == 2) { // float2
             prop = new Float32Array(elem_num * 2)
             prop.elem_sz = 2
             src_param = this.expr_vec2
+            mutate_assign = (prop, pi, vc)=>{
+                prop[pi] = vc[0]
+                prop[pi+1] = vc[1]
+            }            
         }
         else if (this.attr_type.sel_idx == 3) { // image-fill
             // TBD warning that the attr name to should be "fill"
@@ -687,7 +702,25 @@ class NodeSetAttr extends NodeCls
             prop.elem_sz = 1
             src_param = this.expr_bool
             let id = this.set_image_fill(attr_name, elem_num)
-            mutate_value = (prevv, newv)=>{ return (newv == 0)?prevv:id }
+            // don't change what's there if we're setting 0
+            mutate_assign = (prop, pi, vc)=>{
+                if (vc !== 0) // vc is 1 or 0 - put the new one or not
+                    prop[pi] = id
+            }
+        }
+        else if (this.attr_type.sel_idx == 4) { // transform
+            src_param = this.expr_transform;
+            if (this.bind_to.sel_idx == 0) { 
+                prop = { length: mesh.arrs.vtx_pos.length, elem_sz: 2, is_dummy: true, out_mesh:null }
+                mutate_assign = (prop, pi, m)=>{
+                    let x = mesh.arrs.vtx_pos[pi], y = mesh.arrs.vtx_pos[pi+1]
+                    prop.out_mesh.arrs.vtx_pos[pi]   = m[0] * x + m[3] * y + m[6];
+                    prop.out_mesh.arrs.vtx_pos[pi+1] = m[1] * x + m[4] * y + m[7];                  
+                }
+            }
+            else {
+                assert(false, this, "unknown type")    
+            }
         }
         else {
             assert(false, this, "unknown type")
@@ -712,18 +745,20 @@ class NodeSetAttr extends NodeCls
 
 
         // commiting to work
-        mesh = this.in_mesh.get_mutable()    
+        const out_mesh = this.in_mesh.get_mutable()
+        if (prop.out_mesh !== undefined)
+            prop.out_mesh = out_mesh
 
         try {
             if (!need_inputs) { // from const
-                this.prop_from_const(prop, src_param, mutate_value)
+                this.prop_from_const(out_mesh, prop, src_param, mutate_assign)
             }
             else if (value_need_src !== null) { // from img input
                 let transform = src.get_transform_to_pixels()
-                this.prop_from_input_framebuffer(prop, mesh, src, value_need_src, value_need_mesh, src_param, transform, mutate_value)
+                this.prop_from_input_framebuffer(prop, out_mesh, src, value_need_src, value_need_mesh, src_param, transform, mutate_assign)
             }
             else if (value_need_mesh !== null) {
-                this.prop_from_mesh_attr(prop, value_need_mesh, src_param, mutate_value)
+                this.prop_from_mesh_attr(prop, value_need_mesh, src_param, mutate_assign)
             }
         }
         catch(e) {
@@ -733,8 +768,9 @@ class NodeSetAttr extends NodeCls
                 throw e
         }
 
-        mesh.set(attr_name, prop, prop.elem_sz, true)
-        this.out_mesh.set(mesh)
+        if (!prop.is_dummy) // not transform
+            out_mesh.set(attr_name, prop, prop.elem_sz, true)
+        this.out_mesh.set(out_mesh)
     }
 
     set_image_fill() {

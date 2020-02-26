@@ -586,7 +586,7 @@ function input_dlg(parent, caption, text, func) {
     name_input.type = "text"
     name_input.spellcheck = false
     let buttons = add_div(dlg.client, "dlg_buttons_group")
-    const sb = add_push_btn(buttons, "Save", ()=>{ func(name_input.value) })
+    const sb = add_push_btn(buttons, "Save", ()=>{ func(name_input.value); close_action(); })
     sb.classList.add("dlg_button")
     const cb = add_push_btn(buttons, "Cancel", close_action)    
     cb.classList.add("dlg_button")
@@ -604,7 +604,6 @@ function save_as(parent) {
         }
         user_saved_programs[name] = save_program_json()
         save_state()
-        close_action()
     })
 }
 

@@ -35,7 +35,7 @@ EXPRESSIONS
 - ?? in any params view that can have expressions, add a custom user parameter that can be used with a slider
     - and added to the object that carries it
 - expression in color in table (gradient)
-
+- transform with code
 
 
 NODES:
@@ -65,8 +65,10 @@ NODES:
 - SetAttr
     pseudo attribute - face center (position) so that it will be possible to sample face color from the position attribute
 - SetAttr fill from node 
-   - transform fill along with the shape (or not)
+   - transform fill along with the shape (or not according to a checkbox)
+      - need a shader to avoid many many renderings
    - fill vertices circles?
+   - different transform per polyline/vertex depeding on expression
 - transform invert
 - transform - fit one object to another? paper.js fitBounds
 - interactive
@@ -74,6 +76,7 @@ NODES:
 - Group objects
     display checkboxes (accumulate from connections?)
 - GLSL node
+    - !!!!!! pixel buffer ratio according to resolution ratio (with checkbox - square pixels)
     https://ace.c9.io/#nav=embedding
     https://codemirror.net/
     https://stackoverflow.com/questions/27531860/how-to-highlight-a-certain-line-in-ace-editor

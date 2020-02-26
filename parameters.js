@@ -26,7 +26,7 @@ class Parameter
             return
         this.enable = v
         if (this.line_elem !== null)
-            elem_set_visible(this.line_elem, this.enable)
+            elem_set_enable(this.line_elem, this.enable)
     }
     set_visible(v) {
         if (this.visible == v)
@@ -38,7 +38,7 @@ class Parameter
     init_enable_visible() {
         if (this.line_elem !== null) {
             if (!this.enable)
-                this.line_elem.classList.toggle("param_disabled", true)
+                elem_set_enable(this.line_elem, false) 
             if (!this.visible)
                 elem_set_visible(this.line_elem, false)
         }
@@ -96,6 +96,9 @@ function fix_label_lengths(parameters) {
 
 function elem_set_visible(e, v) {
     e.classList.toggle("param_invisible", !v)
+}
+function elem_set_enable(e, v) {
+    e.classList.toggle("param_disabled", !v)
 }
 
 function clear_elem_byid(id) {
@@ -1199,6 +1202,8 @@ class ParamTransform extends Parameter {
         this.item_pvy = new ExpressionItem(this, "pvy", ED_FLOAT, (v)=>{let dy = parseFloat(v)-this.rotate_pivot[1]; this.calc_pivot_counter(0, dy) }, ()=>{ return this.rotate_pivot[1]}, sld_conf)
         this.item_sx = new ExpressionItem(this, "sx", ED_FLOAT, (v)=>{this.scale[0] = v; this.calc_mat()}, ()=>{ return this.scale[0]}, sld_conf)
         this.item_sy = new ExpressionItem(this, "sy", ED_FLOAT, (v)=>{this.scale[1] = v; this.calc_mat()}, ()=>{ return this.scale[1]}, sld_conf)
+
+        this.items = [this.item_tx, this.item_ty, this.item_r, this.item_pvx, this.item_pvy, this.item_sx, this.item_sy]
     }
     save() { 
         let r = {} 
@@ -1296,6 +1301,37 @@ class ParamTransform extends Parameter {
         this.dial.set_center(center[0], center[1])
         this.dial.draw()
     }
+
+    dyn_eval() {
+        let m = mat3.create(), v = vec2.create()
+        mat3.identity(m)
+        v[0] = this.item_tx.dyn_eval(); v[1] = this.item_ty.dyn_eval()
+        mat3.translate(m, m, v)
+          v[0] = this.item_pvx.dyn_eval(); v[1] = this.item_pvy.dyn_eval()
+          mat3.translate(m, m, v)
+        mat3.rotate(m, m, glm.toRadian(this.item_r.dyn_eval()))
+          v[0] = -v[0]; v[1] = -v[1]  
+          mat3.translate(m, m, v)
+        v[0] = this.item_sx.dyn_eval(); v[1] = this.item_sy.dyn_eval()   
+        mat3.scale(m, m, v)
+        return m
+    }
+    need_input_evaler(input_name) {
+        for(let item of this.items) {
+            const ev = item.need_input_evaler(input_name)
+            if (ev)
+                return ev
+        }
+        return null
+    }
+    get_last_error() {
+        for(let item of this.items) {
+            const er = item.get_last_error()
+            if (er)
+                return er
+        }
+        return null
+    }    
 }
 
 class PointDial {
