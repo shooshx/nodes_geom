@@ -77,7 +77,7 @@ class Mesh extends PObject
                              // it's the nodes responsibility that there would not be left objects that are not needed
                              // first entry is null so ids start with 1. 0 is reserved to nothing
         this.paper_obj = null
-
+        this.effective_vtx_pos = null // if there is vtx_transform/face_transform, this is already transformed vertices, otherwise just equal to vtx_pos
     }
     destructor() {
         for(let bi in this.glbufs) {
@@ -102,12 +102,20 @@ class Mesh extends PObject
         if (this.meta.vtx_pos !== null)
             this.meta.vtx_pos.made_glbuf = false
         this.paths = null
+        this.make_effective_vtx_pos()
         this.invalidate_fill()
     }
     invalidate_fill() {
         for(let fo of this.fill_objs)
             if (fo !== null)
                 fo.clip_path = null
+    }
+
+    make_effective_vtx_pos() {
+        if (this.arrs.vtx_transform !== undefined) 
+            this.transform_per_vtx()
+        else
+            this.effective_vtx_pos = this.arrs.vtx_pos
     }
 
     set(name, arr, num_elems, need_normalize) {
@@ -117,12 +125,12 @@ class Mesh extends PObject
                             num_elems: num_elems || 1, // count of numbers for each element. will be undefined for indices
                             need_normalize: need_normalize || false // true for color that needs to go from int to float [0,1]
                            }
-        if (name == "vtx_pos") {
+        if (name == "vtx_pos") 
             this.invalidate_pos()
-        }
-        if (name == "face_fill") {
+        if (name == "vtx_transform" || name == "face_transform")
+            this.make_effective_vtx_pos()
+        if (name == "face_fill") 
             this.invalidate_fill()
-        }
     }
 
     set_type(v) { 
@@ -167,9 +175,26 @@ class Mesh extends PObject
         this.invalidate_pos()
     }
 
+    transform_per_vtx() 
+    {
+        const vtx_new = this.effective_vtx_pos, vtx_pos = this.arrs.vtx_pos, vtx_transform = this.arrs.vtx_transform
+        dassert(vtx_transform.length / 6 === vtx_pos.length / 2, "unexpect length of vtx_transform")
+
+        if (this.effective_vtx_pos === null || this.effective_vtx_pos.length != vtx_pos.length)
+            this.effective_vtx_pos = new TVtxArr(vtx_pos.length)
+
+        for(let vi = 0, ti = 0; vi < vtx_new.length; vi += 2, ti += 6) {
+            let x = vtx_pos[vi], y = vtx_pos[vi+1]
+            vtx_new[vi]   = vtx_transform[ti] * x + vtx_transform[ti+2] * y + vtx_transform[ti+4];
+            vtx_new[vi+1] = vtx_transform[ti+1] * x + vtx_transform[ti+3] * y + vtx_transform[ti+5];                  
+        }
+        return vtx_new
+    }
+
+
     // API
     get_bbox() { // TBD can cache this
-        let vtx = this.arrs.vtx_pos
+        let vtx = this.effective_vtx_pos
         if (vtx.length == 0)
             return null
         let min_x = Number.MAX_VALUE, max_x = -Number.MAX_VALUE, min_y = Number.MAX_VALUE, max_y = -Number.MAX_VALUE
@@ -204,7 +229,7 @@ class Mesh extends PObject
 
     draw_vertices(lines_color="#000", do_fill=true) 
     {
-        let vtx = this.arrs.vtx_pos
+        let vtx = this.effective_vtx_pos
         if (vtx === null)
             return
         let vtx_radius = null
@@ -262,7 +287,8 @@ class Mesh extends PObject
         }
         if (this.paths !== null && this.paths.length*this.face_size() == this.arrs.idx.length) 
             return
-        let vtx = this.arrs.vtx_pos
+        let vtx = this.effective_vtx_pos
+
         let idxs = this.arrs.idx    
         this.paths = []
         let i = 0
@@ -318,7 +344,7 @@ class Mesh extends PObject
     }
 
     make_clip_path(face_fill, foi) {
-        let vtx = this.arrs.vtx_pos
+        let vtx = this.effective_vtx_pos
         let idxs = this.arrs.idx        
         let p = new Path2D(), idx
         if (this.type == MESH_QUAD) {
@@ -377,14 +403,14 @@ class Mesh extends PObject
     ensure_tcache(m) {  // used for gl_draw and setattr node transform
         let do_trans = false
         if (this.tcache.vtx_pos === null) {
-            this.tcache.vtx_pos = new Float32Array(this.arrs.vtx_pos)
+            this.tcache.vtx_pos = new Float32Array(this.arrs.vtx_pos.length)
             do_trans = true
         }
         else if (this.tcache.m === null || !mat3.equals(m, this.tcache.m)) {
             do_trans = true
         }
         if (do_trans) {
-            Mesh.transform_arr(m, this.arrs.vtx_pos, this.tcache.vtx_pos)
+            Mesh.transform_arr(m, this.effective_vtx_pos, this.tcache.vtx_pos)
             this.meta.vtx_pos.made_glbuf = false
         }
     }
@@ -430,7 +456,7 @@ class Mesh extends PObject
 
     draw_selection_m(m, select_indices) {
         //this.ensure_tcache(m)
-        let vtx = this.arrs.vtx_pos
+        let vtx = this.effective_vtx_pos
         ctx_img.beginPath();
         let radius = MESH_DISP.vtx_sel_radius/image_view.viewport_zoom
         for(let idx of select_indices) {
@@ -509,7 +535,7 @@ class Mesh extends PObject
     }
 
     make_single_object_calls(p) {
-        let vtx = this.arrs.vtx_pos
+        let vtx = this.effective_vtx_pos
         let idxs = this.arrs.idx        
         let idx
         if (this.type == MESH_QUAD) {

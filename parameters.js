@@ -565,6 +565,7 @@ class ExpressionItem {
             this.add_slider_ctx_menu()
         }
         this.param_line = null
+        this.etype = null
     }
     save_to(r) { 
         r["se_" + this.prop_name_ser] = this.se 
@@ -627,6 +628,18 @@ class ExpressionItem {
             this.err_elem = null
         }
     }
+    do_check_type() {
+        this.etype = ExprParser.check_type(this.e)
+        if (this.etype === TYPE_UNDECIDED) 
+            return // can't do it now, will be called again when we have the mesh
+        if (this.prop_type == ED_COLOR_EXPR)
+            eassert(this.etype === TYPE_VEC3 || type === TYPE_VEC4, "Wrong type, expected a vector")
+        else if (this.prop_type == ED_VEC2)
+            eassert(this.etype === TYPE_VEC2, "Wrong type, expected vec2")
+        else
+            eassert(this.etype === TYPE_NUM, "Wrong type, expected a number") 
+    }
+
     peval_self() {
         this.peval(this.se)
     }
@@ -639,13 +652,7 @@ class ExpressionItem {
             if (state_access !== null)  // might be a node that doesn't have state_access
                 state_access.reset_check()
             this.e = ExprParser.parse(se, this.in_param.owner.state_access, this.parse_opt)
-            const type = this.e.check_type()
-            if (this.prop_type == ED_COLOR_EXPR)
-                eassert(type === TYPE_VEC3 || type === TYPE_VEC4, "Wrong type, expected a vector")
-            else if (this.prop_type == ED_VEC2)
-                eassert(type === TYPE_VEC2, "Wrong type, expected vec2")
-            else
-                eassert(type === TYPE_NUM, "Wrong type, expected a number") 
+            this.do_check_type()
         }
         catch(ex) { // TBD better show the error somewhere
             this.eset_error(ex)
@@ -751,6 +758,9 @@ class ExpressionItem {
     }
     dyn_eval() {
         this.eclear_error()
+        if (this.etype === TYPE_UNDECIDED) {
+            this.do_check_type() // in case we need to do it now, after there was a mesh set
+        }
         if (this.e === null)  // error in expr
             return this.get_prop()
         try {
@@ -761,6 +771,7 @@ class ExpressionItem {
             throw ex // will be caught by the node and node error set by caller          
         }
     }
+    // returns null or the ObjRef of this name
     need_input_evaler(input_name) {
         if (this.need_inputs === undefined || this.need_inputs === null)
             return null

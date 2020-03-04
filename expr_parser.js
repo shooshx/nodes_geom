@@ -9,6 +9,7 @@ const TYPE_NUM = 1;
 const TYPE_VEC3 = 2; 
 const TYPE_VEC4 = 3;
 const TYPE_VEC2 = 4;
+const TYPE_UNDECIDED = 10; // returned from global check_type to mean there's not enough info to know what the type is since it depends on evaulators
 
 const PARSE_EXPR = 1;
 const PARSE_CODE = 2;
@@ -19,6 +20,11 @@ class ExprErr extends Error {
 class TypeErr extends Error {
     constructor(msg) { super(msg) }
 }
+
+class UndecidedTypeErr extends Error {
+    constructor() { super("undecided-type") }
+}
+
 
 function clamp(a, v, b) {
     if (v < a) return a;
@@ -438,6 +444,12 @@ const distance_lookup = {
 [TYPE_VEC3]: function(a,b) { return vec3.distance(a,b) },
 [TYPE_VEC4]: function(a,b) { return vec4.distance(a,b) },
 }
+const length_lookup = {
+[TYPE_NUM]:  function(a) { return Math.abs(a) },
+[TYPE_VEC2]: function(a) { return vec2.length(a) },
+[TYPE_VEC3]: function(a) { return vec3.length(a) },
+[TYPE_VEC4]: function(a) { return vec4.length(a) },
+}
 const normalize_lookup = {
 [TYPE_NUM]:  function(v) { return 1 },
 [TYPE_VEC2]: function(v) { let x = vec2.create(); vec2.normalize(x,v); return x },
@@ -449,7 +461,8 @@ const normalize_lookup = {
 const func_defs = {
     'cos': new FuncDef(Math.cos, 1), 'sin': new FuncDef(Math.sin, 1), 'tan': new FuncDef(Math.tan, 1),
     'acos': new FuncDef(Math.acos, 1), 'asin': new FuncDef(Math.acos, 1), 'atan': new FuncDef(Math.atan, 1), 'atan2': new FuncDef(Math.atan2, 2),
-    'sqrt': new FuncDef(Math.sqrt, 1), 'sqr': new FuncDef(sqr, 1), 'distance': new FuncDef(distance_lookup, 2, FUNC_TYPE_LOOKUP, TYPE_NUM),
+    'sqrt': new FuncDef(Math.sqrt, 1), 'sqr': new FuncDef(sqr, 1), 
+    'distance': new FuncDef(distance_lookup, 2, FUNC_TYPE_LOOKUP, TYPE_NUM), 'length': new FuncDef(length_lookup, 1, FUNC_TYPE_LOOKUP, TYPE_NUM),
     'log': new FuncDef(Math.log, 1), 'log10': new FuncDef(Math.log10, 1), 'log2': new FuncDef(Math.log2, 1),
     'round': new FuncDef(Math.round, 1), 'ceil': new FuncDef(Math.ceil, 1), 'floor': new FuncDef(Math.floor, 1), 'trunc': new FuncDef(Math.trunc, 1),
     'abs': new FuncDef(Math.abs, 1), 'sign': new FuncDef(Math.sign, 1),
@@ -1094,8 +1107,18 @@ function eparse(expr, state_access, opt) {
     return result;
 }
 
+function check_type(node) {
+    try {
+        return node.check_type()
+    } catch(e) {
+        if (e.constructor === UndecidedTypeErr)
+            return TYPE_UNDECIDED
+        throw e
+    }
+}
 
-return {parse:eparse, make_num_node:make_num_node}
+
+return {parse:eparse, make_num_node:make_num_node, check_type:check_type}
 })()
 
 

@@ -360,7 +360,7 @@ class ObjRef { // top level variable that references an object
         this.idx = null
         this.dirty_obj_ver = 1 // incremented evaluator needs to invalidation anything it cached about the object
     }
-    dyn_set_obj(obj) {
+    dyn_set_obj(obj) { // existing epression set with a new object
         this.obj = obj
         ++this.dirty_obj_ver;
     }
@@ -418,20 +418,23 @@ class MeshPropEvaluator {
         else {
             // valname is line x,y,alpha
             this.valname = (subscripts.length == 2) ? subscripts[1] : null
-            this.valindex = (this.valname !== null) ? VAL_INDICES[this.valname] : 0
+            this.valindex = (this.valname !== null) ? VAL_INDICES[this.valname] : 0  // 0 for the case it's a float property
             eassert(this.valindex !== undefined, "Unknown subscript `" + this.valname + "`")
         }
         // idx is in meshref not multiplied for any property
         this.attr = null
         this.num_elems = null
         this.last_obj_ver = 0
+        this.type = null
     }
 
     eval() {
         eassert(this.meshref.idx !== null, "unexpected null object")
+        eassert(this.type !== null, "unexpected null type")
         if (this.attr === null || this.last_obj_ver != this.meshref.dirty_obj_ver) 
         {
-            if (this.valindex !== -1) { 
+            if (this.valindex !== -1) 
+            { 
                 eassert(this.meshref.obj !== null, "unexpected null object")
                 if (this.param_bind_to.sel_idx == 0) // vertices  TBD this is not invalidated if bind_to changes
                     eassert(this.attrname.startsWith("vtx_"), "bind to Vertices can only sample vertex attribute")
@@ -443,8 +446,8 @@ class MeshPropEvaluator {
                 this.num_elems = this.meshref.obj.meta[this.attrname].num_elems
                 if (this.num_elems == 1)
                     eassert(this.valname === null, "unexpected additional subscript to value")
-                else 
-                    eassert(this.valname !== null, "missing addtitional subscript to select a value")
+                else { // no further subscripts, return vec
+                }
                 this.attr = attr
             }
             this.last_obj_ver = this.meshref.dirty_obj_ver // incrememnted when the object changes so we need to retake its array
@@ -452,10 +455,33 @@ class MeshPropEvaluator {
         if (this.valindex === -1)
             return this.meshref.idx        
 
-        return this.attr[this.meshref.idx * this.num_elems + this.valindex]
+        const offs = this.meshref.idx * this.num_elems
+        switch(this.type) {
+        case TYPE_NUM: return this.attr[offs + this.valindex]  // either the prop is float or we gave a subscript
+        case TYPE_VEC2: return vec2.fromValues(this.attr[offs], this.attr[offs + 1])
+        case TYPE_VEC3: return vec3.fromValues(this.attr[offs], this.attr[offs + 1], this.attr[offs + 2])
+        case TYPE_VEC4: return vec3.fromValues(this.attr[offs], this.attr[offs + 1], this.attr[offs + 2], this.attr[offs + 3])    
+        }
+        eassert(false, "unexpected num_elems " + this.num_elems)
     }
     check_type() {
-        return TYPE_NUM
+        // in case it's not ".index" but we didn't give any subscript
+        //  the type needs to be whatever is the type of the mesh property, which is not known in parse type
+        if (this.valindex >= 0 && this.valname === null) {
+            if (this.meshref.obj === null)
+                throw new UndecidedTypeErr() // would cause a call to here when there's a mesh set (rather than only after parse)
+            const num_elems = this.meshref.obj.meta[this.attrname].num_elems
+            switch(num_elems) { // this could be just return num_elems but better to do it explicit
+            case 1: this.type = TYPE_NUM; break;
+            case 2: this.type = TYPE_VEC2; break;
+            case 3: this.type = TYPE_VEC3; break;
+            case 4: this.type = TYPE_VEC4; break;
+            }
+        }
+        else {
+            this.type = TYPE_NUM
+        }
+        return this.type
     }    
 }
 
@@ -482,7 +508,7 @@ class NodeSetAttr extends NodeCls
                                    "in_obj": (m,s)=>{ return new MeshPropEvaluator(m,s, this.bind_to) }})
 
         // should be above attr_name that sets it                                    
-        this.name_per_type = new ParamObjStore(node, "npt", { 0:"color", 1:"radius", 2:"normal", 3:"fill", 4:"[none]" })
+        this.name_per_type = new ParamObjStore(node, "npt", { 0:"color", 1:"radius", 2:"normal", 3:"fill", 4:"transform" })
 
         //this.use_code = new ParamBool(node, "Use Code", false, (v)=>{})
         this.bind_to = new ParamSelect(node, "Bind To", 0, ["Vertices", "Faces"]) // TBD also lines?
@@ -495,7 +521,6 @@ class NodeSetAttr extends NodeCls
             this.expr_vec2.set_visible(type_idx == 2)
             this.expr_bool.set_visible(type_idx == 3)
             this.expr_transform.set_visible(type_idx == 4)
-            this.attr_name.set_enable(type_idx !== 4) // transform doesn't have a property name
 
             const prm = this.param_of_index[type_idx]
             if (prm.show_code !== undefined) // update show code checkbox according to the type
@@ -559,7 +584,9 @@ class NodeSetAttr extends NodeCls
                 prop.fill(dummy[0])
         }
         else if (this.attr_type.sel_idx == 4) { // transform
-            mesh.transform(src.v)
+            for(let i = 0; i < prop.length; i += prop.elem_sz) {
+                mutate_assign(prop, i, src.v)
+            }
         }
         else
             assert(false, this, "unknown attr")
@@ -710,17 +737,12 @@ class NodeSetAttr extends NodeCls
         }
         else if (this.attr_type.sel_idx == 4) { // transform
             src_param = this.expr_transform;
-            if (this.bind_to.sel_idx == 0) { 
-                prop = { length: mesh.arrs.vtx_pos.length, elem_sz: 2, is_dummy: true, out_mesh:null }
-                mutate_assign = (prop, pi, m)=>{
-                    let x = mesh.arrs.vtx_pos[pi], y = mesh.arrs.vtx_pos[pi+1]
-                    prop.out_mesh.arrs.vtx_pos[pi]   = m[0] * x + m[3] * y + m[6];
-                    prop.out_mesh.arrs.vtx_pos[pi+1] = m[1] * x + m[4] * y + m[7];                  
-                }
-            }
-            else {
-                assert(false, this, "unknown type")    
-            }
+            prop = new Float32Array(elem_num * 6)
+            prop.elem_sz = 6
+            mutate_assign = (prop, pi, vc)=>{
+                prop[pi] = vc[0];   prop[pi+1] = vc[1]; prop[pi+2] = vc[3]
+                prop[pi+3] = vc[4]; prop[pi+4] = vc[6]; prop[pi+5] = vc[7]
+            }            
         }
         else {
             assert(false, this, "unknown type")
@@ -768,8 +790,7 @@ class NodeSetAttr extends NodeCls
                 throw e
         }
 
-        if (!prop.is_dummy) // not transform
-            out_mesh.set(attr_name, prop, prop.elem_sz, true)
+        out_mesh.set(attr_name, prop, prop.elem_sz, true)
         this.out_mesh.set(out_mesh)
     }
 
@@ -1271,7 +1292,7 @@ class NodeTriangulate extends NodeCls
 
         if (obj.constructor === Mesh) {
             let obj = this.in_obj.get_mutable()
-            let d = new Delaunator(obj.arrs.vtx_pos)
+            let d = new Delaunator(obj.effective_vtx_pos)
             obj.set('idx', d.triangles)
             obj.set_type(MESH_TRI)
             obj.halfedges = d.halfedges
@@ -1336,7 +1357,7 @@ class NodeVoronoi extends NodeCls
         let bbox = mesh.get_bbox()
         let mx = this.margin.x, my = this.margin.y
 
-        let delaunay = { triangles:mesh.arrs.idx, points:mesh.arrs.vtx_pos, halfedges:mesh.halfedges, hull:mesh.hull }
+        let delaunay = { triangles:mesh.arrs.idx, points:mesh.effective_vtx_pos, halfedges:mesh.halfedges, hull:mesh.hull }
         let voronoi = new Voronoi(delaunay, [bbox.min_x-mx,bbox.min_y-my, bbox.max_x+mx,bbox.max_y+my]);
         let builder = new PathsBuilder()
         voronoi.renderCells(builder)
@@ -1385,7 +1406,7 @@ class GeomDivide extends NodeCls
     }
 
     divide_quad(mesh, out_vtx, out_idx, idx0, idx1, idx2, idx3) {
-        let vtx = mesh.arrs.vtx_pos
+        let vtx = mesh.effective_vtx_pos
         let p0_x = vtx[idx0*2], p0_y = vtx[idx0*2+1]
         let p1_x = vtx[idx1*2], p1_y = vtx[idx1*2+1]
         let p3_x = vtx[idx3*2], p3_y = vtx[idx3*2+1]
@@ -1603,12 +1624,12 @@ class ShrinkFaces extends NodeCls
         // if face_sizes is not null, then it's different size for every face
         if (mesh.constructor == Mesh) {
             var const_face_size = mesh.face_size()
-            var lines = mesh_lines(mesh.arrs.idx, mesh.arrs.vtx_pos, const_face_size)
+            var lines = mesh_lines(mesh.arrs.idx, mesh.effective_vtx_pos, const_face_size)
             var face_sizes = null
         }
         else if (mesh.constructor == MultiPath) {
             var const_face_size = null
-            var [lines, face_sizes] = path_lines(mesh.paths_ranges, mesh.arrs.vtx_pos)
+            var [lines, face_sizes] = path_lines(mesh.paths_ranges, mesh.effective_vtx_pos)
         }
         else {
             assert(false, this, "input needs to be mesh or paths")
