@@ -474,7 +474,7 @@ class MeshPropEvaluator
             if (this.num_elems == 1)
                 eassert(this.valname === null, "unexpected additional subscript to value")
             // else no further subscripts, return vec
-            this.type = type_from_numelems(num_elems)
+            this.type = type_from_numelems(this.num_elems)
         }
         else {
             this.type = attr.computed_type()

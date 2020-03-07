@@ -198,7 +198,7 @@ class Mesh extends PObject
         const vtx_pos = this.arrs.vtx_pos, vtx_transform = this.arrs.vtx_transform
         dassert(vtx_transform.length / 6 === vtx_pos.length / 2, "unexpect length of face_transform")
 
-        if (this.effective_vtx_pos === null || this.effective_vtx_pos.length != vtx_pos.length)
+        if (this.effective_vtx_pos === null || this.effective_vtx_pos === this.arrs.vtx_pos || this.effective_vtx_pos.length != vtx_pos.length)
             this.effective_vtx_pos = new TVtxArr(vtx_pos.length)
         const vtx_new = this.effective_vtx_pos
 
@@ -211,10 +211,10 @@ class Mesh extends PObject
 
     transform_per_face() 
     { // assume vertices are unshared
-        const vtx_pos = this.arrs.vtx_pos, face_transform = this.arrs.face_transform
+        const vtx_pos = this.effective_vtx_pos, face_transform = this.arrs.face_transform
         dassert(face_transform.length / 6 === this.face_count(), "unexpect length of vtx_transform")
 
-        if (this.effective_vtx_pos === null || this.effective_vtx_pos.length != vtx_pos.length)
+        if (this.effective_vtx_pos === null || this.effective_vtx_pos === this.arrs.vtx_pos || this.effective_vtx_pos.length != vtx_pos.length)
             this.effective_vtx_pos = new TVtxArr(vtx_pos.length)
         const vtx_new = this.effective_vtx_pos
         
