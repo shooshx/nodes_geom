@@ -372,7 +372,7 @@ class ObjRef { // top level variable that references an object
 class ObjSingleEvaluator {
     constructor(objref, subscripts) {
         if (subscripts.length != 0)
-            throw new Error("Wrong subscript given to variable " + name)
+            throw new Error("Unexpected subscript given to variable")
         this.objref = objref
     }
 
@@ -387,24 +387,50 @@ class ObjSingleEvaluator {
 
 class ObjSubscriptEvaluator {
     constructor(objref, subscripts) {
-        if (subscripts.length != 1)
-            throw new Error("Wrong subscript given to variable " + name)
+        //if (subscripts.length != 1)
+        //    throw new Error("Wrong subscript given to variable " + name)
         this.objref = objref
-        this.subscript = subscripts[0]
+        this.subscript = (subscripts.length > 0) ? subscripts[0] : null
+        this.type = null
     }
 
     eval() {
+        if (this.subscript === null) {
+            eassert(this.objref.obj._get_as_vec !== undefined, "Missing subscript")
+            return this.objref.obj._get_as_vec()
+        }
         let v = this.objref.obj[this.subscript]
         eassert(v !== undefined, "subscript not found " + this.subscript)        
         return v
     }
     check_type() {
-        return TYPE_NUM
+        if (this.subscript === null) { // need to wait for obj
+            if (this.objref.obj === null)
+                throw new UndecidedTypeErr()
+            else {
+                const v = this.objref.obj._get_as_vec()
+                this.type = type_from_numelems(v.length)
+            }
+        }
+        else
+            this.type = TYPE_NUM
+        return this.type
     }    
 }
 
+function type_from_numelems(num_elems) {
+    switch(num_elems) { // this could be just return num_elems but better to do it explicit
+        case 1: return TYPE_NUM; 
+        case 2: return TYPE_VEC2;
+        case 3: return TYPE_VEC3;
+        case 4: return TYPE_VEC4;
+    }
+}
+
 const VAL_INDICES = { r:0, g:1, b:2, alpha:3, x:0, y:1, z:2, w:3 } // TBD add HSV 
-class MeshPropEvaluator {
+
+class MeshPropEvaluator 
+{
     constructor(meshref, subscripts, param_bind_to) {
         console.assert(meshref !== undefined  && meshref !== null)
         eassert(subscripts.length == 2 || subscripts.length == 1, "Not enough subscript given to variable " + name)
@@ -428,55 +454,68 @@ class MeshPropEvaluator {
         this.type = null
     }
 
+    resolve_attr() {
+        if (this.valindex === -1) 
+            return
+        if (this.attr !== null && this.last_obj_ver === this.meshref.dirty_obj_ver) 
+            return // don't need an update 
+        eassert(this.meshref.obj !== null, "unexpected null object")
+        if (this.param_bind_to.sel_idx == 0) // vertices  TBD this is not invalidated if bind_to changes
+            eassert(this.attrname.startsWith("vtx_"), "bind to Vertices can only sample vertex attribute")
+        else if (this.param_bind_to.sel_idx == 1) // faces
+            eassert(this.attrname.startsWith("face_"), "bind to Faces can only sample face attribute")
+        let attr = this.meshref.obj.arrs[this.attrname]
+        if (attr === undefined && this.meshref.obj.computed_prop !== undefined)
+            attr = this.meshref.obj.computed_prop(this.attrname)
+        eassert(attr !== undefined && attr !== null, "unknown attribute " + this.attrname + " of object")
+
+        if (attr.computed_value === undefined) { // it's not computed
+            this.num_elems = this.meshref.obj.meta[this.attrname].num_elems
+            if (this.num_elems == 1)
+                eassert(this.valname === null, "unexpected additional subscript to value")
+            // else no further subscripts, return vec
+            this.type = type_from_numelems(num_elems)
+        }
+        else {
+            this.type = attr.computed_type()
+        }
+        this.attr = attr
+        this.last_obj_ver = this.meshref.dirty_obj_ver // incrememnted when the object changes so we need to retake its array
+    }
+
     eval() {
         eassert(this.meshref.idx !== null, "unexpected null object")
         eassert(this.type !== null, "unexpected null type")
-        if (this.attr === null || this.last_obj_ver != this.meshref.dirty_obj_ver) 
-        {
-            if (this.valindex !== -1) 
-            { 
-                eassert(this.meshref.obj !== null, "unexpected null object")
-                if (this.param_bind_to.sel_idx == 0) // vertices  TBD this is not invalidated if bind_to changes
-                    eassert(this.attrname.startsWith("vtx_"), "bind to Vertices can only sample vertex attribute")
-                else if (this.param_bind_to.sel_idx == 1) // faces
-                    eassert(this.attrname.startsWith("face_"), "bind to Faces can only sample face attribute")
-                let attr = this.meshref.obj.arrs[this.attrname]
-                eassert(attr !== undefined, "unknown attribute " + this.attrname + " of object")
-           
-                this.num_elems = this.meshref.obj.meta[this.attrname].num_elems
-                if (this.num_elems == 1)
-                    eassert(this.valname === null, "unexpected additional subscript to value")
-                else { // no further subscripts, return vec
-                }
-                this.attr = attr
-            }
-            this.last_obj_ver = this.meshref.dirty_obj_ver // incrememnted when the object changes so we need to retake its array
-        }
+          
+        this.resolve_attr()
+
         if (this.valindex === -1)
             return this.meshref.idx        
 
-        const offs = this.meshref.idx * this.num_elems
-        switch(this.type) {
-        case TYPE_NUM: return this.attr[offs + this.valindex]  // either the prop is float or we gave a subscript
-        case TYPE_VEC2: return vec2.fromValues(this.attr[offs], this.attr[offs + 1])
-        case TYPE_VEC3: return vec3.fromValues(this.attr[offs], this.attr[offs + 1], this.attr[offs + 2])
-        case TYPE_VEC4: return vec3.fromValues(this.attr[offs], this.attr[offs + 1], this.attr[offs + 2], this.attr[offs + 3])    
+        if (this.attr.computed_value !== undefined) {
+            const v = this.attr.computed_value(this.meshref.idx)
+            if (this.valname === null)
+                return v  // no subscript, just return whatever we computed
+            return v[this.valindex]
         }
-        eassert(false, "unexpected num_elems " + this.num_elems)
+        else {
+            const offs = this.meshref.idx * this.num_elems
+            switch(this.type) {
+            case TYPE_NUM: return this.attr[offs + this.valindex]  // either the prop is float or we gave a subscript
+            case TYPE_VEC2: return vec2.fromValues(this.attr[offs], this.attr[offs + 1])
+            case TYPE_VEC3: return vec3.fromValues(this.attr[offs], this.attr[offs + 1], this.attr[offs + 2])
+            case TYPE_VEC4: return vec3.fromValues(this.attr[offs], this.attr[offs + 1], this.attr[offs + 2], this.attr[offs + 3])    
+            }
+            eassert(false, "unexpected num_elems " + this.num_elems)
+        }
     }
     check_type() {
-        // in case it's not ".index" but we didn't give any subscript
+        // in case it's not ".index" but the expr didn't give any subscript
         //  the type needs to be whatever is the type of the mesh property, which is not known in parse type
         if (this.valindex >= 0 && this.valname === null) {
             if (this.meshref.obj === null)
                 throw new UndecidedTypeErr() // would cause a call to here when there's a mesh set (rather than only after parse)
-            const num_elems = this.meshref.obj.meta[this.attrname].num_elems
-            switch(num_elems) { // this could be just return num_elems but better to do it explicit
-            case 1: this.type = TYPE_NUM; break;
-            case 2: this.type = TYPE_VEC2; break;
-            case 3: this.type = TYPE_VEC3; break;
-            case 4: this.type = TYPE_VEC4; break;
-            }
+            this.resolve_attr()
         }
         else {
             this.type = TYPE_NUM
@@ -618,7 +657,7 @@ class NodeSetAttr extends NodeCls
         let samp_vtx = (this.bind_to.sel_idx == 0)
         //let face_sz = mesh.face_size()
         let vtxi = 0, idxi = 0
-        let expr_input = { r:0, g:0, b:0, alpha:0 }
+        let expr_input = { r:0, g:0, b:0, alpha:0, _get_as_vec: function() { return vec4.fromValues(this.r, this.g, this.b, this.alpha)} }
         value_need_src.dyn_set_obj(expr_input)
 
         for(let i = 0, pi = 0; pi < prop.length; ++i, pi += prop.elem_sz) 

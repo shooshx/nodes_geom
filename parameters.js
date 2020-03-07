@@ -633,7 +633,7 @@ class ExpressionItem {
         if (this.etype === TYPE_UNDECIDED) 
             return // can't do it now, will be called again when we have the mesh
         if (this.prop_type == ED_COLOR_EXPR)
-            eassert(this.etype === TYPE_VEC3 || type === TYPE_VEC4, "Wrong type, expected a vector")
+            eassert(this.etype === TYPE_VEC3 || this.etype === TYPE_VEC4, "Wrong type, expected a vector")
         else if (this.prop_type == ED_VEC2)
             eassert(this.etype === TYPE_VEC2, "Wrong type, expected vec2")
         else

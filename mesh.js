@@ -58,6 +58,21 @@ function init_fill_objs() {
     return [null]
 }
 
+// used in SetAttr to get the center of a face in an expression
+class PropCallProxy {
+    constructor(mesh, name, type) {
+        this.mesh = mesh
+        this.name = name
+        this.type = type
+    }
+    computed_value(index) {
+        return this.mesh[this.name](index)
+    }
+    computed_type() {
+        return this.type
+    }
+}
+
 class Mesh extends PObject
 {
     static name() { return "Mesh" }
@@ -112,10 +127,11 @@ class Mesh extends PObject
     }
 
     make_effective_vtx_pos() {
+        this.effective_vtx_pos = this.arrs.vtx_pos // in case non of the below
         if (this.arrs.vtx_transform !== undefined) 
             this.transform_per_vtx()
-        else
-            this.effective_vtx_pos = this.arrs.vtx_pos
+        if (this.arrs.face_transform !== undefined)
+            this.transform_per_face()  // transforms effective_vtx_pos      
     }
 
     set(name, arr, num_elems, need_normalize) {
@@ -127,9 +143,11 @@ class Mesh extends PObject
                            }
         if (name == "vtx_pos") 
             this.invalidate_pos()
-        if (name == "vtx_transform" || name == "face_transform")
+        else if (name == "face_transform") 
+            this.unshare_vertices_between_faces()
+        else if (name == "vtx_transform")
             this.make_effective_vtx_pos()
-        if (name == "face_fill") 
+        else if (name == "face_fill") 
             this.invalidate_fill()
     }
 
@@ -177,18 +195,92 @@ class Mesh extends PObject
 
     transform_per_vtx() 
     {
-        const vtx_new = this.effective_vtx_pos, vtx_pos = this.arrs.vtx_pos, vtx_transform = this.arrs.vtx_transform
-        dassert(vtx_transform.length / 6 === vtx_pos.length / 2, "unexpect length of vtx_transform")
+        const vtx_pos = this.arrs.vtx_pos, vtx_transform = this.arrs.vtx_transform
+        dassert(vtx_transform.length / 6 === vtx_pos.length / 2, "unexpect length of face_transform")
 
         if (this.effective_vtx_pos === null || this.effective_vtx_pos.length != vtx_pos.length)
             this.effective_vtx_pos = new TVtxArr(vtx_pos.length)
+        const vtx_new = this.effective_vtx_pos
 
         for(let vi = 0, ti = 0; vi < vtx_new.length; vi += 2, ti += 6) {
             let x = vtx_pos[vi], y = vtx_pos[vi+1]
             vtx_new[vi]   = vtx_transform[ti] * x + vtx_transform[ti+2] * y + vtx_transform[ti+4];
             vtx_new[vi+1] = vtx_transform[ti+1] * x + vtx_transform[ti+3] * y + vtx_transform[ti+5];                  
         }
-        return vtx_new
+    }
+
+    transform_per_face() 
+    { // assume vertices are unshared
+        const vtx_pos = this.arrs.vtx_pos, face_transform = this.arrs.face_transform
+        dassert(face_transform.length / 6 === this.face_count(), "unexpect length of vtx_transform")
+
+        if (this.effective_vtx_pos === null || this.effective_vtx_pos.length != vtx_pos.length)
+            this.effective_vtx_pos = new TVtxArr(vtx_pos.length)
+        const vtx_new = this.effective_vtx_pos
+        
+        const face_size = this.face_size()
+        const idx = this.arrs.idx
+        for(let ii = 0, ti = 0; ii < idx.length; ii += face_size, ti += 6) {
+            for(let ei = 0; ei < face_size; ++ei) {
+                const vi = idx[ii+ei]*2
+                let x = vtx_pos[vi], y = vtx_pos[vi+1]
+                vtx_new[vi]   = face_transform[ti] * x + face_transform[ti+2] * y + face_transform[ti+4];
+                vtx_new[vi+1] = face_transform[ti+1] * x + face_transform[ti+3] * y + face_transform[ti+5];                      
+            }
+        }
+    }
+
+    // make every vertex be referenced only by a single polygon. needed if we want to move polys individually with face_transform
+    // there's two ways to do this, the easy way 
+    //   1. just recreate all the vtx_ arrays without sharing - advantage: index is remains localized
+    //   2. the slightly harder way - find sharing and only change only that - advantage - original vertex order is not changed (not really important?)
+    // I do 1. here because it's easier and there's no reason to do 2. 
+    unshare_vertices_between_faces()
+    {
+        const idx = this.arrs.idx
+        for(let name in this.arrs) {
+            if (!name.startsWith('vtx_'))
+                continue
+            const prop = this.arrs[name]
+            const num_elems = this.meta[name].num_elems
+            const new_prop = new prop.constructor(idx.length * num_elems)
+            let nidx = 0
+            for(let i = 0; i < idx.length; ++i) {
+                const oidx = idx[i]
+                for(let ei = 0; ei < num_elems; ++ei)
+                    new_prop[nidx*num_elems + ei] = prop[oidx*num_elems + ei]
+                //idx[i] = nidx;
+                ++nidx;
+            }
+            this.arrs[name] = new_prop;
+        }
+        // now fix idx
+        let nidx = 0
+        for(let i = 0; i < idx.length; ++i) {
+            idx[i] = nidx++;
+        }
+        this.invalidate_pos()
+    }
+
+    computed_prop(name) {
+        if (name === "face_center")
+            return new PropCallProxy(this, name, TYPE_VEC2)
+        return null
+    }
+    // called from PropCallProxy, from SetAttr
+    face_center(face_index) {
+        const face_size = this.face_size()
+        const idx = this.arrs.idx
+        let vtx = this.effective_vtx_pos
+        const v = vec2.create()
+        for(let i = 0; i < face_size; ++i) {
+            const vi = idx[face_index*face_size + i]*2
+            v[0] += vtx[vi]
+            v[1] += vtx[vi+1]
+        }
+        v[0] /= face_size
+        v[1] /= face_size
+        return v
     }
 
 
@@ -438,6 +530,7 @@ class Mesh extends PObject
 
     // API
     draw_m(m, disp_values) {
+        console.log("Mesh ", this.face_size(), " vtx:", this.arrs.vtx_pos.length/2, " faces:", this.face_count()) 
         if (!disp_values)
             disp_values = { show_faces:true, show_lines:true, show_vtx:true } // hack for group to work
         //this.ensure_tcache(m)
