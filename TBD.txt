@@ -39,6 +39,7 @@ EXPRESSIONS
 - transform with code
 - clear_all should also clear expressions
 - !!! code for transform param
+  - BUG - slider of rotate disappers on reload
 
 NODES:
 - frame buffer

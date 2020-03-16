@@ -1208,7 +1208,7 @@ class ParamTransform extends Parameter {
         const sld_conf = {allowed:false}
         this.item_tx = new ExpressionItem(this, "tx", ED_FLOAT, (v)=>{this.translate[0] = v; this.calc_mat()}, ()=>{ return this.translate[0]}, sld_conf)
         this.item_ty = new ExpressionItem(this, "ty", ED_FLOAT, (v)=>{this.translate[1] = v; this.calc_mat()}, ()=>{ return this.translate[1]}, sld_conf)
-        this.item_r = new ExpressionItem(this,   "r", ED_FLOAT, (v)=>{this.rotate = v; this.calc_mat()},       ()=>{ return this.rotate}, sld_conf)
+        this.item_r = new ExpressionItem(this,   "r", ED_FLOAT, (v)=>{this.rotate = v; this.calc_mat()},       ()=>{ return this.rotate}, {min:0, max:360})
         this.item_pvx = new ExpressionItem(this, "pvx", ED_FLOAT, (v)=>{let dx = parseFloat(v)-this.rotate_pivot[0]; this.calc_pivot_counter(dx, 0) }, ()=>{ return this.rotate_pivot[0]}, sld_conf)
         this.item_pvy = new ExpressionItem(this, "pvy", ED_FLOAT, (v)=>{let dy = parseFloat(v)-this.rotate_pivot[1]; this.calc_pivot_counter(0, dy) }, ()=>{ return this.rotate_pivot[1]}, sld_conf)
         this.item_sx = new ExpressionItem(this, "sx", ED_FLOAT, (v)=>{this.scale[0] = v; this.calc_mat()}, ()=>{ return this.scale[0]}, sld_conf)

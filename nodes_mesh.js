@@ -474,10 +474,12 @@ class MeshPropEvaluator
             if (this.num_elems == 1)
                 eassert(this.valname === null, "unexpected additional subscript to value")
             // else no further subscripts, return vec
-            this.type = type_from_numelems(this.num_elems)
+            if (this.valname === null) // only if it doesn't have a extra subscript
+                this.type = type_from_numelems(this.num_elems)
         }
         else {
-            this.type = attr.computed_type()
+            if (this.valname === null)
+                this.type = attr.computed_type()
         }
         this.attr = attr
         this.last_obj_ver = this.meshref.dirty_obj_ver // incrememnted when the object changes so we need to retake its array

@@ -33,13 +33,32 @@ class MultiPath extends PObject
         this.tcache = { vtx_pos:null, m:null }  // transformed cache (for setattr)
         this.fill_objs = init_fill_objs()
         this.paper_obj = null // paper.js object
+
+        this.effective_vtx_pos = null
+        this.eff_ctrl_to_prev = null
+        this.eff_ctrl_from_prev = null
     }
     set(name, arr, num_elems, need_normalize=false) {
         name = normalize_attr_name(name)
         this.arrs[name] = arr
         this.meta[name] = { num_elems: num_elems,
                             need_normalize: need_normalize }
+                           
+        if (name == "vtx_pos" || name == "ctrl_to_prev" || name == "ctrl_from_prev" || name == "face_transform" || name == "vtx_transform")
+            this.invalidate_pos()
     }
+
+    invalidate_pos() {
+        this.paths = null
+        this.paper_obj = null
+        this.make_effective_vtx_pos()
+    }
+    make_effective_vtx_pos() {
+        this.eff_ctrl_to_prev = this.arrs.ctrl_to_prev
+        this.eff_ctrl_from_prev = this.arrs.ctrl_from_prev
+        return Mesh.prototype.make_effective_vtx_pos.call(this)
+    }
+
 
     get_disp_params(disp_values) {
         return [ new DispParamBool(disp_values, "Show Vertices", 'show_vtx', true),
@@ -58,9 +77,88 @@ class MultiPath extends PObject
             Mesh.transform_arr(vm, this.arrs.ctrl_to_prev, this.arrs.ctrl_to_prev)
             Mesh.transform_arr(vm, this.arrs.ctrl_from_prev, this.arrs.ctrl_from_prev)
         }
-        this.paths = null
-        this.paper_obj = null
+        this.invalidate_pos()
     }
+
+    transform_per_face() 
+    { 
+        const face_transform = this.arrs.face_transform
+        dassert(face_transform.length / 6 === this.face_count(), "unexpect length of face_transform")
+
+        let vtx_pos = this.effective_vtx_pos, ctp = this.eff_ctrl_to_prev, cfp = this.eff_ctrl_from_prev
+
+        if (this.effective_vtx_pos === null || this.effective_vtx_pos === this.arrs.vtx_pos || this.effective_vtx_pos.length != vtx_pos.length) {
+            // when vtx needs to be new, all of them need to be new
+            this.effective_vtx_pos = new TVtxArr(vtx_pos.length)
+            this.eff_ctrl_to_prev = new TVtxArr(ctp.length)
+            this.eff_ctrl_from_prev = new TVtxArr(cfp.length)
+        }
+        const vtx_new = this.effective_vtx_pos, ctp_new = this.eff_ctrl_to_prev, cfp_new = this.eff_ctrl_from_prev
+        
+        for(let pri = 0, ti = 0; pri < this.paths_ranges.length; pri += 3, ti += 6) 
+        {
+            let start_vidx = this.paths_ranges[pri]*2
+            let end_vidx = this.paths_ranges[pri+1]*2
+            for(let vi = start_vidx; vi < end_vidx; vi += 2) 
+            {
+                let x = vtx_pos[vi], y = vtx_pos[vi+1]
+                vtx_new[vi]   = face_transform[ti]   * x + face_transform[ti+2] * y + face_transform[ti+4];
+                vtx_new[vi+1] = face_transform[ti+1] * x + face_transform[ti+3] * y + face_transform[ti+5];
+
+                x = ctp[vi]; y = ctp[vi+1]
+                ctp_new[vi]   = face_transform[ti]   * x + face_transform[ti+2] * y;
+                ctp_new[vi+1] = face_transform[ti+1] * x + face_transform[ti+3] * y;   
+
+                x = cfp[vi]; y = cfp[vi+1]
+                cfp_new[vi]   = face_transform[ti]   * x + face_transform[ti+2] * y;
+                cfp_new[vi+1] = face_transform[ti+1] * x + face_transform[ti+3] * y;   
+            }
+        }        
+    }
+
+
+    vec_transform_per_vtx(arr_name) 
+    {
+        const orig_arr = this.arrs[arr_name], vtx_transform = this.arrs.vtx_transform
+        dassert(vtx_transform.length / 6 === orig_arr.length / 2, "unexpect length of vtx_transform")
+
+        let cur_eff = this["eff_" + arr_name]
+        if (cur_eff === null || cur_eff === orig_arr || cur_eff.length != orig_arr.length)
+            cur_eff = new TVtxArr(orig_arr.length)
+        this["eff_" + arr_name] = cur_eff
+
+        for(let vi = 0, ti = 0; vi < cur_eff.length; vi += 2, ti += 6) {
+            let x = orig_arr[vi], y = orig_arr[vi+1]
+            cur_eff[vi]   = vtx_transform[ti] * x + vtx_transform[ti+2] * y;
+            cur_eff[vi+1] = vtx_transform[ti+1] * x + vtx_transform[ti+3] * y;                  
+        }
+    }
+
+    transform_per_vtx() {
+        Mesh.prototype.transform_per_vtx.call(this)
+        if (this.is_curve()) {
+            this.vec_transform_per_vtx('ctrl_to_prev')
+            this.vec_transform_per_vtx('ctrl_from_prev')
+        }
+    }
+
+    computed_prop(name) {
+        return Mesh.prototype.computed_prop.call(this, name)
+    }
+
+    face_center(face_index) {
+        const start_vidx = this.paths_ranges[face_index*3]*2
+        const end_vidx = this.paths_ranges[face_index*3+1]*2
+        let vtx = this.effective_vtx_pos
+        let sx = 0, sy = 0
+        for(let vidx = start_vidx; vidx < end_vidx; vidx += 2) {
+            sx += vtx[vidx]
+            sy += vtx[vidx+1]
+        }
+        const len = (end_vidx - start_vidx) / 2
+        return vec2.fromValues(sx / len, sy / len)
+    }
+
     // API
     is_point_inside(x, y) {
         return Mesh.prototype.is_point_inside.call(this, x, y)
@@ -71,7 +169,7 @@ class MultiPath extends PObject
             return Mesh.prototype.get_bbox.call(this)
         }
         else { // add control points as well (see pritive circle rotated)
-            let vtx = this.arrs.vtx_pos, ctp = this.arrs.ctrl_to_prev, cfp = this.arrs.ctrl_from_prev
+            let vtx = this.effective_vtx_pos, ctp = this.eff_ctrl_to_prev, cfp = this.eff_ctrl_from_prev
             if (vtx.length == 0)
                 return null
             let min_x = Number.MAX_VALUE, max_x = -Number.MAX_VALUE, min_y = Number.MAX_VALUE, max_y = -Number.MAX_VALUE
@@ -128,8 +226,8 @@ class MultiPath extends PObject
     }
 
     call_path_commands(obj, pri) {
-        let vtx = this.arrs.vtx_pos;
-        let ctp = this.arrs.ctrl_to_prev, cfp = this.arrs.ctrl_from_prev
+        let vtx = this.effective_vtx_pos;
+        let ctp = this.eff_ctrl_to_prev, cfp = this.eff_ctrl_from_prev
 
         let start_vidx = this.paths_ranges[pri]*2
         let end_vidx = this.paths_ranges[pri+1]*2
@@ -203,8 +301,8 @@ class MultiPath extends PObject
 
 
     draw_control_points() {
-        let vtx = this.arrs.vtx_pos;
-        let ctp = this.arrs.ctrl_to_prev, cfp = this.arrs.ctrl_from_prev
+        let vtx = this.effective_vtx_pos;
+        let ctp = this.eff_ctrl_to_prev, cfp = this.eff_ctrl_from_prev
         ctx_img.beginPath()
         for(let pri = 0; pri < this.paths_ranges.length; pri += 3) {
             let start_vidx = this.paths_ranges[pri]*2
@@ -302,8 +400,8 @@ class MultiPath extends PObject
             this.set('ctrl_from_prev', new TVtxArr(cfp), 2)
         }
         this.paths_ranges = ranges
+        this.invalidate_pos()
         this.paper_obj = paper_obj
-        this.paths = null
     }
 
 }
@@ -376,7 +474,7 @@ class PathRangesList extends Parameter {
 function triangulate_path(obj, node)         
 { // https://github.com/shooshx/ArNavNav/blob/352a5a3acaabbc0591fb995b36255dc750406d22/src/poly2tri/adapter.cc            
     var swctx = new poly2tri.SweepContext([]);
-    let vtx = obj.arrs.vtx_pos;
+    let vtx = obj.effective_vtx_pos;
     let added_poly = 0
     let all_pnts = []
     //for(let pcmds of obj.cmds) 
@@ -463,7 +561,7 @@ function triangulate_path(obj, node)
     out_mesh.halfedges = halfedges
 
 
-    let d = new Delaunator(out_mesh.arrs.vtx_pos)
+    let d = new Delaunator(out_mesh.effective_vtx_pos)
     out_mesh.hull = d.hull
     
     return out_mesh
@@ -512,7 +610,7 @@ class NodeRoundCorners extends NodeCls
             return
         }
         // "Chaikin"
-        let vtx = obj.arrs.vtx_pos
+        let vtx = obj.effective_vtx_pos
         let new_vtx = [], new_ranges = [], ctp = [], cfp = []
 
         let round_poly = (poly_len, get_vidx, is_closed)=>{
@@ -560,7 +658,7 @@ class NodeRoundCorners extends NodeCls
             assert(false, this, "input is not Mesh or Paths")
         }
         let new_obj = new MultiPath()
-        new_obj.set('vtx_pos', new TVtxArr(new_vtx), 2, false)
+        new_obj.set('vtx_pos', new TVtxArr(new_vtx), 2, false) // this operation has to flatten the any transform property
         new_obj.set('ctrl_to_prev', new TVtxArr(ctp), 2, false)
         new_obj.set('ctrl_from_prev', new TVtxArr(cfp), 2, false)
         new_obj.paths_ranges = new_ranges
@@ -568,7 +666,7 @@ class NodeRoundCorners extends NodeCls
 
         // preserve face attributes. vertices changed place so are not preserved
         for(let arr_name in obj.arrs) {
-            if (!arr_name.startsWith("face_")) 
+            if (!arr_name.startsWith("face_") || arr_name == "vtx_transform") 
                 continue
             let from_arr = obj.arrs[arr_name]
             let new_arr = new from_arr.constructor(from_arr)
