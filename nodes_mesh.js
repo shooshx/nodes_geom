@@ -534,6 +534,7 @@ class MeshPropEvaluator
 //  in_src.r
 //  center of faces is sampled only when sampling color
 //  rand(in_obj.index)  - works for vertices and faces
+//  in_obj.face_center - for faces
 // with "Image Fill" the attr_name needs to be "fill"
 class NodeSetAttr extends NodeCls
 {

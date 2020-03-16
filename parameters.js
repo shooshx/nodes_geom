@@ -1196,11 +1196,11 @@ function toFixedMag(f) {
 class ParamTransform extends Parameter {
     constructor(node, label) {
         super(node, label)
-        this.translate = vec2.fromValues(0,0)
+        this.translate = [0,0] // coords here are not vec2.fromValues since they need to be nullable
         this.rotate = 0
-        this.scale = vec2.fromValues(1,1)
+        this.scale = [1,1]
         this.v = mat3.create()
-        this.rotate_pivot = vec2.fromValues(0,0)
+        this.rotate_pivot = [0,0]
         
         this.elems = {tx:null, ty:null, r:null, sx:null, sy:null, pvx:null, pvy:null }
         this.dial = null
@@ -1209,8 +1209,8 @@ class ParamTransform extends Parameter {
         this.item_tx = new ExpressionItem(this, "tx", ED_FLOAT, (v)=>{this.translate[0] = v; this.calc_mat()}, ()=>{ return this.translate[0]}, sld_conf)
         this.item_ty = new ExpressionItem(this, "ty", ED_FLOAT, (v)=>{this.translate[1] = v; this.calc_mat()}, ()=>{ return this.translate[1]}, sld_conf)
         this.item_r = new ExpressionItem(this,   "r", ED_FLOAT, (v)=>{this.rotate = v; this.calc_mat()},       ()=>{ return this.rotate}, {min:0, max:360})
-        this.item_pvx = new ExpressionItem(this, "pvx", ED_FLOAT, (v)=>{let dx = parseFloat(v)-this.rotate_pivot[0]; this.calc_pivot_counter(dx, 0) }, ()=>{ return this.rotate_pivot[0]}, sld_conf)
-        this.item_pvy = new ExpressionItem(this, "pvy", ED_FLOAT, (v)=>{let dy = parseFloat(v)-this.rotate_pivot[1]; this.calc_pivot_counter(0, dy) }, ()=>{ return this.rotate_pivot[1]}, sld_conf)
+        this.item_pvx = new ExpressionItem(this, "pvx", ED_FLOAT, (v)=>{ this.calc_pivot_counter(v, 0)  }, ()=>{ return this.rotate_pivot[0]}, sld_conf)
+        this.item_pvy = new ExpressionItem(this, "pvy", ED_FLOAT, (v)=>{ this.calc_pivot_counter(v, 1)  }, ()=>{ return this.rotate_pivot[1]}, sld_conf)
         this.item_sx = new ExpressionItem(this, "sx", ED_FLOAT, (v)=>{this.scale[0] = v; this.calc_mat()}, ()=>{ return this.scale[0]}, sld_conf)
         this.item_sy = new ExpressionItem(this, "sy", ED_FLOAT, (v)=>{this.scale[1] = v; this.calc_mat()}, ()=>{ return this.scale[1]}, sld_conf)
 
@@ -1246,16 +1246,25 @@ class ParamTransform extends Parameter {
                !isNaN(this.v[6]) && !isNaN(this.v[7]) && !isNaN(this.v[8])
     }
      // calculate the translation that needs to happen to counter the change in pivot in order for the object not to move
-    calc_pivot_counter(dx, dy) {
-        if (isNaN(dx) || isNaN(dy))
-            return // parse failed, no change
-        this.rotate_pivot[0] += dx  // this is where the values are being set (expr set_prop)
-        this.rotate_pivot[1] += dy
+    calc_pivot_counter(v, vind) {
+        if (v === null) {
+            this.rotate_pivot[vind] = null
+            return
+        }
+        v = parseFloat(v)
+        if (isNaN(v))
+            return;
+        let dv = v - this.rotate_pivot[vind]; 
+        this.rotate_pivot[vind] = v
+        
+        let dp = vec2.create()
+        dp[vind] = -dv
         
         let tt = mat3.create()
-        mat3.translate(tt, tt, vec2.fromValues(-dx,-dy))
+        mat3.translate(tt, tt, dp)
         mat3.rotate(tt, tt, glm.toRadian(this.rotate))
-        mat3.translate(tt, tt, vec2.fromValues(dx,dy))
+        dp[vind] = -dp[vind]
+        mat3.translate(tt, tt, dp)
         //mat3.invert(tt, tt)
         let dt = vec2.create()
         vec2.transformMat3(dt, dt, tt)
@@ -1318,6 +1327,7 @@ class ParamTransform extends Parameter {
         mat3.identity(m)
         v[0] = this.item_tx.dyn_eval(); v[1] = this.item_ty.dyn_eval()
         mat3.translate(m, m, v)
+          // seemingly this does the wrong thing since the translation is not recalculated when the pivot moves but it does seem to work as intended
           v[0] = this.item_pvx.dyn_eval(); v[1] = this.item_pvy.dyn_eval()
           mat3.translate(m, m, v)
         mat3.rotate(m, m, glm.toRadian(this.item_r.dyn_eval()))

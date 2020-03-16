@@ -39,7 +39,7 @@ EXPRESSIONS
 - transform with code
 - clear_all should also clear expressions
 - !!! code for transform param
-  - BUG - slider of rotate disappers on reload
+
 
 NODES:
 - frame buffer
@@ -69,9 +69,6 @@ NODES:
    - transform fill along with the shape (or not according to a checkbox)
       - need a shader to avoid many many renderings - need a separate node to render this
    - fill vertices circles?
-   - !!!!!! Transform-prop different transform per polyline/vertex depeding on expression
-      - for path
-      - BUG set rotate to 0+ length(in_obj.vtx_pos)*20, set pivot.x to in_obj.vtx_pos.y, then to 0, doesn't change back
 
 - transform invert
 - transform - fit one object to another? paper.js fitBounds
