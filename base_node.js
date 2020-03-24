@@ -158,6 +158,7 @@ class TerminalBase {
         this.lines = []
         this.node = in_node
         this.is_input = is_input
+        this.tuid = null // set in add_node
         if (is_input)
             in_node.inputs.push(this)
         else
@@ -219,6 +220,15 @@ class TerminalBase {
         draw_nodes()  // erase temp line
     }
     mousedown() {}
+    hover(wx, wy) {
+        hover_box.innerHTML = this.name
+        hover_box.style.display = "initial"
+        hover_box.style.left = nodes_view.rect.left + nodes_view.pan_x + this.cx  + "px"
+        let y_offset = 0
+        if (this.is_input)
+            y_offset = -30;
+        hover_box.style.top = nodes_view.rect.top + nodes_view.pan_y + this.cy + y_offset + "px"
+    }
 }
 
 function canvas_transform(ctx, m) {
@@ -366,7 +376,13 @@ class Terminal extends TerminalBase
         ctx_nodes.arc(this.px(), this.py() , TERM_RADIUS, 0, 2*Math.PI)
         ctx_nodes.fillStyle = "#aaa"
         ctx_nodes.fill()
-        ctx_nodes.stroke() 
+        ctx_nodes.stroke()
+    }
+    draw_shadow() {
+        ctx_nd_shadow.beginPath();
+        ctx_nd_shadow.arc(this.px(), this.py() , TERM_RADIUS, 0, 2*Math.PI)
+        ctx_nd_shadow.fillStyle = color_from_uid(this.tuid)
+        ctx_nd_shadow.fill()        
     }
     hit_test(px, py) {
         return px >= this.cx - TERM_RADIUS && px <= this.cx + TERM_RADIUS && 
@@ -505,10 +521,17 @@ class InTerminalMulti extends TerminalBase
         this.dirty = true
     }
     draw() {
+        ctx_nd_shadow.beginPath()
         rounded_rect(ctx_nodes, this.px() - TERM_MULTI_HWIDTH, this.py() - TERM_RADIUS, TERM_MULTI_HWIDTH*2, 2*TERM_RADIUS, TERM_RADIUS)
         ctx_nodes.fillStyle = "#aaa"
         ctx_nodes.fill()
         ctx_nodes.stroke()         
+    }
+    draw_shadow() {
+        ctx_nd_shadow.beginPath()
+        rounded_rect(ctx_nd_shadow, this.px() - TERM_MULTI_HWIDTH, this.py() - TERM_RADIUS, TERM_MULTI_HWIDTH*2, 2*TERM_RADIUS, TERM_RADIUS)
+        ctx_nd_shadow.fillStyle = color_from_uid(this.tuid)
+        ctx_nd_shadow.fill()
     }
     hit_test(px, py) {
         return px >= this.cx - TERM_MULTI_HWIDTH && px <= this.cx + TERM_MULTI_HWIDTH && 
@@ -753,6 +776,12 @@ class Node {
         ctx_nodes.font = NODE_NAME_PROPS.font;
         ctx_nodes.fillText(this.name, this.namex(), this.namey())
     }
+
+    draw_shadow() {
+        for(let t of this.terminals) {
+            t.draw_shadow()
+        }
+    }
     
     select() {
         if (selected_node === this) 
@@ -889,6 +918,25 @@ class NodeFlagProxy
     }
 }
 
+function nodes_find_obj_shadow(cvs_x, cvs_y) {
+    if (cvs_x < 0 || cvs_y < 0 || cvs_x > canvas_nd_shadow.width || cvs_y > canvas_nd_shadow.height)
+        return null
+
+    // TBD cache the data, don't sample each time
+    let shadow_col = ctx_nd_shadow.getImageData(cvs_x, cvs_y, 1, 1).data
+    let shadow_val = new Uint32Array(shadow_col.buffer)[0]
+    let obj_id = uid_from_color(shadow_val)
+    //console.log("obj",obj_id)
+    if (obj_id != 0 && obj_id !== null) {
+        let obj = program.obj_map[obj_id]
+        if (obj === undefined) // can still happen in the aliasing between two colors
+            return null
+        // the right way to do this is to take a majority vote between the pixels around
+        return obj
+    }
+    return null
+}
+
 function find_node_obj(px, py, cvs_x, cvs_y) {
     for(let n of program.nodes) {
         // in this node (including terminals) ?
@@ -913,20 +961,7 @@ function find_node_obj(px, py, cvs_x, cvs_y) {
         }
     }
 
-    // TBD cache the data, don't sample each time
-    let shadow_col = ctx_nd_shadow.getImageData(cvs_x, cvs_y, 1, 1).data
-    let shadow_val = new Uint32Array(shadow_col.buffer)[0]
-    let obj_id = uid_from_color(shadow_val)
-    //console.log("obj",obj_id)
-    if (obj_id != 0 && obj_id !== null) {
-        let obj = program.obj_map[obj_id]
-        if (obj === undefined) // can still happen in the aliasing between two colors
-            return null
-        // the right way to do this is to take a majority vote between the pixels around
-        return obj
-    }
-
-    return null
+    return nodes_find_obj_shadow(cvs_x, cvs_y)
 }
 
 
@@ -954,6 +989,20 @@ function nodes_context_menu(px, py, wx, wy, cvs_x, cvs_y) {
     
     nodes_view.last_ctx_menu = open_context_menu(opt, wx, wy, main_view, ()=>{nodes_view.dismiss_ctx_menu()})    
     return nodes_view.last_ctx_menu
+}
+
+let last_nodes_hover_obj = null
+function nodes_hover(px_, py_, wx, wy, cvs_x, cvs_y) {
+    let obj = nodes_find_obj_shadow(cvs_x, cvs_y)
+    if (obj !== null && obj.hover !== undefined) {
+        if (obj !== last_nodes_hover_obj)
+            obj.hover(wx, wy)
+    }
+    else {        
+        hover_box.style.display = "none"
+        obj = null
+    }
+    last_nodes_hover_obj = obj
 }
 
 
@@ -995,6 +1044,10 @@ function draw_nodes()
     
     for(let l of program.lines) {
         l.draw()
+    }
+    // in the shadow canvas nodes should be above lines so that the lines don't obscure the terminals
+    for(let n of program.nodes) {
+        n.draw_shadow();
     }
 }
 

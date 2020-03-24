@@ -53,9 +53,8 @@ NODES:
 - manual geom
     - delete point from list control
     - move them even after transform?
-    - primitive quad, triangle, path between the points? by selection?
-    - curve control points
-    - BUG - yellow appears in the second column but isn't updating when changing selection
+    - primitive quad, triangle, path - between the points? by selection?
+    - Path curve control points
     - point size
 - Divide triangles - for better interpolation
     - unifies vertices?
@@ -66,7 +65,7 @@ NODES:
         add non-hole points?
     show arrows with on the lines to show its direction    
 - SetAttr fill from node 
-   - transform fill along with the shape (or not according to a checkbox)
+   - transform fill along with the shape 
       - need a shader to avoid many many renderings - need a separate node to render this
    - fill vertices circles?
 

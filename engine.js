@@ -62,6 +62,11 @@ function _resize_nodes_panel(w, h) {
     draw_nodes()              
 }
 
+var hover_box = null
+function create_global_elems() {
+    hover_box = add_div(main_view, "hover_box")
+}
+
 function page_onload()
 {
     set_loading(true)
@@ -73,6 +78,8 @@ function page_onload()
     ctx_img = canvas_image.getContext('2d')
     ctx_img_shadow = canvas_img_shadow.getContext('2d')
     paper.project = new paper.Project(null)
+
+    create_global_elems()
     
     clear_program()
     try {
@@ -106,6 +113,8 @@ function page_onload()
     set_loading(false)
 }
 
+
+
 class Program {
     constructor() {
         this.nodes = [] // nodes in an array for iteration
@@ -118,6 +127,10 @@ class Program {
         this.tdisp_nodes = [] // template display
     }
 
+    alloc_graphic_obj_id() {
+        return this.next_obj_id++ 
+    }
+
     add_node(x, y, name, cls, id) 
     {
         if (name === null) {
@@ -128,7 +141,7 @@ class Program {
             name = cls.name().toLowerCase().replace(/[\s-]/g,'_') + "_" + this.names_indices[cls.name()]
         }
         if (id === null || id === undefined) {
-            id = this.next_obj_id++ 
+            id = alloc_graphic_obj_id()
         }
         else {
             console.assert(this.obj_map[id] === undefined, "node-id already exists")
@@ -136,6 +149,11 @@ class Program {
         var node = new Node(x, y, name, cls, id)
         this.obj_map[node.id] = node
         this.nodes.push(node)
+
+        for(let t of node.terminals) {
+            t.tuid = program.alloc_graphic_obj_id() // not saving these ids anywhere because they're only for display of hover, not referenced by something else
+            this.obj_map[t.tuid] = t
+        }
         return node
     }
 
@@ -153,7 +171,8 @@ class Program {
         delete this.obj_map[node.id];
         for(let t of node.terminals) {
             while(t.lines.length > 0)
-            this.delete_line(t.lines[0], false)
+                this.delete_line(t.lines[0], false)
+            delete this.obj_map[t.tuid];
         }
         
         if (redraw) {
@@ -165,7 +184,7 @@ class Program {
     add_line(line, uid) {
         this.lines.push(line)
         if (uid === null || uid === undefined)
-            uid = this.next_obj_id++ 
+            uid = alloc_graphic_obj_id()
         line.uid = uid
         this.obj_map[uid] = line
         line.from_term.lines.push(line)

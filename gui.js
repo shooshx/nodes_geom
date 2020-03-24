@@ -143,6 +143,7 @@ class NodesView extends ViewBase
         this.unselect_all = nodes_unselect_all
         this.context_menu = nodes_context_menu
         this.pan_redraw = draw_nodes
+        this.hover = nodes_hover
     }
 
     dismiss_popups() {
@@ -301,6 +302,10 @@ function panel_mouse_control(view, canvas)
         else if (hit !== null) {
             let cvs_x = e.pageX - view.rect.left, cvs_y = e.pageY - view.rect.top
             hit.mousemove(dx, dy, view.view_x(e.pageX), view.view_y(e.pageY), e.pageX, e.pageY, cvs_x, cvs_y, e)
+        }
+        else if (view.hover !== undefined) {
+            let cvs_x = e.pageX - view.rect.left, cvs_y = e.pageY - view.rect.top // relative to canvas
+            view.hover(0,0, e.pageX, e.pageY, cvs_x, cvs_y)
         }
     })
     

@@ -644,3 +644,12 @@ input {
     box-sizing: border-box;
 }
 
+.hover_box {
+    display: none;
+    background-color: #543e04;
+    border: 1px solid #000;
+    border-radius: 3px;
+    position: absolute;
+    color: #ffd067;
+    padding: 5px;
+}

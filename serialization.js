@@ -75,7 +75,7 @@ function load_program(sprog)
     nodes_unselect_all(false)
     clear_program()
     
-    program.next_obj_id = parseInt(sprog.next_node_id)
+    program.next_obj_id = parseInt(sprog.next_node_id) // needs to be first since creating nodes adds to this
     for(let n in sprog.names_idx_s)
         program.names_indices[n] = parseInt(sprog.names_idx_s[n])
 
