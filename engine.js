@@ -141,7 +141,7 @@ class Program {
             name = cls.name().toLowerCase().replace(/[\s-]/g,'_') + "_" + this.names_indices[cls.name()]
         }
         if (id === null || id === undefined) {
-            id = alloc_graphic_obj_id()
+            id = this.alloc_graphic_obj_id()
         }
         else {
             console.assert(this.obj_map[id] === undefined, "node-id already exists")
@@ -151,7 +151,7 @@ class Program {
         this.nodes.push(node)
 
         for(let t of node.terminals) {
-            t.tuid = program.alloc_graphic_obj_id() // not saving these ids anywhere because they're only for display of hover, not referenced by something else
+            t.tuid = this.alloc_graphic_obj_id() // not saving these ids anywhere because they're only for display of hover, not referenced by something else
             this.obj_map[t.tuid] = t
         }
         return node
@@ -184,12 +184,12 @@ class Program {
     add_line(line, uid) {
         this.lines.push(line)
         if (uid === null || uid === undefined)
-            uid = alloc_graphic_obj_id()
+            uid = this.alloc_graphic_obj_id()
         line.uid = uid
         this.obj_map[uid] = line
         line.from_term.lines.push(line)
         line.to_term.lines.push(line)
-        line.to_term.get_attachee().node.cls.did_connect(line.to_term.get_attachee(), line) 
+        line.to_term.get_attachee().owner.cls.did_connect(line.to_term.get_attachee(), line) 
         line.to_term.tset_dirty(true) // need function so that it will work for multi in as well
         trigger_frame_draw(true)
     }
@@ -197,7 +197,7 @@ class Program {
 
     delete_line(line, redraw) {
         try {
-            line.to_term.get_attachee().node.cls.doing_disconnect(line.to_term.get_attachee(), line)
+            line.to_term.get_attachee().owner.cls.doing_disconnect(line.to_term.get_attachee(), line)
         } catch(e) {}
         line.from_term.lines.splice(line.from_term.lines.indexOf(line), 1)
         line.to_term.lines.splice(line.to_term.lines.indexOf(line), 1)
@@ -283,7 +283,7 @@ async function run_nodes_tree(n) {
         for(let inp_t of n.inputs) {  
             // all lines going into an input
             for(let line of inp_t.lines) {
-                await run_nodes_tree(line.from_term.node)
+                await run_nodes_tree(line.from_term.owner)
             }
         }
         // clear outputs of what's just going to run to make sure it updated its output
@@ -300,7 +300,7 @@ async function run_nodes_tree(n) {
             let obj = line.from_term.get_const()
             assert(obj !== null, n.cls, "No output")
             line.to_term.set(obj)
-            //console.log("TERM-SET from ", line.from_term.name, ":", line.from_term.node.name, "  TO  ", line.to_term.name, ":", line.to_term.node.name)
+            //console.log("TERM-SET from ", line.from_term.name, ":", line.from_term.owner.name, "  TO  ", line.to_term.name, ":", line.to_term.owner.name)
         }
     }
     // clear all inputs of the node that just ran just to be safe (they don't take up references)
@@ -353,7 +353,7 @@ function mark_dirty_tree(n) {
         // all lines going into an input
         for(let line of inp_t.lines) {
             // if any of the higher nodes is dirty, we're dirty as well
-            if (mark_dirty_tree(line.from_term.node)) {
+            if (mark_dirty_tree(line.from_term.owner)) {
                 n._node_dirty = true
                 // can't return just yet since it needs to go over all inputs to mark all as dirty or not
             }
@@ -436,7 +436,9 @@ function call_frame_draw(do_run, clear_all) {
     if (in_draw)
         return // avoid starting a call if the previous async call didn't finish yet (indicated several triggers from the same stack)
     in_draw = true
-    do_frame_draw(do_run, clear_all).then(()=>{}, (err)=>{ throw err }).finally( ()=>{ 
+    do_frame_draw(do_run, clear_all).then(()=>{}, (err)=>{ throw err }).catch(()=>{
+
+    }).finally( ()=>{ 
         in_draw = false 
         //clear_draw_req()
     })
@@ -565,6 +567,7 @@ var nodes_classes = [
     NodeRoundCorners,
     NodeFuncFill,
     NodeBoolOp,
+    NodeVariable,
 ]
 var nodes_classes_by_name = {}
 for(let c of nodes_classes)

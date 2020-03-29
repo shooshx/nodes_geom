@@ -4,6 +4,7 @@ class NodeCls {
     constructor(node) {
         this.error = null
         this.node = node
+        this.vars_in = new VarsInTerminal(node, "vars_in")
     }
     // mouse interaction in image_view
     image_click() {}
@@ -842,7 +843,7 @@ class NodeSetAttr extends NodeCls
 
         const mesh = this.in_mesh.get_mutable()
         // there's going to be a single line since it's not a multi terminal
-        const disp_values = this.in_source.lines[0].from_term.node.display_values
+        const disp_values = this.in_source.lines[0].from_term.owner.display_values
         const id = mesh.add_fillobj(new ObjConstProxy(src, clone(disp_values)))
         return id        
     }

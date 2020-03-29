@@ -34,12 +34,12 @@ function draw_curve(ctx, cpnts) {
 
 const LINE_ARROW = {out:7, back:14}
 
-function connector_line(fx, fy, fxoffset, tx, ty, txoffset, free, uid) { // from, to
+function connector_line(fx, fy, fxoffset, tx, ty, txoffset, free, uid, kind) { // from, to
     fx += nodes_view.pan_x, tx += nodes_view.pan_x
     fy += nodes_view.pan_y, ty += nodes_view.pan_y
     let dy = ty - fy, dx = tx - fx
     let cpnts;
-    if (ty - 2*TERM_RADIUS -5 > fy || Math.sqrt(dx*dx+dy*dy) < 70 || free) {// going down or very short        
+    if (ty - 2*TERM_RADIUS -5 > fy || Math.sqrt(dx*dx+dy*dy) < 70 || free || kind == KIND_VARS) {// going down or very short        
         cpnts = getCurvePoints([fx,fy, 
                                     fx+dx*0.16, fy+dy*0.3, 
                                     tx-dx*0.16, ty-dy*0.3,  
@@ -78,11 +78,14 @@ function connector_line(fx, fy, fxoffset, tx, ty, txoffset, free, uid) { // from
         ctx_nodes.lineTo(p2_x, p2_y)
     }
 
-    ctx_nodes.strokeStyle = "#aaa"
+    if (kind == KIND_VARS)
+        ctx_nodes.strokeStyle = LINE_COLOR_VARS
+    else
+        ctx_nodes.strokeStyle = "#aaa"
     ctx_nodes.lineWidth = 1.5
     ctx_nodes.stroke()
 
-    if (uid !== undefined) {
+    if (uid !== null) {
         //draw_curve_crisp(ctx_nd_shadow, cpnts, 5, "#ffff00") //color_from_uid(uid)) 
         ctx_nd_shadow.beginPath()
         draw_curve(ctx_nd_shadow, cpnts)
@@ -144,40 +147,44 @@ class Line {
     
     draw() {
         connector_line(this.from_term.center_x(), this.from_term.center_y(), this.from_term.center_offset(),
-                       this.to_term.center_x(), this.to_term.center_y(), this.to_term.center_offset(), false, this.uid)
+                       this.to_term.center_x(), this.to_term.center_y(), this.to_term.center_offset(), false, this.uid, this.from_term.kind)
     }
 }
+
+const KIND_OBJ = 0   // terminal that passes renderable objects
+const KIND_VARS = 1  // terminal that passes variable packs
 
 // does just the graphics
 class TerminalBase {
     constructor(name, in_node, is_input) {
         this.name = name
         console.assert(is_input !== undefined, "don't instantiate TerminalBase")
-        this.owner = null  // set in Node
+        this.owner = in_node //null  // set in Node
         this.line_pending = null
         this.lines = []
-        this.node = in_node
+      //  this.node = in_node
         this.is_input = is_input
         this.tuid = null // set in add_node
-        if (is_input)
+        this.kind = KIND_OBJ
+        this.color = "#aaa"
+
+        this.xoffset = null // will be set again in Node
+
+        if (is_input) {
             in_node.inputs.push(this)
-        else
+            this.yoffset = - TERM_RADIUS - TERM_MARGIN_Y
+        }
+        else {
             in_node.outputs.push(this)
-    }
-    
-    move_with_owner(is_input) {
-        this.cx = this.owner.x + this.offset  // center
-        if (this.is_input)
-            this.cy = this.owner.y - TERM_RADIUS - TERM_MARGIN_Y
-        else
-            this.cy = this.owner.y + this.owner.height + TERM_RADIUS + TERM_MARGIN_Y    
+            this.yoffset = this.owner.height + TERM_RADIUS + TERM_MARGIN_Y   
+        }
     }
 
-    px() { return this.cx + nodes_view.pan_x }
-    py() { return this.cy + nodes_view.pan_y }
-    center_x() { return this.cx }
-    center_y() { return this.cy }
-    center_offset() { return this.offset }
+    px() { return this.owner.x + this.xoffset + nodes_view.pan_x }
+    py() { return this.owner.y + this.yoffset + nodes_view.pan_y }
+    center_x() { return this.owner.x + this.xoffset }
+    center_y() { return this.owner.y + this.yoffset }
+    center_offset() { return this.xoffset }
 
     is_connected_to(other_term) {
         for(let l of this.lines) {
@@ -187,11 +194,25 @@ class TerminalBase {
         return false;
     }
     gender_match(other_term) {
-        return (this.is_input && !other_term.is_input) || (!this.is_input && other_term.is_input)
+        return ((this.is_input && !other_term.is_input) || (!this.is_input && other_term.is_input)) && (this.kind == other_term.kind)
     }
     
     get_attachment() { return this }// useful in multi
     get_attachee() { return this }    
+
+    draw() {
+        ctx_nodes.beginPath();
+        this.draw_path(ctx_nodes)
+        ctx_nodes.fillStyle = this.color
+        ctx_nodes.fill()
+        ctx_nodes.stroke()
+    }
+    draw_shadow() {
+        ctx_nd_shadow.beginPath();
+        this.draw_path(ctx_nodes)
+        ctx_nd_shadow.fillStyle = color_from_uid(this.tuid)
+        ctx_nd_shadow.fill()        
+    }
     
     mousemove(dx, dy, px, py, ex, ey, cvs_x, cvs_y) {
         let linkto = find_node_obj(px, py, cvs_x, cvs_y)
@@ -204,7 +225,7 @@ class TerminalBase {
             !this.gender_match(linkto) || this.is_connected_to(linkto)) 
         {
             // free line
-            connector_line(this.cx, this.cy, 0, px, py, 0, true)
+            connector_line(this.center_x(), this.center_y(), 0, px, py, 0, true, null, this.kind)
         }
         else {
             this.line_pending = new Line(this.get_attachment(), linkto.get_attachment())
@@ -223,12 +244,13 @@ class TerminalBase {
     hover(wx, wy) {
         hover_box.innerHTML = this.name
         hover_box.style.display = "initial"
-        hover_box.style.left = nodes_view.rect.left + nodes_view.pan_x + this.cx  + "px"
+        hover_box.style.left = nodes_view.rect.left + nodes_view.pan_x + this.center_x() + "px"
         let y_offset = 0
         if (this.is_input)
             y_offset = -30;
-        hover_box.style.top = nodes_view.rect.top + nodes_view.pan_y + this.cy + y_offset + "px"
+        hover_box.style.top = nodes_view.rect.top + nodes_view.pan_y + this.center_y() + y_offset + "px"
     }
+    
 }
 
 function canvas_transform(ctx, m) {
@@ -371,22 +393,13 @@ class PWeakHandle {
 // normal circle terminal taking a single value
 class Terminal extends TerminalBase
 {
-    draw() {
-        ctx_nodes.beginPath();
-        ctx_nodes.arc(this.px(), this.py() , TERM_RADIUS, 0, 2*Math.PI)
-        ctx_nodes.fillStyle = "#aaa"
-        ctx_nodes.fill()
-        ctx_nodes.stroke()
+    draw_path(ctx) {
+        ctx.arc(this.px(), this.py() , TERM_RADIUS, 0, 2*Math.PI)
     }
-    draw_shadow() {
-        ctx_nd_shadow.beginPath();
-        ctx_nd_shadow.arc(this.px(), this.py() , TERM_RADIUS, 0, 2*Math.PI)
-        ctx_nd_shadow.fillStyle = color_from_uid(this.tuid)
-        ctx_nd_shadow.fill()        
-    }
+
     hit_test(px, py) {
-        return px >= this.cx - TERM_RADIUS && px <= this.cx + TERM_RADIUS && 
-               py >= this.cy - TERM_RADIUS && py <= this.cy + TERM_RADIUS
+        return px >= this.center_x() - TERM_RADIUS && px <= this.center_x() + TERM_RADIUS && 
+               py >= this.center_y() - TERM_RADIUS && py <= this.center_y() + TERM_RADIUS
     }
 
 
@@ -481,13 +494,13 @@ class InAttachMulti {
         return this.owner_term
     }
     center_x() {
-        return this.owner_term.cx
+        return this.owner_term.center_x()
     }
     center_y() {
-        return this.owner_term.cy
+        return this.owner_term.center_y()
     }
     center_offset() {
-        return this.owner_term.offset
+        return this.owner_term.xoffset
     }
     set(v) {
         if (v.constructor === PHandle || v.constructor === PWeakHandle)
@@ -520,22 +533,13 @@ class InTerminalMulti extends TerminalBase
         super(name, in_node, true)
         this.dirty = true
     }
-    draw() {
-        ctx_nd_shadow.beginPath()
-        rounded_rect(ctx_nodes, this.px() - TERM_MULTI_HWIDTH, this.py() - TERM_RADIUS, TERM_MULTI_HWIDTH*2, 2*TERM_RADIUS, TERM_RADIUS)
-        ctx_nodes.fillStyle = "#aaa"
-        ctx_nodes.fill()
-        ctx_nodes.stroke()         
+    draw_path(ctx) {
+        rounded_rect(ctx, this.px() - TERM_MULTI_HWIDTH, this.py() - TERM_RADIUS, TERM_MULTI_HWIDTH*2, 2*TERM_RADIUS, TERM_RADIUS)
     }
-    draw_shadow() {
-        ctx_nd_shadow.beginPath()
-        rounded_rect(ctx_nd_shadow, this.px() - TERM_MULTI_HWIDTH, this.py() - TERM_RADIUS, TERM_MULTI_HWIDTH*2, 2*TERM_RADIUS, TERM_RADIUS)
-        ctx_nd_shadow.fillStyle = color_from_uid(this.tuid)
-        ctx_nd_shadow.fill()
-    }
+
     hit_test(px, py) {
-        return px >= this.cx - TERM_MULTI_HWIDTH && px <= this.cx + TERM_MULTI_HWIDTH && 
-               py >= this.cy - TERM_RADIUS && py <= this.cy + TERM_RADIUS
+        return px >= this.center_x() - TERM_MULTI_HWIDTH && px <= this.center_x() + TERM_MULTI_HWIDTH && 
+               py >= this.center_y() - TERM_RADIUS && py <= this.center_y() + TERM_RADIUS
     } 
     get_attachment() {
         return new InAttachMulti(this)
@@ -638,6 +642,8 @@ class Node {
         this.set_name(name)
         this.color = "#ccc"
         this.id = id  // used for identification in the program and serialization
+        this.can_display = true // vars nodes can't display, set in cls ctor
+        this.name_xmargin = 0   // distance of name from node, use for var input node
 
         // calculated data members
         this.parameters = []
@@ -678,21 +684,31 @@ class Node {
     }
 
     make_term_offset(lst) {
-        if (lst.length == 1) {
-            lst[0].offset = this.width / 2
-        }
-        else {
-            const step = (this.width - TERM_MARGIN_X*2) / (lst.length - 1)
-            for(let i = 0; i < lst.length; ++i) {
-                let input = lst[i]
-                if (input.offset === undefined)
-                    input.offset = TERM_MARGIN_X + i * step
+        if (lst.length == 0)
+            return;
+        let count = 0
+        for(let t of lst)
+            if (t.kind == KIND_OBJ)
+                ++count
+
+        const step = (this.width - TERM_MARGIN_X*2) / (count - 1)
+        let cidx = 0
+        for(let i = 0; i < lst.length; ++i) {
+            let term = lst[i]
+            if (term.kind != KIND_OBJ)
+                continue
+            if (term.xoffset === null) {
+                if (count == 1)
+                    term.xoffset = this.width / 2
+                else
+                    term.xoffset = TERM_MARGIN_X + cidx * step
             }
+            ++cidx;    
         }
-        for(let t of lst) {
-            t.owner = this
-            t.move_with_owner()
-        }        
+
+        //  for(let t of lst) {
+      //      t.owner = this
+      //  }        
     }
     
     px() {  // panned
@@ -702,7 +718,7 @@ class Node {
         return this.y + nodes_view.pan_y
     }
     namex() {
-        return this.px() + this.width + NODE_NAME_PROPS.margin_left
+        return this.px() + this.width + this.name_xmargin + NODE_NAME_PROPS.margin_left
     }
     namey() {
         return this.py() + NODE_NAME_PROPS.margin_top
@@ -745,29 +761,32 @@ class Node {
             ctx_nodes.lineWidth = 1
         }
         
-        // display flag
-        if (program.display_node === this) {
-            ctx_nodes.beginPath();
-            rounded_rect_f(ctx_nodes, px + NODE_FLAG_DISPLAY.offset, py, this.width - NODE_FLAG_DISPLAY.offset, this.height, 0, 0, 5, 5)
-            ctx_nodes.fillStyle = NODE_FLAG_DISPLAY.color
-            ctx_nodes.fill()
-            ctx_nodes.stroke()  // looks bad without this
-        }        
+        if (this.can_display) 
+        {
+            // display flag
+            if (program.display_node === this) {
+                ctx_nodes.beginPath();
+                rounded_rect_f(ctx_nodes, px + NODE_FLAG_DISPLAY.offset, py, this.width - NODE_FLAG_DISPLAY.offset, this.height, 0, 0, 5, 5)
+                ctx_nodes.fillStyle = NODE_FLAG_DISPLAY.color
+                ctx_nodes.fill()
+                ctx_nodes.stroke()  // looks bad without this
+            }        
 
-        // template flag
-        if (this.disp_template) {
-            ctx_nodes.fillStyle = NODE_FLAG_TEMPLATE.color
-            ctx_nodes.fillRect(px + NODE_FLAG_TEMPLATE.offset, py, NODE_FLAG_DISPLAY.offset - NODE_FLAG_TEMPLATE.offset, this.height)
-            ctx_nodes.strokeRect(px + NODE_FLAG_TEMPLATE.offset, py, NODE_FLAG_DISPLAY.offset - NODE_FLAG_TEMPLATE.offset, this.height)
+            // template flag
+            if (this.disp_template) {
+                ctx_nodes.fillStyle = NODE_FLAG_TEMPLATE.color
+                ctx_nodes.fillRect(px + NODE_FLAG_TEMPLATE.offset, py, NODE_FLAG_DISPLAY.offset - NODE_FLAG_TEMPLATE.offset, this.height)
+                ctx_nodes.strokeRect(px + NODE_FLAG_TEMPLATE.offset, py, NODE_FLAG_DISPLAY.offset - NODE_FLAG_TEMPLATE.offset, this.height)
+            }
+            
+            // flags lines
+            ctx_nodes.beginPath();
+            ctx_nodes.moveTo(px + NODE_FLAG_DISPLAY.offset, py)
+            ctx_nodes.lineTo(px + NODE_FLAG_DISPLAY.offset, py+this.height)
+            ctx_nodes.moveTo(px + NODE_FLAG_TEMPLATE.offset, py)
+            ctx_nodes.lineTo(px + NODE_FLAG_TEMPLATE.offset, py+this.height)
+            ctx_nodes.stroke()
         }
-        
-        // flags lines
-        ctx_nodes.beginPath();
-        ctx_nodes.moveTo(px + NODE_FLAG_DISPLAY.offset, py)
-        ctx_nodes.lineTo(px + NODE_FLAG_DISPLAY.offset, py+this.height)
-        ctx_nodes.moveTo(px + NODE_FLAG_TEMPLATE.offset, py)
-        ctx_nodes.lineTo(px + NODE_FLAG_TEMPLATE.offset, py+this.height)
-        ctx_nodes.stroke()
 
         for(let t of this.terminals) {
             t.draw()
@@ -812,7 +831,7 @@ class Node {
 
     // geom including terminals and name
     recalc_bounding_box() {
-        this.tx = this.x
+        this.tx = this.x - 8 // in var term
         this.ty = this.y - TERM_RADIUS*2 - 2
         this.twidth = this.width + this.name_measure.width + NODE_NAME_PROPS.margin_left
         this.theight = this.height + TERM_RADIUS * 4 + TERM_MARGIN_Y*2
@@ -821,10 +840,7 @@ class Node {
     mousemove(dx, dy) {
         this.x += dx
         this.y += dy
-        this.recalc_bounding_box()
-        for(let t of this.terminals) {
-            t.move_with_owner()
-        }        
+        this.recalc_bounding_box()      
         draw_nodes()
     }
     
@@ -939,24 +955,29 @@ function nodes_find_obj_shadow(cvs_x, cvs_y) {
 
 function find_node_obj(px, py, cvs_x, cvs_y) {
     for(let n of program.nodes) {
-        // in this node (including terminals) ?
+        // in this node (including terminals and name input) ?
         if (px < n.tx || px > n.tx + n.twidth || py < n.ty || py >  n.ty + n.theight) {
             continue;
         }
         
-        if (py >= n.y && py <= n.y + n.height && px <= n.x + n.width) {
-            if (px >= n.x + NODE_FLAG_DISPLAY.offset)
-                return new NodeFlagProxy(n, set_display_node)
-            if (px >= n.x + NODE_FLAG_TEMPLATE.offset)
-                return new NodeFlagProxy(n, set_template_node)
-            if (px >= n.x)                
-                return n
-        }
         for(let t of n.terminals) {
             if (t.hit_test(px, py))
                 return t
         }
-        if (px > n.x + n.width && px < n.x + n.width + n.name_measure.width + NODE_NAME_PROPS.margin_left && py >= n.y && py <= n.y + NODE_NAME_PROPS.height) {
+        if (py >= n.y && py <= n.y + n.height && px <= n.x + n.width) {
+            if (n.can_display) {
+                if (px >= n.x + NODE_FLAG_DISPLAY.offset)
+                    return new NodeFlagProxy(n, set_display_node)
+                if (px >= n.x + NODE_FLAG_TEMPLATE.offset)
+                    return new NodeFlagProxy(n, set_template_node)
+            }
+            if (px >= n.x)                
+                return n
+        }
+
+        const name_xstart = n.x + n.width + n.name_xmargin
+        if (px > name_xstart && px < name_xstart + n.name_measure.width + NODE_NAME_PROPS.margin_left && 
+            py >= n.y && py <= n.y + NODE_NAME_PROPS.height) {
             return new NameInput(n, edit_nodes)
         }
     }

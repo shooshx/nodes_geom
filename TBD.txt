@@ -40,6 +40,16 @@ EXPRESSIONS
 - clear_all should also clear expressions
 - !!! code for transform param
 
+CURRENT PLAN
+- Variable infra
+- Mouse 2d input
+- Param2d short expression
+- Image transform spiral from kawaiig
+- Manul geom move
+- green coordinates
+     - https://github.com/ugomadagu/Krita/blob/7626a015269510c13bf92268d00ad3fb13107e96/libs/image/kis_green_coordinates_math.cpp
+     - http://www.wisdom.weizmann.ac.il/~ylipman/GC/gc_techrep.pdf
+
 
 NODES:
 - frame buffer
@@ -165,7 +175,7 @@ demo idea
 - http://paperjs.org/examples/
 - image effects http://iquilezles.org/www/articles/deform/deform.htm
 - plasma https://stuff.brm.sk/plasma/
-
+- filters from Krita G'MIC
 
 
 https://two.js.org/examples/
@@ -177,3 +187,7 @@ nice reference images:
 https://society6.com/product/gray-polygon-background_stretched-canvas
 
 VEX random attr video: https://www.youtube.com/watch?v=0qfBj15IoQM
+
+Name?
+- 2dini?
+- picodini
