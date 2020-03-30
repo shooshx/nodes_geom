@@ -200,11 +200,13 @@ class TerminalBase {
     get_attachment() { return this }// useful in multi
     get_attachee() { return this }    
 
-    draw() {
+    draw(force=false) {
         ctx_nodes.beginPath();
-        this.draw_path(ctx_nodes)
+        this.draw_path(ctx_nodes, force)
         ctx_nodes.fillStyle = this.color
         ctx_nodes.fill()
+        ctx_nodes.strokeStyle = "#000"
+        ctx_nodes.lineWidth = 1
         ctx_nodes.stroke()
     }
     draw_shadow() {
@@ -221,6 +223,13 @@ class TerminalBase {
         if (linkto === this) { // should not connect to itself
             return
         }
+        if (linkto !== null) {
+            let i = 0;
+        }
+        if (linkto !== null && linkto.owner === undefined && this.kind == KIND_VARS && linkto.cls !== undefined) {
+            // when linking a vars line, target the whole node
+            linkto = linkto.cls.vars_in
+        }
         if (linkto === null || linkto.owner === undefined || linkto.owner === this.owner || 
             !this.gender_match(linkto) || this.is_connected_to(linkto)) 
         {
@@ -229,6 +238,8 @@ class TerminalBase {
         }
         else {
             this.line_pending = new Line(this.get_attachment(), linkto.get_attachment())
+            if (this.kind == KIND_VARS) // draw the terminal that is normally invisible
+                linkto.draw(true)
             this.line_pending.draw()
         }        
     }

@@ -1,6 +1,7 @@
 "use strict"
 
 const LINE_COLOR_VARS = "#a9ef50"
+const TERM_COLOR_VARS = "#b9ff50"
 
 class VarOutTerminal extends OutTerminal
 {
@@ -9,12 +10,11 @@ class VarOutTerminal extends OutTerminal
         this.kind = KIND_VARS
         this.yoffset = in_node.height/2;
         this.xoffset = in_node.width+2
-        this.color = "#b9ff50"
+        this.color = TERM_COLOR_VARS
     }
     draw_path(ctx) {
         const px = this.px(), py = this.py()
         const dr = -6, r = 8, s = 4, re = 9
-        ctx.beginPath()
         const pnts = [px+dr,py-r, px+s,py-r, px+re,py, px+s,py+r, px+dr,py+r, px+dr,py-r ]
         draw_curve(ctx, pnts)
     }
@@ -27,11 +27,13 @@ class VarsInTerminal extends InTerminal
         this.kind = KIND_VARS
         this.yoffset = in_node.height/2;
         this.xoffset = -4
+        this.color = TERM_COLOR_VARS
     }
-    draw_path(ctx) {
+    draw_path(ctx, force) {
+        if (this.lines.length == 0 && !force)
+            return
         const px = this.px(), py = this.py()
         const hw = 4, hh = 9
-        ctx.beginPath()
         const pnts = [px-hw,py-hh, px+hw,py-hh, px+hw,py+hh, px-hw,py+hh, px-hw,py-hh]
         draw_curve(ctx, pnts)
     }
