@@ -42,6 +42,7 @@ EXPRESSIONS
 
 CURRENT PLAN
 - Variable infra
+    - test interaction with UndecidedErr
 - Mouse 2d input
 - Param2d short expression
 - Image transform spiral from kawaiig
@@ -135,7 +136,8 @@ NODES:
     - 3D - https://schteppe.github.io/cannon.js/
 - SVG in WebGL?
     - paths to triangles https://css-tricks.com/rendering-svg-paths-in-webgl/
-
+- Anim: Accumulate geometry every N frames
+- Anim: object feedback - from specific frame, every N frame, from N frames in the past (delay line)
 
 - animate? modify a property for the next frame
 - random color with r,g,b ranges and seed parameter
@@ -176,7 +178,7 @@ demo idea
 - image effects http://iquilezles.org/www/articles/deform/deform.htm
 - plasma https://stuff.brm.sk/plasma/
 - filters from Krita G'MIC
-
+- Moving Voronoi disagram with stars in a random walk in it
 
 https://two.js.org/examples/
 

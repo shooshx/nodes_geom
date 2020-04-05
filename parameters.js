@@ -15,6 +15,7 @@ class Parameter
         this.change_func = null
         this.shares_line_from = null  // to have more than one param in the same line
         this.group_param = null  // member of a group? used for param aggregation
+        this.my_expr_items = []  // ExpressionItem objects in me
     }
     set_label(text) {
         this.label = text
@@ -72,6 +73,14 @@ class Parameter
     }
     set_group(group_param) {
         this.group_param = group_param
+    }
+
+    reg_expr_item(expr) {
+        this.my_expr_items.push(expr)
+    }
+    resolve_variables() { // each param that has expr_items implements this to its exprs
+        for(let expr of this.my_expr_items)
+            expr.eresolve_variables()
     }
 }
 
@@ -566,6 +575,8 @@ class ExpressionItem {
         }
         this.param_line = null
         this.etype = null
+        this.in_param.reg_expr_item(this)
+        this.expr_score = null
     }
     save_to(r) { 
         r["se_" + this.prop_name_ser] = this.se 
@@ -630,7 +641,7 @@ class ExpressionItem {
     }
     do_check_type() {
         this.etype = ExprParser.check_type(this.e)
-        if (this.etype === TYPE_UNDECIDED) 
+        if (this.etype === TYPE_UNDECIDED || this.etype == TYPE_DEPEND_ON_VAR) 
             return // can't do it now, will be called again when we have the mesh
         if (this.prop_type == ED_COLOR_EXPR)
             eassert(this.etype === TYPE_VEC3 || this.etype === TYPE_VEC4, "Wrong type, expected a vector")
@@ -661,15 +672,15 @@ class ExpressionItem {
             return
         }
         // score determines if the expression depends on anything
-        let expr_score = (state_access !== null) ? state_access.score : EXPR_CONST
-        if (expr_score == EXPR_CONST) { // depends on anything?
+        this.expr_score = (state_access !== null) ? state_access.score : EXPR_CONST
+        if (this.expr_score == EXPR_CONST) { // depends on anything?
             if (this.do_set_prop(this.e.eval()))
                 this.in_param.pset_dirty() 
             this.need_inputs = null
         }
         else {
             this.do_set_prop(null) // it's dynamic so best if it doesn't have a proper value from before
-            if ((expr_score & EXPR_NEED_INPUT) != 0) {
+            if ((this.expr_score & EXPR_NEED_INPUT) != 0) {
                 this.need_inputs = state_access.need_inputs
             }
             this.in_param.pset_dirty() // TBD maybe expression didn't change?
@@ -782,6 +793,19 @@ class ExpressionItem {
     }
     get_last_error() {
         return this.last_error
+    }
+
+    eresolve_variables() {
+        if ((this.expr_score & EXPR_NEED_VAR) == 0)
+            return
+        this.do_check_type()
+        try {
+            this.set_prop(this.e.eval())
+        }
+        catch(ex) {
+            this.eset_error(ex)
+            throw ex // will be caught by do_run
+        }            
     }
 }
 
@@ -924,7 +948,6 @@ class ParamBaseExpr extends CodeItemMixin(Parameter)
         if (dirtyify)
             this.pset_dirty()
     }
-
 }
 
 
@@ -939,7 +962,11 @@ class ParamFloat extends ParamBaseExpr {
 class ParamInt extends ParamBaseExpr {
     constructor(node, label, start_v, conf=null) {
         super(node, label, start_v, ED_INT, conf)
-        this.item.set_prop = (v)=>{ this.v = Math.round(v) }
+        this.item.set_prop = (v)=>{ 
+            if (v === null) 
+                this.v = null
+            else
+                this.v = Math.round(v) }
     }
     gl_set_value(loc) {
         gl.uniform1i(loc, this.v)
@@ -1080,10 +1107,17 @@ function make_rgb_str(c) {
 
 }
 
-class ParamColor extends CodeItemMixin(Parameter) {
+class ParamColor extends CodeItemMixin(Parameter) 
+{
     constructor(node, label, start_c_str, conf=null) {
         super(node, label, conf)
-        this.v = ColorPicker.parse_hex(start_c_str[0])
+        if (!Array.isArray(start_c_str)){
+            this.v = ColorPicker.parse_hex(start_c_str)
+            start_c_str = [start_c_str, make_rgb_str(this.v)]
+        }
+        else {
+            this.v = ColorPicker.parse_hex(start_c_str[0])
+        }
         this.picker = null
         this.picker_elem = null
         this.picker_v = clone(this.v)  // basically the same as v, as if there's no code so that the picker state would be saved

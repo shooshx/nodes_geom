@@ -603,9 +603,11 @@ function wrapText(context, text, x, center_y, maxWidth, lineHeight) {
 // bit field
 const EXPR_CONST = 0  // didn't lookup anything
 const EXPR_NEED_INPUT = 1  //  looked up a value that does change depend on input
+const EXPR_NEED_VAR = 2  // looked up a variable
 
 class StateAccess {
     constructor(state_evaluators) {
+        this.vars_box = null // set later in Node, after cls is set
         this.state_evaluators = state_evaluators // from the node, map name to evaluator type
         this.known_objrefs = {}
         // have a store of objrefs so that these will always be the same ones, no matter which expression is calling for them
@@ -618,7 +620,7 @@ class StateAccess {
     // called right before parsing an expression
     reset_check() {
         this.score = EXPR_CONST
-        this.need_inputs = {} // map name of input to its ObjRef
+        this.need_inputs = {} // map name of input to its ObjRef, gets taken away right after parsing is done
     }
     get_evaluator(name) { // called from parser
         let sp = name.split('.')
@@ -627,8 +629,12 @@ class StateAccess {
         let top_level = this.need_inputs[varname]
         if (top_level === undefined) {
             let known_obj = this.known_objrefs[varname]
-            if (known_obj === undefined)
-                return null;
+            if (known_obj === undefined)  { 
+                // name is not in needed and not in known (which comes from state_evaluators) so it something we know nothing about
+                // default is to assume it's a variable
+                this.score |= EXPR_NEED_VAR
+                return new VariableEvaluator(varname, this.vars_box)
+            }
             top_level = this.need_inputs[varname] = this.known_objrefs[varname]
         }
         let evaluator_factory = this.state_evaluators[varname] // as specified by the node_cls
@@ -638,7 +644,7 @@ class StateAccess {
             return e
         }
 
-        return null
+        return null // shouldn't happen
     }
 }
 
@@ -687,12 +693,16 @@ class Node {
 
         if (this.state_access === null)
             this.set_state_evaluators([]) // if cls ctor did not call it
+
+        this.state_access.vars_box = this.cls.vars_in.my_vsb
     }
 
     set_state_evaluators(d) { // called in cls ctor to configure how StateAccess accesses state
         this.state_evaluators = d
-        this.state_access = new StateAccess(this.state_evaluators) // evaluators created in the cls ctor
+        // evaluators created in the cls ctor
+        this.state_access = new StateAccess(this.state_evaluators) 
     }
+
 
     make_term_offset(lst) {
         if (lst.length == 0)
@@ -894,6 +904,48 @@ class Node {
         this.parameters.splice(i, 1)
     }
 }
+
+
+
+class NodeCls {
+    constructor(node) {
+        this.error = null
+        this.node = node
+        this.vars_in = new VarsInTerminal(node, "vars_in")
+    }
+    // mouse interaction in image_view
+    image_click() {}
+    image_find_obj() { return null }
+    clear_selection() {}
+    draw_selection() {}
+    selected_obj_name() { return null }
+    // rect_select(min_x, min_y, max_x, max_y) {} if it's not defined, rect doesn't even show
+
+    // nodes that depends on the viewport should implement and dirty themselves
+    dirty_viewport() {}
+
+    get_error() { return this.error }
+    clear_error() { this.error = null }
+    did_connect(to_term, line) {}
+    doing_disconnect(to_term, line) {}
+    cclear_dirty() {} // clear the dirty things in a NodeCls that are not exposed to the outside via proxies
+
+    async do_run() {
+        try {
+            for(let p of this.node.parameters) {
+                p.resolve_variables() // variables already have the vars_box referenced
+            }
+        } 
+        catch(err) {
+            assert(false, this, "Parameter variables error")
+        }
+        await this.run()
+    }
+}
+
+
+
+
 
 function nodes_unselect_all(redraw) {
     if (selected_node == null)

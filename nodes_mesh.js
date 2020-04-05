@@ -1,29 +1,5 @@
 "use strict"
 
-class NodeCls {
-    constructor(node) {
-        this.error = null
-        this.node = node
-        this.vars_in = new VarsInTerminal(node, "vars_in")
-    }
-    // mouse interaction in image_view
-    image_click() {}
-    image_find_obj() { return null }
-    clear_selection() {}
-    draw_selection() {}
-    selected_obj_name() { return null }
-    // rect_select(min_x, min_y, max_x, max_y) {} if it's not defined, rect doesn't even show
-
-    // nodes that depends on the viewport should implement and dirty themselves
-    dirty_viewport() {}
-
-    get_error() { return this.error }
-    clear_error() { this.error = null }
-    did_connect(to_term, line) {}
-    doing_disconnect(to_term, line) {}
-    cclear_dirty() {} // clear the dirty things in a NodeCls that are not exposed to the outside via proxies
-}
-
 
 class NodeTestDummy extends NodeCls {
     static name() { return "Test_Dummy" }

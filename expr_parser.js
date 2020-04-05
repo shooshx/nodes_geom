@@ -9,7 +9,11 @@ const TYPE_NUM = 1;
 const TYPE_VEC3 = 2; 
 const TYPE_VEC4 = 3;
 const TYPE_VEC2 = 4;
-const TYPE_UNDECIDED = 10; // returned from global check_type to mean there's not enough info to know what the type is since it depends on evaulators
+// returned from global check_type to mean there's not enough info to know what the type is since it depends on evaulators
+// that will be set by the cls, check_type will try again in dyn_eval
+const TYPE_UNDECIDED = 10; 
+// similar to UNDECIDED but only on variables
+const TYPE_DEPEND_ON_VAR = 11;
 
 const PARSE_EXPR = 1;
 const PARSE_CODE = 2;
@@ -23,6 +27,9 @@ class TypeErr extends Error {
 
 class UndecidedTypeErr extends Error {
     constructor() { super("undecided-type") }
+}
+class DependOnVarErr extends Error {
+    constructor(msg) { super(msg) }
 }
 
 
@@ -1113,6 +1120,8 @@ function check_type(node) {
     } catch(e) {
         if (e.constructor === UndecidedTypeErr)
             return TYPE_UNDECIDED
+        if (e.constructor === DependOnVarErr)
+            return TYPE_DEPEND_ON_VAR
         throw e
     }
 }

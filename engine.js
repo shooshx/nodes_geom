@@ -287,10 +287,11 @@ async function run_nodes_tree(n) {
             }
         }
         // clear outputs of what's just going to run to make sure it updated its output
+        // otherwise it can have something there from a previous iteration
         for(let out_t of n.outputs) {
             out_t.clear()
         }
-        await n.cls.run()
+        await n.cls.do_run()
         n.clear_dirty() // it finished running so it didn't throw and exception
     }
     // distribute outputs to all connected inputs so that all references of an object will be known
@@ -436,8 +437,8 @@ function call_frame_draw(do_run, clear_all) {
     if (in_draw)
         return // avoid starting a call if the previous async call didn't finish yet (indicated several triggers from the same stack)
     in_draw = true
-    do_frame_draw(do_run, clear_all).then(()=>{}, (err)=>{ throw err }).catch(()=>{
-
+    do_frame_draw(do_run, clear_all).then(()=>{}).catch((err)=>{
+        console.error(err)
     }).finally( ()=>{ 
         in_draw = false 
         //clear_draw_req()
