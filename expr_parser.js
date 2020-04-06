@@ -32,6 +32,15 @@ class DependOnVarErr extends Error {
     constructor(msg) { super(msg) }
 }
 
+class NodeBase {
+    constructor() {
+        this.type = null
+    }
+    clear_types_cache() {
+        this.type = null
+    }
+}
+
 
 function clamp(a, v, b) {
     if (v < a) return a;
@@ -42,8 +51,9 @@ function clamp(a, v, b) {
 var ExprParser = (function() {
 
 
-class NumNode  {  
+class NumNode  extends NodeBase {  
     constructor(_v, str_was_decimal) {
+        super()
         eassert(_v !== null && _v !== undefined, "unexpected non-number value")
         this.v = _v;
         this.decimal = str_was_decimal
@@ -71,8 +81,9 @@ function make_num_node(old_node, v) {
 }
 
 
-class VecNode {
+class VecNode extends NodeBase {
     constructor(_v, type) {
+        super()
         this.v = _v;
         this.type = type
     }
@@ -120,8 +131,9 @@ function call_operator(v1, v2, op) {
 }
 
 
-class BinaryOpNode {
+class BinaryOpNode extends NodeBase {
     constructor(l, r, _op) {
+        super()
         this.left = l;
         this.right = r;
         this.op = _op;
@@ -179,8 +191,9 @@ function call_unary_op(v, op) {
     }
 }
 
-class UnaryOpNode {
+class UnaryOpNode extends NodeBase {
     constructor(c, op) {
+        super()
         this.child = c;
         this.type = null
         this.op = op
@@ -199,6 +212,9 @@ class UnaryOpNode {
         if (this.type === null)            
             this.type = this.child.check_type()
         return this.type
+    }
+    clear_types_cache() {
+        this.type = null
     }
     to_glsl() {
         const v = this.child.to_glsl() + ')'
@@ -508,8 +524,9 @@ function apply_by_component(argvals, f) {
     return ret
 }
 
-class FuncCallNode {
+class FuncCallNode extends NodeBase {
     constructor(jsfunc, funcname, args) {
+        super()
         this.def = func_defs[funcname]
         if (jsfunc === undefined) // from serializaton
             this.f = def.f
@@ -838,8 +855,9 @@ function parseNewIdentifier() {
 
 // added to the symbol table when parsing
 // assignment sets a value into it, expression reference it from parseIdentifier
-class SymbolNode {
+class SymbolNode extends NodeBase {
     constructor(name) {
+        super()
         this.name = name
         this.valueNode = null  // NumNode or VecNode
         this.type = null
@@ -860,8 +878,10 @@ class SymbolNode {
 }
 
 const SUBSCRIPT_TO_IDX = { x:0, y:1, z: 2, w:3, r:0, g:1, b:2, a: 3 }
-class SubscriptNode {
+class SubscriptNode extends NodeBase 
+{
     constructor(wrapNode, subscripts) {
+        super()
         this.wrapNode = wrapNode
         if (subscripts.length !== 1)
             throw new ExprErr("Only one subscript is supported")
@@ -996,8 +1016,9 @@ class AssignNameStmt {  // not a proper node (no eval, has side-effects)
 var g_symbol_table = null
 var g_added_funcs = null // map [name of func]_[arg type] to the func text
 
-class CodeNode {
+class CodeNode extends NodeBase {
     constructor(stmts, symbol_table) {
+        super()
         this.stmts = stmts
         this.symbol_table = symbol_table
     }
@@ -1114,20 +1135,25 @@ function eparse(expr, state_access, opt) {
     return result;
 }
 
-function check_type(node) {
+// expect_var_resolved means if there are still unresolved vars, throw, rather than set the exception
+function check_type(node, expect_var_resolved=false) {
     try {
         return node.check_type()
     } catch(e) {
         if (e.constructor === UndecidedTypeErr)
             return TYPE_UNDECIDED
-        if (e.constructor === DependOnVarErr)
+        if (e.constructor === DependOnVarErr && !expect_var_resolved)
             return TYPE_DEPEND_ON_VAR
         throw e
     }
 }
 
+function clear_types_cache(node) {
+    node.clear_types_cache()
+}
 
-return {parse:eparse, make_num_node:make_num_node, check_type:check_type}
+
+return {parse:eparse, make_num_node:make_num_node, check_type:check_type, clear_types_cache:clear_types_cache}
 })()
 
 

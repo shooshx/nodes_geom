@@ -45,13 +45,19 @@ class VarsInTerminal extends InTerminal
         assert(obj.constructor === VariablesBox, this.owner.cls, "Unexpected object type")
         for(let name in obj.vb) {
             assert(this.my_vsb.vb[name] === undefined, this.owner.cls, "Variable of this name already exists here")
-            const vb = obj.vb[name]
+            // every node input term has its own clone of the VarBox so that it could keep track of if its dirty or not
+            // and so that the original (incoming) VarBox dirty flag could be cleared after the node is done running
+            const vb = clone(obj.vb[name])
             this.my_vsb.vb[name] = vb
         }
         this.tset_dirty(true)
     }
 
-    clear() {
+    // every time a node that has in variables is run:
+    // - set() is called for each of its its var input
+    // - do_run() called, vars are resolved
+    // - clear() is called at the end of the run
+    clear() { 
         this.h.p.clear()
     }
     
@@ -64,10 +70,15 @@ class VarBox {
     constructor() {
         this.v = null
         this.type = null
+        this.vis_dirty = false
     }
     vbset(v, type) {
         this.v = v
         this.type = type
+        this.vis_dirty = true
+    }
+    vclear_dirty() {
+        this.vis_dirty = false
     }
 }
 
@@ -93,21 +104,19 @@ class VariablesBox extends PObject
 
 class VariableEvaluator
 {
-    constructor(varname, vars_box) {
+    constructor(varname) {
         this.varname = varname
-        this.vars_box = vars_box
+        this.var_box = null
     }
     eval() {
-        const vb = this.vars_box.vb[this.varname]
-        if (vb === undefined)
-            throw new ExprErr("Unknown identifier " + this.varname)
-        return vb.v
+        if (this.var_box === null)
+            throw new ExprErr("Unknown identifier" + this.varname) // happens when just parsing, not as part of resolve_variables
+        return this.var_box.v
     }
     check_type() {
-        const vb = this.vars_box.vb[this.varname]
-        if (vb === undefined)
-            throw new DependOnVarErr("Unknown identifier " + this.varname) // TBD add at what line
-        return vb.type
+        if (this.var_box === null)
+            throw new DependOnVarErr("Unknown identifier" + this.varname) 
+        return this.var_box.type
     }
 }
 
@@ -121,13 +130,15 @@ class NodeVariable extends NodeCls
         node.width = 80
         this.var_out = new VarOutTerminal(node, "variable_out")
         // TBD show code
-        this.type = new ParamSelect(node, "Type", 0, ['Float', 'Float2', 'Color'], (sel_idx)=>{ // TBD Transform, Function
+        this.type = new ParamSelect(node, "Type", 0, ['Float', 'Integer', 'Float2', 'Color'], (sel_idx)=>{ // TBD Transform, Function
             this.expr_float.set_visible(sel_idx == 0)
-            this.expr_vec2.set_visible(sel_idx == 1)
-            this.expr_color.set_visible(sel_idx == 2)
+            this.expr_int.set_visible(sel_idx == 1)
+            this.expr_vec2.set_visible(sel_idx == 2)
+            this.expr_color.set_visible(sel_idx == 3)
         }) 
         this.name = new ParamStr(node, "Name", "var")
         this.expr_float = new ParamFloat(node, "Float", 1.0, {min:0, max:2})
+        this.expr_int = new ParamInt(node, "Integer", 1, {min:0, max:10})
         this.expr_vec2 = new ParamVec2(node, "Float2", 0, 0)
         this.expr_color = new ParamColor(node, "Color", "#cccccc")
 
@@ -141,8 +152,9 @@ class NodeVariable extends NodeCls
 
         switch(this.type.sel_idx) {
         case 0: this.vb.vbset(this.expr_float.v, TYPE_NUM); break;
-        case 1: this.vb.vbset(this.expr_vec2.get_value(), TYPE_VEC2); break;
-        case 2: this.vb.vbset(this.expr_color.v, TYPE_VEC3); break;
+        case 1: this.vb.vbset(this.expr_int.v, TYPE_NUM); break;
+        case 2: this.vb.vbset(this.expr_vec2.get_value(), TYPE_VEC2); break;
+        case 3: this.vb.vbset(this.expr_color.v, TYPE_VEC3); break;
         }
         this.var_out.set(vsb)
     }

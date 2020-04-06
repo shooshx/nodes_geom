@@ -43,6 +43,7 @@ EXPRESSIONS
 CURRENT PLAN
 - Variable infra
     - test interaction with UndecidedErr
+    - expr clear_dirty
 - Mouse 2d input
 - Param2d short expression
 - Image transform spiral from kawaiig

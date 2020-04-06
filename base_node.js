@@ -607,7 +607,6 @@ const EXPR_NEED_VAR = 2  // looked up a variable
 
 class StateAccess {
     constructor(state_evaluators) {
-        this.vars_box = null // set later in Node, after cls is set
         this.state_evaluators = state_evaluators // from the node, map name to evaluator type
         this.known_objrefs = {}
         // have a store of objrefs so that these will always be the same ones, no matter which expression is calling for them
@@ -621,6 +620,7 @@ class StateAccess {
     reset_check() {
         this.score = EXPR_CONST
         this.need_inputs = {} // map name of input to its ObjRef, gets taken away right after parsing is done
+        this.need_variables = [] // list of VariableEvaluator in the currently parsing expr
     }
     get_evaluator(name) { // called from parser
         let sp = name.split('.')
@@ -633,7 +633,9 @@ class StateAccess {
                 // name is not in needed and not in known (which comes from state_evaluators) so it something we know nothing about
                 // default is to assume it's a variable
                 this.score |= EXPR_NEED_VAR
-                return new VariableEvaluator(varname, this.vars_box)
+                const ve = new VariableEvaluator(varname) // a VarBox will be set to it in resolve_variables
+                this.need_variables.push(ve)
+                return ve
             }
             top_level = this.need_inputs[varname] = this.known_objrefs[varname]
         }
@@ -644,7 +646,7 @@ class StateAccess {
             return e
         }
 
-        return null // shouldn't happen
+        return null // shouldn't reach here
     }
 }
 
@@ -693,14 +695,13 @@ class Node {
 
         if (this.state_access === null)
             this.set_state_evaluators([]) // if cls ctor did not call it
-
-        this.state_access.vars_box = this.cls.vars_in.my_vsb
     }
 
     set_state_evaluators(d) { // called in cls ctor to configure how StateAccess accesses state
         this.state_evaluators = d
         // evaluators created in the cls ctor
         this.state_access = new StateAccess(this.state_evaluators) 
+        return this.state_access
     }
 
 
@@ -933,7 +934,7 @@ class NodeCls {
     async do_run() {
         try {
             for(let p of this.node.parameters) {
-                p.resolve_variables() // variables already have the vars_box referenced
+                p.resolve_variables(this.vars_in.my_vsb) // variables already have the vars_box referenced
             }
         } 
         catch(err) {

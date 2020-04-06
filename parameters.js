@@ -78,9 +78,9 @@ class Parameter
     reg_expr_item(expr) {
         this.my_expr_items.push(expr)
     }
-    resolve_variables() { // each param that has expr_items implements this to its exprs
+    resolve_variables(vars_box) { // each param that has expr_items implements this to its exprs
         for(let expr of this.my_expr_items)
-            expr.eresolve_variables()
+            expr.eresolve_variables(vars_box)
     }
 }
 
@@ -577,6 +577,7 @@ class ExpressionItem {
         this.etype = null
         this.in_param.reg_expr_item(this)
         this.expr_score = null
+        this.variable_evaluators = []
     }
     save_to(r) { 
         r["se_" + this.prop_name_ser] = this.se 
@@ -639,8 +640,8 @@ class ExpressionItem {
             this.err_elem = null
         }
     }
-    do_check_type() {
-        this.etype = ExprParser.check_type(this.e)
+    do_check_type(expect_vars_resolved=false) {
+        this.etype = ExprParser.check_type(this.e, expect_vars_resolved)
         if (this.etype === TYPE_UNDECIDED || this.etype == TYPE_DEPEND_ON_VAR) 
             return // can't do it now, will be called again when we have the mesh
         if (this.prop_type == ED_COLOR_EXPR)
@@ -654,15 +655,20 @@ class ExpressionItem {
     peval_self() {
         this.peval(this.se)
     }
-    peval(se) {
+    peval(se) { // parse-eval
         eassert(se !== null && se !== undefined, "unexpected null string-expr")
         this.se = se // might be a plain number as well
         this.eclear_error()
-        const state_access = this.in_param.owner.state_access
+        let state_access = this.in_param.owner.state_access  // all nodes should have this
+        if (state_access === null) {
+            // if the NodeCls was going to call this it should have done it before creating any Params. We need it now
+            // for variables parsing so we create it on demand
+            state_access = this.in_param.owner.set_state_evaluators([])
+        }
+
         try {
-            if (state_access !== null)  // might be a node that doesn't have state_access
-                state_access.reset_check()
-            this.e = ExprParser.parse(se, this.in_param.owner.state_access, this.parse_opt)
+            state_access.reset_check()
+            this.e = ExprParser.parse(se, state_access, this.parse_opt)
             this.do_check_type()
         }
         catch(ex) { // TBD better show the error somewhere
@@ -671,10 +677,12 @@ class ExpressionItem {
                 set_error(this.in_param.owner.cls, "Parameter expression error")
             return
         }
-        // score determines if the expression depends on anything
-        this.expr_score = (state_access !== null) ? state_access.score : EXPR_CONST
+
+        this.expr_score = state_access.score  // score determines if the expression depends on anything
+        this.variable_evaluators = state_access.need_variables
+
         if (this.expr_score == EXPR_CONST) { // depends on anything?
-            if (this.do_set_prop(this.e.eval()))
+            if (this.do_set_prop(this.e.eval()))  // returns false if it's the same value
                 this.in_param.pset_dirty() 
             this.need_inputs = null
         }
@@ -766,6 +774,7 @@ class ExpressionItem {
         if (this.elem !== null)
             this.elem.value = this.se
         this.do_set_prop(v) // in color, need it the picker style to not be italic
+        // pset_dirty done in caller
     }
     dyn_eval() {
         this.eclear_error()
@@ -795,12 +804,27 @@ class ExpressionItem {
         return this.last_error
     }
 
-    eresolve_variables() {
+    eresolve_variables(in_vars_box) {
         if ((this.expr_score & EXPR_NEED_VAR) == 0)
             return
-        this.do_check_type()
         try {
-            this.set_prop(this.e.eval())
+            this.eclear_error()
+            let vis_dirty = false
+            // go over the variables in the expr and set values to them
+            for(let ve of this.variable_evaluators) {
+                const from_in = in_vars_box.vb[ve.varname]
+                if (from_in === undefined)
+                    throw ExprError("Unknown variable " + ve.varname) // TBD add what line
+                ve.var_box = from_in
+                vis_dirty |= from_in.vis_dirty
+            }
+            if (!vis_dirty)
+                return // don't need to do anything since nothing changed
+            ExprParser.clear_types_cache(this.e) // some variable change, it's possible we need to change the type of everything
+            this.do_check_type(true)
+
+            if (this.do_set_prop(this.e.eval()))
+                this.in_param.pset_dirty()
         }
         catch(ex) {
             this.eset_error(ex)
@@ -941,7 +965,7 @@ class ParamBaseExpr extends CodeItemMixin(Parameter)
     get_last_error() {
         return this.get_active_item().get_last_error()
     }
-    modify(v, dirtyify=true) {  // dirtify false used in NodeFuncFill
+    modify(v, dirtyify=true) {  // dirtify false used in NodeFuncFill (when called from within run())
         if (this.show_code)
             return // code item should not be modified since that would erase the code
         this.item.set_to_const(v)

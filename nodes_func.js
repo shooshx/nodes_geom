@@ -196,8 +196,9 @@ class NodeFuncFill extends NodeCls
 
         if (grad !== null) {
             const texParam = this.shader_node.cls.uniforms['uGradTex']
-            assert(texParam !== undefined && texParam !== null, this, "can't find uniform")
-            texParam.param.modify(0, false) // not really needed since that's the default value
+            assert(texParam !== undefined && texParam !== null, this, "can't find uniform") // was supposed to be there from uniform parsing
+            texParam.param.modify(0, false) // not really needed since that's the default value. 
+                                            // don't dirtify since we're in run() and that would cause a loop
 
             try {                    
                 grad.make_gl_texture(this.grad_res.v, this.smooth.v)
