@@ -111,12 +111,12 @@ class VariableEvaluator extends NodeBase
     }
     eval() {
         if (this.var_box === null)
-            throw new ExprErr("Unknown identifier" + this.varname) // happens when just parsing, not as part of resolve_variables
+            throw new ExprErr("Unknown identifier " + this.varname) // happens when just parsing, not as part of resolve_variables
         return this.var_box.v
     }
     check_type() {
         if (this.var_box === null)
-            throw new DependOnVarErr("Unknown identifier" + this.varname) 
+            throw new DependOnVarErr("Unknown identifier " + this.varname) 
         return this.var_box.type
     }
 }
@@ -159,6 +159,10 @@ class NodeVariable extends NodeCls
         case 3: this.vb.vbset(this.expr_color.v, TYPE_VEC3); break;
         }
         this.var_out.set(vsb)
+    }
+
+    cclear_dirty() {
+        this.vb.vis_dirty = false;
     }
 
 }

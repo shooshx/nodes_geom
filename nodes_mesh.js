@@ -1424,7 +1424,7 @@ class GeomDivide extends NodeCls
             this.divisions.set_enable(!v)
             this.distance.set_enable(v)
         })
-        this.divisions = new ParamInt(node, "Divisions", 4)
+        this.divisions = new ParamInt(node, "Divisions", 4, {min:1, max:10})
         this.distance = new ParamFloat(node, "Distance", 0.1)
     }
 

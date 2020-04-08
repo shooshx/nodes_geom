@@ -40,10 +40,13 @@ EXPRESSIONS
 - clear_all should also clear expressions
 - !!! code for transform param
 
-CURRENT PLAN
+****** CURRENT AGENDA ******
 - Variable infra
     - test interaction with UndecidedErr
-    - expr clear_dirty
+    - two levels of params
+    - var name and node name should be the same please
+    - BUG: moving slider while there's an expression shows an error
+    - test with color, translation
 - Mouse 2d input
 - Param2d short expression
 - Image transform spiral from kawaiig
@@ -68,6 +71,7 @@ NODES:
     - primitive quad, triangle, path - between the points? by selection?
     - Path curve control points
     - point size
+    - BUG - yellow line doesn't follow the selected point
 - Divide triangles - for better interpolation
     - unifies vertices?
 - polyline fill
@@ -80,6 +84,7 @@ NODES:
    - transform fill along with the shape 
       - need a shader to avoid many many renderings - need a separate node to render this
    - fill vertices circles?
+   - !!! line color, width
 
 - transform invert
 - transform - fit one object to another? paper.js fitBounds

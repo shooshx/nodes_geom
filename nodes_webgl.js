@@ -517,5 +517,9 @@ void main() {
     clear_error() {
         this.shader_node.cls.clear_error()
     }
+    cclear_dirty() {
+        // without this the shader_node texts are never cleaned
+        this.shader_node.clear_dirty()
+    }
 }
 

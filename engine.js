@@ -279,23 +279,28 @@ function var_run_nodes_tree(n)
     if (n._var_visited)
         return
     n._var_visited = true
-    if (n.nkind == KIND_OBJ)  // normal objects node
-    {
-        for(let inp_t of n.inputs) {  
-            // all lines going into an input
-            for(let line of inp_t.lines) {
-                var_run_nodes_tree(line.from_term.owner)
-            }
+
+    // recursive call - first go all the way in to start from the top
+    for(let inp_t of n.inputs) {  
+        // all lines going into an input
+        for(let line of inp_t.lines) {
+            var_run_nodes_tree(line.from_term.owner)
         }
-        n.cls.nresolve_variables()
-        return
     }
-    // variable producing node
+    n.cls.nresolve_variables()
+
+    if (n.nkind == KIND_OBJ)  // normal objects node, don't need to do anything more, will be run after dirty analysis
+        return
 
     n._visited = true  // don't want to do progress_io on it again
-    n.cls.var_run()
-    n.clear_dirty()  // this makes it so later in the real run, we won't get to this node
+    // variable producing node
+    const this_dirty = n.has_anything_dirty() || !n.has_cached_output()
+    if (this_dirty) {
+        n.cls.var_run()
+    }
     progress_io(n)
+    n.clear_dirty()  // this makes it so later in the real run, we won't get to this node
+     // it needs to be after progress_io so that the VarBox dirty would propogate as false
 }
 
 function progress_io(n)
@@ -395,7 +400,7 @@ function mark_dirty_tree(n) {
     }
     if (n._node_dirty) // found above
         return true
-    let this_dirty = n.has_anything_dirty() || n.outputs[0].get_const() === null
+    let this_dirty = n.has_anything_dirty() || !n.has_cached_output() // no current output means it must run
     n._node_dirty = this_dirty
     return this_dirty
 }
@@ -479,6 +484,14 @@ function call_frame_draw(do_run, clear_all) {
     })
 }
 
+function handle_node_exception(e) {
+    if (e.node_cls === undefined) {
+        throw e // wasn't thrown from assert
+    }
+    set_error(e.node_cls, e.message)
+    console.error(e)    
+}
+
 // called whenever the display needs to be updated to reflect a change
 async function do_frame_draw(do_run, clear_all) 
 {
@@ -510,8 +523,14 @@ async function do_frame_draw(do_run, clear_all)
         clear_inputs_errors(program)
         clear_nodes_status(program)
         // first run variable node on the tree and resolve variables on normal nodes since this affects dirtiness of nodes
-        for(let node of run_root_nodes)
-            var_run_nodes_tree(node)
+        for(let node of run_root_nodes) {
+            try {
+                var_run_nodes_tree(node)    
+            }
+            catch(e) {
+                handle_node_exception(e)
+            }
+        }
         // anayze dirtiness of the tree and keep for each node if it's dirty
         for(let node of run_root_nodes) // first mark all as dirty
             mark_dirty_tree(node)
@@ -521,11 +540,7 @@ async function do_frame_draw(do_run, clear_all)
                 await run_nodes_tree(node)
             }
             catch(e) {
-                if (e.node_cls === undefined) {
-                    throw e
-                }
-                set_error(e.node_cls, e.message)
-                console.error(e)
+                handle_node_exception(e)
             }
         }
         if (program.display_node !== null)

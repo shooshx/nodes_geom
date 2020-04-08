@@ -548,12 +548,19 @@ class CustomContextMenu  // custom since it has it's own adders
 
 }
 
+function round_or_null(v) {
+    if (v === null) 
+        return null
+    return Math.round(v) 
+}
+
 // represents a single value (item in a single edit box) that can be an expression and everything it needs to do
 class ExpressionItem {
     constructor(in_param, prop_name, prop_type, set_prop=null, get_prop=null, slider_conf=null) {
         this.in_param = in_param
         //this.prop_name = prop_name // name of property to set in the containing param ("v", "r") kept for save,load
         this.prop_name_ser = prop_name // can be changed manually if the saved name need to be different (to avoid collision)
+        // when implementing set_prop, get_prop, make sure they preseve setting and getting null from the object, needed for variables
         this.set_prop = (set_prop !== null) ? set_prop : (v)=>{ this.in_param[prop_name] = v }
         this.get_prop = (get_prop !== null) ? get_prop : ()=>{ return this.in_param[prop_name] }
         this.prop_type = prop_type  // constant like ED_FLOAT used for formatting the value
@@ -598,10 +605,10 @@ class ExpressionItem {
         }
         this.slider_conf = normalize_slider_conf(v["sldcfg_" + this.prop_name_ser])
     }
-    do_set_prop(v) {
+    do_set_prop(v, do_slider_update=true) {
         if (this.prop_type == ED_INT)
-            v = Math.round(v)
-        if (this.slider !== null)
+            v = round_or_null(v)
+        if (do_slider_update && this.slider !== null)
             this.slider.update(v) // slider needs to know if it's disabled or not, called on add_elem
         const ov = this.get_prop()
         if (this.prop_type == ED_COLOR_EXPR) {
@@ -811,6 +818,7 @@ class ExpressionItem {
             return
         try {
             this.eclear_error()
+              
             let vis_dirty = false
             // go over the variables in the expr and set values to them
             for(let ve of this.variable_evaluators) {
@@ -818,14 +826,18 @@ class ExpressionItem {
                 if (from_in === undefined)
                     throw ExprError("Unknown variable " + ve.varname) // TBD add what line
                 ve.var_box = from_in
-                vis_dirty |= from_in.vis_dirty
+                vis_dirty = vis_dirty || from_in.vis_dirty
             }
-            if (!vis_dirty)
+            // if ov is null, don't even bother checking if it's dirty since we need to eval anyway
+            // this can happen when peval() is called (sometimes not even for parsing new expr)
+            const ov = this.get_prop()
+            if (!vis_dirty && ov !== null)
                 return // don't need to do anything since nothing changed
+
             ExprParser.clear_types_cache(this.e) // some variable change, it's possible we need to change the type of everything
             this.do_check_type(true)
 
-            if (this.do_set_prop(this.e.eval()))
+            if (this.do_set_prop(this.e.eval(), false)) // don't do slider-update since we know the it's non-const expr and slider need to remain transparent
                 this.in_param.pset_dirty()
         }
         catch(ex) {
@@ -989,11 +1001,7 @@ class ParamFloat extends ParamBaseExpr {
 class ParamInt extends ParamBaseExpr {
     constructor(node, label, start_v, conf=null) {
         super(node, label, start_v, ED_INT, conf)
-        this.item.set_prop = (v)=>{ 
-            if (v === null) 
-                this.v = null
-            else
-                this.v = Math.round(v) }
+        this.item.set_prop = (v)=>{ this.v = round_or_null(v)  }
     }
     gl_set_value(loc) {
         gl.uniform1i(loc, this.v)
@@ -1024,7 +1032,11 @@ class ParamVec2 extends CodeItemMixin(Parameter) {
                 if (v === null) { this.x = null; this.y = null; } // happens when doing dynamic eval
                 else { this.x = v[0]; this.y = v[1] }
             }, 
-            ()=>{ return [this.x,this.y] }, 
+            ()=>{ 
+                if (this.x === null)
+                    return null
+                return [this.x,this.y] 
+            }, 
             {allowed:false})
         this.make_code_item(code_expr, "vec2(" + start_x + ", " + start_y + ")")
     }
@@ -1110,7 +1122,7 @@ class ParamVec2Int extends Parameter {
     add_elems(parent) {
         this.line_elem = add_param_line(parent)
         this.label_elem = add_param_label(this.line_elem, this.label)
-        this.elem_x = add_param_edit(this.line_elem, this.x, ED_INT, (v) => { this.x = parseInt(v); this.pset_dirty() })
+        this.elem_x = add_param_edit(this.line_elem, this.x, ED_INT, (v) => { this.x = parseInt(v); this.pset_dirty() }) // NOTE with expr v can be null!
         this.elem_y = add_param_edit(this.line_elem, this.y, ED_INT, (v) => { this.y = parseInt(v); this.pset_dirty() })
     }
     set(x, y) { 
@@ -1156,23 +1168,26 @@ class ParamColor extends CodeItemMixin(Parameter)
                 if (!this.show_code) 
                     return
                 if (v === null) { 
-                    this.v.r = null; this.v.g = null; this.v.b = null; this.v.alpha = null; this.v.alphai = null 
+                    this.v.r = null; this.v.g = null; this.v.b = null; this.v.alpha = null; this.v.alphai = null
+                    return
+                }
+                this.v.r = color_comp_clamp(v[0])
+                this.v.g = color_comp_clamp(v[1])
+                this.v.b = color_comp_clamp(v[2])
+                if (v.length === 3) { // expr result can be either vec3 or vec4
+                    this.v.alphai = 255
+                    this.v.alpha = 1
                 }
                 else {
-                    this.v.r = color_comp_clamp(v[0])
-                    this.v.g = color_comp_clamp(v[1])
-                    this.v.b = color_comp_clamp(v[2])
-                    if (v.length === 3) { // expr result can be either vec3 or vec4
-                        this.v.alphai = 255
-                        this.v.alpha = 1
-                    }
-                    else {
-                        this.v.alphai = color_comp_clamp(v[3])
-                        this.v.alpha = this.v.alphai/255
-                    }
+                    this.v.alphai = color_comp_clamp(v[3])
+                    this.v.alpha = this.v.alphai/255
                 }
             }, 
-            ()=>{ return vec4.fromValues(this.v.r, this.v.g, this.v.b, this.v.alphai) }, 
+            ()=>{ 
+                if (this.v.r === null)
+                    return null
+                return vec4.fromValues(this.v.r, this.v.g, this.v.b, this.v.alphai) 
+            }, 
             {allowed:false})
         this.make_code_item(code_expr, start_c_str[1])
     }

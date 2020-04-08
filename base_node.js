@@ -686,7 +686,7 @@ class Node {
         // I keep track of that since it's useful to know (and check) that any input is only being set once in a run
         this._visited = false
         // should be set by the node if anything happened that dirtied itss state (that is not a parameter)
-        // used for viewport dependent nodes when viewport changes
+        // used for viewport dependent nodes when viewport changes (not actaully used right now)
         this.self_dirty = false
         // key-value of parameters for displaying any sort of object.
         // kept per-node since every node can want something different
@@ -874,15 +874,18 @@ class Node {
         this.select()
     }
 
+    has_cached_output() {
+        return this.outputs[0].get_const() !== null
+    }
     has_anything_dirty() {
         if (this.self_dirty)
             return true
         for(let p of this.parameters)
             if (p.pis_dirty())
                 return true
-        for(let t of this.inputs) 
-            if (t.is_dirty())
-                return true
+       // for(let t of this.inputs)  is terminals dirty even needed these days???? doesn't seem logical it should
+       //     if (t.is_dirty())
+       //         return true
         return false
     }
     clear_dirty() {
