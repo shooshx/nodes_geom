@@ -102,9 +102,10 @@ class VariablesBox extends PObject
     
 }
 
-class VariableEvaluator
+class VariableEvaluator extends NodeBase
 {
     constructor(varname) {
+        super()
         this.varname = varname
         this.var_box = null
     }
@@ -128,6 +129,7 @@ class NodeVariable extends NodeCls
         node.can_display = false
         node.name_xmargin = 8
         node.width = 80
+        node.nkind = KIND_VARS
         this.var_out = new VarOutTerminal(node, "variable_out")
         // TBD show code
         this.type = new ParamSelect(node, "Type", 0, ['Float', 'Integer', 'Float2', 'Color'], (sel_idx)=>{ // TBD Transform, Function
@@ -145,7 +147,7 @@ class NodeVariable extends NodeCls
         this.vb = new VarBox()
     }
 
-    run() {
+    var_run() {
         assert(this.name.v.length > 0, this, "Name can't be empty")
         let vsb = new VariablesBox()
         vsb.add(this.name.v, this.vb)
@@ -158,4 +160,5 @@ class NodeVariable extends NodeCls
         }
         this.var_out.set(vsb)
     }
+
 }

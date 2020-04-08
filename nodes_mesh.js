@@ -346,8 +346,9 @@ class ObjRef { // top level variable that references an object
     }       
 }
 
-class ObjSingleEvaluator {
+class ObjSingleEvaluator extends NodeBase{
     constructor(objref, subscripts) {
+        super()
         if (subscripts.length != 0)
             throw new Error("Unexpected subscript given to variable")
         this.objref = objref
@@ -362,8 +363,9 @@ class ObjSingleEvaluator {
     }
 }
 
-class ObjSubscriptEvaluator {
+class ObjSubscriptEvaluator extends NodeBase{
     constructor(objref, subscripts) {
+        super()
         //if (subscripts.length != 1)
         //    throw new Error("Wrong subscript given to variable " + name)
         this.objref = objref
@@ -406,9 +408,11 @@ function type_from_numelems(num_elems) {
 
 const VAL_INDICES = { r:0, g:1, b:2, alpha:3, x:0, y:1, z:2, w:3 } // TBD add HSV 
 
-class MeshPropEvaluator 
+class MeshPropEvaluator extends NodeBase
 {
-    constructor(meshref, subscripts, param_bind_to) {
+    constructor(meshref, subscripts, param_bind_to) 
+    {
+        super()
         console.assert(meshref !== undefined  && meshref !== null)
         eassert(subscripts.length == 2 || subscripts.length == 1, "Not enough subscript given to variable " + name)
         this.meshref = meshref

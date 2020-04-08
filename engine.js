@@ -272,8 +272,54 @@ function dirty_viewport_dependents() {
     }
 }
 
+// a syncronous version of run_nodes_tree to do a pre-run of only the variable
+// nodes to set up dirtiness for the real run
+function var_run_nodes_tree(n)
+{
+    if (n._var_visited)
+        return
+    n._var_visited = true
+    if (n.nkind == KIND_OBJ)  // normal objects node
+    {
+        for(let inp_t of n.inputs) {  
+            // all lines going into an input
+            for(let line of inp_t.lines) {
+                var_run_nodes_tree(line.from_term.owner)
+            }
+        }
+        n.cls.nresolve_variables()
+        return
+    }
+    // variable producing node
 
-async function run_nodes_tree(n) {
+    n._visited = true  // don't want to do progress_io on it again
+    n.cls.var_run()
+    n.clear_dirty()  // this makes it so later in the real run, we won't get to this node
+    progress_io(n)
+}
+
+function progress_io(n)
+{
+    // distribute outputs to all connected inputs so that all references of an object will be known
+    //   still need to do that even if not dirty since inputs are cleared
+    for(let out_t of n.outputs) {  
+        for(let line of out_t.lines) {
+            let obj = line.from_term.get_const()
+            assert(obj !== null, n.cls, "No output")
+            line.to_term.set(obj)
+            //console.log("TERM-SET from ", line.from_term.name, ":", line.from_term.owner.name, "  TO  ", line.to_term.name, ":", line.to_term.owner.name)
+        }
+    }
+    // clear all inputs of the node that just ran just to be safe (they don't take up references)
+    for(let inp_t of n.inputs) {
+        for(let line of inp_t.lines) {
+            line.to_term.clear()
+        }
+    }
+}
+
+async function run_nodes_tree(n) 
+{
     console.assert(n._node_dirty !== null)
     if (n._visited)
         return
@@ -291,25 +337,11 @@ async function run_nodes_tree(n) {
         for(let out_t of n.outputs) {
             out_t.clear()
         }
-        await n.cls.do_run()
+        await n.cls.run()
         n.clear_dirty() // it finished running so it didn't throw and exception
     }
-    // distribute outputs to all connected inputs so that all references of an object will be known
-    //   still need to do that even if not dirty since inputs are cleared
-    for(let out_t of n.outputs) {  
-        for(let line of out_t.lines) {
-            let obj = line.from_term.get_const()
-            assert(obj !== null, n.cls, "No output")
-            line.to_term.set(obj)
-            //console.log("TERM-SET from ", line.from_term.name, ":", line.from_term.owner.name, "  TO  ", line.to_term.name, ":", line.to_term.owner.name)
-        }
-    }
-    // clear all inputs of the node that just ran just to be safe (they don't take up references)
-    for(let inp_t of n.inputs) {
-        for(let line of inp_t.lines) {
-            line.to_term.clear()
-        }
-    }
+
+    progress_io(n)
 }
 
 function clear_inputs_errors(prog) {
@@ -340,7 +372,8 @@ function clear_outputs(prog) {
 function clear_nodes_status(prog) {
     for(let n of prog.nodes) {
         n._node_dirty = null // for caching of output values
-        n._visited = false   // for visiting a node (and distributing it's output, cached or not to the connections)
+        n._visited = false   // for visiting a node during run (and distributing it's output, cached or not to the connections)
+        n._var_visited = false // visited by the variables-set recursive run
     } 
 }
 
@@ -389,6 +422,7 @@ function clear_draw_req() {
 function myAddEventListener(obj, event_name, func) {
     obj.addEventListener(event_name, function() {
         //console.log("Added event ", event_name, " ", obj)
+        //clear_draw_req()
         let r
         try {
             r = func.apply(null, arguments)
@@ -475,8 +509,13 @@ async function do_frame_draw(do_run, clear_all)
             clear_outputs(program)
         clear_inputs_errors(program)
         clear_nodes_status(program)
+        // first run variable node on the tree and resolve variables on normal nodes since this affects dirtiness of nodes
+        for(let node of run_root_nodes)
+            var_run_nodes_tree(node)
+        // anayze dirtiness of the tree and keep for each node if it's dirty
         for(let node of run_root_nodes) // first mark all as dirty
             mark_dirty_tree(node)
+        // run the dirty nodes
         for(let node of run_root_nodes) {
             try {
                 await run_nodes_tree(node)

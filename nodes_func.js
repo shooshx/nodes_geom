@@ -62,8 +62,9 @@ class ParamProxy extends Parameter {
     pclear_dirty() { this.wrap.pclear_dirty() }
 }
 
-class GlslTextEvaluator {
+class GlslTextEvaluator extends NodeBase{
     constructor(subscripts, glsl_name, allowed_subscripts) {        
+        super()
         eassert(subscripts.length == 1, "wrong number of subscripts")
         const sub = subscripts[0]
         eassert(allowed_subscripts.indexOf(sub) !== -1, "unknown subscript " + sub)

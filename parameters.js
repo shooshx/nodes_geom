@@ -599,6 +599,8 @@ class ExpressionItem {
         this.slider_conf = normalize_slider_conf(v["sldcfg_" + this.prop_name_ser])
     }
     do_set_prop(v) {
+        if (this.prop_type == ED_INT)
+            v = Math.round(v)
         if (this.slider !== null)
             this.slider.update(v) // slider needs to know if it's disabled or not, called on add_elem
         const ov = this.get_prop()
@@ -700,8 +702,8 @@ class ExpressionItem {
     {
         if (this.slider_conf.visible && (this.slider == null || is_first)) {
             this.slider = add_param_slider(this.param_line, this.slider_conf.min, this.slider_conf.max, null, this.prop_type, (v)=>{
-                this.set_to_const(v)
-                this.in_param.pset_dirty() 
+                if (this.set_to_const(v)) // might not have changed (with int)
+                    this.in_param.pset_dirty() 
             })
             this.peval_self() // this will set the slider position and enablement (but not do pset_dirty since nothing changed)
         }
@@ -773,7 +775,7 @@ class ExpressionItem {
         this.need_inputs = null
         if (this.elem !== null)
             this.elem.value = this.se
-        this.do_set_prop(v) // in color, need it the picker style to not be italic
+        return this.do_set_prop(v) // in color, need it the picker style to not be italic
         // pset_dirty done in caller
     }
     dyn_eval() {
@@ -968,9 +970,10 @@ class ParamBaseExpr extends CodeItemMixin(Parameter)
     modify(v, dirtyify=true) {  // dirtify false used in NodeFuncFill (when called from within run())
         if (this.show_code)
             return // code item should not be modified since that would erase the code
-        this.item.set_to_const(v)
-        if (dirtyify)
-            this.pset_dirty()
+        if (this.item.set_to_const(v)) {
+            if (dirtyify)
+                this.pset_dirty()
+        }
     }
 }
 

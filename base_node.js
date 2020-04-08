@@ -663,6 +663,7 @@ class Node {
         this.id = id  // used for identification in the program and serialization
         this.can_display = true // vars nodes can't display, set in cls ctor
         this.name_xmargin = 0   // distance of name from node, use for var input node
+        this.nkind = KIND_OBJ
 
         // calculated data members
         this.parameters = []
@@ -912,6 +913,7 @@ class NodeCls {
     constructor(node) {
         this.error = null
         this.node = node
+        // any node can have a variables in
         this.vars_in = new VarsInTerminal(node, "vars_in")
     }
     // mouse interaction in image_view
@@ -931,7 +933,7 @@ class NodeCls {
     doing_disconnect(to_term, line) {}
     cclear_dirty() {} // clear the dirty things in a NodeCls that are not exposed to the outside via proxies
 
-    async do_run() {
+    nresolve_variables() {
         try {
             for(let p of this.node.parameters) {
                 p.resolve_variables(this.vars_in.my_vsb) // variables already have the vars_box referenced
@@ -940,8 +942,15 @@ class NodeCls {
         catch(err) {
             assert(false, this, "Parameter variables error")
         }
-        await this.run()
     }
+
+    run() {  // for normal kind node (nkind=KIND_OBJ)
+        assert(false, this, "run() not implemented")
+    }
+    var_run() { // for var kind node (nkind=KIND_VARS)
+        assert(false, this, "var_run() not implemented")
+    }
+
 }
 
 
