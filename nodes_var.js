@@ -109,6 +109,7 @@ class VariableEvaluator extends NodeBase
         this.varname = varname
         this.var_box = null
     }
+    consumes_subscript() { return false }
     eval() {
         if (this.var_box === null)
             throw new ExprErr("Unknown identifier " + this.varname) // happens when just parsing, not as part of resolve_variables
@@ -138,11 +139,16 @@ class NodeVariable extends NodeCls
             this.expr_vec2.set_visible(sel_idx == 2)
             this.expr_color.set_visible(sel_idx == 3)
         }) 
-        this.name = new ParamStr(node, "Name", "var")
+        this.name = new ParamStr(node, "Name", "var", (v)=>{
+            node.set_name(v)
+            draw_nodes()
+        })
         this.expr_float = new ParamFloat(node, "Float", 1.0, {min:0, max:2})
         this.expr_int = new ParamInt(node, "Integer", 1, {min:0, max:10})
         this.expr_vec2 = new ParamVec2(node, "Float2", 0, 0)
         this.expr_color = new ParamColor(node, "Color", "#cccccc")
+
+        node.register_rename_observer((newname)=>{this.name.modify(newname)})
 
         this.vb = new VarBox()
     }
@@ -156,7 +162,7 @@ class NodeVariable extends NodeCls
         case 0: this.vb.vbset(this.expr_float.v, TYPE_NUM); break;
         case 1: this.vb.vbset(this.expr_int.v, TYPE_NUM); break;
         case 2: this.vb.vbset(this.expr_vec2.get_value(), TYPE_VEC2); break;
-        case 3: this.vb.vbset(this.expr_color.v, TYPE_VEC3); break;
+        case 3: this.vb.vbset(color_to_uint8arr(this.expr_color.v), TYPE_VEC3); break;
         }
         this.var_out.set(vsb)
     }

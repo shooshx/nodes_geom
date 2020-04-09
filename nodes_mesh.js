@@ -353,6 +353,7 @@ class ObjSingleEvaluator extends NodeBase{
             throw new Error("Unexpected subscript given to variable")
         this.objref = objref
     }
+    consumes_subscript() { return true }
 
     eval() {
         // single obj needs to be a reference object we make it a 1 item array
@@ -372,12 +373,14 @@ class ObjSubscriptEvaluator extends NodeBase{
         this.subscript = (subscripts.length > 0) ? subscripts[0] : null
         this.type = null
     }
+    consumes_subscript() { return true }
 
     eval() {
         if (this.subscript === null) {
             eassert(this.objref.obj._get_as_vec !== undefined, "Missing subscript")
             return this.objref.obj._get_as_vec()
         }
+        eassert(this.objref.obj !== null, "object not set")
         let v = this.objref.obj[this.subscript]
         eassert(v !== undefined, "subscript not found " + this.subscript)        
         return v
@@ -394,7 +397,7 @@ class ObjSubscriptEvaluator extends NodeBase{
         else
             this.type = TYPE_NUM
         return this.type
-    }    
+    }
 }
 
 function type_from_numelems(num_elems) {
@@ -434,6 +437,7 @@ class MeshPropEvaluator extends NodeBase
         this.last_obj_ver = 0
         this.type = null
     }
+    consumes_subscript() { return true }
 
     resolve_attr() {
         if (this.valindex === -1) 
@@ -681,6 +685,7 @@ class NodeSetAttr extends NodeCls
             const vc = src_param.dyn_eval()
             mutate_assign(prop, pi, vc)
         }
+
     }
 
     async run() {
@@ -811,6 +816,12 @@ class NodeSetAttr extends NodeCls
                 assert(false, this, "Parameter expression error")
             else
                 throw e
+        }
+        finally {
+            if (value_need_mesh !== null)
+                value_need_mesh.dyn_set_obj(null) // don't want these to reference local objects that are no longer relevant (and hide errors)
+            if (value_need_src !== null)
+                value_need_src.dyn_set_obj(null)
         }
 
         out_mesh.set(attr_name, prop, prop.elem_sz, true)
@@ -1243,7 +1254,7 @@ class NodeRandomPoints extends NodeCls
         
         let prng = new RandNumGen(this.seed.v)
         let cand = {x:null, y:null }
-        if (value_need_src)
+        if (value_need_src !== null)
             value_need_src.dyn_set_obj(cand)
 
         cand.x = bbox.min_x + bbox.width()*prng.next() 
@@ -1290,6 +1301,8 @@ class NodeRandomPoints extends NodeCls
             vtx = vtx_in
         }
 
+        if (value_need_src !== null)
+            value_need_src.dyn_set_obj(null) // don't want it to ref a local object
         
         let ret = new Mesh()
         ret.set("vtx_pos", new TVtxArr(vtx), 2)

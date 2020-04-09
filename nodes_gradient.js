@@ -928,6 +928,7 @@ class NodeGradient extends NodeCls
                     // this is why we need the outer loop
                 }
             }
+            value_need_t.dyn_set_obj(null) // don't ref local object
         }
         for(let s of samples) {
             this.values.add(s.v)

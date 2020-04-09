@@ -70,6 +70,7 @@ class GlslTextEvaluator extends NodeBase{
         eassert(allowed_subscripts.indexOf(sub) !== -1, "unknown subscript " + sub)
         this.name = glsl_name + "." + sub
     }
+    consumes_subscript() { return true }
     eval() {
         eassert(false, "text evaluator can't be evaled")
     }

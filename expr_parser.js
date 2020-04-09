@@ -39,8 +39,20 @@ class NodeBase {
     clear_types_cache() {
         this.type = null
     }
+    consumes_subscript() { // for evaluator nodes to tell the parser if they consumed all the subscripts of the identifier that get_evaluator was sent
+        return false 
+    }
 }
 
+function typename(t) {
+    switch(t) {
+    case TYPE_NUM: return "number"
+    case TYPE_VEC2: return "vec2"
+    case TYPE_VEC3: return "vec3"
+    case TYPE_VEC4: return "vec4"
+    default: return "<" + t + ">"
+    }
+}
 
 function clamp(a, v, b) {
     if (v < a) return a;
@@ -553,9 +565,11 @@ class FuncCallNode extends NodeBase {
             let ret_t = def_t
             if (def_t == FUNC_TYPE_BY_COMPONENT || def_t == FUNC_TYPE_LOOKUP) { // all arguments need to be the same type
                 this.args_type = this.args[0].check_type()
-                for(let arg of this.args)
-                    if (arg.check_type() !== this.args_type)
-                        throw new TypeErr("function needs all arguments of the same type")
+                for(let arg of this.args) {
+                    const t = arg.check_type()
+                    if (t !== this.args_type)
+                        throw new TypeErr("function needs all arguments of the same type, got " + typename(t))
+                }
                 if (def_t == FUNC_TYPE_LOOKUP) {
                     if (this.def.ret_type === null)
                         ret_t = this.args_type
@@ -566,9 +580,11 @@ class FuncCallNode extends NodeBase {
                     ret_t = this.args_type
             }
             else { // return value has a specific given type
-                for(let arg of this.args)
-                    if (arg.check_type() !== TYPE_NUM) // assume this right now since it's only rgb,rgba
-                        throw new TypeErr("function needs all arguments to be numbers")
+                for(let arg of this.args) {
+                    const t = arg.check_type()
+                    if (t !== TYPE_NUM) // assume this right now since it's only rgb,rgba
+                        throw new TypeErr("function needs all arguments to be numbers, got " + typename(t))
+                }
             }
             this.type = ret_t
         }
@@ -657,6 +673,12 @@ function parseIdentifier() {
     let e = g_state_access.get_evaluator(sb)
     if (e === null) 
         throw new ExprErr("Unknown identifier " + sb + " at " + index_)
+    
+    if (!e.consumes_subscript()) {
+        const sps = sb.split('.')
+        if (sps.length !== 1) 
+            return new SubscriptNode(e, sps.slice(1))        
+    }
 
     return e;
 }

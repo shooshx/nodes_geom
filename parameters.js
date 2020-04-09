@@ -423,6 +423,8 @@ class ParamStr extends Parameter {
         }) 
     }
     modify(v) {
+        if (this.v === v)
+            return
         this.v = v
         if (this.elem !== null)
             this.elem.value = v
@@ -606,6 +608,7 @@ class ExpressionItem {
         this.slider_conf = normalize_slider_conf(v["sldcfg_" + this.prop_name_ser])
     }
     do_set_prop(v, do_slider_update=true) {
+        // v is going to be null if the value is not known yet, due to yet needed objects or yet missing variables
         if (this.prop_type == ED_INT)
             v = round_or_null(v)
         if (do_slider_update && this.slider !== null)
@@ -678,6 +681,8 @@ class ExpressionItem {
         try {
             state_access.reset_check()
             this.e = ExprParser.parse(se, state_access, this.parse_opt)
+            this.variable_evaluators = state_access.need_variables
+            this.expr_score = state_access.score  // score determines if the expression depends on anything
             this.do_check_type()
         }
         catch(ex) { // TBD better show the error somewhere
@@ -686,10 +691,7 @@ class ExpressionItem {
                 set_error(this.in_param.owner.cls, "Parameter expression error")
             return
         }
-
-        this.expr_score = state_access.score  // score determines if the expression depends on anything
-        this.variable_evaluators = state_access.need_variables
-
+ 
         if (this.expr_score == EXPR_CONST) { // depends on anything?
             if (this.do_set_prop(this.e.eval()))  // returns false if it's the same value
                 this.in_param.pset_dirty() 
@@ -701,8 +703,8 @@ class ExpressionItem {
                 this.need_inputs = state_access.need_inputs
             }
             this.in_param.pset_dirty() // TBD maybe expression didn't change?
-        }        
-    } 
+        }      
+    }
 
 
     display_slider(is_first)  // on first display, always add the element if enabled
@@ -837,8 +839,15 @@ class ExpressionItem {
             ExprParser.clear_types_cache(this.e) // some variable change, it's possible we need to change the type of everything
             this.do_check_type(true)
 
-            if (this.do_set_prop(this.e.eval(), false)) // don't do slider-update since we know the it's non-const expr and slider need to remain transparent
+            // similar to what is done at the end of peval
+            if ((this.expr_score & EXPR_NEED_INPUT) != 0) {
+                this.do_set_prop(null) // it's dynamic so best if it doesn't have a proper value from before
                 this.in_param.pset_dirty()
+            }
+            else {
+                if (this.do_set_prop(this.e.eval(), false)) // don't do slider-update since we know the it's non-const expr and slider need to remain transparent
+                    this.in_param.pset_dirty()
+            }
         }
         catch(ex) {
             this.eset_error(ex)
@@ -1858,10 +1867,10 @@ class ParamFloatList extends ParamEditableValueList {
 }
 
 function uint8arr_to_color(arr) {
-    return {r:arr[0], g:arr[1], b:arr[2], alpha:arr[3]/255}
+    return {r:arr[0], g:arr[1], b:arr[2], alpha:arr[3]/255, alphai:arr[3]}
 }
 function color_to_uint8arr(c) {
-    return [c.r, c.g, c.b, c.alpha*255]
+    return [c.r, c.g, c.b, c.alphai]
 }
 class ParamColorList extends ListParam {
     constructor(node, label, table, arr_type=TColorArr) {

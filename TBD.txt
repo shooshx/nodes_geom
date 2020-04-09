@@ -39,14 +39,13 @@ EXPRESSIONS
 - transform with code
 - clear_all should also clear expressions
 - !!! code for transform param
+- assign to subscrupt col.r = 222
+- in color box
+
 
 ****** CURRENT AGENDA ******
-- Variable infra
-    - test interaction with UndecidedErr
-    - two levels of params
-    - var name and node name should be the same please
-    - BUG: moving slider while there's an expression shows an error
-    - test with color, translation
+- variable
+  - interaction with undecided type
 - Mouse 2d input
 - Param2d short expression
 - Image transform spiral from kawaiig
