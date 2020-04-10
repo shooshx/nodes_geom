@@ -502,6 +502,7 @@ class MeshPropEvaluator extends NodeBase
         if (this.valindex >= 0 && this.valname === null) {
             if (this.meshref.obj === null)
                 throw new UndecidedTypeErr() // would cause a call to here when there's a mesh set (rather than only after parse)
+                // happens for instance for `p = in_obj.face_center`
             this.resolve_attr()
         }
         else {

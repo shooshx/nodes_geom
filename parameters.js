@@ -657,11 +657,11 @@ class ExpressionItem {
         if (this.etype === TYPE_UNDECIDED || this.etype == TYPE_DEPEND_ON_VAR) 
             return // can't do it now, will be called again when we have the mesh
         if (this.prop_type == ED_COLOR_EXPR)
-            eassert(this.etype === TYPE_VEC3 || this.etype === TYPE_VEC4, "Wrong type, expected a vector")
+            eassert(this.etype === TYPE_VEC3 || this.etype === TYPE_VEC4, "Wrong type, expected a vec3/4, got " + typename(this.etype))
         else if (this.prop_type == ED_VEC2)
-            eassert(this.etype === TYPE_VEC2, "Wrong type, expected vec2")
+            eassert(this.etype === TYPE_VEC2, "Wrong type, expected vec2, got " + typename(this.etype))
         else
-            eassert(this.etype === TYPE_NUM, "Wrong type, expected a number") 
+            eassert(this.etype === TYPE_NUM, "Wrong type, expected a number, got " + typename(this.etype)) 
     }
 
     peval_self() {
@@ -790,7 +790,13 @@ class ExpressionItem {
     dyn_eval() {
         this.eclear_error()
         if (this.etype === TYPE_UNDECIDED) {
-            this.do_check_type() // in case we need to do it now, after there was a mesh set
+            try {
+                this.do_check_type() // in case we need to do it now, after there was a mesh set
+            }
+            catch(ex) {
+                this.eset_error(ex)
+                throw ex // will be caught by do_run
+            }                     
         }
         if (this.e === null)  // error in expr
             return this.get_prop()

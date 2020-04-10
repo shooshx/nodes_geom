@@ -653,10 +653,14 @@ function parseIdentifier() {
         throw new ExprErr("Unexpected dot in an identifier at " + index_)
 
     eatSpaces()
-    if (getCharacter() == '(')  {// function call
+    if (getCharacter() == '(')  {// function call - TBD shouldn't really be here. should be outside
         return parseFuncCall(sb) 
     }
+    return lookupIdentifier(sb)
+}
 
+function lookupIdentifier(sb)
+{
     if (constants[sb] !== undefined)
         return new NumNode(constants[sb])
 
@@ -959,9 +963,9 @@ function parseStmt() {
         return new ReturnStmt(expr)
     }
     if (assign_type === OPERATOR_NULL) {
-        return new AssignNameStmt(name, expr, null)
+        return new AssignNameStmt(name, expr)
     }
-    return new AssignNameStmt(name, expr, assign_type)
+    return new AssignNameStmt(name, new BinaryOpNode(lookupIdentifier(name), expr, assign_type))
     
 }
 
@@ -987,46 +991,35 @@ class ReturnStmt {
 
 const TYPE_TO_STR = { [TYPE_NUM]:'float', [TYPE_VEC2]:'vec2', [TYPE_VEC3]:'vec3', [TYPE_VEC4]:'vec4' }
 class AssignNameStmt {  // not a proper node (no eval, has side-effects)
-    constructor(name, expr, op) {
+    constructor(name, expr) {
         this.name = name
         this.expr = expr
-        this.op = op
         this.type = null
         this.symbol = g_symbol_table[name]
         this.vNode = null
         this.first_definition = false
         if (this.symbol === undefined) { // wasn't already there
-            if (this.op === null) {
-                this.symbol = new SymbolNode(name)
-                g_symbol_table[name] = this.symbol
-                this.first_definition = true
-            }
-            else
-                throw new ExprErr("Unassigned symbol used: " + name)
+            this.symbol = new SymbolNode(name)
+            g_symbol_table[name] = this.symbol
+            this.first_definition = true
         }
     }
     isReturn() { return false }
     invoke() {
         const v = this.expr.eval()
-        if (this.op === null)
-            this.vNode.v = v
-        else
-            this.vNode.v = call_operator(this.symbol.valueNode.v, v, this.op)
+        this.vNode.v = v
         // valueNode in symbol is null as long as the symbol doesn't have a value
         this.symbol.valueNode = this.vNode
         return v
     }
     scheck_type() {
         this.type = this.expr.check_type()
-        // if there's op, this might or might not change the type
         this.vNode = (this.type == TYPE_NUM) ? (new NumNode(NaN, false)) : (new VecNode(null, this.type))
         this.symbol.type = this.type
         return this.type
     }
     sto_glsl() {
         let s = this.name
-        if (this.op !== null)
-            s += ops[this.op].str
         s += "=" + this.expr.to_glsl() + ";"
         if (this.first_definition)
             s = TYPE_TO_STR[this.type] + " " + s

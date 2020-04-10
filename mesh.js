@@ -278,7 +278,7 @@ class Mesh extends PObject
             sx += vtx[vi]
             sy += vtx[vi+1]
         }
-        return vec2.fromValues(x / face_size, y / face_size)
+        return vec2.fromValues(sx / face_size, sy / face_size)
     }
 
 
