@@ -41,6 +41,8 @@ EXPRESSIONS
 - !!! code for transform param
 - assign to subscript col.r = 222
 - in color box
+- swizzle
+- func with 0 argument has a bug in parse
 
 
 ****** CURRENT AGENDA ******

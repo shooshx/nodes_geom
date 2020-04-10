@@ -21,7 +21,7 @@ const PARSE_CODE = 2;
 class ExprErr extends Error {
     constructor(msg) { super(msg) }
 }
-class TypeErr extends Error {
+class TypeErr extends ExprErr {
     constructor(msg) { super(msg) }
 }
 
@@ -36,7 +36,7 @@ class NodeBase {
     constructor() {
         this.type = null
     }
-    clear_types_cache() {
+    clear_types_cache() { // should implemet recursion
         this.type = null
     }
     consumes_subscript() { // for evaluator nodes to tell the parser if they consumed all the subscripts of the identifier that get_evaluator was sent
@@ -152,6 +152,11 @@ class BinaryOpNode extends NodeBase {
         this.type = null
         this.t1 = null; this.t2 = null
     }
+    clear_types_cache() {
+        this.type = null
+        this.left.clear_types_cache()
+        this.right.clear_types_cache()
+    }
     check_type() {
         if (this.type === null) {
             let t1 = this.left.check_type(), t2 = this.right.check_type()
@@ -219,6 +224,10 @@ class UnaryOpNode extends NodeBase {
         for(let i = 0; i < num_comp; ++i) 
             ret[i] = call_unary_op(v[i], this.op)
         return ret
+    }
+    clear_types_cache() {
+        this.type = null
+        this.child.clear_types_cache()
     }
     check_type() {
         if (this.type === null)            
@@ -432,11 +441,24 @@ function parseOp()
 class FuncDef {
     constructor(jsfunc, num_args, type=FUNC_TYPE_BY_COMPONENT, ret_type=null) {
         this.f = jsfunc
-        this.num_args = num_args
+        this.num_args = num_args // negative means atleast that manu
         this.dtype = type
         this.ret_type = ret_type // for FUNC_TYPE_LOOKUP - either a type or null to indicate it's the same as the input-arg type
     }
 }
+
+function type_tuple_l(lst) {
+    if (lst.length > 4)
+        throw TypeErr("too many arguments to function")
+    let at = 0, idx = 0
+    for(let t of lst)
+        at = at | (t << (8*idx++))
+    return at
+}
+function type_tuple() {
+    return type_tuple_l(arguments)
+}
+
 
 function md5(d){return ((binl_md5(rstr2binl(d),8*d.length)))}function rstr2hex(d){for(var _,m="0123456789ABCDEF",f="",r=0;r<d.length;r++)_=d.charCodeAt(r),f+=m.charAt(_>>>4&15)+m.charAt(15&_);return f}function rstr2binl(d){for(var _=Array(d.length>>2),m=0;m<_.length;m++)_[m]=0;for(m=0;m<8*d.length;m+=8)_[m>>5]|=(255&d.charCodeAt(m/8))<<m%32;return _}function binl2rstr(d){for(var _="",m=0;m<32*d.length;m+=8)_+=String.fromCharCode(d[m>>5]>>>m%32&255);return _}function binl_md5(d,_){d[_>>5]|=128<<_%32,d[14+(_+64>>>9<<4)]=_;for(var m=1732584193,f=-271733879,r=-1732584194,i=271733878,n=0;n<d.length;n+=16){var h=m,t=f,g=r,e=i;f=md5_ii(f=md5_ii(f=md5_ii(f=md5_ii(f=md5_hh(f=md5_hh(f=md5_hh(f=md5_hh(f=md5_gg(f=md5_gg(f=md5_gg(f=md5_gg(f=md5_ff(f=md5_ff(f=md5_ff(f=md5_ff(f,r=md5_ff(r,i=md5_ff(i,m=md5_ff(m,f,r,i,d[n+0],7,-680876936),f,r,d[n+1],12,-389564586),m,f,d[n+2],17,606105819),i,m,d[n+3],22,-1044525330),r=md5_ff(r,i=md5_ff(i,m=md5_ff(m,f,r,i,d[n+4],7,-176418897),f,r,d[n+5],12,1200080426),m,f,d[n+6],17,-1473231341),i,m,d[n+7],22,-45705983),r=md5_ff(r,i=md5_ff(i,m=md5_ff(m,f,r,i,d[n+8],7,1770035416),f,r,d[n+9],12,-1958414417),m,f,d[n+10],17,-42063),i,m,d[n+11],22,-1990404162),r=md5_ff(r,i=md5_ff(i,m=md5_ff(m,f,r,i,d[n+12],7,1804603682),f,r,d[n+13],12,-40341101),m,f,d[n+14],17,-1502002290),i,m,d[n+15],22,1236535329),r=md5_gg(r,i=md5_gg(i,m=md5_gg(m,f,r,i,d[n+1],5,-165796510),f,r,d[n+6],9,-1069501632),m,f,d[n+11],14,643717713),i,m,d[n+0],20,-373897302),r=md5_gg(r,i=md5_gg(i,m=md5_gg(m,f,r,i,d[n+5],5,-701558691),f,r,d[n+10],9,38016083),m,f,d[n+15],14,-660478335),i,m,d[n+4],20,-405537848),r=md5_gg(r,i=md5_gg(i,m=md5_gg(m,f,r,i,d[n+9],5,568446438),f,r,d[n+14],9,-1019803690),m,f,d[n+3],14,-187363961),i,m,d[n+8],20,1163531501),r=md5_gg(r,i=md5_gg(i,m=md5_gg(m,f,r,i,d[n+13],5,-1444681467),f,r,d[n+2],9,-51403784),m,f,d[n+7],14,1735328473),i,m,d[n+12],20,-1926607734),r=md5_hh(r,i=md5_hh(i,m=md5_hh(m,f,r,i,d[n+5],4,-378558),f,r,d[n+8],11,-2022574463),m,f,d[n+11],16,1839030562),i,m,d[n+14],23,-35309556),r=md5_hh(r,i=md5_hh(i,m=md5_hh(m,f,r,i,d[n+1],4,-1530992060),f,r,d[n+4],11,1272893353),m,f,d[n+7],16,-155497632),i,m,d[n+10],23,-1094730640),r=md5_hh(r,i=md5_hh(i,m=md5_hh(m,f,r,i,d[n+13],4,681279174),f,r,d[n+0],11,-358537222),m,f,d[n+3],16,-722521979),i,m,d[n+6],23,76029189),r=md5_hh(r,i=md5_hh(i,m=md5_hh(m,f,r,i,d[n+9],4,-640364487),f,r,d[n+12],11,-421815835),m,f,d[n+15],16,530742520),i,m,d[n+2],23,-995338651),r=md5_ii(r,i=md5_ii(i,m=md5_ii(m,f,r,i,d[n+0],6,-198630844),f,r,d[n+7],10,1126891415),m,f,d[n+14],15,-1416354905),i,m,d[n+5],21,-57434055),r=md5_ii(r,i=md5_ii(i,m=md5_ii(m,f,r,i,d[n+12],6,1700485571),f,r,d[n+3],10,-1894986606),m,f,d[n+10],15,-1051523),i,m,d[n+1],21,-2054922799),r=md5_ii(r,i=md5_ii(i,m=md5_ii(m,f,r,i,d[n+8],6,1873313359),f,r,d[n+15],10,-30611744),m,f,d[n+6],15,-1560198380),i,m,d[n+13],21,1309151649),r=md5_ii(r,i=md5_ii(i,m=md5_ii(m,f,r,i,d[n+4],6,-145523070),f,r,d[n+11],10,-1120210379),m,f,d[n+2],15,718787259),i,m,d[n+9],21,-343485551),m=safe_add(m,h),f=safe_add(f,t),r=safe_add(r,g),i=safe_add(i,e)}return Array(m,f,r,i)}function md5_cmn(d,_,m,f,r,i){return safe_add(bit_rol(safe_add(safe_add(_,d),safe_add(f,i)),r),m)}function md5_ff(d,_,m,f,r,i,n){return md5_cmn(_&m|~_&f,d,_,r,i,n)}function md5_gg(d,_,m,f,r,i,n){return md5_cmn(_&f|m&~f,d,_,r,i,n)}function md5_hh(d,_,m,f,r,i,n){return md5_cmn(_^m^f,d,_,r,i,n)}function md5_ii(d,_,m,f,r,i,n){return md5_cmn(m^(_|~f),d,_,r,i,n)}function safe_add(d,_){var m=(65535&d)+(65535&_);return(d>>16)+(_>>16)+(m>>16)<<16|65535&m}function bit_rol(d,_){return d<<_|d>>>32-_}
 
@@ -467,17 +489,26 @@ function fit01(v, nmin, nmax) { return fit(v, 0, 1, nmin, nmax) }
 function fit11(v, nmin, nmax) { return fit(v, -1, 1, nmin, nmax) }
 function ifelse(v, vt, vf) { return v?vt:vf }
 
-function rgb(r, g, b) { return vec3.fromValues(r, g, b) }
-function rgba(r, g, b, a) { return vec4.fromValues(r, g, b, a) } 
 function make_vec2(x, y) { return vec2.fromValues(x, y) }
-function make_vec3(x, y, z) { return vec3.fromValues(x, y, z) }
-function make_vec4(x, y, z, w) { return vec4.fromValues(x, y, z, w) }
+
+const make_vec3 = {
+[type_tuple(TYPE_NUM, TYPE_NUM, TYPE_NUM)]: function(x, y, z) { return vec3.fromValues(x, y, z) },
+[type_tuple(TYPE_VEC2, TYPE_NUM)]: function(v2,z) { return vec3.fromValues(v2[0], v2[1], z) },
+[TYPE_VEC3]: function(v) { return v },
+[TYPE_VEC4]: function(v) { return vec3.fromValues(v[0], v[1], v[2]) }
+}
+const make_vec4 = {
+[type_tuple(TYPE_NUM, TYPE_NUM, TYPE_NUM, TYPE_NUM)]: function(x, y, z, w) { return vec4.fromValues(x, y, z, w) },
+[type_tuple(TYPE_VEC2, TYPE_NUM, TYPE_NUM)]: function(v2,z,w) { return vec4.fromValues(v2[0], v2[1], z, w) },
+[type_tuple(TYPE_VEC3, TYPE_NUM)]: function(v3,z) { return vec4.fromValues(v3[0], v3[1], v3[2], w) },
+[TYPE_VEC4]: function(v) { return v }
+}
 
 const distance_lookup = {
-[TYPE_NUM]:  function(a,b) { return Math.abs(a-b) },
-[TYPE_VEC2]: function(a,b) { return vec2.distance(a,b) },
-[TYPE_VEC3]: function(a,b) { return vec3.distance(a,b) },
-[TYPE_VEC4]: function(a,b) { return vec4.distance(a,b) },
+[type_tuple(TYPE_NUM, TYPE_NUM)]:  function(a,b) { return Math.abs(a-b) },
+[type_tuple(TYPE_VEC2, TYPE_VEC2)]: function(a,b) { return vec2.distance(a,b) },
+[type_tuple(TYPE_VEC3, TYPE_VEC3)]: function(a,b) { return vec3.distance(a,b) },
+[type_tuple(TYPE_VEC4, TYPE_VEC4)]: function(a,b) { return vec4.distance(a,b) },
 }
 const length_lookup = {
 [TYPE_NUM]:  function(a) { return Math.abs(a) },
@@ -493,6 +524,7 @@ const normalize_lookup = {
 }
 
 
+
 const func_defs = {
     'cos': new FuncDef(Math.cos, 1), 'sin': new FuncDef(Math.sin, 1), 'tan': new FuncDef(Math.tan, 1),
     'acos': new FuncDef(Math.acos, 1), 'asin': new FuncDef(Math.acos, 1), 'atan': new FuncDef(Math.atan, 1), 'atan2': new FuncDef(Math.atan2, 2),
@@ -506,10 +538,12 @@ const func_defs = {
     'fit': new FuncDef(fit, 5), 'fit01': new FuncDef(fit01, 3), 'fit11': new FuncDef(fit11, 3),
     'degrees': new FuncDef(degrees, 1), 'radians': new FuncDef(radians, 1),
     'if': new FuncDef(ifelse, 3),
-    'rgb': new FuncDef(rgb, 3, TYPE_VEC3), 'rgba': new FuncDef(rgba, 4, TYPE_VEC3),
-    'vec2': new FuncDef(make_vec2, 2, TYPE_VEC2), 'vec3': new FuncDef(make_vec3, 3, TYPE_VEC3), 'vec4': new FuncDef(make_vec4, 4, TYPE_VEC4),
+    'vec2': new FuncDef(make_vec2, 2, TYPE_VEC2), 'vec3': new FuncDef(make_vec3, -1, FUNC_TYPE_LOOKUP, TYPE_VEC3), 'vec4': new FuncDef(make_vec4, -1, FUNC_TYPE_LOOKUP, TYPE_VEC4),
     'normalize': new FuncDef(normalize_lookup, 1, FUNC_TYPE_LOOKUP, null)
 }
+// aliases
+func_defs['rgb'] = func_defs['vec3']
+func_defs['rgba'] = func_defs['vec4']
 
 class AddGlslFunc {
     constructor(s) { this.func_str = s }
@@ -548,36 +582,52 @@ class FuncCallNode extends NodeBase {
         this.type = null
         this.funcname = funcname
         this.args_type = null
+        this.lookedup_f = null
     }
     eval() {
         let argvals = []
         for(let arg of this.args)
             argvals.push(arg.eval())
         if (this.def.dtype == FUNC_TYPE_LOOKUP)
-            return this.f[this.args_type].apply(null, argvals)       
+            return this.lookedup_f.apply(null, argvals)       
         if (this.def.dtype != FUNC_TYPE_BY_COMPONENT || this.type == TYPE_NUM)
             return this.f.apply(null, argvals)
         apply_by_component(argvals, this.f)
+    }
+    clear_types_cache() {
+        this.type = null
+        for(let arg of this.args)
+            arg.clear_types_cache()
     }
     check_type() {
         if (this.type === null) {
             let def_t = this.def.dtype
             let ret_t = def_t
-            if (def_t == FUNC_TYPE_BY_COMPONENT || def_t == FUNC_TYPE_LOOKUP) { // all arguments need to be the same type
+            if (def_t == FUNC_TYPE_BY_COMPONENT) { // all arguments need to be the same type
                 this.args_type = this.args[0].check_type()
                 for(let arg of this.args) {
                     const t = arg.check_type()
                     if (t !== this.args_type)
                         throw new TypeErr("function needs all arguments of the same type, got " + typename(t))
                 }
-                if (def_t == FUNC_TYPE_LOOKUP) {
-                    if (this.def.ret_type === null)
-                        ret_t = this.args_type
+                ret_t = this.args_type
+            }
+            else if (def_t == FUNC_TYPE_LOOKUP) {
+                const atypes = []
+                for(let arg of this.args)
+                    atypes.push(arg.check_type())
+                this.args_type = type_tuple_l(atypes)
+                this.lookedup_f = this.f[this.args_type]
+                eassert(this.lookedup_f !== undefined, "Can't find function overload for argument types") // TBD better error
+                // return type
+                if (this.def.ret_type === null) {
+                    if (atypes.length === 1)
+                        ret_t = atypes[0]
                     else
-                        ret_t = this.def.ret_type
+                        throw TypeErr("Can't deduce return type of func " + this.funcname)
                 }
                 else
-                    ret_t = this.args_type
+                    ret_t = this.def.ret_type
             }
             else { // return value has a specific given type
                 for(let arg of this.args) {
@@ -626,7 +676,7 @@ function parseFuncCall(func_name) {
         args.push(arg)
         eatSpaces();
     } while (getCharacter() == ',')
-    if ((def.num_args > 0 && args.length != def.num_args) || (def.num_args < 0 && args.length < -def_num_args))
+    if ((def.num_args > 0 && args.length != def.num_args) || (def.num_args < 0 && args.length < -def.num_args))
         throw new ExprErr("Not enough arguments to function " + func_name + " at " + index_)
     if (getCharacter() != ')')
         throw new ExprErr("Expected closing paren for argument list at " + index_)
@@ -886,7 +936,7 @@ class SymbolNode extends NodeBase {
         super()
         this.name = name
         this.valueNode = null  // NumNode or VecNode
-        this.type = null
+        this.type = null  // set by assignment
     }
     eval() {
         if (this.valueNode === null)
@@ -969,6 +1019,15 @@ function parseStmt() {
     
 }
 
+class Statement {
+    constructor() {
+        this.type = null
+    }
+    sclear_types_cache() {
+        this.type = null
+    }
+}
+
 class ReturnStmt {
     constructor(expr) {
         this.expr = expr
@@ -977,6 +1036,10 @@ class ReturnStmt {
     invoke() {
         const v = this.expr.eval()
         return v
+    }
+    sclear_types_cache() {
+        this.type = null
+        this.expr.clear_types_cache()
     }
     scheck_type() {
         return this.expr.check_type()
@@ -1011,6 +1074,10 @@ class AssignNameStmt {  // not a proper node (no eval, has side-effects)
         // valueNode in symbol is null as long as the symbol doesn't have a value
         this.symbol.valueNode = this.vNode
         return v
+    }
+    sclear_types_cache() {
+        this.type = null
+        this.expr.clear_types_cache()
     }
     scheck_type() {
         this.type = this.expr.check_type()
@@ -1053,6 +1120,11 @@ class CodeNode extends NodeBase {
         }
         g_symbol_table = null
         return ret
+    }
+    clear_types_cache() {
+        this.type = null
+        for(let stmt of this.stmts)
+            stmt.sclear_types_cache()
     }
     check_type() {
         let ret = null
