@@ -571,6 +571,7 @@ class InTerminalMulti extends TerminalBase
 const NODE_NAME_PROPS = { font:"14px Verdana", margin_top:3, margin_left:5, height:15}
 const NODE_FLAG_DISPLAY = {offset: 105, color: "#00A1F7" }
 const NODE_FLAG_TEMPLATE = {offset: 90, color: "#de77f1" }
+const NODE_FLAG_INPUT = { width: 15, color: "#8AE600" }
 
 
 function wrapText(context, text, x, center_y, maxWidth, lineHeight) {
@@ -662,6 +663,7 @@ class Node {
         this.color = "#ccc"
         this.id = id  // used for identification in the program and serialization
         this.can_display = true // vars nodes can't display, set in cls ctor
+        this.can_input = false  // vars node can get mouse input
         this.name_xmargin = 0   // distance of name from node, use for var input node
         this.nkind = KIND_OBJ
 
@@ -693,6 +695,7 @@ class Node {
         this.display_values = {}
 
         this.disp_template = false
+        this.receives_input = false // depends on can_input
 
         if (this.state_access === null)
             this.set_state_evaluators([]) // if cls ctor did not call it
@@ -808,6 +811,20 @@ class Node {
             ctx_nodes.lineTo(px + NODE_FLAG_DISPLAY.offset, py+this.height)
             ctx_nodes.moveTo(px + NODE_FLAG_TEMPLATE.offset, py)
             ctx_nodes.lineTo(px + NODE_FLAG_TEMPLATE.offset, py+this.height)
+            ctx_nodes.stroke()
+        }
+        if (this.can_input)
+        {
+            if (this.receives_input) {
+                ctx_nodes.fillStyle = NODE_FLAG_INPUT.color
+                ctx_nodes.beginPath();
+                rounded_rect_f(ctx_nodes, px, py, NODE_FLAG_INPUT.width, this.height, 5, 5, 0, 0)
+                ctx_nodes.fill()
+                ctx_nodes.stroke()
+            }
+            ctx_nodes.beginPath();
+            ctx_nodes.moveTo(px + NODE_FLAG_INPUT.width, py)
+            ctx_nodes.lineTo(px + NODE_FLAG_INPUT.width, py+this.height)
             ctx_nodes.stroke()
         }
 
@@ -990,6 +1007,19 @@ function set_template_node(node, do_draw=true) {
         trigger_frame_draw(true)
 }
 
+function set_input_node(node, do_draw=true) {
+    node.receives_input = !node.receives_input
+    if (node.receives_input)
+        program.input_nodes.push(node)
+    else {
+        const idx = program.input_nodes.indexOf(node)
+        console.assert(idx !== -1)
+        program.input_nodes.splice(idx, 1)
+    }
+    if (do_draw)
+        draw_nodes()
+}
+
 // pass along the messages to the node and just flip the display flag
 class NodeFlagProxy
 {
@@ -1046,6 +1076,10 @@ function find_node_obj(px, py, cvs_x, cvs_y) {
                     return new NodeFlagProxy(n, set_display_node)
                 if (px >= n.x + NODE_FLAG_TEMPLATE.offset)
                     return new NodeFlagProxy(n, set_template_node)
+            }
+            if (n.can_input) {
+                if (px <= n.x + NODE_FLAG_INPUT.width)
+                    return new NodeFlagProxy(n, set_input_node)
             }
             if (px >= n.x)                
                 return n

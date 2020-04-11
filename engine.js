@@ -125,6 +125,7 @@ class Program {
         this.names_indices = {}
         this.next_obj_id = 1
         this.tdisp_nodes = [] // template display
+        this.input_nodes = []
     }
 
     alloc_graphic_obj_id() {
@@ -164,6 +165,10 @@ class Program {
             nodes_unselect_all(false)
         if (this.display_node == node) 
             set_display_node(null)
+        if (node.disp_template)
+            set_template_node(node, false)
+        if (node.receives_input)
+            set_input_node(node, false)
         if (node.destructor)
             node.destructor()
         var index = this.nodes.indexOf(node);

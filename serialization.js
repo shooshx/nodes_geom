@@ -5,7 +5,8 @@ function save_program() {
         next_node_id: program.next_obj_id, 
         names_idx_s: program.names_indices,
         display_node_id: (program.display_node == null) ? null : program.display_node.id,
-        tdisp_node_ids: []
+        tdisp_node_ids: [], 
+        input_node_ids: []
     }
     for(let n of program.nodes) {
         let sn = { params: {}, name:n.name, cls_name: n.cls.constructor.name(), x:n.x, y:n.y, disp_param:n.display_values }
@@ -23,6 +24,9 @@ function save_program() {
     }
     for(let tn of program.tdisp_nodes) {
         sprog.tdisp_node_ids.push(tn.id)
+    }
+    for(let inn of program.input_nodes) {
+        sprog.input_node_ids.push(inn.id)
     }
     return sprog
 }
@@ -51,21 +55,31 @@ function load_prog_json(prog_s) {
 
 var user_saved_programs = {}
 
-function save_state() {
-    if (loading)
-        return
+function make_state(with_saves) {
     let state = { program: save_program(),
                   nodes_view: nodes_view.save(), 
-                  main_view_s: main_view_state.save(),
-                  user_saved_progs: user_saved_programs
+                  main_view_s: main_view_state.save(),                  
                 }
     let color_pre = ColorPicker.get_presets()
     if (Object.keys(color_pre).length > 0)
         state.color_presets = color_pre
+    if (with_saves)
+        state.user_saved_progs = user_saved_programs
 
-    //console.log("SAVING: + ", JSON.stringify(state))
-    let json = json_stringify(state)
+    const  json = json_stringify(state)
+    return json
+}
+
+function save_state() {
+    if (loading)
+        return
+    const json = make_state(false)
     localStorage.setItem("state", json)
+}
+
+function save_saved_progs() {
+    const j_saved = json_stringify(user_saved_programs)
+    localStorage.setItem("user_saved_progs", j_saved)
 }
 
 // -----------
@@ -136,8 +150,17 @@ function load_program(sprog)
     if (sprog.tdisp_node_ids !== undefined) {
         for(let tnid of sprog.tdisp_node_ids) {
             let tn = program.obj_map[tnid]
-            console.assert(tn !== undefined, "node not found")
+            if (tn === undefined)
+                continue
+            //console.assert(tn !== undefined, "template node not found")
             set_template_node(tn, false)
+        }
+    }
+    if (sprog.input_node_ids !== undefined) {
+        for(let inid of sprog.input_node_ids) {
+            const inn = program.obj_map[inid]
+            console.assert(inn !== undefined, "input node not found")
+            set_input_node(inn, false)
         }
     }
 }
@@ -155,10 +178,14 @@ function load_state() {
     let state = JSON.parse(state_s)
     main_view_state.load(state.main_view_s)
     nodes_view.load(state.nodes_view)
-    if (state.user_saved_progs)
-        user_saved_programs = state.user_saved_progs
     if (state.color_presets)
         ColorPicker.set_presets(state.color_presets)
+
+    let saved_s = localStorage.getItem('user_saved_progs')
+    if (saved_s !== null)
+        user_saved_programs = JSON.parse(saved_s)
+    else if (state.user_saved_progs)
+        user_saved_programs = state.user_saved_progs
 
     try {
         load_program(state.program) 

@@ -126,9 +126,12 @@ class ViewBase
     dismiss_ctx_menu() {
         if (this.last_ctx_menu != null) {
             main_view.removeChild(this.last_ctx_menu)
+        }
         this.last_ctx_menu = null
     }
-}
+
+    nodes_inputevent(name, e) {
+    }
 
 }
 
@@ -224,7 +227,22 @@ class ImageView extends ViewBase
         this.last_ctx_menu = open_context_menu(opt, wx, wy, main_view, ()=>{ this.dismiss_ctx_menu() } )    
         return this.last_ctx_menu
     }
+
+
+    nodes_inputevent(name, e) {
+        let capture = false
+        for(var node of program.input_nodes) {
+            console.assert(node.cls.inputevent !== undefined, "Node does not declare inputevent func")
+            if (node.cls.inputevent(name, e))
+                capture = true
+        }
+        return capture
+    }
     
+}
+
+function is_point_in_rect(x, y, rect) {
+    return (x > rect.left && x < rect.right && y > rect.top && y < rect.bottom)
 }
 
 let image_view = null
@@ -238,6 +256,8 @@ function panel_mouse_control(view, canvas)
     var active_rect = null
     
     myAddEventListener(canvas, 'mousedown', function(e) {
+        if (view.nodes_inputevent('mousedown', e))
+            return
         if (e.buttons == 1) {
             if (e.ctrlKey && view.check_rect_select()) {
                 active_rect = { x1:e.pageX, y1:e.pageY }
@@ -269,7 +289,7 @@ function panel_mouse_control(view, canvas)
             }
         }
     });
-    myAddEventListener(document, 'mouseup', function() {
+    myAddEventListener(document, 'mouseup', function(e) {
         panning = false;
         if (hit !== null)
             hit.mouseup()  // commit line pending
@@ -280,6 +300,7 @@ function panel_mouse_control(view, canvas)
             view.rect_select(undefined)
             active_rect = null
         }
+        view.nodes_inputevent('mouseup', e)
     });
     myAddEventListener(document, 'mousemove', function(e) {
         var dx = e.pageX - prev_x
@@ -308,6 +329,8 @@ function panel_mouse_control(view, canvas)
             let cvs_x = e.pageX - view.rect.left, cvs_y = e.pageY - view.rect.top // relative to canvas
             view.hover(0,0, e.pageX, e.pageY, cvs_x, cvs_y)
         }
+
+        view.nodes_inputevent('mousemove', e)
     })
     
     myAddEventListener(canvas, "contextmenu", function(e) {
@@ -609,12 +632,32 @@ function save_as(parent) {
             return
         }
         user_saved_programs[name] = save_program_json()
-        save_state()
+        save_saved_progs()
     })
 }
 
 function export_svg(parent) {
 
+}
+
+var downloadLink = null
+
+function saveFile(name, type, data) {
+    if (downloadLink === null) {
+        downloadLink = document.createElement('a');
+        downloadLink.style.display = 'none'
+        main_view.appendChild(downloadLink)
+    }
+    var url = window.URL.createObjectURL(new Blob([data], {type: type}));
+    downloadLink.setAttribute("href", url);
+    downloadLink.setAttribute("download", name);
+    downloadLink.click();
+    window.URL.revokeObjectURL(url);
+}
+
+function export_entire_state(parent) {
+    const json = make_state(true)
+    saveFile("entire_state.json", "application/json", json)
 }
 
 
@@ -627,7 +670,8 @@ function create_top_menu(parent) {
 
     myAddEventListener(menu_btn, 'click', ()=> {
         let opt = [{text:"Save As...", func:function() { save_as(parent) }},
-                   {text:"Export SVG...", func: ()=>{ export_svg(parent) }},
+                   {text:"Export State...", func: ()=>{ export_entire_state(parent) }},
+                   //{text:"Export SVG...", func: ()=>{ export_svg(parent) }},
                    {text:'-'}]
         for(let up_name in user_saved_programs) {
             let up = user_saved_programs[up_name]

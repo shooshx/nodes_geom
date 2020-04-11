@@ -5,6 +5,7 @@ GUI:
 - BUG: resize the window beyond the size of the nodes panel moves it
 - select *nodes* with Ctrl, rectangle (display params of multiple nodes at once?)
 - zoom nodes view
+- center nodes view on load
 - icons nodes view
 - node show node name if name is changed
 - progress bar for long run, abort button
