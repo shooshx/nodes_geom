@@ -254,10 +254,13 @@ function panel_mouse_control(view, canvas)
     var hit = null
     var did_move = false  // used for detecting unselect
     var active_rect = null
+    let node_capture = false
     
     myAddEventListener(canvas, 'mousedown', function(e) {
-        if (view.nodes_inputevent('mousedown', e))
+        if (view.nodes_inputevent('mousedown', e)) {
+            node_capture = true
             return
+        }
         if (e.buttons == 1) {
             if (e.ctrlKey && view.check_rect_select()) {
                 active_rect = { x1:e.pageX, y1:e.pageY }
@@ -300,7 +303,10 @@ function panel_mouse_control(view, canvas)
             view.rect_select(undefined)
             active_rect = null
         }
-        view.nodes_inputevent('mouseup', e)
+        if (node_capture) {
+            node_capture = false
+            view.nodes_inputevent('mouseup', e)
+        }
     });
     myAddEventListener(document, 'mousemove', function(e) {
         var dx = e.pageX - prev_x
@@ -330,7 +336,8 @@ function panel_mouse_control(view, canvas)
             view.hover(0,0, e.pageX, e.pageY, cvs_x, cvs_y)
         }
 
-        view.nodes_inputevent('mousemove', e)
+        if (node_capture || is_point_in_rect(e.pageX, e.pageY, view.rect))
+            view.nodes_inputevent('mousemove', e)
     })
     
     myAddEventListener(canvas, "contextmenu", function(e) {

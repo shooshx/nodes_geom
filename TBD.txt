@@ -50,10 +50,13 @@ EXPRESSIONS
 - Mouse 2d input
 - Param2d short expression, slider
 - Image transform spiral from kawaiig
-- Manul geom move
+- render geometry to texture
+- Manual geom move
 - green coordinates
      - https://github.com/ugomadagu/Krita/blob/7626a015269510c13bf92268d00ad3fb13107e96/libs/image/kis_green_coordinates_math.cpp
      - http://www.wisdom.weizmann.ac.il/~ylipman/GC/gc_techrep.pdf
+     - transform manual geom
+     - transform image?
 
 
 NODES:

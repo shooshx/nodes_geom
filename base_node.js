@@ -669,6 +669,7 @@ class Node {
 
         // calculated data members
         this.parameters = []
+        this.param_aliases = {} // map old name of a parameter to its new Parameter object
         this.inputs = []
         this.outputs = [] 
         this.state_evaluators = {} // map variable name to its evaluator type. Evaluator instance will be created with its subscripts when the expression is parsed
@@ -924,6 +925,10 @@ class Node {
         const i = this.parameters.findIndex(function(p) { return Object.is(prm, p) })
         console.assert(i !== -1)
         this.parameters.splice(i, 1)
+    }
+
+    param_alias(name, prm) {
+        this.param_aliases[name] = prm
     }
 }
 

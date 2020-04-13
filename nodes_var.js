@@ -202,7 +202,7 @@ class NodeVariable extends NodeCls
             return false
         if (this.mouseState.sel_idx == 0 && ((e.buttons & 1) != 0))
             this.move_action(e)
-        else if (this.mouseState.sel_idx == 1 && is_point_in_rect(e.pageX, e.pageY, image_view.rect))
+        else if (this.mouseState.sel_idx == 1)
             this.move_action(e)
         else
             return false

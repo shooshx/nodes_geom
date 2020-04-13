@@ -83,6 +83,12 @@ function save_saved_progs() {
 }
 
 // -----------
+function find_param_by_name(name, parameters) {
+    for(let p of parameters)
+        if (p.label === name)
+            return p
+    return null
+}
 
 function load_program(sprog) 
 {
@@ -99,17 +105,22 @@ function load_program(sprog)
         let cls = nodes_classes_by_name[sn.cls_name]
         console.assert(cls !== null, "Unknown node class " + sn.cls_name)
         let n = program.add_node(sn.x, sn.y, sn.name, cls, nid)
-        for(let p of n.parameters) {
-            let sp = sn.params[p.label]
-            if (sp !== undefined) { // might be a new parameter that's not there
-                try {
-                    p.load(sp)
-                    p.call_change()
-                    p.pset_dirty()
-                }
-                catch (e) {
-                    console.warn("Failed load of parameter", p.label, "in node", sn.name)
-                }
+        for(let spname in sn.params) {
+            let sp = sn.params[spname]            
+            let p = find_param_by_name(spname, n.parameters)
+            if (p === null)
+                p = n.param_aliases[spname]
+            if (p === undefined) {
+                console.error("Missing parameter " + spname + " of node " + sn.name)
+                continue
+            }
+            try {
+                p.load(sp)
+                p.call_change()
+                p.pset_dirty()
+            }
+            catch (e) {
+                console.warn("Failed load of parameter", p.label, "in node", sn.name)
             }
         }
         if (n.cls.post_load_hook)

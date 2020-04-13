@@ -600,7 +600,8 @@ class ExpressionItem {
         else {
             let lv = v[this.prop_name_ser]
             if (lv === undefined) {
-                console.error(lv !== undefined, "failed load value")
+                // old save with no code?
+                //console.error(lv !== undefined, "failed load value")
                 return;
             }
             this.do_set_prop(lv)
@@ -691,6 +692,7 @@ class ExpressionItem {
                 set_error(this.in_param.owner.cls, "Parameter expression error")
             return
         }
+        this.in_param.call_change() // need to do this even if it's not const for glsl in FuncFill
  
         if (this.expr_score == EXPR_CONST) { // depends on anything?
             if (this.do_set_prop(this.e.eval()))  // returns false if it's the same value
@@ -1737,7 +1739,7 @@ class ListParam extends Parameter {
     }
 
     reprint_line(vidx, v) {
-        if (this.elem_lst === null)
+        if (this.elem_lst === null || this.elem_lst.length == 0)
             return // happens if the table is not visible (Gradient with function)
         let idx = vidx / this.values_per_entry
         let elem = this.elem_lst[idx]

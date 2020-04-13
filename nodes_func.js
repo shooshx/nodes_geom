@@ -99,6 +99,7 @@ class NodeFuncFill extends NodeCls
         this.in_tex = new TerminalProxy(node, this.shader_node.cls.in_tex)
         this.out_tex = new TerminalProxy(node, this.shader_node.cls.out_tex)
 
+        // this is the coordinates of the pixel to be referenced by the code as `coord`
         node.set_state_evaluators({"coord":  (m,s)=>{ return new GlslTextEvaluator(s, "v_coord", ['x','y']) }} ) 
 
         //this.time = new ParamProxy(node, this.shader_node.cls.uniform_by_name('time').param)
@@ -107,7 +108,9 @@ class NodeFuncFill extends NodeCls
             this.color_expr.set_visible(sel_idx === 1)
         })
         this.float_expr = new ParamFloat(node, "Float\nExpression", "coord.x", {show_code:true})
-        this.color_expr = new ParamColor(node, "Color\nExpression", ["#cccccc", "rgb(coord.x, coord.y, 1.0)"], {show_code:true})  // TBD make it an expression?
+        this.float_expr.change_func = (v)=>{this.make_frag_text()}
+        this.color_expr = new ParamColor(node, "Color\nExpression", ["#cccccc", "rgb(coord.x, coord.y, 1.0)"], {show_code:true})
+        this.float_expr.change_func = (v)=>{this.make_frag_text()}
         this.grad_res = new ParamInt(node, "Resolution", 128, [8,128])
         this.grad_res.set_visible(false)  // starting state is invisible, if something is connected, show
         this.smooth = new ParamBool(node, "Smooth", false)
@@ -116,7 +119,11 @@ class NodeFuncFill extends NodeCls
 
         this.shader_node.cls.vtx_text.set_text(FUNC_VERT_SRC)
         //this.shader_node.cls.frag_text.set_text(NOISE_FRAG_SRC)
+        node.param_alias("Expression", this.float_expr)
 
+        // the expression is parsed when it's edited and glsl code is saved to this
+        // the final text with $$ replaced depends on the input so it's made only in run
+        this.glsl_emit_ctx = null
     }
 
     did_connect(to_term, line) {
@@ -134,7 +141,8 @@ class NodeFuncFill extends NodeCls
     destructtor() {
         this.shader_node.cls.destructtor()
     }
-    run() {
+
+    make_frag_text() {
         let active_param, active_item
         if (this.type.sel_idx === 0) {
             active_param = this.float_expr
@@ -152,6 +160,7 @@ class NodeFuncFill extends NodeCls
                 assert(false, this, "Expression error")
             }
             try {
+                // str is just whats returned, other lines are in before_expr
                 str = active_item.e.to_glsl(emit_ctx)
                 if (active_item.e.check_type() === TYPE_VEC3) {
                     str = "vec4(" + str + ", 1.0)"
@@ -170,15 +179,20 @@ class NodeFuncFill extends NodeCls
                     str += ".0"
             }
             else {
+                // TBD need .0 as well?
                 str = "vec4(" + v.r + "," + v.g + "," + v.b + "," + v.alpha + ")"
             }
         }
+        this.glsl_emit_ctx = emit_ctx
+        this.glsl_emit_ctx.inline_str = str
+    }
 
+    run() {
         const grad = this.in_gradient.get_const()
         let frag_text
         if (this.type.sel_idx === 0)  // float to gradient
         {
-            frag_text = EXPR_FRAG_SRC.replace('$EXPR$', str)
+            frag_text = EXPR_FRAG_SRC.replace('$EXPR$', this.glsl_emit_ctx.inline_str)
             if (grad !== null) {
                 assert(grad.make_gl_texture !== undefined, this, "in_gradient should be Gradient object or nothing")
                 frag_text = frag_text.replace('$MORE_DEFS$', 'uniform sampler2D uGradTex;').replace('$COL_RESULT$', "texture(uGradTex, vec2(v,0))")
@@ -188,9 +202,9 @@ class NodeFuncFill extends NodeCls
             }
         }
         else {   // direct color
-            frag_text = EXPR_FRAG_SRC.replace("$EXPR$", "0.0").replace("$COL_RESULT$", str).replace("$MORE_DEFS$", '')
+            frag_text = EXPR_FRAG_SRC.replace("$EXPR$", "0.0").replace("$COL_RESULT$", this.glsl_emit_ctx.inline_str).replace("$MORE_DEFS$", '')
         }
-        frag_text = frag_text.replace('$FUNCS$', emit_ctx.add_funcs.join('\n')).replace('$BEFORE_EXPR$', emit_ctx.before_expr.join('\n'))
+        frag_text = frag_text.replace('$FUNCS$', this.glsl_emit_ctx.add_funcs.join('\n')).replace('$BEFORE_EXPR$', this.glsl_emit_ctx.before_expr.join('\n'))
 
         //console.log("TEXT: ", frag_text)
 
