@@ -120,6 +120,13 @@ class VariableEvaluator extends NodeBase
             throw new DependOnVarErr("Unknown identifier " + this.varname) 
         return this.var_box.type
     }
+    to_glsl(emit_ctx) {
+        if (this.var_box === null)
+            throw new DependOnVarErr("Unknown identifier " + this.varname) 
+        emit_ctx.add_uniform(this.var_box.type, this.varname, this)
+        return this.varname
+    }
+
 }
 
 class NodeVariable extends NodeCls

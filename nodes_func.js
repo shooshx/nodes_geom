@@ -20,6 +20,7 @@ precision mediump float;
 in vec2 v_coord;
 out vec4 outColor;
 $MORE_DEFS$
+$UNIFORM_DEFS$
 
 $FUNCS$
 
@@ -77,11 +78,53 @@ class GlslTextEvaluator extends NodeBase{
     check_type() {
         return TYPE_NUM
     }
-    to_glsl() {
+    to_glsl(emit_ctx) {
         return this.name
     }
 }
 
+function glsl_type_name(t) {
+    switch(t) {
+    case TYPE_NUM: return "float"
+    case TYPE_VEC2: return "vec2"
+    case TYPE_VEC3: return "vec3"
+    case TYPE_VEC4: return "vec4"
+    default: throw TypeErr("unexpected type for glsl " + t)
+    }
+}
+
+
+
+class GlslEmitContext {
+    constructor() {
+        this.before_expr = []  // lines that go before the final expression
+        this.add_funcs = []    // function definitions to go before main
+        this.uniform_decls = []  // set of strings of the uniform declarations
+        this.inline_str = null  // the final expression
+        this.uniform_evaluators = {} // map name of uniform to UniformVarRef
+    }
+    add_uniform(type, name, evaluator) {
+        if (this.uniform_evaluators[name] !== undefined)
+            return  // happens if the same variable appears more than once in the expression
+        this.uniform_decls.push("uniform " + glsl_type_name(type) + " " + name + ";")
+        this.uniform_evaluators[name] = evaluator
+    }
+
+    do_replace(text) {
+        return text.replace('$FUNCS$', this.add_funcs.join('\n'))
+                   .replace('$BEFORE_EXPR$', this.before_expr.join('\n'))
+                   .replace('$UNIFORM_DEFS$', this.uniform_decls.join('\n'))
+    }
+    
+    set_uniform_vars(shader_cls) {
+        for(let name in this.uniform_evaluators) {
+            let evaluator = this.uniform_evaluators[name]
+            const param = shader_cls.param_of_uniform(name)
+            console.assert(param !== null, "Missing expected uniform param " + name)
+            param.modify(evaluator.eval(), false)
+        }
+    }
+}
 
 
 class NodeFuncFill extends NodeCls
@@ -106,16 +149,26 @@ class NodeFuncFill extends NodeCls
         this.type = new ParamSelect(node, "Type", 0, ["Float to Gradient", "Direct Color"], (sel_idx)=>{
             this.float_expr.set_visible(sel_idx === 0)
             this.color_expr.set_visible(sel_idx === 1)
+            this.gradient_param_visiblity()
+            if (sel_idx === 0) {
+                this.active_param = this.float_expr
+                this.active_item = this.float_expr.get_active_item()
+            }
+            else {
+                this.active_param = this.color_expr
+                this.active_item = this.color_expr.code_item  // color doesn't have non-code expr yet
+            }
+           // this.make_frag_text() // changes where we take the expr from
         })
         this.float_expr = new ParamFloat(node, "Float\nExpression", "coord.x", {show_code:true})
-        this.float_expr.change_func = (v)=>{this.make_frag_text()}
+        //this.float_expr.change_func = (v)=>{this.make_frag_text()}
         this.color_expr = new ParamColor(node, "Color\nExpression", ["#cccccc", "rgb(coord.x, coord.y, 1.0)"], {show_code:true})
-        this.float_expr.change_func = (v)=>{this.make_frag_text()}
+       // this.color_expr.change_func = (v)=>{this.make_frag_text()}
         this.grad_res = new ParamInt(node, "Resolution", 128, [8,128])
         this.grad_res.set_visible(false)  // starting state is invisible, if something is connected, show
         this.smooth = new ParamBool(node, "Smooth", false)
         this.smooth.set_visible(false)
-
+        this.gradient_connected = false
 
         this.shader_node.cls.vtx_text.set_text(FUNC_VERT_SRC)
         //this.shader_node.cls.frag_text.set_text(NOISE_FRAG_SRC)
@@ -124,49 +177,47 @@ class NodeFuncFill extends NodeCls
         // the expression is parsed when it's edited and glsl code is saved to this
         // the final text with $$ replaced depends on the input so it's made only in run
         this.glsl_emit_ctx = null
+        this.active_param = null // points to either float_expr or color_expr
+        this.active_item = null // points tot the ExpressionItem inside the active param
+    }
+
+    gradient_param_visiblity() {
+        const v = this.gradient_connected && this.type.sel_idx === 0
+        this.grad_res.set_visible(v)
+        this.smooth.set_visible(v)
     }
 
     did_connect(to_term, line) {
         if (to_term === this.in_gradient) {
-            this.grad_res.set_visible(true)
-            this.smooth.set_visible(true)
+            this.gradient_connected = true
+            this.gradient_param_visiblity()
         }
     }
     doing_disconnect(to_term, line) {
         if (to_term === this.in_gradient) {
-            this.grad_res.set_visible(false)
-            this.smooth.set_visible(false)
+            this.gradient_connected = false
+            this.gradient_param_visiblity()
         }
     }
     destructtor() {
         this.shader_node.cls.destructtor()
     }
 
-    make_frag_text() {
-        let active_param, active_item
-        if (this.type.sel_idx === 0) {
-            active_param = this.float_expr
-            active_item = this.float_expr.get_active_item()
-        }
-        else {
-            active_param = this.color_expr
-            active_item = this.color_expr.code_item
-        }
-
-        let emit_ctx = { before_expr:[], add_funcs:[] }
-        let str
-        if (active_param.show_code && active_item.e !== null) {
-            if ( active_item.last_error !== null) {
+    make_frag_text() 
+    {
+        let emit_ctx = new GlslEmitContext()
+        if (this.active_param.show_code && this.active_item.e !== null) {
+            if (this.active_item.last_error !== null) {
                 assert(false, this, "Expression error")
             }
             try {
                 // str is just whats returned, other lines are in before_expr
-                str = active_item.e.to_glsl(emit_ctx)
-                if (active_item.e.check_type() === TYPE_VEC3) {
-                    str = "vec4(" + str + ", 1.0)"
+                emit_ctx.inline_str = this.active_item.e.to_glsl(emit_ctx)
+                if (this.active_item.e.check_type() === TYPE_VEC3) {
+                    emit_ctx.inline_str = "vec4(" + emit_ctx.inline_str + ", 1.0)"
                 }
                 // check type if vec3 add alpha
-                assert(str !== null, this, 'unexpected expression null')
+                assert(emit_ctx.inline_str !== null, this, 'unexpected expression null')
             }
             catch(ex) {
                 assert(false, this, ex.message)
@@ -174,20 +225,23 @@ class NodeFuncFill extends NodeCls
         }
         else {  // it's a constant
             if (this.type.sel_idx === 0) {
-                str = this.active_param.v 
+                emit_ctx.inline_str = this.active_param.v 
                 if (Number.isInteger(str))
-                    str += ".0"
+                emit_ctx.inline_str += ".0"
             }
             else {
                 // TBD need .0 as well?
-                str = "vec4(" + v.r + "," + v.g + "," + v.b + "," + v.alpha + ")"
+                emit_ctx.inline_str = "vec4(" + v.r + "," + v.g + "," + v.b + "," + v.alpha + ")"
             }
         }
         this.glsl_emit_ctx = emit_ctx
-        this.glsl_emit_ctx.inline_str = str
     }
 
     run() {
+        if (this.active_param.pis_dirty() || this.type.pis_dirty()) {
+            this.make_frag_text()
+        }
+
         const grad = this.in_gradient.get_const()
         let frag_text
         if (this.type.sel_idx === 0)  // float to gradient
@@ -204,18 +258,19 @@ class NodeFuncFill extends NodeCls
         else {   // direct color
             frag_text = EXPR_FRAG_SRC.replace("$EXPR$", "0.0").replace("$COL_RESULT$", this.glsl_emit_ctx.inline_str).replace("$MORE_DEFS$", '')
         }
-        frag_text = frag_text.replace('$FUNCS$', this.glsl_emit_ctx.add_funcs.join('\n')).replace('$BEFORE_EXPR$', this.glsl_emit_ctx.before_expr.join('\n'))
+        frag_text = this.glsl_emit_ctx.do_replace(frag_text)
 
         //console.log("TEXT: ", frag_text)
 
         this.shader_node.cls.frag_text.set_text(frag_text, false)
+        // set_text creates parameters for the uniforms in the text, which are then read in run and transfered to gl
+        this.glsl_emit_ctx.set_uniform_vars(this.shader_node.cls)
 
-        if (grad !== null) {
-            const texParam = this.shader_node.cls.uniforms['uGradTex']
-            assert(texParam !== undefined && texParam !== null, this, "can't find uniform") // was supposed to be there from uniform parsing
-            texParam.param.modify(0, false) // not really needed since that's the default value. 
+        if (this.type.sel_idx === 0 && grad !== null) {
+            const texParam = this.shader_node.cls.param_of_uniform('uGradTex')
+            assert(texParam !== null , this, "can't find uniform") // was supposed to be there from uniform parsing
+            texParam.modify(0, false) // not really needed since that's the default value. 
                                             // don't dirtify since we're in run() and that would cause a loop
-
             try {                    
                 grad.make_gl_texture(this.grad_res.v, this.smooth.v)
             }

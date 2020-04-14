@@ -780,7 +780,7 @@ class ExpressionItem {
 
         return this.elem
     }
-    set_to_const(v) {
+    set_to_const(v) { // return true if value actually changed
         this.e = ExprParser.make_num_node(this.e, v)
         this.se = formatType(v, this.prop_type)
         this.need_inputs = null
@@ -1096,12 +1096,14 @@ class ParamVec2 extends CodeItemMixin(Parameter) {
         this.item_y.set_to_const(this.y + dv[1])
         this.pset_dirty() 
     }
-    modify(v) {
+    modify(v, dirtyify=true) {
         if (this.show_code)
             return
-        this.item_x.set_to_const(v[0])
-        this.item_y.set_to_const(v[1])
-        this.pset_dirty() 
+        let changed = false
+        changed = this.item_x.set_to_const(v[0])
+        changed |= this.item_y.set_to_const(v[1])
+        if (changed && dirtyify)
+            this.pset_dirty() 
     }
     dyn_eval() {
         if (this.show_code)
@@ -2010,6 +2012,8 @@ class ParamTextBlock extends Parameter
     
     title() { return this.owner.name + " - " + this.label }
     set_text(v, do_draw=true) { // when calling this from run(), set to false to avoid endless loop of draws
+        if (this.text === v)
+            return
         this.text = v; 
         this.pset_dirty(do_draw); 
         this.call_change() 

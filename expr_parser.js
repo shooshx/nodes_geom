@@ -77,7 +77,7 @@ class NumNode  extends NodeBase {
     check_type() {
         return TYPE_NUM
     }
-    to_glsl() {
+    to_glsl(emit_ctx) {
         if (Number.isInteger(this.v))
             return this.v + ".0"
         return this.v;
@@ -193,8 +193,8 @@ class BinaryOpNode extends NodeBase {
         return ret
     }
 
-    to_glsl() {
-        return '(' + this.left.to_glsl() + ops[this.op].str + this.right.to_glsl() + ')'
+    to_glsl(emit_ctx) {
+        return '(' + this.left.to_glsl(emit_ctx) + ops[this.op].str + this.right.to_glsl(emit_ctx) + ')'
     }
 }
 
@@ -237,8 +237,8 @@ class UnaryOpNode extends NodeBase {
     clear_types_cache() {
         this.type = null
     }
-    to_glsl() {
-        const v = this.child.to_glsl() + ')'
+    to_glsl(emit_ctx) {
+        const v = this.child.to_glsl(emit_ctx) + ')'
         switch (this.op) {
         case OPERATORU_NEG: return '(-' + v;
         case OPERATORU_BITWISE_NOT: return '(~' + v;
@@ -640,7 +640,7 @@ class FuncCallNode extends NodeBase {
         }
         return this.type
     }
-    to_glsl() {
+    to_glsl(emit_ctx) {
         let slst = []
         const tr = glsl_translate[this.funcname] 
         let name = this.funcname
@@ -658,7 +658,7 @@ class FuncCallNode extends NodeBase {
             }
         }
         for(let arg of this.args)
-            slst.push(arg.to_glsl())
+            slst.push(arg.to_glsl(emit_ctx))
         return name + '(' + slst.join(',') + ')'
     }
 }
@@ -948,7 +948,7 @@ class SymbolNode extends NodeBase {
             throw new ExprErr("Symbol " + this.name + " not assigned to yet (tyoe)")
         return this.type
     }
-    to_glsl() {
+    to_glsl(emit_ctx) {
         return this.name
     }
 }
@@ -976,8 +976,8 @@ class SubscriptNode extends NodeBase
     check_type() {
         return TYPE_NUM
     }
-    to_glsl() {
-        return this.wrapNode.to_glsl() + "." + this.subname
+    to_glsl(emit_ctx) {
+        return this.wrapNode.to_glsl(emit_ctx) + "." + this.subname
     }
 }
 
@@ -1044,8 +1044,8 @@ class ReturnStmt {
     scheck_type() {
         return this.expr.check_type()
     }
-    sto_glsl() {
-        return this.expr.to_glsl()  // ; will be added in template
+    sto_glsl(emit_ctx) {
+        return this.expr.to_glsl(emit_ctx)  // ; will be added in template
     }
 }
 
@@ -1085,9 +1085,9 @@ class AssignNameStmt {  // not a proper node (no eval, has side-effects)
         this.symbol.type = this.type
         return this.type
     }
-    sto_glsl() {
+    sto_glsl(emit_ctx) {
         let s = this.name
-        s += "=" + this.expr.to_glsl() + ";"
+        s += "=" + this.expr.to_glsl(emit_ctx) + ";"
         if (this.first_definition)
             s = TYPE_TO_STR[this.type] + " " + s
         return s
@@ -1139,7 +1139,7 @@ class CodeNode extends NodeBase {
     to_glsl(emit_ctx) {
         g_added_funcs = {}
         for(let stmt of this.stmts) {
-            let ret = stmt.sto_glsl()
+            let ret = stmt.sto_glsl(emit_ctx)
             if (stmt.isReturn()) {
                 for(let ti in g_added_funcs)
                     emit_ctx.add_funcs.push(g_added_funcs[ti])

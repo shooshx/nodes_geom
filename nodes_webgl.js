@@ -316,6 +316,13 @@ class NodeShader extends NodeCls
         return null
     }
 
+    param_of_uniform(name) {
+        let d = this.uniforms[name]
+        if (d === undefined || d === null)
+            return null
+        return d.param
+    }
+
     update_uniforms(text, into, in_group) 
     {
         this.last_uniforms_err = null
