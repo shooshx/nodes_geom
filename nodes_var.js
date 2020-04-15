@@ -181,11 +181,11 @@ class NodeVariable extends NodeCls
         vsb.add(this.name.v, this.vb)
 
         switch(this.type.sel_idx) {
-        case 0: this.vb.vbset(this.expr_float.v, TYPE_NUM); break;
-        case 1: this.vb.vbset(this.expr_int.v, TYPE_NUM); break;
+        case 0: this.vb.vbset(this.expr_float.get_value(), TYPE_NUM); break;
+        case 1: this.vb.vbset(this.expr_int.get_value(), TYPE_NUM); break;
         case 2: this.vb.vbset(this.expr_vec2.get_value(), TYPE_VEC2); break;
         case 3: this.vb.vbset(this.expr_vec2_mouse.get_value(), TYPE_VEC2); break;
-        case 4: this.vb.vbset(color_to_uint8arr(this.expr_color.v), TYPE_VEC3); break;
+        case 4: this.vb.vbset(color_to_uint8arr(this.expr_color.v), TYPE_VEC4); break;
         }
         this.var_out.set(vsb)
     }

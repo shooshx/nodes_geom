@@ -225,13 +225,14 @@ class NodeFuncFill extends NodeCls
         }
         else {  // it's a constant
             if (this.type.sel_idx === 0) {
-                emit_ctx.inline_str = this.active_param.v 
+                emit_ctx.inline_str = this.active_param.get_value()
                 if (Number.isInteger(str))
                 emit_ctx.inline_str += ".0"
             }
             else {
-                // TBD need .0 as well?
-                emit_ctx.inline_str = "vec4(" + v.r + "," + v.g + "," + v.b + "," + v.alpha + ")"
+                // expects the numbers to be [0,1] range
+                let c = this.active_param.get_value()
+                emit_ctx.inline_str = "vec4(" + c.r/255 + "," + c.g/255 + "," + c.b/255 + "," + c.alpha + ")"
             }
         }
         this.glsl_emit_ctx = emit_ctx
@@ -272,7 +273,7 @@ class NodeFuncFill extends NodeCls
             texParam.modify(0, false) // not really needed since that's the default value. 
                                             // don't dirtify since we're in run() and that would cause a loop
             try {                    
-                grad.make_gl_texture(this.grad_res.v, this.smooth.v)
+                grad.make_gl_texture(this.grad_res.get_value(), this.smooth.get_value())
             }
             catch(e) {
                 assert(false, this, e.message)

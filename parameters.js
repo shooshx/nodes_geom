@@ -59,6 +59,11 @@ class Parameter
         if (this.change_func) 
             this.change_func(this.v)
     }
+    get_value() { // reimplement if this.v is not ther value
+        // checked get_value instead of referencing .v directly, to check if the expression that made this was actually evaluated fully
+        dassert(this.v !== null, "value of expr not set")
+        return this.v
+    }
     share_line_elem_from(param) {
         this.shares_line_from = param   
     }
@@ -587,6 +592,12 @@ class ExpressionItem {
         this.in_param.reg_expr_item(this)
         this.expr_score = null
         this.variable_evaluators = []
+        // changed for code/non-code expression distinction. expr might be visible but the param might not be
+        // used for knowing if the expression must be resolved
+        this.eactive = true  
+    }
+    set_eactive(v) {
+        this.eactive = v
     }
     save_to(r) { 
         r["se_" + this.prop_name_ser] = this.se 
@@ -833,8 +844,13 @@ class ExpressionItem {
             // go over the variables in the expr and set values to them
             for(let ve of this.variable_evaluators) {
                 const from_in = in_vars_box.vb[ve.varname]
-                if (from_in === undefined)
-                    throw ExprError("Unknown variable " + ve.varname) // TBD add what line
+                if (from_in === undefined) {
+                    // resolve can be allowed to fail if this is not a active expression
+                    if (this.in_param.visible && this.eactive)
+                        throw new ExprErr("Unknown variable " + ve.varname) // TBD add what line
+                    else
+                        return
+                }
                 ve.var_box = from_in
                 vis_dirty = vis_dirty || from_in.vis_dirty
             }
@@ -920,6 +936,9 @@ let CodeItemMixin = (superclass) => class extends superclass {
             elem_set_visible(this.single_line, !v)
             elem_set_visible(this.code_line, v)
         }
+        this.code_item.set_eactive(v)
+        this.non_code_eactive(!v) 
+
         if (v)  // in case it's a const, set this.v to a value from the right source
             this.code_item.peval_self()
         else
@@ -960,6 +979,9 @@ class ParamBaseExpr extends CodeItemMixin(Parameter)
     non_code_peval_self() {
         this.item.peval_self()
     }
+    non_code_eactive(v) {
+        this.item.set_eactive(v)
+    }
 
     save() { 
         let r = {}; 
@@ -999,11 +1021,9 @@ class ParamBaseExpr extends CodeItemMixin(Parameter)
     modify(v, dirtyify=true) {  // dirtify false used in NodeFuncFill (when called from within run())
         if (this.show_code)
             return // code item should not be modified since that would erase the code
-        if (this.item.set_to_const(v)) {
-            if (dirtyify)
-                this.pset_dirty()
-        }
-    }
+        if (this.item.set_to_const(v) && dirtify)
+            this.pset_dirty()
+    } 
 }
 
 
@@ -1012,7 +1032,7 @@ class ParamFloat extends ParamBaseExpr {
         super(node, label, start_v, ED_FLOAT, conf)
     }
     gl_set_value(loc) {
-        gl.uniform1f(loc, this.v)
+        gl.uniform1f(loc, this.get_value())
     }    
 }
 class ParamInt extends ParamBaseExpr {
@@ -1021,7 +1041,7 @@ class ParamInt extends ParamBaseExpr {
         this.item.set_prop = (v)=>{ this.v = round_or_null(v)  }
     }
     gl_set_value(loc) {
-        gl.uniform1i(loc, this.v)
+        gl.uniform1i(loc, this.get_value())
     }      
 }
 
@@ -1061,7 +1081,11 @@ class ParamVec2 extends CodeItemMixin(Parameter) {
     non_code_peval_self() {
         this.item_x.peval_self()
         this.item_y.peval_self()
-    }    
+    }
+    non_code_eactive(v) {
+        this.item_x.set_eactive(v)
+        this.item_y.set_eactive(v)
+    }
     save() { 
         let r = { x:this.x, y:this.y }; 
         this.item_x.save_to(r); 
@@ -1087,6 +1111,7 @@ class ParamVec2 extends CodeItemMixin(Parameter) {
         this.add_code_elem()
     }
     get_value() {
+        dassert(this.x !== undefined, "value of vec2 expr not set")
         return [this.x, this.y]
     }
     increment(dv) {
@@ -1125,6 +1150,7 @@ class ParamVec2 extends CodeItemMixin(Parameter) {
     }
 
     gl_set_value(loc) {
+        dassert(this.x !== undefined, "value of vec2 expr not set (gl_set)")  // instead of going through get_value()
         gl.uniform2f(loc, this.x, this.y)
     }
 }
@@ -1186,21 +1212,7 @@ class ParamColor extends CodeItemMixin(Parameter)
             (v)=>{
                 if (!this.show_code) 
                     return
-                if (v === null) { 
-                    this.v.r = null; this.v.g = null; this.v.b = null; this.v.alpha = null; this.v.alphai = null
-                    return
-                }
-                this.v.r = color_comp_clamp(v[0])
-                this.v.g = color_comp_clamp(v[1])
-                this.v.b = color_comp_clamp(v[2])
-                if (v.length === 3) { // expr result can be either vec3 or vec4
-                    this.v.alphai = 255
-                    this.v.alpha = 1
-                }
-                else {
-                    this.v.alphai = color_comp_clamp(v[3])
-                    this.v.alpha = this.v.alphai/255
-                }
+                return this._set_value_from_arr(v)
             }, 
             ()=>{ 
                 if (this.v.r === null)
@@ -1211,11 +1223,42 @@ class ParamColor extends CodeItemMixin(Parameter)
         this.make_code_item(code_expr, start_c_str[1])
     }
 
+    // returns true if it did something
+    _set_value_from_arr(v) {
+        if (v === null) { 
+            if (this.v.r === null)
+                return false
+            this.v.r = null; this.v.g = null; this.v.b = null; this.v.alpha = null; this.v.alphai = null
+            return true
+        }
+        const r = color_comp_clamp(v[0])
+        const g = color_comp_clamp(v[1])
+        const b = color_comp_clamp(v[2])
+        let alpha, alphai
+        if (v.length === 3) { // expr result can be either vec3 or vec4
+            alphai = 255
+            alpha = 1
+        }
+        else {
+            alphai = color_comp_clamp(v[3])
+            alpha = this.v.alphai/255
+        }        
+        if (this.v.r == r && this.v.g == g && this.v.b == b && this.v.alphai == alphai)
+            return false
+        this.v.r = r; this.v.g = g; this.v.b = b; this.v.alpha = alpha; this.v.alphai = alphai
+        return true
+    }
+
     non_code_peval_self() {
         this.v = clone(this.picker_v)
         this.pset_dirty()
     }
-
+    non_code_eactive(v) {
+    }
+    get_value() { // reimplement if this.v is not ther value
+        dassert(this.v.r !== null, "value of color expr not set")
+        return this.v
+    }
     save() { 
         let r = this.picker_v
         this.save_code(r)  // dirty it abit but it doesn't really matter
@@ -1275,7 +1318,17 @@ class ParamColor extends CodeItemMixin(Parameter)
         if (this.show_code)
             return this.code_item.get_last_error()
         return null
-    }       
+    }
+    modify(v, dirtify=true) {
+        if (this.show_code)
+            return // when in code, modify doesn't work, see ParamBaseExpr
+        if (this._set_value_from_arr(v) && dirtify)
+            this.pset_dirty(true)
+    }
+    gl_set_value(loc) {
+        dassert(this.v.r !== null, "value of color expr not set (gl)")
+        gl.uniform4f(loc, this.v.r/255, this.v.g/255, this.v.b/255, this.v.alpha)
+    }   
 }
 
 
@@ -1656,6 +1709,7 @@ class ListParam extends Parameter {
     }
     count() { return this.lst.length / this.values_per_entry }
     get_value(vindex) {
+        dassert(vindex !== undefined, "unexpected vindex undefined")
         let v = []
         if (this.values_per_entry > 1)
             for(let vi = 0; vi < this.values_per_entry; ++vi)

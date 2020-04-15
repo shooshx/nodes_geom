@@ -49,7 +49,7 @@ EXPRESSIONS
 ****** CURRENT AGENDA ******
 - variables optimization
     - don't add the same variable to the expression for resolve if it appears twice in the expression
-- Mouse 2d input
+
 - Param2d short expression, slider
 - Image transform spiral from kawaiig
 - render geometry to texture

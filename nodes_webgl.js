@@ -233,43 +233,7 @@ function ensure_webgl() {
 function is_ws(c) {
     return c == ' ' || c == '\t' || c == '\n' || c == '\r'
 }
-const SUPPORTED_TYPES = ['float', 'int', 'vec2', 'sampler2D']
-function parse_glsl_uniforms(text) 
-{
-    // not handling comments or pre-processor
-    let uniforms = []
-    let ci = 0, len = text.length
-    const consume_identifier = ()=>{
-        // skip whitespace
-        while (is_ws(text[ci]) && ci < len)
-            ++ci;
-        if (ci == len)
-            return null
-        const start = ci
-        while (!is_ws(text[ci]) && ci < len)
-            ++ci;       
-        const value = text.substring(start, ci)
-        if (value.length == 0)
-            return null
-        return value
-    }
-    while(true) {
-        ci = text.indexOf('uniform', ci);
-        if (ci === -1)
-            break
-        ci += 7
-        const type = consume_identifier()
-        let name = consume_identifier()
-        if (type === null || name === null)
-            break
-        if (name[name.length-1] == ';')
-            name = name.substring(0, name.length - 1)
-        if (!SUPPORTED_TYPES.includes(type))
-            continue
-        uniforms.push({type:type, name:name})
-    }
-    return uniforms
-}
+const SUPPORTED_TYPES = ['float', 'int', 'vec2', 'vec4', 'sampler2D']
 
 
 class NodeShader extends NodeCls
@@ -323,10 +287,50 @@ class NodeShader extends NodeCls
         return d.param
     }
 
+    parse_glsl_uniforms(text) 
+    {
+        // not handling comments or pre-processor
+        let uniforms = []
+        let ci = 0, len = text.length
+        const consume_identifier = ()=>{
+            // skip whitespace
+            while (is_ws(text[ci]) && ci < len)
+                ++ci;
+            if (ci == len)
+                return null
+            const start = ci
+            while (!is_ws(text[ci]) && ci < len)
+                ++ci;       
+            const value = text.substring(start, ci)
+            if (value.length == 0)
+                return null
+            return value
+        }
+        while(true) {
+            ci = text.indexOf('uniform', ci);
+            if (ci === -1)
+                break
+            ci += 7
+            const type = consume_identifier()
+            let name = consume_identifier()
+            if (type === null || name === null)
+                break
+            if (name[name.length-1] == ';')
+                name = name.substring(0, name.length - 1)
+            if (name == "t_mat") {
+                continue // internal names that should not turn to params
+            }
+            assert(SUPPORTED_TYPES.includes(type), this, "Unsupported uniform type " + type)
+            uniforms.push({type:type, name:name})
+        }
+        return uniforms
+    }
+    
+
     update_uniforms(text, into, in_group) 
     {
         this.last_uniforms_err = null
-        let new_uniforms = parse_glsl_uniforms(text)
+        let new_uniforms = this.parse_glsl_uniforms(text)
         let changed = into.length !== new_uniforms.length
 
         // need to this the iteration anyway to do the type check
@@ -375,6 +379,8 @@ class NodeShader extends NodeCls
                 p.param = new ParamInt(this.node, nu.name, 0)
             else if (nu.type == 'vec2')
                 p.param = new ParamVec2(this.node, nu.name, 0, 0, false)
+            else if (nu.type == 'vec4')
+                p.param = new ParamColor(this.node, nu.name, "rgba(204,204,204,1.0)")
             else
                 assert(false, this, "unexpected uniform type")
             this.uniforms[new_name] = p

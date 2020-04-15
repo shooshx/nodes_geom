@@ -528,6 +528,7 @@ class GradPointsAdapterParam {
     }
 
     get_value(vidx) {
+        dassert(vidx !== undefined, "unexpected vidx undefined")
         let idx = vidx / 2
         //if (idx == 0 || idx == 1)
         //    return [null,null] // test, select only radius points
@@ -586,6 +587,7 @@ class Radial_GradPointsAdapterParam extends GradPointsAdapterParam {
         return get_circle_points_xy(this.p1, this.r1.v, this.p2, this.r2.v)
     }
     get_value(vidx) {
+        dassert(vidx !== undefined, "unexpected vidx undefined")
         let idx = vidx / 2
         // special handling of the points on the radius
         if (idx == 2) {
