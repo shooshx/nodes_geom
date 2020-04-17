@@ -585,7 +585,7 @@ class Mesh extends PObject
         }     
     }
 
-    // program_attr makes name to index
+    // program_attr maps attribute name to index (location)
     gl_draw(m, program_attr) 
     { 
         console.assert(this.type == MESH_TRI, "can't gl_draw non triangle mesh")
@@ -617,6 +617,9 @@ class Mesh extends PObject
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.glbufs.idx);
         gl.drawElements(gl.TRIANGLES, this.arrs.idx.length, arr_gl_type(this.arrs.idx), 0);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, null)
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null)
     }
 
     add_fillobj(proxy) {

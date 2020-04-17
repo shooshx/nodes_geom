@@ -273,7 +273,8 @@ class NodeFuncFill extends NodeCls
             texParam.modify(0, false) // not really needed since that's the default value. 
                                             // don't dirtify since we're in run() and that would cause a loop
             try {                    
-                grad.make_gl_texture(this.grad_res.get_value(), this.smooth.get_value())
+                const tex_obj = grad.make_gl_texture(this.grad_res.get_value(), this.smooth.get_value())
+                gl.bindTexture(gl.TEXTURE_2D, tex_obj);
             }
             catch(e) {
                 assert(false, this, e.message)

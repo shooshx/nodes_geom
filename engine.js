@@ -559,6 +559,7 @@ async function do_frame_draw(do_run, clear_all)
         set_error(program.display_node.cls, "No output generated")
     }
 
+    // do async stuff before the actual draw so that draw can be synchronous
     if (disp_obj !== null) { // can happen if there are only template displays
         try {
             await disp_obj.pre_draw(image_view.t_viewport, program.display_node.display_values)

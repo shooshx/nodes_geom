@@ -88,7 +88,7 @@ class FrameBuffer extends ImageBase
         return this.pixels
     }
 
-    async pre_draw(m, disp_values) {
+    async pre_draw_x(m, disp_values) { // old way to do it with always get_pixels
         if (this.imgBitmap === null) {
             gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.tex_obj, 0);
             //console.assert(gl.checkFramebufferStatus(gl.FRAMEBUFFER) == gl.FRAMEBUFFER_COMPLETE) //slows things down
@@ -98,12 +98,16 @@ class FrameBuffer extends ImageBase
             dassert(pixels !== null, "Image is empty")
             let pixelsc = new Uint8ClampedArray(pixels)
             let img_data = new ImageData(pixelsc, this.tex_obj.width, this.tex_obj.height)
-            // draw the on the shadow canvas
+
             this.imgBitmap = await createImageBitmap(img_data)
         }        
     }
+    async pre_draw(m, disp_values) {
+        this.imgBitmap = await renderTexToImgBitmap(this.tex_obj)
+    }
 
     draw(m, disp_values) {
+        dassert(this.imgBitmap !== null, "Missing imgBitmap")
         this.draw_image(this.imgBitmap, m)
     }
     
@@ -189,10 +193,10 @@ function createShader(gl, type, source) {
     return undefined;
 }
 
-function createProgram(gl, vtxSource, fragSource) {
+function createProgram(gl, vtxSource, fragSource, attr_names) {
     let vtxShader = createShader(gl, gl.VERTEX_SHADER, vtxSource);
     let fragShader = createShader(gl, gl.FRAGMENT_SHADER, fragSource);
-    if (!vtxShader || !fragShader)
+    if (!vtxShader || !fragShader || !attr_names)
         return null // TBD integrate error message
 
     var program = gl.createProgram();
@@ -206,6 +210,10 @@ function createProgram(gl, vtxSource, fragSource) {
         console.log(gl.getProgramInfoLog(program));  // eslint-disable-line
         gl.deleteProgram(program);
     }
+    program.attrs = {}
+    for(let attr_name of attr_names)
+        program.attrs[attr_name] = gl.getAttribLocation(program, attr_name);
+
     return program;
 }
 
@@ -416,12 +424,8 @@ class NodeShader extends NodeCls
         {
             if (this.program)
                 gl.deleteProgram(this.program)            
-            this.program = createProgram(gl, this.vtx_text.text, this.frag_text.text);
+            this.program = createProgram(gl, this.vtx_text.text, this.frag_text.text, this.attr_names);
             assert(this.program, this, "failed to compile shaders")
-
-            this.program.attrs = {}
-            for(let attr_name of this.attr_names)
-                this.program.attrs[attr_name] = gl.getAttribLocation(this.program, attr_name);
                 
             this.program.uniforms = {}
             for(let uniform_name of Object.keys(this.uniforms).concat(['t_mat'])) {
@@ -430,6 +434,7 @@ class NodeShader extends NodeCls
         }
 
         // draw
+        gl.bindFramebuffer(gl.FRAMEBUFFER, gl.my_fb);
         canvas_webgl.width = tex.width()
         canvas_webgl.height = tex.height()
         gl.viewport(0, 0, canvas_webgl.width, canvas_webgl.height);
@@ -450,8 +455,6 @@ class NodeShader extends NodeCls
 
         gl.clearColor(0, 0, 0, 0);
         gl.clear(gl.COLOR_BUFFER_BIT);
-
-
         try {
             mesh.gl_draw(transform, this.program.attrs)
         }
@@ -459,12 +462,69 @@ class NodeShader extends NodeCls
             console.warn(ex.message)
             assert(false, this, "Failed webgl draw")
         }
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, null, 0);
 
         tex.invalidate_img()
+
+        // draw the texture on the actual canvas so we'll have a imgBitmap instead of doing readPixels from the texture
+
 
         this.out_tex.set(tex)
     }
 }
+
+const render_teximg = {
+    mesh: null, program:null,
+    vtx_src:`#version 300 es
+in vec4 vtx_pos;
+out vec2 v_coord;
+void main() {
+    v_coord = vec2(vtx_pos.x*0.5+0.5,  1.0-(vtx_pos.y*0.5+0.5));
+    gl_Position = vtx_pos;
+}
+    `,
+    frag_src:`#version 300 es
+precision mediump float;
+in vec2 v_coord;
+uniform sampler2D uTex;
+out vec4 outColor;
+void main() {
+    outColor = texture(uTex, v_coord);
+}
+    `
+}
+async function renderTexToImgBitmap(tex_obj)
+{
+    // render to actual canvas
+    dassert(tex_obj.width !== undefined && tex_obj.height !== undefined, "Missing dimentions of tex")
+    if (canvas_webgl.width !== tex_obj.width || canvas_webgl.height !== tex_obj.height) {
+        canvas_webgl.width = tex_obj.width
+        canvas_webgl.height = tex_obj.height
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, canvas_webgl.width, canvas_webgl.height);
+
+    if (render_teximg.mesh === null) {
+        render_teximg.program = createProgram(gl, render_teximg.vtx_src, render_teximg.frag_src, ['vtx_pos'])
+        dassert(render_teximg.program !== null, "failed compile teximg")
+
+        render_teximg.mesh = make_mesh_quadtri(2, 2)
+    }
+    gl.useProgram(render_teximg.program);
+    // no need to set value to uTex since default 0 is ok
+    gl.bindTexture(gl.TEXTURE_2D, tex_obj);
+
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.disable(gl.DEPTH_TEST);
+    gl.disable(gl.CULL_FACE);
+    const transform = mat3.create()
+    render_teximg.mesh.gl_draw(transform, render_teximg.program.attrs)
+
+    const imgBitmap = await createImageBitmap(canvas_webgl)
+    return imgBitmap
+}
+
 
 function copy_members(from, to, names) {
     for(let name of names)
@@ -524,10 +584,13 @@ void main() {
     run() {
         this.shader_node.cls.run()
     }
-    get_error() {
+    get_error() { // TBD refactor
+        if (this.error !== null)
+            return this.error
         return this.shader_node.cls.get_error()
     }
     clear_error() {
+        this.error = null
         this.shader_node.cls.clear_error()
     }
     cclear_dirty() {

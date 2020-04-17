@@ -12,8 +12,9 @@ GUI:
 - first node created with display flag (otherwise nothing is visible)
 - fix jumping of splits on page load
 - Math.round lines just before drawing to avoid thinning artifacts when zooming?
-- save the image-canvas view transform
+- !!!save the image-canvas view transform (so nodes are not lost)
 - layout: https://github.com/golden-layout/golden-layout
+- right click? on out terminal to show info about its output
 
 
 ENGINE:
@@ -48,8 +49,12 @@ EXPRESSIONS
 
 ****** CURRENT AGENDA ******
 - variables optimization
+    - dirty terminals (something connected) interaction with variables?
+        - !!!! change from being dirty when set() to being dirty when connections change
     - don't add the same variable to the expression for resolve if it appears twice in the expression
-
+- new rendering
+    - !!!!!! BUG incomplete frame buffer
+- refactor shader node base - error etc'
 - Param2d short expression, slider
 - Image transform spiral from kawaiig
 - render geometry to texture
@@ -77,8 +82,11 @@ NODES:
     - Path curve control points
     - point size
     - BUG - yellow line doesn't follow the selected point
-- Divide triangles - for better interpolation
+- Divide 
+    - triangles - for better interpolation
     - unifies vertices?
+    - divide line to sub lines, curves
+    -  unify sublines into a single line? = different node
 - polyline fill
     UI for closing and starting a new poly, bugs with this
     triangulation
@@ -90,6 +98,7 @@ NODES:
       - need a shader to avoid many many renderings - need a separate node to render this
    - fill vertices circles?
    - !!! line color, width
+   - !!!!!!!! open a table with the actual values of the vertices / faces
 
 - transform invert
 - transform - fit one object to another? paper.js fitBounds
@@ -200,6 +209,8 @@ nice reference images:
 https://society6.com/product/gray-polygon-background_stretched-canvas
 
 VEX random attr video: https://www.youtube.com/watch?v=0qfBj15IoQM
+2D graphs: https://www.desmos.com/
+
 
 Name?
 - 2dini?

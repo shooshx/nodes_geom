@@ -211,7 +211,7 @@ class TerminalBase {
     }
     draw_shadow() {
         ctx_nd_shadow.beginPath();
-        this.draw_path(ctx_nodes)
+        this.draw_path(ctx_nd_shadow)
         ctx_nd_shadow.fillStyle = color_from_uid(this.tuid)
         ctx_nd_shadow.fill()        
     }
@@ -423,7 +423,7 @@ class InTerminal extends Terminal {
         super(name, in_node, true)
         this.h = null
         // an input terminal gets dirty when it's being set a new value.
-        // this may be the only indication that a node is dirty if we changed a upper node when it was visible
+        // this may be the only indication that a node is dirty if we changed a upper node when it was not visible
         // and the dirtyness did not propogate down
         //   unset when cleaning the entire node
         this.dirty = true
@@ -901,9 +901,10 @@ class Node {
         for(let p of this.parameters)
             if (p.pis_dirty())
                 return true
-       // for(let t of this.inputs)  is terminals dirty even needed these days???? doesn't seem logical it should
-       //     if (t.is_dirty())
-       //         return true
+        // terminals get dirty when something is connected or disconnected from them. That's it.
+        for(let t of this.inputs)
+            if (t.is_dirty())
+                return true
         return false
     }
     clear_dirty() {

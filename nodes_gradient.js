@@ -378,9 +378,8 @@ class LinearGradient extends Gradient {
     make_gl_texture(resolution, smooth) {
         if (this.tex_obj_cache !== null) {
             if (this.tex_with_params.resolution === resolution && this.tex_with_params.smooth === smooth)
-                return this.tex_obj_cache
-            // TBD bind...
-            this.del_texture_cache()
+                return this.tex_obj_cache // caller should do bind
+            this.del_texture_cache() // need to recreate it
         }
         // draw canvas
         const HEIGHT = 10
