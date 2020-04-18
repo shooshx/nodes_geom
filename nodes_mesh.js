@@ -1427,7 +1427,7 @@ class NodeVoronoi extends NodeCls
 }
 
 
-class GeomDivide extends NodeCls
+class NodeGeomDivide extends NodeCls
 {
     static name() { return "Divide" }
     constructor(node) {
@@ -1639,7 +1639,7 @@ function get_line_intersection(l0, l1, allow_overshoot)
 }
 
 
-class ShrinkFaces extends NodeCls
+class NodeShrinkFaces extends NodeCls
 {
     static name() { return "Shrink Faces" }
     constructor(node) {

@@ -435,7 +435,7 @@ class InTerminal extends Terminal {
             this.h = new PWeakHandle(v.p) // copy ctor
         else            
             this.h = new PWeakHandle(v)
-        this.tset_dirty(true)
+        //this.tset_dirty(true)  // only connect/disconnect makes a terminal dirty
     }    
     get_const() {
         if (this.h === null)
@@ -518,7 +518,7 @@ class InAttachMulti {
             this.h = new PHandle(v.p) // copy ctor
         else            
             this.h = new PHandle(v)
-        this.tset_dirty(true)
+        //this.tset_dirty(true)
     }    
     get_const() {
         return this.h.get_const()
@@ -621,7 +621,7 @@ class StateAccess {
     reset_check() {
         this.score = EXPR_CONST
         this.need_inputs = {} // map name of input to its ObjRef, gets taken away right after parsing is done
-        this.need_variables = [] // list of VariableEvaluator in the currently parsing expr
+        this.need_variables = {} // list of VariableEvaluator in the currently parsing expr
     }
     get_evaluator(name) { // called from parser
         let sp = name.split('.')
@@ -634,8 +634,12 @@ class StateAccess {
                 // name is not in needed and not in known (which comes from state_evaluators) so it something we know nothing about
                 // default is to assume it's a variable
                 this.score |= EXPR_NEED_VAR
-                const ve = new VariableEvaluator(varname) // a VarBox will be set to it in resolve_variables
-                this.need_variables.push(ve)
+                // create only 1 evaluator for any variable in an expression
+                let ve = this.need_variables[varname]
+                if (ve === undefined) {
+                    ve = new VariableEvaluator(varname) // a VarBox will be set to it in resolve_variables
+                    this.need_variables[varname] = ve
+                }
                 return ve
             }
             top_level = this.need_inputs[varname] = this.known_objrefs[varname]

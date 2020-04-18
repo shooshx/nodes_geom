@@ -7,14 +7,14 @@ GUI:
 - zoom nodes view
 - center nodes view on load
 - icons nodes view
-- node show node name if name is changed
+- node show node name class if name doesn't include it
 - progress bar for long run, abort button
 - first node created with display flag (otherwise nothing is visible)
 - fix jumping of splits on page load
 - Math.round lines just before drawing to avoid thinning artifacts when zooming?
-- !!!save the image-canvas view transform (so nodes are not lost)
 - layout: https://github.com/golden-layout/golden-layout
 - right click? on out terminal to show info about its output
+- define camera?
 
 
 ENGINE:
@@ -39,22 +39,15 @@ EXPRESSIONS
     - and added to the object that carries it
 - expression in color in table (gradient)
 - transform with code
-- clear_all should also clear expressions
+- clear_all should also clear expressions cache
 - !!! code for transform param
 - assign to subscript col.r = 222
-- in color box
+- expression in color box
 - swizzle
 - func with 0 argument has a bug in parse
 
 
 ****** CURRENT AGENDA ******
-- variables optimization
-    - dirty terminals (something connected) interaction with variables?
-        - !!!! change from being dirty when set() to being dirty when connections change
-    - don't add the same variable to the expression for resolve if it appears twice in the expression
-- new rendering
-    - !!!!!! BUG incomplete frame buffer
-- refactor shader node base - error etc'
 - Param2d short expression, slider
 - Image transform spiral from kawaiig
 - render geometry to texture

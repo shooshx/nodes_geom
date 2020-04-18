@@ -591,7 +591,7 @@ class ExpressionItem {
         this.etype = null
         this.in_param.reg_expr_item(this)
         this.expr_score = null
-        this.variable_evaluators = []
+        this.variable_evaluators = {}
         // changed for code/non-code expression distinction. expr might be visible but the param might not be
         // used for knowing if the expression must be resolved
         this.eactive = true  
@@ -842,7 +842,8 @@ class ExpressionItem {
               
             let vis_dirty = false
             // go over the variables in the expr and set values to them
-            for(let ve of this.variable_evaluators) {
+            for(let vename in this.variable_evaluators) {
+                const ve = this.variable_evaluators[vename]
                 const from_in = in_vars_box.vb[ve.varname]
                 if (from_in === undefined) {
                     // resolve can be allowed to fail if this is not a active expression

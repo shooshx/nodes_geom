@@ -3,6 +3,7 @@
 const LINE_COLOR_VARS = "#a9ef50"
 const TERM_COLOR_VARS = "#b9ff50"
 
+// only variable node has this
 class VarOutTerminal extends OutTerminal
 {
     constructor(in_node, name) {
@@ -20,6 +21,7 @@ class VarOutTerminal extends OutTerminal
     }
 }
 
+// every node has this, hidden in the view if not connected
 class VarsInTerminal extends InTerminal
 {
     constructor(in_node, name) {
@@ -50,7 +52,7 @@ class VarsInTerminal extends InTerminal
             const vb = clone(obj.vb[name])
             this.my_vsb.vb[name] = vb
         }
-        this.tset_dirty(true)
+        //this.tset_dirty(true)
     }
 
     // every time a node that has in variables is run:
@@ -102,6 +104,7 @@ class VariablesBox extends PObject
     
 }
 
+// added into expression
 class VariableEvaluator extends NodeBase
 {
     constructor(varname) {

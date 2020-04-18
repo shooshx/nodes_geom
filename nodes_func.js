@@ -127,13 +127,12 @@ class GlslEmitContext {
 }
 
 
-class NodeFuncFill extends NodeCls
+class NodeFuncFill extends BaseNodeShaderWrap
 {
     static name() { return "Function Fill" }
-    constructor(node) {
+    constructor(node) 
+    {
         super(node)
-        this.prog = new Program()
-        this.shader_node = this.prog.add_node(0, 0, null, NodeShader, null)
         this.shader_node.cls.attr_names = ["vtx_pos"]
 
         //this.in_mesh = new TerminalProxy(node, this.shader_node.cls.in_mesh)
@@ -199,9 +198,7 @@ class NodeFuncFill extends NodeCls
             this.gradient_param_visiblity()
         }
     }
-    destructtor() {
-        this.shader_node.cls.destructtor()
-    }
+
 
     make_frag_text() 
     {
@@ -283,19 +280,7 @@ class NodeFuncFill extends NodeCls
 
         this.shader_node.cls.run()
     }
-    get_error() {
-        if (this.error !== null)
-            return this.error
-        return this.shader_node.cls.get_error()
-    }
-    clear_error() {
-        this.error = null
-        this.shader_node.cls.clear_error()
-    }
 
-    cclear_dirty() {
-        this.shader_node.clear_dirty()
-    }
 }
 
 

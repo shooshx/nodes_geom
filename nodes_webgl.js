@@ -128,7 +128,7 @@ class FrameBuffer extends ImageBase
     }
 } 
 
-class CreateFrameBuffer extends NodeCls
+class NodeCreateFrameBuffer extends NodeCls
 {
     static name() { return "Create Pixel-Buffer" }
     constructor(node) {
@@ -539,13 +539,38 @@ class TerminalProxy extends Terminal
 }
 
 
-class PointGradFill extends NodeCls
+// base class for nodes that are running a shader
+class BaseNodeShaderWrap extends NodeCls
 {
-    static name() { return "Point Gradient Fill" }
     constructor(node) {
         super(node)
         this.prog = new Program()
         this.shader_node = this.prog.add_node(0, 0, null, NodeShader, null)
+    }
+    destructtor() {
+        this.shader_node.cls.destructtor()
+    }
+    get_error() {
+        if (this.error !== null)
+            return this.error
+        return this.shader_node.cls.get_error()
+    }
+    clear_error() {
+        this.error = null
+        this.shader_node.cls.clear_error()
+    }
+    cclear_dirty() {
+        // without this the shader_node texts are never cleaned
+        this.shader_node.clear_dirty()
+    }
+}
+
+
+class NodePointGradFill extends BaseNodeShaderWrap
+{
+    static name() { return "Point Gradient Fill" }
+    constructor(node) {
+        super(node)
         this.shader_node.cls.attr_names = ["vtx_pos", "vtx_color"]
         this.in_mesh = new TerminalProxy(node, this.shader_node.cls.in_mesh)
         this.in_tex = new TerminalProxy(node, this.shader_node.cls.in_tex)
@@ -577,24 +602,11 @@ void main() {
 }
 `)
     }
-    destructtor() {
-        this.shader_node.cls.destructtor()
-    }
+
     run() {
         this.shader_node.cls.run()
     }
-    get_error() { // TBD refactor
-        if (this.error !== null)
-            return this.error
-        return this.shader_node.cls.get_error()
-    }
-    clear_error() {
-        this.error = null
-        this.shader_node.cls.clear_error()
-    }
-    cclear_dirty() {
-        // without this the shader_node texts are never cleaned
-        this.shader_node.clear_dirty()
-    }
+
+
 }
 

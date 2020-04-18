@@ -1,0 +1,12 @@
+
+
+The engine runs nodes
+- runs variables resolve
+- find the roots that need to be displayed (display node, template)
+- maps from the roots who are the nodes that are dirty
+    - need to be a separate step from run() step since run() may trigger dirtyness
+- runs the dirty nodes and down towards the root
+
+Node becomes dirty by
+- parameter change
+- connect/disconnect of a terminal

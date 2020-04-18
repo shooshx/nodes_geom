@@ -6,7 +6,8 @@ function save_program() {
         names_idx_s: program.names_indices,
         display_node_id: (program.display_node == null) ? null : program.display_node.id,
         tdisp_node_ids: [], 
-        input_node_ids: []
+        input_node_ids: [],
+        nodes_view: nodes_view.save(),  // part of the program so the user won't need to start looking for the nodes
     }
     for(let n of program.nodes) {
         let sn = { params: {}, name:n.name, cls_name: n.cls.constructor.name(), x:n.x, y:n.y, disp_param:n.display_values }
@@ -56,8 +57,7 @@ function load_prog_json(prog_s) {
 var user_saved_programs = {}
 
 function make_state(with_saves) {
-    let state = { program: save_program(),
-                  nodes_view: nodes_view.save(), 
+    let state = { program: save_program(),                  
                   main_view_s: main_view_state.save(),                  
                 }
     let color_pre = ColorPicker.get_presets()
@@ -95,6 +95,8 @@ function load_program(sprog)
     nodes_unselect_all(false)
     clear_program()
     
+    if (sprog.nodes_view !== undefined) // old progs don't have it
+        nodes_view.load(sprog.nodes_view)
     program.next_obj_id = parseInt(sprog.next_node_id) // needs to be first since creating nodes adds to this
     for(let n in sprog.names_idx_s)
         program.names_indices[n] = parseInt(sprog.names_idx_s[n])
@@ -188,7 +190,6 @@ function load_state() {
     //console.log("LOADING: " + state)
     let state = JSON.parse(state_s)
     main_view_state.load(state.main_view_s)
-    nodes_view.load(state.nodes_view)
     if (state.color_presets)
         ColorPicker.set_presets(state.color_presets)
 
