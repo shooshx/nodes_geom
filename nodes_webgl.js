@@ -462,7 +462,6 @@ class NodeShader extends NodeCls
             console.warn(ex.message)
             assert(false, this, "Failed webgl draw")
         }
-        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, null, 0);
 
         tex.invalidate_img()
 

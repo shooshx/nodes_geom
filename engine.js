@@ -522,20 +522,24 @@ async function do_frame_draw(do_run, clear_all)
     if (run_root_nodes.length == 0)
         return
 
-    if (do_run || disp_obj === null) { // TBD or template objs that are not you created?
+    if (do_run || disp_obj === null) { // not sure when the last term is needed...
         if (clear_all)
             clear_outputs(program)
         clear_inputs_errors(program)
         clear_nodes_status(program)
         // first run variable node on the tree and resolve variables on normal nodes since this affects dirtiness of nodes
+        let var_run_errors = false
         for(let node of run_root_nodes) {
             try {
                 var_run_nodes_tree(node)    
             }
             catch(e) {
                 handle_node_exception(e)
+                var_run_errors = true
             }
         }
+        if (var_run_errors) // if type-checks failed, we don't want run to call dyn_eval and crash
+            return
         // anayze dirtiness of the tree and keep for each node if it's dirty
         for(let node of run_root_nodes) // first mark all as dirty
             mark_dirty_tree(node)

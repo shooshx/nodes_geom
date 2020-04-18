@@ -585,7 +585,8 @@ return { create_as_child:create_as_child,
          parse_hex:parse_hex_user, 
          get_checkers_image:get_checkers_image, 
          CHECKERS: CHECKERS,
-         get_presets:()=>{ return GLOBAL_PRESETS }, set_presets:(v)=>{ GLOBAL_PRESETS=v} }
+         get_presets:()=>{ return GLOBAL_PRESETS }, set_presets:(v)=>{ GLOBAL_PRESETS=v},
+         HSVtoRGB: HSVtoRGB, HSLtoRGB:HSLtoRGB }
 
 })();
 

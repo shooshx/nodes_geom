@@ -523,6 +523,18 @@ const normalize_lookup = {
 [TYPE_VEC4]: function(v) { let x = vec3.create(); vec3.normalize(x,v); return x },
 }
 
+// range 360,100,100
+function hsl(h, s, v) {
+    const obj = {}
+    ColorPicker.HSLtoRGB(h, s, v, obj)
+    return [obj.r, obj.g, obj.b]
+}
+// range 360,100,100, 1.0
+function hsla(h, s, v, a) {
+    const obj = {}
+    ColorPicker.HSLtoRGB(h, s, v, obj)
+    return [obj.r, obj.g, obj.b, a]
+}
 
 
 const func_defs = {
@@ -539,7 +551,8 @@ const func_defs = {
     'degrees': new FuncDef(degrees, 1), 'radians': new FuncDef(radians, 1),
     'if': new FuncDef(ifelse, 3),
     'vec2': new FuncDef(make_vec2, 2, TYPE_VEC2), 'vec3': new FuncDef(make_vec3, -1, FUNC_TYPE_LOOKUP, TYPE_VEC3), 'vec4': new FuncDef(make_vec4, -1, FUNC_TYPE_LOOKUP, TYPE_VEC4),
-    'normalize': new FuncDef(normalize_lookup, 1, FUNC_TYPE_LOOKUP, null)
+    'normalize': new FuncDef(normalize_lookup, 1, FUNC_TYPE_LOOKUP, null),
+    'hsl' : new FuncDef(hsl, 3, TYPE_VEC3), 'hsla' : new FuncDef(hsla, 4, TYPE_VEC4)
 }
 // aliases
 func_defs['rgb'] = func_defs['vec3']
