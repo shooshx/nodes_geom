@@ -189,7 +189,7 @@ function add_div(parent, cls) {
     parent.appendChild(e)
     return e
 }
-function add_param_line(parent, param=null) { 
+function add_param_line(parent, param=null, cls='param_line') { 
     if (param !== null) {
         if (param.is_sharing_line_elem()) {
             if (param.shares_line_from.shared_line_elem !== undefined)
@@ -200,16 +200,10 @@ function add_param_line(parent, param=null) {
         if (param.group_param !== null && param.group_param.line_elem !== null)
             parent = param.group_param.line_elem
     }
-    return add_div(parent, 'param_line') 
+    return add_div(parent, cls) 
 }
 function add_param_multiline(parent, param=null) { 
-    if (param !== null) {
-        if (param.is_sharing_line_elem())
-            return param.shares_line_from.line_elem
-        if (param.group_line_elem)
-            parent = param.group_line_elem
-    }    
-    return add_div(parent, 'param_multi_line') 
+    return add_param_line(parent, param, 'param_multi_line') 
 }
 function add_param_block(parent) { return add_div(parent, 'param_block') } // for multi-line params
 
@@ -461,13 +455,18 @@ class ParamBool extends Parameter {
         this.elem_input = ein
         this.label_elem = label
     }
-    set_to_const(v) {
+    modify(v) {
         if (v === this.v)
             return
         this.v = v
-        this.elem_input.checked = v
+        if (this.elem_input !== null)
+            this.elem_input.checked = v
         this.call_change()
         this.pset_dirty()
+    }
+    get_value() {
+        dassert(this.v !== undefined, "value of bool not set")
+        return this.v
     }
 }
 
@@ -1000,7 +999,7 @@ class ParamBaseExpr extends CodeItemMixin(Parameter)
 
         this.single_line = add_param_line(this.line_elem, this)
         elem_set_visible(this.single_line, !this.show_code)
-        add_param_label(this.single_line, this.label)
+        this.label_elem = add_param_label(this.single_line, this.label)
         const single_elem = this.item.add_editbox(this.single_line, true)
 
         this.add_code_elem()
@@ -1166,7 +1165,7 @@ class ParamVec2Int extends Parameter {
     save() { return {x:this.x, y:this.y} }
     load(v) { this.x=v.x; this.y=v.y }
     add_elems(parent) {
-        this.line_elem = add_param_line(parent)
+        this.line_elem = add_param_line(parent, this)
         this.label_elem = add_param_label(this.line_elem, this.label)
         this.elem_x = add_param_edit(this.line_elem, this.x, ED_INT, (v) => { this.x = parseInt(v); this.pset_dirty() }) // NOTE with expr v can be null!
         this.elem_y = add_param_edit(this.line_elem, this.y, ED_INT, (v) => { this.y = parseInt(v); this.pset_dirty() })
@@ -1274,7 +1273,7 @@ class ParamColor extends CodeItemMixin(Parameter)
     add_elems(parent) {
         this.line_elem = add_param_multiline(parent, this)
 
-        this.single_line = add_param_line(this.line_elem);
+        this.single_line = add_param_line(this.line_elem, this);
         elem_set_visible(this.single_line, !this.show_code)
 
         this.label_elem = add_param_label(this.single_line, this.label)
@@ -1814,7 +1813,7 @@ class ListParam extends Parameter {
         this.for_values((v, vindex)=>{ this.reprint_line(vindex, v) })
     }
 
-    // for changes that come from user interaction in the image_canvas
+    // for changes that come from user interaction in the image canvas
     modify(index, v) { // index is already multiplied by values_per_entry
         if (this.values_per_entry > 1) {
             console.assert(v.length == this.values_per_entry, "Unexpected number of values")
@@ -2075,7 +2074,7 @@ class ParamTextBlock extends Parameter
     }
 
     add_elems(parent) {
-        this.line_elem = add_param_line(parent)
+        this.line_elem = add_param_line(parent, this)
         this.label_elem = add_param_label(this.line_elem, this.label)
         this.dlg = create_dialog(parent, this.title(), true, this.dlg_rect, (visible)=>{ edit_btn.checked = visible })
         this.dlg.elem.classList.add("dlg_size_shader_edit")

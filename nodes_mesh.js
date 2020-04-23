@@ -521,7 +521,8 @@ class MeshPropEvaluator extends NodeBase
 //  center of faces is sampled only when sampling color
 //  rand(in_obj.index)  - works for vertices and faces
 //  in_obj.face_center - for faces
-// with "Image Fill" the attr_name needs to be "fill"
+// with "Image Fill" the attr_name needs to be "fill" and in_src is what's being filled
+//     
 class NodeSetAttr extends NodeCls
 {
     static name() { return "Set Attribute" }
@@ -552,9 +553,9 @@ class NodeSetAttr extends NodeCls
 
             const prm = this.param_of_index[type_idx]
             if (prm.show_code !== undefined) // update show code checkbox according to the type
-                this.edit_code.set_to_const(prm.show_code)
+                this.edit_code.modify(prm.show_code)
             else
-                this.edit_code.set_to_const(false)
+                this.edit_code.modify(false)
 
             this.attr_name.modify(this.name_per_type.v[sel_idx])
         })
@@ -579,7 +580,7 @@ class NodeSetAttr extends NodeCls
         this.param_of_index = [this.expr_color, this.expr_float, this.expr_vec2, this.expr_bool, this.expr_transform]
 
         // connect callback from context menu to the bool param
-        const show_code_callback = (v)=>{this.edit_code.set_to_const(v) }
+        const show_code_callback = (v)=>{this.edit_code.modify(v) }
         for(let p of this.param_of_index) {
             if (p.show_code_callback !== undefined) 
                 p.show_code_callback = show_code_callback

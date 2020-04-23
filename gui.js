@@ -336,7 +336,7 @@ function panel_mouse_control(view, canvas)
             view.hover(0,0, e.pageX, e.pageY, cvs_x, cvs_y)
         }
 
-        if (node_capture || is_point_in_rect(e.pageX, e.pageY, view.rect))
+        if (node_capture || is_point_in_rect(e.pageX, e.pageY, view.rect) && e.target === canvas_image)
             view.nodes_inputevent('mousemove', e)
     })
     

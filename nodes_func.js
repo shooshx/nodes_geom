@@ -1,7 +1,7 @@
 "use strict"
 
 
-const FUNC_VERT_SRC = `#version 300 es
+const FUNC_VERT_SRC = `
 in vec4 vtx_pos;
 out vec2 v_coord;
 uniform mat3 t_mat;
@@ -14,23 +14,33 @@ void main(void)
 }
 `
 
-const EXPR_FRAG_SRC = `#version 300 es
+const EXPR_FRAG_SRC = `
 precision mediump float;
 
 in vec2 v_coord;
 out vec4 outColor;
-$MORE_DEFS$
+
+#ifdef HAS_GRADIENT
+uniform sampler2D uGradTex;
+#endif
 $UNIFORM_DEFS$
 
 $FUNCS$
 
 void main() {
     $BEFORE_EXPR$
+#ifndef EXPR_IS_COLOR
     float v = $EXPR$;
-    outColor = $COL_RESULT$;    
+ #ifdef HAS_GRADIENT
+    outColor = texture(uGradTex, vec2(v,0));
+ #else
+    outColor = vec4(vec3(1.0, 0.5, 0.0) + vec3(v*2.0-1.0, v*2.0-1.0, v*2.0-1.0), 1.0);
+ #endif
+#else     
+    outColor = $EXPR$;
+#endif     
 }
 `
-const NO_TEX_COL_RESULT = 'vec4(vec3(1.0, 0.5, 0.0) + vec3(v*2.0-1.0, v*2.0-1.0, v*2.0-1.0), 1.0)'
 
 
 /*   plasma
@@ -114,6 +124,7 @@ class GlslEmitContext {
         return text.replace('$FUNCS$', this.add_funcs.join('\n'))
                    .replace('$BEFORE_EXPR$', this.before_expr.join('\n'))
                    .replace('$UNIFORM_DEFS$', this.uniform_decls.join('\n'))
+                   .replace(/\$EXPR\$/g, this.inline_str)
     }
     
     set_uniform_vars(shader_cls) {
@@ -236,33 +247,21 @@ class NodeFuncFill extends BaseNodeShaderWrap
     }
 
     run() {
+        // need to remake text due to expression change
         if (this.active_param.pis_dirty() || this.type.pis_dirty()) {
             this.make_frag_text()
         }
 
         const grad = this.in_gradient.get_const()
-        let frag_text
-        if (this.type.sel_idx === 0)  // float to gradient
-        {
-            frag_text = EXPR_FRAG_SRC.replace('$EXPR$', this.glsl_emit_ctx.inline_str)
-            if (grad !== null) {
-                assert(grad.make_gl_texture !== undefined, this, "in_gradient should be Gradient object or nothing")
-                frag_text = frag_text.replace('$MORE_DEFS$', 'uniform sampler2D uGradTex;').replace('$COL_RESULT$', "texture(uGradTex, vec2(v,0))")
-            }
-            else {
-                frag_text = frag_text.replace('$MORE_DEFS$', '').replace('$COL_RESULT$', NO_TEX_COL_RESULT)
-            }
-        }
-        else {   // direct color
-            frag_text = EXPR_FRAG_SRC.replace("$EXPR$", "0.0").replace("$COL_RESULT$", this.glsl_emit_ctx.inline_str).replace("$MORE_DEFS$", '')
-        }
-        frag_text = this.glsl_emit_ctx.do_replace(frag_text)
+        let frag_text = this.glsl_emit_ctx.do_replace(EXPR_FRAG_SRC)
 
         //console.log("TEXT: ", frag_text)
 
         this.shader_node.cls.frag_text.set_text(frag_text, false)
         // set_text creates parameters for the uniforms in the text, which are then read in run and transfered to gl
         this.glsl_emit_ctx.set_uniform_vars(this.shader_node.cls)
+        this.shader_node.cls.param_of_define("EXPR_IS_COLOR").modify( this.type.sel_idx === 1, false)
+        this.shader_node.cls.param_of_define("HAS_GRADIENT").modify( grad !== null, false)
 
         if (this.type.sel_idx === 0 && grad !== null) {
             const texParam = this.shader_node.cls.param_of_uniform('uGradTex')
@@ -286,7 +285,7 @@ class NodeFuncFill extends BaseNodeShaderWrap
 
 // Perlin noise: https://github.com/stegu/webgl-noise/tree/master/src
 
-const NOISE_FRAG_SRC =  `#version 300 es
+const NOISE_FRAG_SRC =  `
 precision mediump float;
 
 in vec2 v_coord;

@@ -1,11 +1,10 @@
 GUI:
 - parameter value change with drag and right button like in houdini
-- before running - do type checking to nodes in/out
+- before running - do type checking to nodes in/out terminals
 - color picker with null?
 - BUG: resize the window beyond the size of the nodes panel moves it
 - select *nodes* with Ctrl, rectangle (display params of multiple nodes at once?)
 - zoom nodes view
-- center nodes view on load
 - icons nodes view
 - node show node name class if name doesn't include it
 - progress bar for long run, abort button
@@ -61,16 +60,18 @@ EXPRESSIONS
 
 NODES:
 - frame buffer
-    clone object
-    merge create and shader
+    - clone object consistent with the rest of the system
+    - merge create and shader?
+    - variable ratio, not just square, take the ratio of the current viewport
+        - !!!!!! pixel buffer ratio according to resolution ratio (with checkbox - square pixels)
 - Geom primitive
     - rect round edges
     - spiral
     - 2d function of t, sampled at intervals
     - free-hand path, min step distance
 - manual geom
-    - delete point from list control
-    - move them even after transform?
+    - delete point from list control gui
+    - ??? move them even after transform?
     - primitive quad, triangle, path - between the points? by selection?
     - Path curve control points
     - point size
@@ -85,22 +86,23 @@ NODES:
     triangulation
         edge case of non-input points coming from triangulate (corner points) ??? don't know how to do this
         add non-hole points?
-    show arrows with on the lines to show its direction    
-- SetAttr fill from node 
-   - transform fill along with the shape 
+    show arrows with on the lines to show its direction  
+- triangulate  
+    check why there's jumping when triangulating a primitive pentagon  
+- SetAttr 
+   - fill-from-node transform fill along with the shape 
       - need a shader to avoid many many renderings - need a separate node to render this
    - fill vertices circles?
    - !!! line color, width
    - !!!!!!!! open a table with the actual values of the vertices / faces
-
-- transform invert
+   - line attributes color
+- transform invert - in expression?
 - transform - fit one object to another? paper.js fitBounds
 - interactive
     mouse input, adjust minimimum step (http://paperjs.org/tutorials/images/color-averaging-image-areas/)
 - Group objects
-    display checkboxes (accumulate from connections?)
+    display display checkboxes (accumulate from connections?)
 - GLSL node
-    - !!!!!! pixel buffer ratio according to resolution ratio (with checkbox - square pixels)
     https://ace.c9.io/#nav=embedding
     https://codemirror.net/
     https://stackoverflow.com/questions/27531860/how-to-highlight-a-certain-line-in-ace-editor
@@ -125,17 +127,17 @@ NODES:
     how to control parameters of the copies?
     for loop?
 - Gradient
-    in stroke,
+    in stroke (line),
+    add nice presets
 - 2d color function
     - time
-    - mouse
-- Shader distance from path
 - random points  - https://www.sidefx.com/docs/houdini/nodes/sop/scatter.html
     on a surface
     on a line
     interpolate property from input geometry
 - Graph (4) coloring - for selecting some vertices at seemingly random
 - 3D model and render
+- topograph
 - Text paths  https://opentype.js.org/
 - Mesh merge, path merge
 - Shrink faces 
@@ -144,7 +146,7 @@ NODES:
 - Flow control 
     - choose one input or another depending on expression
     - For loop?
-- physicas
+- physics
     - Box2D
     - 3D - https://schteppe.github.io/cannon.js/
 - SVG in WebGL?
@@ -171,7 +173,6 @@ NODE-VIEW
 - comments, frames, change color of node
 
 DISCOVERABILITY
-- hover tooltip on terminals
 - detailed explanation about a node when selecting it in a tooltip and in the params
 
 demo idea

@@ -193,9 +193,14 @@ function createShader(gl, type, source) {
     return undefined;
 }
 
-function createProgram(gl, vtxSource, fragSource, attr_names) {
-    let vtxShader = createShader(gl, gl.VERTEX_SHADER, vtxSource);
-    let fragShader = createShader(gl, gl.FRAGMENT_SHADER, fragSource);
+function createProgram(gl, vtxSource, fragSource, attr_names, defines) {
+    let prefixSrc = "#version 300 es\n"
+    for(let name in defines)
+        prefixSrc += "#define " + name + " (" + defines[name] + ")\n"
+    prefixSrc += "#line 1\n"
+
+    let vtxShader = createShader(gl, gl.VERTEX_SHADER, prefixSrc + vtxSource);
+    let fragShader = createShader(gl, gl.FRAGMENT_SHADER, prefixSrc + fragSource);
     if (!vtxShader || !fragShader || !attr_names)
         return null // TBD integrate error message
 
@@ -241,7 +246,7 @@ function ensure_webgl() {
 function is_ws(c) {
     return c == ' ' || c == '\t' || c == '\n' || c == '\r'
 }
-const SUPPORTED_TYPES = ['float', 'int', 'vec2', 'vec4', 'sampler2D']
+const SUPPORTED_TYPES = ['float', 'int', 'vec2', 'vec4', 'sampler2D', 'bool']
 
 
 class NodeShader extends NodeCls
@@ -264,9 +269,10 @@ class NodeShader extends NodeCls
 
         this.attr_names = null // will be set by caller
         this.program = null
-        this.uniforms_frag = [] // list of {name:,type:}
+        this.uniforms_frag = [] // list of {name:,type:} (also defines)
         this.uniforms_vert = [] 
-        this.uniforms = {} // (unified) map name to {param:}
+        this.uniforms = {} // (unified) map name to Param object
+        this.defines = {} // map name to Param object, #defines that the source depends on
         this.last_uniforms_err = null
 
         // it's ok for the texture to belong to this node since texture is const only so it won't be modified
@@ -294,8 +300,14 @@ class NodeShader extends NodeCls
             return null
         return d.param
     }
+    param_of_define(name) {
+        let d = this.defines[name]
+        if (d === undefined || d === null)
+            return null
+        return d.param
+    }
 
-    parse_glsl_uniforms(text) 
+    parse_glsl_uniform_and_defines(text) 
     {
         // not handling comments or pre-processor
         let uniforms = []
@@ -331,6 +343,21 @@ class NodeShader extends NodeCls
             assert(SUPPORTED_TYPES.includes(type), this, "Unsupported uniform type " + type)
             uniforms.push({type:type, name:name})
         }
+        // preprocessor conditions turn to boolean parameters
+        const search_prepro = (keyword)=>{
+            while(true) {
+                ci = text.indexOf(keyword, ci)
+                if (ci === -1)
+                    break
+                ci += keyword.length
+                const name = consume_identifier()
+                if (name === null)
+                    break
+                uniforms.push({type:'define', name:name})
+            }
+        }
+        search_prepro('#ifdef')
+        search_prepro('#ifndef')
         return uniforms
     }
     
@@ -338,10 +365,10 @@ class NodeShader extends NodeCls
     update_uniforms(text, into, in_group) 
     {
         this.last_uniforms_err = null
-        let new_uniforms = this.parse_glsl_uniforms(text)
+        let new_uniforms = this.parse_glsl_uniform_and_defines(text)
         let changed = into.length !== new_uniforms.length
 
-        // need to this the iteration anyway to do the type check
+        // need to do this the iteration anyway to do the type check
         for(let nu of new_uniforms) {
             const eu = this.uniform_by_name_in(into, nu.name)
             if (eu === null || eu.type !== nu.type) {
@@ -351,33 +378,41 @@ class NodeShader extends NodeCls
         } 
         if (!changed)
             return
+        // check type matches between vert and frag
         into.length = 0;
         for(let nu of new_uniforms)
             into.push(nu)
         let new_unified = {}
-        for(let u of this.uniforms_vert)
-            new_unified[u.name] = u
-        for(let u of this.uniforms_frag) {
-            if (new_unified[u.name] !== undefined) {
-                if (new_unified[u.name].type !== u.type) {
-                    this.last_uniforms_err = "Mismatch type"
-                    return
+        const check_redef_and_add = (from_cont)=>{
+            for(let u of from_cont) {
+                if (new_unified[u.name] !== undefined) {
+                    if (new_unified[u.name].type !== u.type) {
+                        this.last_uniforms_err = "Mismatch type " + u.name
+                        return
+                    }
+                }
+                else
+                    new_unified[u.name] = u
+            }
+        }
+        check_redef_and_add(this.uniforms_frag)
+        check_redef_and_add(this.uniforms_vert)
+
+        // removed uniforms - remove param objects
+        // want to keep the surviving ones around so they won't be reset
+        const del_non_existing = (from_cont)=> {
+            for(let ename in from_cont) {
+                if (new_unified[ename] === undefined) {
+                    this.node.remove_param(from_cont[ename].param)
+                    delete from_cont[ename]
                 }
             }
-            else
-                new_unified[u.name] = u
         }
-
-        // something there that should not be there?
-        for(let ename in this.uniforms) {
-            if (new_unified[ename] === undefined) {
-                this.node.remove_param(this.uniforms[ename].param)
-                delete this.uniforms[ename]
-            }
-        }
+        del_non_existing(this.uniforms)
+        del_non_existing(this.defines)
         // create new ones that were just added
         for(let new_name in new_unified) {
-            if (this.uniforms[new_name] !== undefined)
+            if (this.uniforms[new_name] !== undefined || this.defines[new_name] !== undefined)
                 continue
             const nu = new_unified[new_name]
             let p = {}
@@ -389,9 +424,14 @@ class NodeShader extends NodeCls
                 p.param = new ParamVec2(this.node, nu.name, 0, 0, false)
             else if (nu.type == 'vec4')
                 p.param = new ParamColor(this.node, nu.name, "rgba(204,204,204,1.0)")
+            else if (nu.type == 'bool' || nu.type == 'define') 
+                p.param = new ParamBool(this.node, nu.name, false)
             else
                 assert(false, this, "unexpected uniform type")
-            this.uniforms[new_name] = p
+            if (nu.type == 'define')
+                this.defines[new_name] = p
+            else                
+                this.uniforms[new_name] = p
             p.param.set_group(in_group)
         }
         // both groups need to update since we might have removed something from the other group
@@ -407,6 +447,13 @@ class NodeShader extends NodeCls
         return obj
     }
 
+    is_defines_dirty() {
+        for(let dname in this.defines)
+            if (this.defines[dname].param.pis_dirty())
+                return true
+        return false
+    }
+
     run() {
         ensure_webgl()
         assert(this.last_uniforms_err === null, this, this.last_uniforms_err)
@@ -418,13 +465,20 @@ class NodeShader extends NodeCls
             mesh = this.make_tex_aligned_mesh(tex)
         //assert(mesh !== null, this, "missing input mesh") 
         assert(mesh.type == MESH_TRI, this, "No triangle faces in input mesh")
-        assert(this.attr_names !== null, this, "Missing attr_names") // TBD parse this from the shaders
+//        assert(this.attr_names !== null, this, "Missing attr_names") // TBD parse this from the shaders
 
-        if (this.vtx_text.pis_dirty() || this.frag_text.pis_dirty()) 
+        if (this.vtx_text.pis_dirty() || this.frag_text.pis_dirty() || this.is_defines_dirty()) 
         {
             if (this.program)
-                gl.deleteProgram(this.program)            
-            this.program = createProgram(gl, this.vtx_text.text, this.frag_text.text, this.attr_names);
+                gl.deleteProgram(this.program)
+            const defines = {}
+            for(let def_name in this.defines) {
+                const bv = this.defines[def_name].param.get_value()
+                if (bv === true || bv === 1)
+                    defines[def_name] = 1 // it's either defined or not defines
+            }
+
+            this.program = createProgram(gl, this.vtx_text.text, this.frag_text.text, this.attr_names, defines);
             assert(this.program, this, "failed to compile shaders")
                 
             this.program.uniforms = {}
@@ -474,7 +528,7 @@ class NodeShader extends NodeCls
 
 const render_teximg = {
     mesh: null, program:null,
-    vtx_src:`#version 300 es
+    vtx_src:`
 in vec4 vtx_pos;
 out vec2 v_coord;
 void main() {
@@ -482,7 +536,7 @@ void main() {
     gl_Position = vtx_pos;
 }
     `,
-    frag_src:`#version 300 es
+    frag_src:`
 precision mediump float;
 in vec2 v_coord;
 uniform sampler2D uTex;
@@ -504,7 +558,7 @@ async function renderTexToImgBitmap(tex_obj)
     gl.viewport(0, 0, canvas_webgl.width, canvas_webgl.height);
 
     if (render_teximg.mesh === null) {
-        render_teximg.program = createProgram(gl, render_teximg.vtx_src, render_teximg.frag_src, ['vtx_pos'])
+        render_teximg.program = createProgram(gl, render_teximg.vtx_src, render_teximg.frag_src, ['vtx_pos'], [])
         dassert(render_teximg.program !== null, "failed compile teximg")
 
         render_teximg.mesh = make_mesh_quadtri(2, 2)
@@ -576,7 +630,7 @@ class NodePointGradFill extends BaseNodeShaderWrap
         this.in_tex = new TerminalProxy(node, this.shader_node.cls.in_tex)
         this.out_tex = new TerminalProxy(node, this.shader_node.cls.out_tex)
 
-        this.shader_node.cls.vtx_text.set_text(`#version 300 es
+        this.shader_node.cls.vtx_text.set_text(`
 in vec4 vtx_pos;
 in vec4 vtx_color;
 
@@ -589,7 +643,7 @@ void main() {
     gl_Position = vtx_pos;
 }
 `)
-        this.shader_node.cls.frag_text.set_text( `#version 300 es
+        this.shader_node.cls.frag_text.set_text( `
 precision mediump float;
 
 in vec2 v_coord;
