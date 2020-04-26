@@ -164,6 +164,7 @@ class NodeCreateFrameBuffer extends NodeCls
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         let fb = new FrameBuffer(tex, 2, 2, this.smoothImage.v)
         fb.transform(this.transform.v)
+        gl.bindTexture(gl.TEXTURE_2D, null);
         this.out_tex.set(fb)
     }
 
@@ -246,7 +247,7 @@ function ensure_webgl() {
 function is_ws(c) {
     return c == ' ' || c == '\t' || c == '\n' || c == '\r'
 }
-const SUPPORTED_TYPES = ['float', 'int', 'vec2', 'vec4', 'sampler2D', 'bool']
+const SUPPORTED_TYPES = ['float', 'int', 'vec2', 'vec4', 'sampler2D', 'bool', 'mat3']
 
 
 class NodeShader extends NodeCls
@@ -255,7 +256,7 @@ class NodeShader extends NodeCls
     constructor(node) {
         super(node)
         this.in_mesh = new InTerminal(node, "in_mesh")
-        this.in_tex = new InTerminal(node, "in_tex")
+        this.in_fb = new InTerminal(node, "in_tex") // don't want to change the name to avoid breakage
         this.out_tex = new OutTerminal(node, "out_texture")
         this.vtx_text = new ParamTextBlock(node, "Vertex Shader", (text)=>{
             this.update_uniforms(text, this.uniforms_vert, this.vert_group)
@@ -426,6 +427,8 @@ class NodeShader extends NodeCls
                 p.param = new ParamColor(this.node, nu.name, "rgba(204,204,204,1.0)")
             else if (nu.type == 'bool' || nu.type == 'define') 
                 p.param = new ParamBool(this.node, nu.name, false)
+            else if (nu.type == 'mat3')
+                p.param = new ParamTransform(this.node, nu.name)
             else
                 assert(false, this, "unexpected uniform type")
             if (nu.type == 'define')
@@ -457,7 +460,7 @@ class NodeShader extends NodeCls
     run() {
         ensure_webgl()
         assert(this.last_uniforms_err === null, this, this.last_uniforms_err)
-        let tex = this.in_tex.get_const() // TBD wrong
+        let tex = this.in_fb.get_const() // TBD wrong
         assert(tex !== null, this, "missing input texture")
 
         let mesh = this.in_mesh.get_const()
@@ -575,6 +578,7 @@ async function renderTexToImgBitmap(tex_obj)
     render_teximg.mesh.gl_draw(transform, render_teximg.program.attrs)
 
     const imgBitmap = await createImageBitmap(canvas_webgl)
+    gl.bindTexture(gl.TEXTURE_2D, null);
     return imgBitmap
 }
 
@@ -627,7 +631,7 @@ class NodePointGradFill extends BaseNodeShaderWrap
         super(node)
         this.shader_node.cls.attr_names = ["vtx_pos", "vtx_color"]
         this.in_mesh = new TerminalProxy(node, this.shader_node.cls.in_mesh)
-        this.in_tex = new TerminalProxy(node, this.shader_node.cls.in_tex)
+        this.in_fb = new TerminalProxy(node, this.shader_node.cls.in_fb)
         this.out_tex = new TerminalProxy(node, this.shader_node.cls.out_tex)
 
         this.shader_node.cls.vtx_text.set_text(`

@@ -10,3 +10,10 @@ The engine runs nodes
 Node becomes dirty by
 - parameter change
 - connect/disconnect of a terminal
+
+Colors
+- when dealing with images, ranges is 0-255 to r,g,b,alphai and 0-1 to alpha, as sampled from images
+- when dealing with shaders, webgl, all is in range 0-1
+    - ParamColor scales its values before doing gl.uniform
+    - mesh attributes use need_normalize
+    - shader coder expects to get values in [0-1]

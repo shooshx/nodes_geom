@@ -210,7 +210,9 @@ class NodeVariable extends NodeCls
         }
         if (name != "mousemove") 
             return false
-        if (this.mouseState.sel_idx == 0 && ((e.buttons & 1) != 0))
+        // push and drag can be used only if the press was captured in the image canvase. 
+        //  Otherwise, capture from node canvas and drag to image canvas would also move it
+        if (this.mouseState.sel_idx == 0 && ((e.buttons & 1) != 0) && e.img_canvas_capture === true)
             this.move_action(e)
         else if (this.mouseState.sel_idx == 1)
             this.move_action(e)

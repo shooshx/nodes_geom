@@ -598,23 +598,31 @@ class ExpressionItem {
     set_eactive(v) {
         this.eactive = v
     }
-    save_to(r) { 
+    save_to(r) {
+        if (this.e !== null && this.e.get_const_value() !== null)
+            r["e_" + this.prop_name_ser] = this.e.get_const_value()
         r["se_" + this.prop_name_ser] = this.se 
         if (!is_default_slider_conf(this.slider_conf)) // don't need to litter
             r["sldcfg_" + this.prop_name_ser] = this.slider_conf
     }
     load(v) {
-        let vk = v["se_" + this.prop_name_ser]
-        if (vk !== undefined && vk !== null) 
-            this.peval(vk) 
-        else {
-            let lv = v[this.prop_name_ser]
-            if (lv === undefined) {
-                // old save with no code?
-                //console.error(lv !== undefined, "failed load value")
-                return;
+        const ve = v["e_" + this.prop_name_ser]
+        if (ve !== undefined) { // has exact number value
+            this.set_to_const(ve)
+        }
+        else { // parse string
+            let vk = v["se_" + this.prop_name_ser]
+            if (vk !== undefined && vk !== null) 
+                this.peval(vk) 
+            else {
+                let lv = v[this.prop_name_ser]
+                if (lv === undefined) {
+                    // old save with no code?
+                    //console.error(lv !== undefined, "failed load value")
+                    return;
+                }
+                this.do_set_prop(lv)
             }
-            this.do_set_prop(lv)
         }
         this.slider_conf = normalize_slider_conf(v["sldcfg_" + this.prop_name_ser])
     }
@@ -1021,7 +1029,7 @@ class ParamBaseExpr extends CodeItemMixin(Parameter)
     modify(v, dirtyify=true) {  // dirtify false used in NodeFuncFill (when called from within run())
         if (this.show_code)
             return // code item should not be modified since that would erase the code
-        if (this.item.set_to_const(v) && dirtify)
+        if (this.item.set_to_const(v) && dirtyify)
             this.pset_dirty()
     } 
 }
@@ -1500,6 +1508,21 @@ class ParamTransform extends Parameter {
                 return er
         }
         return null
+    }
+    
+    modify(v, dirtyify=true) { 
+        // TBD right now this just bypasses the calc_mat logic and does direct setting of the matrix
+        // need that for NodeFuncFill where there's no display to this Param so there's no need for all that
+        //if (this.show_code)
+        //    return // code item should not be modified since that would erase the code
+        if (mat3.exactEquals(v, this.v))
+            return
+        mat3.copy(this.v, v)
+        if (dirtyify)
+            this.pset_dirty()
+    } 
+    gl_set_value(loc) {
+        gl.uniformMatrix3fv(loc, false, this.get_value())
     }    
 }
 

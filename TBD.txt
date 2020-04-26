@@ -14,7 +14,8 @@ GUI:
 - layout: https://github.com/golden-layout/golden-layout
 - right click? on out terminal to show info about its output
 - define camera?
-
+- !!!!! input nodes are only active if they are in a current display tree
+- !! ability to resize code editor and pop it out
 
 ENGINE:
 - serialization - save only if something is changed
@@ -46,11 +47,13 @@ EXPRESSIONS
 - func with 0 argument has a bug in parse
 
 
+
 ****** CURRENT AGENDA ******
 - Param2d short expression, slider
 - Image transform spiral from kawaiig
 - render geometry to texture
 - Manual geom move
+- allow terminal name change backwards compatibility - in_tex to in_framebuffer
 - green coordinates
      - https://github.com/ugomadagu/Krita/blob/7626a015269510c13bf92268d00ad3fb13107e96/libs/image/kis_green_coordinates_math.cpp
      - http://www.wisdom.weizmann.ac.il/~ylipman/GC/gc_techrep.pdf

@@ -9,6 +9,7 @@ const TYPE_NUM = 1;
 const TYPE_VEC3 = 2; 
 const TYPE_VEC4 = 3;
 const TYPE_VEC2 = 4;
+const TYPE_FUNCTION = 5;  // function 
 // returned from global check_type to mean there's not enough info to know what the type is since it depends on evaulators
 // that will be set by the cls, check_type will try again in dyn_eval
 const TYPE_UNDECIDED = 10; 
@@ -41,6 +42,14 @@ class NodeBase {
     }
     consumes_subscript() { // for evaluator nodes to tell the parser if they consumed all the subscripts of the identifier that get_evaluator was sent
         return false 
+    }
+    // needs to be implemented if check_type returns TYPE_FUNC
+    //  this predicts what's going to be the type returned by the call to the function object
+    func_ret_type() { 
+        eassert("func_ret_type not implemented")
+    }
+    get_const_value() { // if it's a node that has a constant value (number, vec) return it for higher percision than saving a string
+        return null
     }
 }
 
@@ -82,6 +91,9 @@ class NumNode  extends NodeBase {
             return this.v + ".0"
         return this.v;
     }
+    get_const_value() { 
+        return this.v
+    }
 }
 
 function make_num_node(old_node, v) {
@@ -104,6 +116,9 @@ class VecNode extends NodeBase {
     }
     check_type() {
         return this.type
+    }
+    get_const_value() { 
+        return this.v
     }
 }
 
@@ -441,7 +456,7 @@ function parseOp()
 class FuncDef {
     constructor(jsfunc, num_args, type=FUNC_TYPE_BY_COMPONENT, ret_type=null) {
         this.f = jsfunc
-        this.num_args = num_args // negative means atleast that manu
+        this.num_args = num_args // negative means atleast that many
         this.dtype = type
         this.ret_type = ret_type // for FUNC_TYPE_LOOKUP - either a type or null to indicate it's the same as the input-arg type
     }
@@ -558,6 +573,19 @@ const func_defs = {
 func_defs['rgb'] = func_defs['vec3']
 func_defs['rgba'] = func_defs['vec4']
 
+// a place holder for an internal func that is returned from lookup and replaced by a FuncCallNode
+class InternalFuncDefDummyNode extends NodeBase {
+    constructor(def) {
+        super()
+        this.def = def
+    }
+    num_args() { return this.def.num_args }
+    eval() { eassert(false, "not-implemented: dummy func node") }
+    check_type() {  eassert(false, "not-implemented: dummy func doesn't need to implement this") } 
+    clear_types_cache() { eassert(false, "not-implemented: dummy func node") }  
+    to_glsl() { eassert(false, "not-implemented: dummy func node") }
+}
+
 class AddGlslFunc {
     constructor(s) { this.func_str = s }
 }
@@ -583,14 +611,11 @@ function apply_by_component(argvals, f) {
     return ret
 }
 
-class FuncCallNode extends NodeBase {
-    constructor(jsfunc, funcname, args) {
+class InternalFuncCallNode extends NodeBase {
+    constructor(def, funcname, args) {
         super()
-        this.def = func_defs[funcname]
-        if (jsfunc === undefined) // from serializaton
-            this.f = def.f
-        else
-            this.f = jsfunc // optimization
+        this.def = def
+        this.f = def.f
         this.args = args // input nodes
         this.type = null
         this.funcname = funcname
@@ -676,25 +701,68 @@ class FuncCallNode extends NodeBase {
     }
 }
 
-function parseFuncCall(func_name) {
-    let def = func_defs[func_name]
-    if (def === undefined)
-        throw new ExprErr("Unknown func " + func_name + " at " + index_)
+
+class FuncObjCallNode extends NodeBase 
+{
+    constructor(func_node, func_name, args) {
+        super()
+        this.func_node = func_node
+        this.arg_nodes = args
+        this.func_name = func_name
+    }
+    eval() { 
+        eassert(false, "not-implemented yet: func node") 
+    }
+    check_type() { 
+        if (this.func_node.check_type() !== TYPE_FUNCTION)
+            throw new TypeErr("Identifier " + this.func_name + " is not a function")
+        return this.func_node.func_ret_type()
+    }
+    clear_types_cache() { 
+        this.func_node.clear_types_cache()
+    }  
+    to_glsl(emit_ctx) { 
+        const name = this.func_node.to_glsl(emit_ctx)
+        let args = []
+        for(let arg of this.arg_nodes)
+            args.push(arg.to_glsl(emit_ctx))
+        return name + "(" + args.join(",") + ")"
+    }
+}
+
+function parseFuncCall(func_node, func_name) {
+    //if (!func_node.is_function())
+    //    throw new ExprErr("Identifier " + func_name + " is not a function" )  
     let args = []
+    // negative num_args means at least that many
     do {
-        index_++; // first time skips the parent, after that skips the comma
-        if (def.num_args > 0 && args.length == def.num_args)
-            throw new ExprErr("Too many argument to function " + func_name + " at " + index_)
+        index_++; // first time skips the paren, after that skips the comma
         let arg = parseExpr()
         args.push(arg)
         eatSpaces();
     } while (getCharacter() == ',')
-    if ((def.num_args > 0 && args.length != def.num_args) || (def.num_args < 0 && args.length < -def.num_args))
-        throw new ExprErr("Not enough arguments to function " + func_name + " at " + index_)
     if (getCharacter() != ')')
         throw new ExprErr("Expected closing paren for argument list at " + index_)
     ++index_; // skip paren
-    return new FuncCallNode(def.f, func_name, args)
+
+    if (func_node.constructor === InternalFuncDefDummyNode) { // dummy is discarded
+        // internal func can have the argument number check during parsing
+        const expect_num_arg = func_node.num_args()
+        if (expect_num_arg === 0)
+            throw new ExprErr("internal func can't have 0 arguments")
+        if (expect_num_arg > 0) {
+            if (args.length != expect_num_arg)
+                throw new ExprErr("Wrong number of argument to function " + func_name + " at " + index_ + " expected " + expect_num_arg + " got " + args.length)
+        }
+        else {
+            if (args.length < -expect_num_arg)
+                throw new ExprErr("Not enough arguments to function " + func_name + " at " + index_ + " expected at least " + expect_num_arg + " got " + args.length)
+        }
+        return new InternalFuncCallNode(func_node.def, func_name, args)
+    }
+    else {
+        return new FuncObjCallNode(func_node, func_name, args)
+    }
 }
 
 const constants = {"PI": Math.PI, "true":1, "false":0}
@@ -715,17 +783,15 @@ function parseIdentifier() {
     if (sb[0] == '.' || sb[sb.length-1] == '.')
         throw new ExprErr("Unexpected dot in an identifier at " + index_)
 
-    eatSpaces()
-    if (getCharacter() == '(')  {// function call - TBD shouldn't really be here. should be outside
-        return parseFuncCall(sb) 
-    }
-    return lookupIdentifier(sb)
+    return [sb, lookupIdentifier(sb)]
 }
 
 function lookupIdentifier(sb)
 {
     if (constants[sb] !== undefined)
         return new NumNode(constants[sb])
+    if (func_defs[sb] !== undefined)
+        return new InternalFuncDefDummyNode(func_defs[sb])
 
     if (g_symbol_table !== null) {
         const sps = sb.split('.')
@@ -871,7 +937,14 @@ function parseValue() {
                     
         default:
             if ( (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_') {
-                val = parseIdentifier();
+                const [name, val_] = parseIdentifier();
+                val = val_
+
+                eatSpaces()
+                if (getCharacter() == '(')  {// function call - TBD shouldn't really be here. should be outside
+                    val = parseFuncCall(val, name) 
+                }
+
                 break;
             }
             if (!isEnd())

@@ -8,6 +8,13 @@ class PImage extends ImageBase
         super((js_img !== undefined)?js_img.width:0, (js_img !== undefined)?js_img.height:0, smooth)
         this.img = js_img
         this.pixels = null
+
+        this.tex_obj_cache = null
+        this.tex_with_params = null
+    }
+    destructor() {
+        if (this.tex_obj_cache !== null)
+            this.del_texture_cache()
     }
 
     width() { return this.img.width }
@@ -35,7 +42,45 @@ class PImage extends ImageBase
         mat3.invert(inv_t, this.t_mat)
         mat3.mul(transform, transform, inv_t)
         return transform
-    }    
+    }
+
+    
+    del_texture_cache() {
+        gl.deleteTexture(this.tex_obj_cache)
+        this.tex_obj_cache = null
+        this.tex_with_params = null        
+    }
+
+    make_gl_texture(resolution, smooth) {
+        if (this.tex_obj_cache !== null) {
+            if (this.tex_with_params.smooth === smooth)
+                return this.tex_obj_cache // caller should do bind
+            this.del_texture_cache() // need to recreate it
+        }
+
+        let tex = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        // TBD invalid image warning
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.width(), this.height(), 0, gl.RGBA, gl.UNSIGNED_BYTE, this.img);
+        tex.width = this.width()
+        tex.height = this.height()
+        tex.t_mat = mat3.create()
+        mat3.copy(tex.t_mat, this.t_mat)
+        // normalize scale factor to 0-1 since that's the range of the texture coordinates. WebGL is oblivious to the pixels scaling
+
+        let minfilt = gl.LINEAR
+        if (!smooth)
+            minfilt = gl.NEAREST
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, minfilt);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, minfilt);
+
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+        this.tex_obj_cache = tex
+        this.tex_with_params = { smooth: smooth }
+        return tex
+    }
 }
 
 class NodeLoadImage extends NodeCls

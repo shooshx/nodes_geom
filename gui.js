@@ -257,7 +257,7 @@ function panel_mouse_control(view, canvas)
     let node_capture = false
     
     myAddEventListener(canvas, 'mousedown', function(e) {
-        if (view.nodes_inputevent('mousedown', e)) {
+        if (view.nodes_inputevent('mousedown', e) && e.target === canvas_image) {
             node_capture = true
             return
         }
@@ -336,8 +336,10 @@ function panel_mouse_control(view, canvas)
             view.hover(0,0, e.pageX, e.pageY, cvs_x, cvs_y)
         }
 
-        if (node_capture || is_point_in_rect(e.pageX, e.pageY, view.rect) && e.target === canvas_image)
+        if (node_capture || is_point_in_rect(e.pageX, e.pageY, view.rect) && e.target === canvas_image) {
+            e.img_canvas_capture = node_capture
             view.nodes_inputevent('mousemove', e)
+        }
     })
     
     myAddEventListener(canvas, "contextmenu", function(e) {

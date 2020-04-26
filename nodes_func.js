@@ -20,8 +20,13 @@ precision mediump float;
 in vec2 v_coord;
 out vec4 outColor;
 
-#ifdef HAS_GRADIENT
-uniform sampler2D uGradTex;
+#ifdef HAS_TEXTURE
+uniform sampler2D u_in_tex;
+uniform mat3 u_tex_tmat;
+vec4 in_tex(vec2 v) { 
+    vec2 mv = (u_tex_tmat * vec3(v, 1.0)).xy;
+    return texture(u_in_tex, mv); 
+}
 #endif
 $UNIFORM_DEFS$
 
@@ -31,8 +36,8 @@ void main() {
     $BEFORE_EXPR$
 #ifndef EXPR_IS_COLOR
     float v = $EXPR$;
- #ifdef HAS_GRADIENT
-    outColor = texture(uGradTex, vec2(v,0));
+ #ifdef HAS_TEXTURE
+    outColor = texture(u_in_tex, vec2(v,0));
  #else
     outColor = vec4(vec3(1.0, 0.5, 0.0) + vec3(v*2.0-1.0, v*2.0-1.0, v*2.0-1.0), 1.0);
  #endif
@@ -42,6 +47,8 @@ void main() {
 }
 `
 
+// texture can be samples implicitly by have a float expression (and a gradient)
+// or explicitly by having a color expression and using in_tex() - takes x,y or vec2 and returns vec4 color
 
 /*   plasma
 x = coord.x*10
@@ -59,9 +66,10 @@ c = (c1 + c2 + c3) / 3.0
 return c*0.5+0.5
 */
 
+
 class ParamProxy extends Parameter {
-    constructor(node, wrap) {
-        super(node, wrap.label)
+    constructor(node, wrap, label=undefined) {
+        super(node, (label === undefined) ? wrap.label : label)
         this.wrap = wrap
     }
     save() { return this.wrap.save() }
@@ -73,21 +81,36 @@ class ParamProxy extends Parameter {
     pclear_dirty() { this.wrap.pclear_dirty() }
 }
 
-class GlslTextEvaluator extends NodeBase{
-    constructor(subscripts, glsl_name, allowed_subscripts) {        
+// evaluator for the v_coord variable in glsl
+class GlslTextEvaluator extends NodeBase {
+    constructor(subscripts, glsl_name, allowed_subscripts, obj_type, func_ret_type=null) {        
         super()
-        eassert(subscripts.length == 1, "wrong number of subscripts")
-        const sub = subscripts[0]
-        eassert(allowed_subscripts.indexOf(sub) !== -1, "unknown subscript " + sub)
-        this.name = glsl_name + "." + sub
+        if (subscripts.length === 0) { // just name without sub
+            this.type = obj_type
+            this.name = glsl_name
+        }
+        else {
+            eassert(subscripts.length == 1, "wrong number of subscripts")
+            const sub = subscripts[0]
+            eassert(allowed_subscripts.indexOf(sub) !== -1, "unknown subscript " + sub)
+            this.name = glsl_name + "." + sub
+            this.type = TYPE_NUM
+        }
+        this.func_ret_type_ = func_ret_type
     }
     consumes_subscript() { return true }
     eval() {
         eassert(false, "text evaluator can't be evaled")
     }
     check_type() {
-        return TYPE_NUM
+        return this.type
     }
+    func_ret_type() {
+        if (this.func_ret_type_ === null)
+            throw new TypeErr("Undefined func_ret_type for " + this.name)
+        return this.func_ret_type_
+    }
+    clear_types_cache() {} // no need to clear since it's not dependent on anything that can change
     to_glsl(emit_ctx) {
         return this.name
     }
@@ -148,12 +171,13 @@ class NodeFuncFill extends BaseNodeShaderWrap
 
         //this.in_mesh = new TerminalProxy(node, this.shader_node.cls.in_mesh)
 
-        this.in_gradient = new InTerminal(node, "in_gradient")
-        this.in_tex = new TerminalProxy(node, this.shader_node.cls.in_tex)
+        this.in_gradient = new InTerminal(node, "in_gradient")   // TBD should be in_tex... fix also in shader
+        this.in_fb = new TerminalProxy(node, this.shader_node.cls.in_fb)  
         this.out_tex = new TerminalProxy(node, this.shader_node.cls.out_tex)
 
         // this is the coordinates of the pixel to be referenced by the code as `coord`
-        node.set_state_evaluators({"coord":  (m,s)=>{ return new GlslTextEvaluator(s, "v_coord", ['x','y']) }} ) 
+        node.set_state_evaluators({"coord":  (m,s)=>{ return new GlslTextEvaluator(s, "v_coord", ['x','y'], TYPE_VEC2) },
+                                   "in_tex":  (m,s)=>{ return new GlslTextEvaluator(s, "in_tex", [], TYPE_FUNCTION, TYPE_VEC4) }} ) 
 
         //this.time = new ParamProxy(node, this.shader_node.cls.uniform_by_name('time').param)
         this.type = new ParamSelect(node, "Type", 0, ["Float to Gradient", "Direct Color"], (sel_idx)=>{
@@ -171,9 +195,8 @@ class NodeFuncFill extends BaseNodeShaderWrap
            // this.make_frag_text() // changes where we take the expr from
         })
         this.float_expr = new ParamFloat(node, "Float\nExpression", "coord.x", {show_code:true})
-        //this.float_expr.change_func = (v)=>{this.make_frag_text()}
+        // color_expr is expected to return a vec4 or vec3 with values in range [0,1]
         this.color_expr = new ParamColor(node, "Color\nExpression", ["#cccccc", "rgb(coord.x, coord.y, 1.0)"], {show_code:true})
-       // this.color_expr.change_func = (v)=>{this.make_frag_text()}
         this.grad_res = new ParamInt(node, "Resolution", 128, [8,128])
         this.grad_res.set_visible(false)  // starting state is invisible, if something is connected, show
         this.smooth = new ParamBool(node, "Smooth", false)
@@ -238,9 +261,9 @@ class NodeFuncFill extends BaseNodeShaderWrap
                 emit_ctx.inline_str += ".0"
             }
             else {
-                // expects the numbers to be [0,1] range
+                // expects the numbers from expr to be [0,1] range
                 let c = this.active_param.get_value()
-                emit_ctx.inline_str = "vec4(" + c.r/255 + "," + c.g/255 + "," + c.b/255 + "," + c.alpha + ")"
+                emit_ctx.inline_str = "vec4(" + c.r + "," + c.g + "," + c.b + "," + c.alpha + ")"
             }
         }
         this.glsl_emit_ctx = emit_ctx
@@ -253,6 +276,9 @@ class NodeFuncFill extends BaseNodeShaderWrap
         }
 
         const grad = this.in_gradient.get_const()
+        if (grad !== null)
+            assert(grad.make_gl_texture !== undefined, this, "Input should be able to convert to textute (Gradient)")
+
         let frag_text = this.glsl_emit_ctx.do_replace(EXPR_FRAG_SRC)
 
         //console.log("TEXT: ", frag_text)
@@ -261,19 +287,42 @@ class NodeFuncFill extends BaseNodeShaderWrap
         // set_text creates parameters for the uniforms in the text, which are then read in run and transfered to gl
         this.glsl_emit_ctx.set_uniform_vars(this.shader_node.cls)
         this.shader_node.cls.param_of_define("EXPR_IS_COLOR").modify( this.type.sel_idx === 1, false)
-        this.shader_node.cls.param_of_define("HAS_GRADIENT").modify( grad !== null, false)
+        this.shader_node.cls.param_of_define("HAS_TEXTURE").modify( grad !== null, false)
 
-        if (this.type.sel_idx === 0 && grad !== null) {
-            const texParam = this.shader_node.cls.param_of_uniform('uGradTex')
-            assert(texParam !== null , this, "can't find uniform") // was supposed to be there from uniform parsing
+        if (grad === null && this.node.state_access.need_inputs['in_tex'] === undefined)
+            assert(false, this, "Code expect texture but none is connected")
+
+        if (grad !== null) {
+            const texParam = this.shader_node.cls.param_of_uniform('u_in_tex')
+            assert(texParam !== null , this, "can't find uniform u_in_tex") // was supposed to be there from uniform parsing
             texParam.modify(0, false) // not really needed since that's the default value. 
                                             // don't dirtify since we're in run() and that would cause a loop
+            let tex_obj;
             try {                    
-                const tex_obj = grad.make_gl_texture(this.grad_res.get_value(), this.smooth.get_value())
-                gl.bindTexture(gl.TEXTURE_2D, tex_obj);
+                tex_obj = grad.make_gl_texture(this.grad_res.get_value(), this.smooth.get_value())
             }
             catch(e) {
                 assert(false, this, e.message)
+            }
+            gl.bindTexture(gl.TEXTURE_2D, tex_obj);
+            if (tex_obj.t_mat !== undefined) { // coming from PImage
+                // the texture has an associated transform with it, need to make the glsl code move it accordingly
+                const tex_tmat = this.shader_node.cls.param_of_uniform('u_tex_tmat')
+                assert(tex_tmat !== null, this, "can't find uniform")
+
+                let adj_m = mat3.create()
+                mat3.translate(adj_m, adj_m, vec2.fromValues(0.5,0.5))
+                mat3.scale(adj_m, adj_m, vec2.fromValues(1 / tex_obj.width, 1 / tex_obj.height))
+               // TBD still half a pixel of due to the difference between the fb and the image
+
+                let inv_tex_tmat = mat3.create()
+                mat3.invert(inv_tex_tmat, tex_obj.t_mat)
+                mat3.mul(adj_m, adj_m, inv_tex_tmat)
+
+                
+                tex_tmat.modify(adj_m, false)
+                
+                //tex_tmat.modify(tex_obj.t_mat, false)
             }
         }
 
