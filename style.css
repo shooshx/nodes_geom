@@ -119,7 +119,7 @@ input {
 }
 
 .param_block {
-    padding: 5px 0 0 0;
+    padding: 5px 0 5px 0;
 }
 .param_disabled {
     opacity: 0.6;

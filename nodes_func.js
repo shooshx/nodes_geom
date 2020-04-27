@@ -183,7 +183,6 @@ class NodeFuncFill extends BaseNodeShaderWrap
         this.type = new ParamSelect(node, "Type", 0, ["Float to Gradient", "Direct Color"], (sel_idx)=>{
             this.float_expr.set_visible(sel_idx === 0)
             this.color_expr.set_visible(sel_idx === 1)
-            this.gradient_param_visiblity()
             if (sel_idx === 0) {
                 this.active_param = this.float_expr
                 this.active_item = this.float_expr.get_active_item()
@@ -197,10 +196,7 @@ class NodeFuncFill extends BaseNodeShaderWrap
         this.float_expr = new ParamFloat(node, "Float\nExpression", "coord.x", {show_code:true})
         // color_expr is expected to return a vec4 or vec3 with values in range [0,1]
         this.color_expr = new ParamColor(node, "Color\nExpression", ["#cccccc", "rgb(coord.x, coord.y, 1.0)"], {show_code:true})
-        this.grad_res = new ParamInt(node, "Resolution", 128, [8,128])
-        this.grad_res.set_visible(false)  // starting state is invisible, if something is connected, show
-        this.smooth = new ParamBool(node, "Smooth", false)
-        this.smooth.set_visible(false)
+
         this.gradient_connected = false
 
         this.shader_node.cls.vtx_text.set_text(FUNC_VERT_SRC)
@@ -213,26 +209,6 @@ class NodeFuncFill extends BaseNodeShaderWrap
         this.active_param = null // points to either float_expr or color_expr
         this.active_item = null // points tot the ExpressionItem inside the active param
     }
-
-    gradient_param_visiblity() {
-        const v = this.gradient_connected && this.type.sel_idx === 0
-        this.grad_res.set_visible(v)
-        this.smooth.set_visible(v)
-    }
-
-    did_connect(to_term, line) {
-        if (to_term === this.in_gradient) {
-            this.gradient_connected = true
-            this.gradient_param_visiblity()
-        }
-    }
-    doing_disconnect(to_term, line) {
-        if (to_term === this.in_gradient) {
-            this.gradient_connected = false
-            this.gradient_param_visiblity()
-        }
-    }
-
 
     make_frag_text() 
     {
@@ -299,7 +275,7 @@ class NodeFuncFill extends BaseNodeShaderWrap
                                             // don't dirtify since we're in run() and that would cause a loop
             let tex_obj;
             try {                    
-                tex_obj = grad.make_gl_texture(this.grad_res.get_value(), this.smooth.get_value())
+                tex_obj = grad.make_gl_texture()
             }
             catch(e) {
                 assert(false, this, e.message)

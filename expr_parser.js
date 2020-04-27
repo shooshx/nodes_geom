@@ -117,9 +117,6 @@ class VecNode extends NodeBase {
     check_type() {
         return this.type
     }
-    get_const_value() { 
-        return this.v
-    }
 }
 
 function checkZero(v) {

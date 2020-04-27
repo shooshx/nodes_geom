@@ -346,12 +346,13 @@ class GradientPixelsAdapter {
 
 class LinearGradient extends Gradient {
     static name() { return "Linear Gradient" }
-    constructor(x1,y1, x2,y2) {
+    constructor(x1,y1, x2,y2, tex_res,tex_smooth) {
         super(x1,y1, x2, y2)
         this.ctx_create_func = function() { return ctx_img.createLinearGradient(x1,y1, x2,y2) }
 
+        this.tex_res = tex_res // const
+        this.tex_smooth = tex_smooth
         this.tex_obj_cache = null
-        this.tex_with_params = null // the generated texture was generated with these params
     }
     destructor() {
         if (this.tex_obj_cache !== null)
@@ -375,37 +376,35 @@ class LinearGradient extends Gradient {
         this.tex_with_params = null        
     }
 
-    make_gl_texture(resolution, smooth) {
+    make_gl_texture() {
         if (this.tex_obj_cache !== null) {
-            if (this.tex_with_params.resolution === resolution && this.tex_with_params.smooth === smooth)
-                return this.tex_obj_cache // caller should do bind
-            this.del_texture_cache() // need to recreate it
+            return this.tex_obj_cache // caller should do bind
         }
         // draw canvas
         const HEIGHT = 10
-        canvas_img_shadow.width = resolution
+        canvas_img_shadow.width = this.tex_res
         canvas_img_shadow.height = HEIGHT
 
-        const grd = ctx_img_shadow.createLinearGradient(0,0, resolution,0)
+        const grd = ctx_img_shadow.createLinearGradient(0,0, this.tex_res,0)
         this.add_stops(grd)
 
         ctx_img_shadow.fillStyle = grd
         ctx_img_shadow.beginPath()
         // can't use x+w since if there's a transform, we actuall draw a rotated rect
-        ctx_img_shadow.moveTo(0,0); ctx_img_shadow.lineTo(resolution, 0)
-        ctx_img_shadow.lineTo(resolution, HEIGHT); ctx_img_shadow.lineTo(0, HEIGHT)
+        ctx_img_shadow.moveTo(0,0); ctx_img_shadow.lineTo(this.tex_res, 0)
+        ctx_img_shadow.lineTo(this.tex_res, HEIGHT); ctx_img_shadow.lineTo(0, HEIGHT)
         ctx_img_shadow.fill()
         //const im = ctx_img_shadow.getImageData(0, 0, resolution, HEIGHT)
      
         let tex = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, tex);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, resolution, HEIGHT, 0, gl.RGBA, gl.UNSIGNED_BYTE, canvas_img_shadow);
-        tex.width = resolution
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.tex_res, HEIGHT, 0, gl.RGBA, gl.UNSIGNED_BYTE, canvas_img_shadow);
+        tex.width = this.tex_res
         tex.height = HEIGHT
         
         // set the filtering so we don't need mips
         let minfilt = gl.LINEAR
-        if (!smooth)
+        if (!this.tex_smooth)
             minfilt = gl.NEAREST
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, minfilt);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, minfilt);
@@ -418,7 +417,6 @@ class LinearGradient extends Gradient {
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
         this.tex_obj_cache = tex
-        this.tex_with_params = { resolution: resolution, smooth: smooth }
         return tex
     }
 }
@@ -506,7 +504,7 @@ class RadialGradient extends Gradient {
         return ["radialGradient", ['cx="', this.p1[0], '" cy="', this.p1[1], '" r="',  this.r1, '" fx="', this.p2[0], '" fy="', this.p2[1], '" fr="', this.r2, '"']]
     }
 
-    make_gl_texture(resolution) {
+    make_gl_texture() {
         dassert(false, "Radial gradient can't be texture source")
     }
 }
@@ -770,6 +768,9 @@ class NodeGradient extends NodeCls
             this.r1.set_visible(sel_idx == 1)
             this.r2.set_visible(sel_idx == 1)
 
+            this.tex_resolution.set_visible(sel_idx == 0)
+            this.tex_smooth.set_visible(sel_idx == 0)
+
             // set points adapter
             if (sel_idx == 0)
                 this.points_adapter = new Linear_GradPointsAdapterParam(this.p1, this.p2, this.values, this)
@@ -801,6 +802,10 @@ class NodeGradient extends NodeCls
         this.table = new ParamTable(node, "Stops", this.sorted_order)
         this.values = new ParamFloatList(node, "Value", this.table, this.selected_indices, ()=>{this.redo_sort()})
         this.colors = new ParamColorList(node, "Color", this.table)
+
+        // for generating texture
+        this.tex_resolution = new ParamInt(node, "Resolution", 128, [8,128])
+        this.tex_smooth = new ParamBool(node, "Smooth", false)
 
         this.load_preset(GRADIENT_PRESETS[0])
         
@@ -848,7 +853,7 @@ class NodeGradient extends NodeCls
         }
         let obj
         if (!this.is_radial()) 
-            obj = new LinearGradient(this.p1.x, this.p1.y, this.p2.x, this.p2.y)
+            obj = new LinearGradient(this.p1.x, this.p1.y, this.p2.x, this.p2.y, this.tex_resolution.get_value(), this.tex_smooth.get_value())
         else 
             obj = new RadialGradient(this.p1.x, this.p1.y, this.r1.v, this.p2.x, this.p2.y, this.r2.v)
         

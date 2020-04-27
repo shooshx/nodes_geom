@@ -10,7 +10,6 @@ class PImage extends ImageBase
         this.pixels = null
 
         this.tex_obj_cache = null
-        this.tex_with_params = null
     }
     destructor() {
         if (this.tex_obj_cache !== null)
@@ -51,11 +50,9 @@ class PImage extends ImageBase
         this.tex_with_params = null        
     }
 
-    make_gl_texture(resolution, smooth) {
+    make_gl_texture() {
         if (this.tex_obj_cache !== null) {
-            if (this.tex_with_params.smooth === smooth)
-                return this.tex_obj_cache // caller should do bind
-            this.del_texture_cache() // need to recreate it
+            return this.tex_obj_cache // caller should do bind
         }
 
         let tex = gl.createTexture();
@@ -69,7 +66,7 @@ class PImage extends ImageBase
         // normalize scale factor to 0-1 since that's the range of the texture coordinates. WebGL is oblivious to the pixels scaling
 
         let minfilt = gl.LINEAR
-        if (!smooth)
+        if (!this.smooth)
             minfilt = gl.NEAREST
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, minfilt);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, minfilt);
@@ -78,7 +75,6 @@ class PImage extends ImageBase
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
         this.tex_obj_cache = tex
-        this.tex_with_params = { smooth: smooth }
         return tex
     }
 }

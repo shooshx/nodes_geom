@@ -20,6 +20,7 @@ class ImageBase extends PObject
     draw_image(img_impl, m) {
         let tl = this.top_left, br = this.bottom_right
 
+        // there's a half pixel mistake here when drawing a image with odd width on a texture of even width but I can't find how to fix it
         let w_mat = mat3.create()
         mat3.multiply(w_mat, w_mat, m)
         mat3.multiply(w_mat, w_mat, this.t_mat)
