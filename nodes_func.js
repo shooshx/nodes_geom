@@ -50,21 +50,6 @@ void main() {
 // texture can be samples implicitly by have a float expression (and a gradient)
 // or explicitly by having a color expression and using in_tex() - takes x,y or vec2 and returns vec4 color
 
-/*   plasma
-x = coord.x*10
-y = coord.y*10
-t = 20000 
-uMouse = vec2(0,0)
-da = distance(vec2(x+cos(t/1110)*4,y), vec2(1.0,2.1))
-db = distance(vec2(x,y), vec2(8.0 + 16.0*uMouse.x, 6.1 + 8.0*(1.0 - uMouse.y) ))
-dc = distance(vec2(x,y + cos(t / 998.0)*2.0), vec2(10.0, 3.1))
-c1 = sin(da) + sin(x) * sin(t/1000.0)
-c2 = sin(db - t / 500.0)*1.0
-c3 = cos(dc / 2.0) + sin(t/1000.0)
-c = (c1 + c2 + c3) / 3.0
-
-return c*0.5+0.5
-*/
 
 
 class ParamProxy extends Parameter {

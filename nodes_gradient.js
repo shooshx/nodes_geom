@@ -751,7 +751,6 @@ function col_equals(a, b) {
     return Math.abs(a[0]-b[0]) < ACCURACY && Math.abs(a[1]-b[1]) < ACCURACY && Math.abs(a[2]-b[2]) < ACCURACY && Math.abs(a[3]-b[3]) < ACCURACY
 }
 
-const GRAD_SPREAD_VALUES = ["pad", "reflect", "repeat"]
 
 class NodeGradient extends NodeCls
 {
@@ -860,7 +859,7 @@ class NodeGradient extends NodeCls
         for(let i = 0, ci = 0; i < this.values.lst.length; ++i, ci += 4) {
             obj.add_stop(this.values.lst[i], this.colors.lst.slice(ci, ci+4))
         }
-        obj.spread = GRAD_SPREAD_VALUES[this.spread.sel_idx] // TBD do this in ParamSelect
+        obj.spread = this.spread.get_sel_name()
         // making the svg (if needed) is in pre_draw or in adapter's make_pixels()
         this.out.set(obj)
     }

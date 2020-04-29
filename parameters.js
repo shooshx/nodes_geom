@@ -2141,6 +2141,9 @@ class ParamSelect extends Parameter
         if (this.change_func) 
             this.change_func(this.sel_idx)
     }        
+    get_sel_name() {
+        return this.opts[this.sel_idx].toLowerCase() // low case more appropriate for values
+    }
 }
 
 

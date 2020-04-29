@@ -1033,20 +1033,24 @@ function set_input_node(node, do_draw=true) {
 // pass along the messages to the node and just flip the display flag
 class NodeFlagProxy
 {
-    constructor(node, func) {
+    constructor(node, func, notifyNode=true) {
         this.node = node
         this.func = func
+        this.notifyNode = notifyNode
     }
     mousedown(e) {
         this.func(this.node) 
         draw_nodes()
-        this.node.mousedown(e)
+        if (this.notifyNode)
+            this.node.mousedown(e) // selects node
     }
     mouseup() {
-        this.node.mouseup()
+        if (this.notifyNode)
+            this.node.mouseup()
     }
     mousemove(a,b,c,d) {
-        this.node.mousemove(a,b,c,d)
+        if (this.notifyNode)
+            this.node.mousemove(a,b,c,d)
     }
 }
 
@@ -1089,7 +1093,7 @@ function find_node_obj(px, py, cvs_x, cvs_y) {
             }
             if (n.can_input) {
                 if (px <= n.x + NODE_FLAG_INPUT.width)
-                    return new NodeFlagProxy(n, set_input_node)
+                    return new NodeFlagProxy(n, set_input_node, false) // don't select node since that's only annying most of the time
             }
             if (px >= n.x)                
                 return n

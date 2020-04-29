@@ -489,11 +489,18 @@ function fit(v, oldmin, oldmax, newmin, newmax) {
     let nv = (v - oldmin)/(oldmax-oldmin)*(newmax-newmin) + newmin
     return nv;
 }
-function glsl_clamp(v, minv, maxv) {
+function glsl_clamp(v, minv, maxv) {  // normal clamp has different argument order
     if (v < minv) return minv;
     if (v > maxv) return maxv;
     return v;
 }
+function smoothstep(edge0, edge1, x) {
+    // Scale, bias and saturate x to 0..1 range
+    const r = glsl_clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0); 
+    // Evaluate polynomial
+    return r * r * (3 - 2 * r);
+}
+
 function sqr(v) { return v*v }
 function degrees(v) { return v*180/Math.PI }
 function radians(v) { return v*Math.PI/180 }
@@ -557,7 +564,8 @@ const func_defs = {
     'log': new FuncDef(Math.log, 1), 'log10': new FuncDef(Math.log10, 1), 'log2': new FuncDef(Math.log2, 1),
     'round': new FuncDef(Math.round, 1), 'ceil': new FuncDef(Math.ceil, 1), 'floor': new FuncDef(Math.floor, 1), 'trunc': new FuncDef(Math.trunc, 1),
     'abs': new FuncDef(Math.abs, 1), 'sign': new FuncDef(Math.sign, 1),
-    'min': new FuncDef(Math.min, -2), 'max': new FuncDef(Math.min, -2), 'clamp': new FuncDef(glsl_clamp, 3), // negative meants atleast
+    'min': new FuncDef(Math.min, -2), 'max': new FuncDef(Math.min, -2), 'clamp': new FuncDef(glsl_clamp, 3), // negative means atleast
+    'smoothstep' : new FuncDef(smoothstep, 3),
     'rand': new FuncDef(myrand, 1),
     'fit': new FuncDef(fit, 5), 'fit01': new FuncDef(fit01, 3), 'fit11': new FuncDef(fit11, 3),
     'degrees': new FuncDef(degrees, 1), 'radians': new FuncDef(radians, 1),
@@ -589,6 +597,7 @@ class AddGlslFunc {
 
 const glsl_translate = {
     'rgb': "vec3", "rgba": "vec4",
+    'atan2': 'atan',
     'sqr': new AddGlslFunc("$T sqr($T v) { return v*v; }"),
     'log10': new AddGlslFunc("$T log10($T v) { return log(v)/log(10) }"),
     'rand': null, 'fit': null, 'fit01': null, 'fit11': null, 'if': null

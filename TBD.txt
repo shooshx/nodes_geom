@@ -23,7 +23,6 @@ ENGINE:
 - !!!!!! save to PNG
 - !!! download all saves backup
 - Animation using frame variable
-- ParamSelect - can get value instead of sel_idx (in gradient spread)
 - https://jshint.com/
 - texture leaks?
 - !!! frame buffer transform??

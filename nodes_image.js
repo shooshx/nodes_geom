@@ -8,6 +8,7 @@ class PImage extends ImageBase
         super((js_img !== undefined)?js_img.width:0, (js_img !== undefined)?js_img.height:0, smooth)
         this.img = js_img
         this.pixels = null
+        this.tex_edge = 'pad'
 
         this.tex_obj_cache = null
     }
@@ -71,8 +72,14 @@ class PImage extends ImageBase
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, minfilt);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, minfilt);
 
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        let wrap = gl.CLAMP_TO_EDGE
+        if (this.tex_edge == "reflect")
+            wrap = gl.MIRRORED_REPEAT
+        else if (this.tex_edge == "repeat")
+            wrap = gl.REPEAT
+
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrap);
 
         this.tex_obj_cache = tex
         return tex
@@ -94,6 +101,7 @@ class NodeLoadImage extends NodeCls
         }
         this.zoom_fit = new ParamButton(node, "Zoom to fit viewport pixel size", zoom_fit_func)
         zoom_fit_func() // fit to the viewport at the time the node is created
+        this.tex_edge = new ParamSelect(node, "Texture Edge", 0, ["Pad", "Reflect", "Repeat"])
 
         this.size_dial = new ScaleDial(this.transform, ()=>{
             const oimg = this.out_img.get_const()
@@ -109,6 +117,7 @@ class NodeLoadImage extends NodeCls
         assert(this.transform.is_valid(), this, "invalid transform")
         let pimg = new PImage(image, this.smooth_image.v)
         pimg.transform(this.transform.v)
+        pimg.tex_edge = this.tex_edge.get_sel_name()
         this.out_img.set(pimg)
     }
 
