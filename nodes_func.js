@@ -273,8 +273,13 @@ class NodeFuncFill extends BaseNodeShaderWrap
 
                 let adj_m = mat3.create()
                 mat3.translate(adj_m, adj_m, vec2.fromValues(0.5,0.5))
-                mat3.scale(adj_m, adj_m, vec2.fromValues(1 / tex_obj.width, 1 / tex_obj.height))
-               // TBD still half a pixel of due to the difference between the fb and the image
+                if (grad.constructor === PImage) {
+                    mat3.scale(adj_m, adj_m, vec2.fromValues(1 / tex_obj.width, 1 / tex_obj.height))
+                }
+                else if (grad.constructor == FrameBuffer) {
+                    mat3.scale(adj_m, adj_m, vec2.fromValues(0.5, 0.5))
+                }
+               
 
                 let inv_tex_tmat = mat3.create()
                 mat3.invert(inv_tex_tmat, tex_obj.t_mat)
@@ -288,6 +293,7 @@ class NodeFuncFill extends BaseNodeShaderWrap
         }
 
         this.shader_node.cls.run()
+        gl.bindTexture(gl.TEXTURE_2D, null);
     }
 
 }

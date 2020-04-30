@@ -435,7 +435,7 @@ class InTerminal extends Terminal {
             this.h = new PWeakHandle(v.p) // copy ctor
         else            
             this.h = new PWeakHandle(v)
-        //this.tset_dirty(true)  // only connect/disconnect makes a terminal dirty
+        this.tset_dirty(true)  // see desing_concepts
     }    
     get_const() {
         if (this.h === null)
@@ -518,7 +518,7 @@ class InAttachMulti {
             this.h = new PHandle(v.p) // copy ctor
         else            
             this.h = new PHandle(v)
-        //this.tset_dirty(true)
+        this.tset_dirty(true)
     }    
     get_const() {
         return this.h.get_const()

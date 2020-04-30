@@ -127,6 +127,11 @@ class FrameBuffer extends ImageBase
         mat3.mul(transform, transform, inv_t)    
         return transform
     }
+    make_gl_texture() {
+        this.tex_obj.t_mat = mat3.create()
+        mat3.copy(this.tex_obj.t_mat, this.t_mat)
+        return this.tex_obj
+    }
 } 
 
 class NodeCreateFrameBuffer extends NodeCls

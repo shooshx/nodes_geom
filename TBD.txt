@@ -49,8 +49,12 @@ EXPRESSIONS
 
 ****** CURRENT AGENDA ******
 - Param2d short expression, slider
-- Image transform spiral from kawaiig
-- render geometry to texture
+- terminal dirty in Variables?
+- BUG - framebuffer sampling
+- BUG - framebuffer as texture input
+- multiple textures
+- interpolate between two gradients
+- shader to render geometry to texture
 - Manual geom move
 - allow terminal name change backwards compatibility - in_tex to in_framebuffer
 - green coordinates
@@ -78,6 +82,7 @@ NODES:
     - Path curve control points
     - point size
     - BUG - yellow line doesn't follow the selected point
+    - make several versions of the arrays in the same object and a node to select version - instead of a modify node
 - Divide 
     - triangles - for better interpolation
     - unifies vertices?
@@ -159,7 +164,10 @@ NODES:
 - animate? modify a property for the next frame
 - random color with r,g,b ranges and seed parameter
 
-nodes the produce transform, invert it
+- nodes the produce transform, invert it
+
+- Variable with global memory - initialization (when?) and change trigger
+- Variable from geometry of previous frame?
 
 
 PAPER.JS

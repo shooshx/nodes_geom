@@ -10,6 +10,8 @@ The engine runs nodes
 Node becomes dirty by
 - parameter change
 - connect/disconnect of a terminal
+- The object in one of its terminals changed
+    This is needed for A->B, when the user displays A, changes it, then displays B - B needs to be invalidated and not hold on to old object
 
 Colors
 - when dealing with images, ranges is 0-255 to r,g,b,alphai and 0-1 to alpha, as sampled from images
