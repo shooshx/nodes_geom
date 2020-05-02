@@ -845,8 +845,6 @@ class ExpressionItem {
         if ((this.expr_score & EXPR_NEED_VAR) == 0)
             return
         try {
-            this.eclear_error()
-              
             let vis_dirty = false
             // go over the variables in the expr and set values to them
             for(let vename in this.variable_evaluators) {
@@ -862,12 +860,13 @@ class ExpressionItem {
                 ve.var_box = from_in
                 vis_dirty = vis_dirty || from_in.vis_dirty
             }
-            // if ov is null, don't even bother checking if it's dirty since we need to eval anyway
+            // if ov (old-v) is null, don't even bother checking if it's dirty since we need to eval anyway
             // this can happen when peval() is called (sometimes not even for parsing new expr)
             const ov = this.get_prop()
             if (!vis_dirty && ov !== null)
                 return // don't need to do anything since nothing changed
 
+            this.eclear_error() // clear the errors only if we're going to run check_type again              
             ExprParser.clear_types_cache(this.e) // some variable change, it's possible we need to change the type of everything
             this.do_check_type(true)
 

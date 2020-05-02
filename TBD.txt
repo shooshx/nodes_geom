@@ -28,7 +28,7 @@ ENGINE:
 - !!! frame buffer transform??
     - or maybe func transform?
     - explicit error
-
+- save to Yaml, edit Yaml
 
 
 EXPRESSIONS
@@ -50,9 +50,12 @@ EXPRESSIONS
 ****** CURRENT AGENDA ******
 - Param2d short expression, slider
 - terminal dirty in Variables?
-- BUG - framebuffer sampling
-- BUG - framebuffer as texture input
 - multiple textures
+    change order control
+    in_tex override with x,y
+- non-square frame buffer
+- unify PImage and FrameBuffer
+- gradient as image source
 - interpolate between two gradients
 - shader to render geometry to texture
 - Manual geom move
@@ -103,6 +106,7 @@ NODES:
    - !!! line color, width
    - !!!!!!!! open a table with the actual values of the vertices / faces
    - line attributes color
+        - line as gradient between vertices colors
 - transform invert - in expression?
 - transform - fit one object to another? paper.js fitBounds
 - interactive

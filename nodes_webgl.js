@@ -242,6 +242,13 @@ function ensure_webgl() {
 function is_ws(c) {
     return c == ' ' || c == '\t' || c == '\n' || c == '\r'
 }
+function is_identifier_rest(c) {
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || (c >= '0' && c <= '9')
+}
+function is_digit(c) {
+    return (c >= '0' && c <= '9')
+}
+
 const SUPPORTED_TYPES = ['float', 'int', 'vec2', 'vec4', 'sampler2D', 'bool', 'mat3']
 
 
@@ -251,7 +258,7 @@ class NodeShader extends NodeCls
     constructor(node) {
         super(node)
         this.in_mesh = new InTerminal(node, "in_mesh")
-        this.in_fb = new InTerminal(node, "in_tex") // don't want to change the name to avoid breakage
+        this.in_fb = new InTerminal(node, "in_fb") // don't want to change the name to avoid breakage
         this.out_tex = new OutTerminal(node, "out_texture")
         this.vtx_text = new ParamTextBlock(node, "Vertex Shader", (text)=>{
             this.update_uniforms(text, this.uniforms_vert, this.vert_group)
@@ -308,20 +315,23 @@ class NodeShader extends NodeCls
         // not handling comments or pre-processor
         let uniforms = []
         let ci = 0, len = text.length
-        const consume_identifier = ()=>{
-            // skip whitespace
+        const consume_ws = ()=>{
             while (is_ws(text[ci]) && ci < len)
                 ++ci;
+        }
+        const consume_identifier = ()=>{
+            consume_ws()
             if (ci == len)
                 return null
             const start = ci
-            while (!is_ws(text[ci]) && ci < len)
+            while (is_identifier_rest(text[ci]) && ci < len)
                 ++ci;       
             const value = text.substring(start, ci)
             if (value.length == 0)
                 return null
             return value
         }
+
         while(true) {
             ci = text.indexOf('uniform', ci);
             if (ci === -1)
@@ -331,11 +341,10 @@ class NodeShader extends NodeCls
             let name = consume_identifier()
             if (type === null || name === null)
                 break
-            if (name[name.length-1] == ';')
-                name = name.substring(0, name.length - 1)
             if (name == "t_mat") {
                 continue // internal names that should not turn to params
             }
+
             assert(SUPPORTED_TYPES.includes(type), this, "Unsupported uniform type " + type)
             uniforms.push({type:type, name:name})
         }

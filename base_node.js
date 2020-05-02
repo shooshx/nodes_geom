@@ -565,6 +565,14 @@ class InTerminalMulti extends TerminalBase
     is_dirty() {
         return this.dirty
     }
+
+    get_input_consts() {
+        let ret = []
+        for(let line of this.lines)
+            ret.push(line.to_term.get_const())
+        return ret
+    }
+
 }
 
 
@@ -674,6 +682,7 @@ class Node {
         // calculated data members
         this.parameters = []
         this.param_aliases = {} // map old name of a parameter to its new Parameter object
+        this.terminal_aliases = {} // same for terminals
         this.inputs = []
         this.outputs = [] 
         this.state_evaluators = {} // map variable name to its evaluator type. Evaluator instance will be created with its subscripts when the expression is parsed
@@ -934,6 +943,9 @@ class Node {
 
     param_alias(name, prm) {
         this.param_aliases[name] = prm
+    }
+    terminal_alias(name, terminal) {
+        this.terminal_aliases[name] = terminal
     }
 }
 

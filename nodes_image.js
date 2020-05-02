@@ -59,7 +59,10 @@ class PImage extends ImageBase
         let tex = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, tex);
         // TBD invalid image warning
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.width(), this.height(), 0, gl.RGBA, gl.UNSIGNED_BYTE, this.img);
+        let glimg = this.img
+        if (glimg.width == 0 || glimg.height == 0)
+            glimg = null
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.width(), this.height(), 0, gl.RGBA, gl.UNSIGNED_BYTE, glimg);
         tex.width = this.width()
         tex.height = this.height()
         tex.t_mat = mat3.create()
