@@ -949,7 +949,7 @@ class ParamInputOrderList extends ListParam
 {
     constructor(node, label, table, sorted_order) {
         super(node, label, 1, table, Array)
-        this.sorted_order = sorted_order
+        this.sorted_order = sorted_order  // list of indices
         this.sorted_d = [] // list of object that just contain the index. need to be an object since this number is modified on the fly
         this.dragged = null
         this.loaded_order = null
@@ -959,6 +959,8 @@ class ParamInputOrderList extends ListParam
     post_load_hook() {
         // postpone loading sorted_order to after all lines are loaded for a final sort
         let new_d = []
+        if (this.loaded_order === null)
+            return
         for(let n of this.loaded_order) {
             console.assert(n >= 0 && n < this.sorted_d.length)
             new_d.push(this.sorted_d[n])
@@ -1081,6 +1083,37 @@ class ParamInputOrderList extends ListParam
     
 }
 
+function mixin_multi_reorder_control(node, cls, sorted_order, in_m) 
+{
+    cls.table = new ParamTable(node, "Order", sorted_order)
+    cls.order = new ParamInputOrderList(node, "OrderInputs", cls.table, sorted_order)
+    cls.table.with_index_column = true
+    cls.table.with_column_sep = false
+    cls.did_connect = function(to_term, line) {
+        if (to_term !== in_m)
+            return
+        const node = line.from_term.owner
+        if (cls.order.idx_from_id(node.id) !== -1)
+            return // already there
+        const d = { name:node.name, 
+                    id:node.id  } 
+        d.rename_func = (new_name)=>{d.name = new_name; cls.table.remake_table()}
+        node.register_rename_observer(d.rename_func)
+
+        cls.order.add(d)
+    }
+    cls.doing_disconnect = function(to_term, line) {
+        if (to_term !== in_m)
+            return
+        const node = line.from_term.owner
+        const idx = cls.order.idx_from_id(node.id)
+        console.assert(idx != -1)
+
+        let d = cls.order.remove([idx])
+        node.remove_rename_observer(d.rename_func)
+    }
+}
+
 
 class NodeGroupObjects extends NodeCls {
     static name() { return "Group Objects" }
@@ -1090,8 +1123,8 @@ class NodeGroupObjects extends NodeCls {
         
         this.in_m = new InTerminalMulti(node, "in_multi_mesh")
         this.out = new OutTerminal(node, "out_mesh")
-        this.table = new ParamTable(node, "Order", this.sorted_order)
-        this.order = new ParamInputOrderList(node, "Order", this.table, this.sorted_order)
+
+        mixin_multi_reorder_control(node, this, this.sorted_order, this.in_m)
     }
     run() {
         this.node.display_values = []
@@ -1105,31 +1138,6 @@ class NodeGroupObjects extends NodeCls {
             this.node.display_values.push(line.from_term.owner.display_values) 
         }
         this.out.set(r)
-    }
-
-
-    did_connect(to_term, line) {
-        if (to_term !== this.in_m)
-            return
-        const node = line.from_term.owner
-        if (this.order.idx_from_id(node.id) !== -1)
-            return // already there
-        const d = { name:node.name, 
-                    id:node.id  } 
-        d.rename_func = (new_name)=>{d.name = new_name; this.table.remake_table()}
-        node.register_rename_observer(d.rename_func)
-
-        this.order.add(d)
-    }
-    doing_disconnect(to_term, line) {
-        if (to_term !== this.in_m)
-            return
-        const node = line.from_term.owner
-        const idx = this.order.idx_from_id(node.id)
-        console.assert(idx != -1)
-
-        let d = this.order.remove([idx])
-        node.remove_rename_observer(d.rename_func)
     }
 
 }

@@ -8,8 +8,13 @@ class Parameter
         this.line_elem = null  // used for enable
         this.enable = true
         this.visible = true
-        if (node !== null) // will be null in DispParams
+        if (node !== null) { // will be null in DispParams
+            // check the name is not already there (key for serialization)
+            for(let p of node.parameters)
+                if (p.label === label)
+                    throw new Error("Can't have two parameters with the same label " + label)
             node.parameters.push(this)
+        }
         this.owner = node
         this.dirty = true  // was it changed since the last run?
         this.change_func = null
@@ -153,6 +158,7 @@ function param_reg_for_dismiss(callback) {
 
 // display_values is held per-node and is a map of string to value
 // disp_params is produced by the object and holds how to display the params and it's default value
+//  TBD don't really need to do this every frame
 function show_display_params(obj, disp_node) {
     let params = null
     if (disp_node && obj)
@@ -1985,6 +1991,8 @@ class ParamTable extends Parameter {
         this.list_params = []  // registered ListParams
         this.elem_cols = null
         this.elem_visible = true  // for when we don't want to render the table because it's not visible (Gradient with function)
+        this.with_index_column = false
+        this.with_column_sep = true
 
         this.sorted_order = sorted_order // list of the indices in the sorted order they are supposed to be displayed in
     }
@@ -2003,8 +2011,15 @@ class ParamTable extends Parameter {
 
     add_elems(parent) {
         this.line_elem = add_param_block(parent)
-        this.label_elem = add_div(this.line_elem, "param_list_title")
-        this.label_elem.innerText = this.label + ":"
+        if (this.with_index_column) {
+            // if we have and index column add a standard label that will be flush with the index column
+            add_param_label(this.line_elem, this.label)
+        }
+        else {
+            // otherwise, add a title that will be left aligned
+            this.label_elem = add_div(this.line_elem, "param_list_title")
+            this.label_elem.innerText = this.label + ":"
+        }
         this.table_elem = add_div(this.line_elem, "param_list_body")
 
         if (!this.visible)
@@ -2022,15 +2037,23 @@ class ParamTable extends Parameter {
 
     make_table() {
         this.elem_cols = []
+        const column_clss = this.with_column_sep ? ["param_table_column", "param_table_col_line"] : "param_table_column"
+        if (this.with_index_column && this.list_params.length > 0) {
+            let column = create_div(column_clss)
+            const len = this.list_params[0].count()  // checkec abobe there's atleast one...
+            for(let i = 0; i < len; ++i)
+                add_div(column, 'param_lst_order_idx').innerText = i + "."
+            this.table_elem.appendChild(column)
+        }
         
         for(let lst_prm of this.list_params) {
-            let column = create_div("param_table_column")
+            let column = create_div(column_clss)
             this.elem_cols.push(column)
             lst_prm.add_column_elems(column)
 
             if (this.sorted_order !== null) { // sort by the given order if needed
                 let unsorted = column
-                column = create_div("param_table_column")
+                column = create_div(column_clss)
                 let childs_copy = []
                 for(let c of unsorted.childNodes)
                     childs_copy.push(c)

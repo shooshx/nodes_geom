@@ -83,6 +83,7 @@ class PImage extends ImageBase
 
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrap);
+        gl.bindTexture(gl.TEXTURE_2D, null);
 
         this.tex_obj_cache = tex
         return tex

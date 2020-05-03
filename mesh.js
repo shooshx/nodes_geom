@@ -618,6 +618,12 @@ class Mesh extends PObject
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.glbufs.idx);
         gl.drawElements(gl.TRIANGLES, this.arrs.idx.length, arr_gl_type(this.arrs.idx), 0);
 
+        // disable everything we just enabled for the future other programs running
+        for(let attr_name in program_attr) {
+            let attr_idx = program_attr[attr_name]
+            gl.disableVertexAttribArray(attr_idx)
+        }
+
         gl.bindBuffer(gl.ARRAY_BUFFER, null)
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null)
     }

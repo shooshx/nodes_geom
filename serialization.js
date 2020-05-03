@@ -125,8 +125,8 @@ function load_program(sprog)
                 console.warn("Failed load of parameter", p.label, "in node", sn.name)
             }
         }
-        if (n.cls.post_load_hook)
-            n.cls.post_load_hook()
+        //if (n.cls.post_load_hook)  moved below
+        //    n.cls.post_load_hook()
         if (sn.disp_param)
             n.display_values = sn.disp_param
     }

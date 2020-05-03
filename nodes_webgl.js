@@ -91,6 +91,20 @@ class FrameBuffer extends ImageBase
         return this.pixels
     }
 
+    async pre_draw_x(m, disp_values) { // old way to do it with always get_pixels
+        if (this.imgBitmap === null) {
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.tex_obj, 0);
+            //console.assert(gl.checkFramebufferStatus(gl.FRAMEBUFFER) == gl.FRAMEBUFFER_COMPLETE) //slows things down
+
+            // get the pixels from webgl
+            let pixels = this.get_pixels()
+            dassert(pixels !== null, "Image is empty")
+            let pixelsc = new Uint8ClampedArray(pixels)
+            let img_data = new ImageData(pixelsc, this.tex_obj.width, this.tex_obj.height)
+
+            this.imgBitmap = await createImageBitmap(img_data)
+        }        
+    }
 
     async pre_draw(m, disp_values) {
         this.imgBitmap = await renderTexToImgBitmap(this.tex_obj)
@@ -572,6 +586,8 @@ async function renderTexToImgBitmap(tex_obj)
     }
     gl.useProgram(render_teximg.program);
     // no need to set value to uTex since default 0 is ok
+
+    gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, tex_obj);
 
     gl.clearColor(0, 0, 0, 0);

@@ -204,7 +204,8 @@ class NodeFuncFill extends BaseNodeShaderWrap
         // color_expr is expected to return a vec4 or vec3 with values in range [0,1]
         this.color_expr = new ParamColor(node, "Color\nExpression", ["#cccccc", "rgb(coord.x, coord.y, 1.0)"], {show_code:true})
 
-        this.gradient_connected = false
+        this.sorted_order = []
+        mixin_multi_reorder_control(node, this, this.sorted_order, this.in_texs)
 
         this.shader_node.cls.vtx_text.set_text(FUNC_VERT_SRC)
         //this.shader_node.cls.frag_text.set_text(NOISE_FRAG_SRC)
@@ -279,11 +280,15 @@ class NodeFuncFill extends BaseNodeShaderWrap
 
         if (need_tex) {
             assert(texs.length >= 1, this, "Code expect texture but none is connected")
+            assert(texs.length == this.sorted_order.length, this, "unexpected sorted_order size")
             for(let ti = 0; ti < texs.length; ++ti)
             {
-                const tex = texs[ti]
+                const tex = texs[this.sorted_order[ti]]
                 const texParam = this.shader_node.cls.param_of_uniform('u_in_tex_' + ti)
                 assert(texParam !== null , this, "can't find uniform u_in_tex_" + ti) // was supposed to be there from uniform parsing
+                
+                // if we're creating the texutre, create it in the right unit so that it won't overwrite other stuff
+                gl.activeTexture(gl.TEXTURE0 + ti)
                 let tex_obj;
                 try {                    
                     tex_obj = tex.make_gl_texture()
@@ -291,7 +296,6 @@ class NodeFuncFill extends BaseNodeShaderWrap
                 catch(e) {
                     assert(false, this, e.message)
                 }
-                gl.activeTexture(gl.TEXTURE0 + ti)
 
                 texParam.modify(ti, false)   // don't dirtify since we're in run() and that would cause a loop
                 gl.bindTexture(gl.TEXTURE_2D, tex_obj);
@@ -320,9 +324,17 @@ class NodeFuncFill extends BaseNodeShaderWrap
             gl.activeTexture(gl.TEXTURE0); // restore default state
         }
 
-
         this.shader_node.cls.run()
-        gl.bindTexture(gl.TEXTURE_2D, null);
+
+        if (need_tex) {
+            // restore stull to default state to avoid texture leak and easier bug finding
+            for(let ti = 0; ti < texs.length; ++ti) {
+                gl.activeTexture(gl.TEXTURE0 + ti)
+                gl.bindTexture(gl.TEXTURE_2D, null);
+            }
+            gl.activeTexture(gl.TEXTURE0);
+        }
+
     }
 
 }

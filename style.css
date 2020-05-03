@@ -142,7 +142,8 @@ input {
     width: 150px; 
 }
 .param_label_colon {
-    padding-right: 2px;    
+    padding-right: 2px;
+    width: 7px;
 }
 .param_label_pre_empty {
     width: 120px;
@@ -290,6 +291,15 @@ input {
 .param_lst_edit_popup_input {
     width: 25%;
 }
+.param_lst_order_idx {
+    font-family: monospace;
+    font-size: 16px;
+    margin-top: 2px;
+    padding: 2px 0 3px 3px;
+    overflow-x: hidden;
+    width: 120px;  /* width of the label of normal parameter */
+    text-align: right;
+}
 
 .param_table_input_color {
     display: block;
@@ -312,9 +322,11 @@ input {
 .param_table_column {
     position: relative; /* for grip absolute */
     display: inline-block;
-    border-right: solid #aaa 1px;
     padding: 0 4px 0 4px;
     vertical-align: bottom; /* make color inputs align with normal text inputs */
+}
+.param_table_col_line {
+    border-right: solid #aaa 1px;
 }
 .param_table_grip {
     position: absolute;
