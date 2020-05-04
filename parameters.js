@@ -703,10 +703,12 @@ class ExpressionItem {
             state_access = this.in_param.owner.set_state_evaluators([])
         }
 
+        let state_access_need_inputs = null
         try {
             state_access.reset_check()
             this.e = ExprParser.parse(se, state_access, this.parse_opt)
             this.variable_evaluators = state_access.need_variables
+            state_access_need_inputs = state_access.need_inputs
             this.expr_score = state_access.score  // score determines if the expression depends on anything
             this.do_check_type()
         }
@@ -715,6 +717,11 @@ class ExpressionItem {
             if (this.in_param.owner.cls !== undefined) // this can happen if there's an exception in the node initialization value, before cls was assigned to
                 set_error(this.in_param.owner.cls, "Parameter expression error")
             return
+        }
+        finally {
+            state_access.need_variables = null // reset it immediately so it won't be used
+            state_access.need_inputs = null
+            state_access.score = EXPR_CONST
         }
         this.in_param.call_change() // need to do this even if it's not const for glsl in FuncFill
  
@@ -726,7 +733,7 @@ class ExpressionItem {
         else {
             this.do_set_prop(null) // it's dynamic so best if it doesn't have a proper value from before
             if ((this.expr_score & EXPR_NEED_INPUT) != 0) {
-                this.need_inputs = state_access.need_inputs
+                this.need_inputs = state_access_need_inputs
             }
             this.in_param.pset_dirty() // TBD maybe expression didn't change?
         }      

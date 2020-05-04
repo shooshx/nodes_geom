@@ -29,18 +29,22 @@ uniform mat3 u_tex_tmat_0;
 uniform mat3 u_tex_tmat_1;
 uniform mat3 u_tex_tmat_2;
 uniform mat3 u_tex_tmat_3;
-vec4 in_tex(vec2 v) { 
-    return texture(u_in_tex_0, (u_tex_tmat_0 * vec3(v, 1.0)).xy); 
+
+vec4 in_tex(float x, float y) { 
+    return texture(u_in_tex_0, (u_tex_tmat_0 * vec3(x, y, 1.0)).xy); 
 }
-vec4 in_texi(float i, vec2 v) { 
+vec4 in_texi(float i, float x, float y) { 
     switch(int(i)) {
-    case 0: return texture(u_in_tex_0, (u_tex_tmat_0 * vec3(v, 1.0)).xy);
-    case 1: return texture(u_in_tex_1, (u_tex_tmat_1 * vec3(v, 1.0)).xy);
-    case 2: return texture(u_in_tex_2, (u_tex_tmat_2 * vec3(v, 1.0)).xy);
-    case 3: return texture(u_in_tex_3, (u_tex_tmat_3 * vec3(v, 1.0)).xy);
+    case 0: return texture(u_in_tex_0, (u_tex_tmat_0 * vec3(x, y, 1.0)).xy);
+    case 1: return texture(u_in_tex_1, (u_tex_tmat_1 * vec3(x, y, 1.0)).xy);
+    case 2: return texture(u_in_tex_2, (u_tex_tmat_2 * vec3(x, y, 1.0)).xy);
+    case 3: return texture(u_in_tex_3, (u_tex_tmat_3 * vec3(x, y, 1.0)).xy);
     }
 }
+vec4 in_tex(vec2 v) { return in_tex(v.x, v.y); }
+vec4 in_texi(float i, vec2 v) { return in_texi(i, v.x, v.y); }
 #endif
+
 $UNIFORM_DEFS$
 
 $FUNCS$
@@ -63,8 +67,8 @@ void main() {
 // texture can be samples implicitly by have a float expression (and a gradient)
 // or explicitly by having a color expression and using in_tex() - takes x,y or vec2 and returns vec4 color
 
-const in_tex_types = {[type_tuple(TYPE_VEC2)]: TYPE_VEC4}
-const in_texi_types = {[type_tuple(TYPE_NUM, TYPE_VEC2)]: TYPE_VEC4}
+const in_tex_types = {[type_tuple(TYPE_VEC2)]: TYPE_VEC4, [type_tuple(TYPE_NUM, TYPE_NUM)]: TYPE_VEC4}
+const in_texi_types = {[type_tuple(TYPE_NUM, TYPE_VEC2)]: TYPE_VEC4, [type_tuple(TYPE_NUM, TYPE_NUM, TYPE_NUM)]: TYPE_VEC4}
 const IN_TEX_COUNT = 4
 
 
@@ -275,8 +279,9 @@ class NodeFuncFill extends BaseNodeShaderWrap
         this.shader_node.cls.param_of_define("EXPR_IS_COLOR").modify( this.type.sel_idx === 1, false)
         this.shader_node.cls.param_of_define("HAS_TEXTURE").modify(texs.length >= 1, false)
 
-        const need_tex = (this.node.state_access.need_inputs['in_tex'] === undefined || 
-                          this.node.state_access.need_inputs['in_texi'] === undefined)
+        // don't need to actually give anything to the evaluator since it's not doing eval, it's doing to_glsl
+        const need_tex = (this.active_param.need_input_evaler('in_tex') !== null || 
+                          this.active_param.need_input_evaler('in_texi') !== null)
 
         if (need_tex) {
             assert(texs.length >= 1, this, "Code expect texture but none is connected")

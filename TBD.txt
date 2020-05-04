@@ -50,9 +50,8 @@ EXPRESSIONS
 ****** CURRENT AGENDA ******
 - Param2d short expression, slider
 - terminal dirty in Variables?
-- multiple textures
-    change order control
-    in_tex override with x,y
+- code editor
+- assign to var.x
 - non-square frame buffer
 - unify PImage and FrameBuffer
 - gradient as image source
