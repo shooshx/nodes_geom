@@ -62,6 +62,15 @@ function typename(t) {
     default: return "<" + t + ">"
     }
 }
+function numbersInType(t) {
+    switch(t) {
+    case TYPE_NUM: return 1
+    case TYPE_VEC2: return 2
+    case TYPE_VEC3: return 3
+    case TYPE_VEC4: return 4
+    default: return null
+    }
+}
 
 // pack multiple types in the same value, used for function lookup by argument types
 function type_tuple_l(lst) {
@@ -385,8 +394,11 @@ function eatSpaces() {
         const c = getCharacter()
         if (c !== ' ' && c !== '\n')
             break
-        index_++;
+        index_++
     }
+}
+function isSpace(c) {
+    return (c === ' ' || c === '\n')
 }
 
 /// Parse a binary operator at the current expression index.
@@ -798,7 +810,7 @@ function parseIdentifier() {
         let c = getCharacter();
         if (c === null)
             break;
-        // identifier can have digits but not start with a digit
+        // identifier can have digits but not start with a digit (checked by the caller)
         if ( (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c == '.' || (c >= '0' && c <= '9') )
             sb = sb + c;
         else
@@ -1031,7 +1043,7 @@ function parseNewIdentifier() {
         if (c === null)
             break;
         // identifier can have digits but not start with a digit
-        if ( (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || (c >= '0' && c <= '9') )
+        if ( (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c == '.' || (c >= '0' && c <= '9') )
             sb = sb + c;
         else
             break;
@@ -1056,7 +1068,7 @@ class SymbolNode extends NodeBase {
     }
     check_type() {
         if (this.type === null)
-            throw new ExprErr("Symbol " + this.name + " not assigned to yet (tyoe)")
+            throw new ExprErr("Symbol " + this.name + " not assigned to yet (type)")
         return this.type
     }
     to_glsl(emit_ctx) {
@@ -1094,6 +1106,8 @@ class SubscriptNode extends NodeBase
 
 function parseStmt() {
     eatSpaces()
+    if (index_ > 0 && !isSpace(expr_[index_-1]))
+        throw new ExprErr("Statments must be separated by whitespace")
     // statement starts with a variable name to assign to or 'return'
     const name = parseNewIdentifier()
     if (name === null) // comment statement
@@ -1165,25 +1179,37 @@ class ReturnStmt {
 
 const TYPE_TO_STR = { [TYPE_NUM]:'float', [TYPE_VEC2]:'vec2', [TYPE_VEC3]:'vec3', [TYPE_VEC4]:'vec4' }
 class AssignNameStmt {  // not a proper node (no eval, has side-effects)
-    constructor(name, expr) {
-        this.name = name
+    constructor(in_name, expr) {
+        this.in_name = in_name // for err msg
+        const sp = in_name.split('.')
+        eassert(sp.length == 1 || sp.length == 2, "Assigning to multi-level subscript not supported") // no such use case yet
+        this.name = sp[0]
+        this.subscriptName = (sp.length > 1) ? sp[1] : null
+        this.subscriptIdx = (sp.length > 1) ? SUBSCRIPT_TO_IDX[sp[1]] : null
+        eassert(this.subscriptIdx !== undefined, "Unknown subscript in: " + in_name)
         this.expr = expr
         this.type = null
-        this.symbol = g_symbol_table[name]
-        this.vNode = null
+        this.symbol = g_symbol_table[this.name]
+        this.vNode = null  // a new node that has the actual value assigned to the symbol
         this.first_definition = false
         if (this.symbol === undefined) { // wasn't already there
-            this.symbol = new SymbolNode(name)
-            g_symbol_table[name] = this.symbol
+            this.symbol = new SymbolNode(this.name)
+            g_symbol_table[this.name] = this.symbol
             this.first_definition = true
         }
     }
     isReturn() { return false }
     invoke() {
         const v = this.expr.eval()
-        this.vNode.v = v
-        // valueNode in symbol is null as long as the symbol doesn't have a value
-        this.symbol.valueNode = this.vNode
+        if (this.subscriptIdx !== null) { 
+            eassert(this.symbol.valueNode !== null, "Assign to undefiend symbol") // sanity, was already checked in scheck_type
+            this.symbol.valueNode.v[this.subscriptIdx] = v
+        }
+        else {
+            const vNode = (this.type == TYPE_NUM) ? (new NumNode(v, false)) : (new VecNode(v, this.type))
+            // valueNode in symbol is null as long as the symbol doesn't have a value
+            this.symbol.valueNode = vNode
+        }
         return v
     }
     sclear_types_cache() {
@@ -1192,12 +1218,21 @@ class AssignNameStmt {  // not a proper node (no eval, has side-effects)
     }
     scheck_type() {
         this.type = this.expr.check_type()
-        this.vNode = (this.type == TYPE_NUM) ? (new NumNode(NaN, false)) : (new VecNode(null, this.type))
-        this.symbol.type = this.type
+        if (this.subscriptIdx !== null) {
+            eassert(this.type === TYPE_NUM, "Subscript assign to `" + this.in_name + "` expects a number") // assume we don't assign things bigger than a number (no swizzle yet)
+            eassert(this.symbol.type !== null, "Trying to assign subscipt of an undefined symbol: " + this.name)
+            eassert(this.symbol.type !== TYPE_NUM, "Number type symbol `" + this.name + "` can't have subscript")
+            eassert(this.subscriptIdx < numbersInType(this.symbol.type), "Assigning to non-existing subscript " + this.subscriptName + " of symbol " + this.name)
+        }
+        else        
+            this.symbol.type = this.type  // needs to be here since it's needed in the check_type of referencing this symbol
         return this.type
     }
     sto_glsl(emit_ctx) {
         let s = this.name
+        if (this.subscriptIdx !== null) {
+            s += "." + this.subscriptName
+        }
         s += "=" + this.expr.to_glsl(emit_ctx) + ";"
         if (this.first_definition)
             s = TYPE_TO_STR[this.type] + " " + s

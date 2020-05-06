@@ -52,9 +52,10 @@ EXPRESSIONS
 - terminal dirty in Variables?
 - code editor
 - assign to var.x
+    test plasma setattr
 - non-square frame buffer
 - unify PImage and FrameBuffer
-- gradient as image source
+- gradient as image source to func
 - interpolate between two gradients
 - shader to render geometry to texture
 - Manual geom move
