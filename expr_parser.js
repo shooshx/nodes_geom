@@ -46,10 +46,19 @@ class NodeBase {
     // needs to be implemented if check_type returns TYPE_FUNC
     //  this predicts what's going to be the type returned by the call to the function object
     func_ret_type(arg_type_tuple) { 
-        eassert("func_ret_type not implemented")
+        eassert(false, "func_ret_type not implemented")
     }
     get_const_value() { // if it's a node that has a constant value (number, vec) return it for higher percision than saving a string
         return null
+    }
+    eval() {
+        eassert(false, "eval not implemented")
+    }
+    check_type() {
+        eassert(false, "check_type not implemented")
+    }
+    to_glsl() { 
+        eassert(false, "to_glsl not implemented") 
     }
 }
 
@@ -99,6 +108,9 @@ function clamp(a, v, b) {
     if (v > b) return b;
     return v;
 }
+
+const SUBSCRIPT_TO_IDX = { x:0, y:1, z: 2, w:3, r:0, g:1, b:2, a: 3, alpha:3 }
+const SUBIDX_TO_GLSL = ['r','g','b','w']
 
 var ExprParser = (function() {
 
@@ -172,6 +184,7 @@ function call_operator(v1, v2, op) {
         case OPERATOR_MODULO:         ret = v1 % checkZero(v2); break;
         case OPERATOR_POWER:          ret = Math.pow(v1, v2); break;
         case OPERATOR_EXPONENT:       ret = v1 * Math.pow(10, v2); break;
+        case OPERATOR_SUBSCRIPT:      throw new ExprErr("subscript in binary (bug)");
 
         case OPERATOR_LESS:           ret = v1 < v2; break
         case OPERATOR_LESS_EQ:        ret = v1 <= v2; break
@@ -312,6 +325,7 @@ const OPERATOR_GREATER_EQ = 16 // >=
 const OPERATOR_EQ = 17 // ==
 const OPERATOR_LOGIC_AND = 18 // &&
 const OPERATOR_LOGIC_OR = 19 // ||
+const OPERATOR_SUBSCRIPT = 20 // a.x
 
 const OPERATORU_LOGIC_NOT = 100 // !
 const OPERATORU_BITWISE_NOT = 101 // ~
@@ -325,12 +339,12 @@ class Operator
         this.op = opr; /// Operator, one of the OPERATOR_* enum definitions
         this.precedence = prec;
         /// 'L' = left or 'R' = right
-        this.associativity = assoc;
+        this.associativity = assoc;  // means in what order operators are ground with the same precedence (1+2+3 is (1+2)+3 or 1+(2+3)
         this.str = str
     }
 }
 
-// needs to be ordered by the numbers of the operators, only binary operators
+// NOTICE: needs to be ordered by the numbers of the operators, only binary operators
 // higher number = higher precedence
 const ops = [
     new Operator(OPERATOR_NULL, 0, 'L', '<null>'),
@@ -357,6 +371,7 @@ const ops = [
 
     new Operator(OPERATOR_LOGIC_AND, 20, 'L', '&&'),
     new Operator(OPERATOR_LOGIC_OR, 10, 'L', '||'),
+    new Operator(OPERATOR_SUBSCRIPT, 500, 'L', '.')
 
 ]
 
@@ -479,6 +494,9 @@ function parseOp()
         case 'E':
             index_++;
             return ops[OPERATOR_EXPONENT];
+        case '.':
+            index_++;
+            return ops[OPERATOR_SUBSCRIPT]
         default:
             return ops[OPERATOR_NULL];
     }
@@ -607,10 +625,6 @@ class InternalFuncDefDummyNode extends NodeBase {
         this.def = def
     }
     num_args() { return this.def.num_args }
-    eval() { eassert(false, "not-implemented: dummy func node") }
-    check_type() {  eassert(false, "not-implemented: dummy func doesn't need to implement this") } 
-    clear_types_cache() { eassert(false, "not-implemented: dummy func node") }  
-    to_glsl() { eassert(false, "not-implemented: dummy func node") }
 }
 
 class AddGlslFunc {
@@ -991,6 +1005,15 @@ function parseValue() {
     return val;
 }
 
+// just holds a parsed token in the middle of parsing.
+// used for holding the subscript when parsing OPERATOR_SUBSCRIPT
+class TokenDummyNode extends NodeBase {
+    constructor(token) {
+        super()
+        this.token = token
+    }
+}
+
 /// The current operator and its left value
 /// are pushed onto the stack if the operator on
 /// top of the stack has lower precedence.
@@ -1018,14 +1041,20 @@ function parseExpr() {
                 return value;
             }
             // do the calculation ("reduce"), producing a new value
-            value = new BinaryOpNode(peek.value, value, peek.op.op);
+            if (peek.op.op === OPERATOR_SUBSCRIPT)
+                value = new SubscriptNode(peek.value, null, value)
+            else
+                value = new BinaryOpNode(peek.value, value, peek.op.op);
             stack_.pop();
         }
 
         // store on stack_ and continue parsing ("shift")
         stack_.push( {op:op, value:value });
         // parse value on the right
-        value = parseValue();
+        if (op.op === OPERATOR_SUBSCRIPT)
+            value = new TokenDummyNode(parseNewIdentifier())
+        else    
+            value = parseValue();
     }
     return null;
 }
@@ -1076,15 +1105,22 @@ class SymbolNode extends NodeBase {
     }
 }
 
-const SUBSCRIPT_TO_IDX = { x:0, y:1, z: 2, w:3, r:0, g:1, b:2, a: 3 }
+
 class SubscriptNode extends NodeBase 
 {
-    constructor(wrapNode, subscripts) {
+    constructor(wrapNode, subscripts, token_dummy=null) {
         super()
         this.wrapNode = wrapNode
-        if (subscripts.length !== 1)
-            throw new ExprErr("Only one subscript is supported")
-        this.subname = subscripts[0]
+        if (subscripts !== null) {
+            if (subscripts.length !== 1)
+                throw new ExprErr("Only one subscript is supported")
+            this.subname = subscripts[0]
+        }
+        else if (token_dummy !== null && token_dummy.constructor === TokenDummyNode) {
+            this.subname = token_dummy.token
+        }
+        else 
+            eassert(false, "unexpected SubscriptNode without source")
         this.subidx = SUBSCRIPT_TO_IDX[this.subname]
         if (this.subidx === undefined)
             throw new ExprErr("unknown subscript: " + this.subname)
@@ -1100,7 +1136,7 @@ class SubscriptNode extends NodeBase
         return TYPE_NUM
     }
     to_glsl(emit_ctx) {
-        return this.wrapNode.to_glsl(emit_ctx) + "." + this.subname
+        return this.wrapNode.to_glsl(emit_ctx) + "." + SUBIDX_TO_GLSL[this.subidx]
     }
 }
 
@@ -1224,14 +1260,18 @@ class AssignNameStmt {  // not a proper node (no eval, has side-effects)
             eassert(this.symbol.type !== TYPE_NUM, "Number type symbol `" + this.name + "` can't have subscript")
             eassert(this.subscriptIdx < numbersInType(this.symbol.type), "Assigning to non-existing subscript " + this.subscriptName + " of symbol " + this.name)
         }
-        else        
+        else {
+            if (this.symbol.type !== null)
+                eassert(this.symbol.type === this.type, "Symbol `" + this.in_name + "` can't change type (from " + typename(this.symbol.type) + " to " + typename(this.type) + ")")
+            // changing type of a variable won't work in glsl so we don't allow it                
             this.symbol.type = this.type  // needs to be here since it's needed in the check_type of referencing this symbol
+        }
         return this.type
     }
     sto_glsl(emit_ctx) {
         let s = this.name
         if (this.subscriptIdx !== null) {
-            s += "." + this.subscriptName
+            s += "." + SUBIDX_TO_GLSL[this.subscriptIdx]
         }
         s += "=" + this.expr.to_glsl(emit_ctx) + ";"
         if (this.first_definition)

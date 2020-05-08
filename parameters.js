@@ -508,7 +508,7 @@ function arr_equals(a, b) {
     return true
 }
 
-
+// it's also being used for show_code from Param ctor
 function normalize_slider_conf(sc) {
     if (sc === null || sc === undefined)
         return {min:0, max:1, visible:false, allowed:true} // allowed false means there's no option to activate it
@@ -526,6 +526,9 @@ function normalize_slider_conf(sc) {
 }
 function is_default_slider_conf(sc) {
     return (sc.min === 0 && sc.max === 1 && sc.visible === false && sc.allowed === true)
+}
+function slider_conf_equal(a, b) {
+    return (a.min === b.min && a.max === b.max && a.visible === b.visible && a.allowed === b.allowed)
 }
 
 class CustomContextMenu  // custom since it has it's own adders
@@ -585,8 +588,9 @@ class ExpressionItem {
 
         this.override_create_elem = null
         this.parse_opt = PARSE_EXPR
-
+        
         this.slider_conf = normalize_slider_conf(slider_conf)
+        this.initial_slider_conf = clone(this.slider_conf)
         this.slider = null // object returned by add_param_slider (has funcs to control slider)
         this.ctx_menu = new CustomContextMenu()
         if (this.slider_conf.allowed) {
@@ -607,8 +611,9 @@ class ExpressionItem {
     save_to(r) {
         if (this.e !== null && this.e.get_const_value() !== null)
             r["e_" + this.prop_name_ser] = this.e.get_const_value()
-        r["se_" + this.prop_name_ser] = this.se 
-        if (!is_default_slider_conf(this.slider_conf)) // don't need to litter
+        else
+            r["se_" + this.prop_name_ser] = this.se 
+        if (!slider_conf_equal(this.slider_conf, this.initial_slider_conf)) // don't need to litter
             r["sldcfg_" + this.prop_name_ser] = this.slider_conf
     }
     load(v) {
@@ -630,7 +635,9 @@ class ExpressionItem {
                 this.do_set_prop(lv)
             }
         }
-        this.slider_conf = normalize_slider_conf(v["sldcfg_" + this.prop_name_ser])
+        const sldv = v["sldcfg_" + this.prop_name_ser]
+        if (sldv !== undefined) // otherwise keep with the one from the ctor
+            this.slider_conf = normalize_slider_conf(sldv)
     }
     do_set_prop(v, do_slider_update=true) {
         // v is going to be null if the value is not known yet, due to yet needed objects or yet missing variables
@@ -1280,13 +1287,13 @@ class ParamColor extends CodeItemMixin(Parameter)
         return this.v
     }
     save() { 
-        let r = this.picker_v
+        let r = {hex:this.picker_v.hex}
         this.save_code(r)  // dirty it abit but it doesn't really matter
         return r 
     }
     load(v) { 
         this.load_code(v)
-        this.picker_v = v // modify picker state, might not be the same as .v due to code
+        this.picker_v = ColorPicker.parse_hex(v.hex) // modify picker state, might not be the same as .v due to code
         if (!this.show_code)
             this.v = clone(this.picker_v)
     }

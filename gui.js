@@ -669,6 +669,11 @@ function export_entire_state(parent) {
     saveFile("entire_state.json", "application/json", json)
 }
 
+function export_prog() {
+    let obj = save_program()
+    let text = jsyaml.safeDump(obj, {noCompatMode:true, lineWidth:-1})
+    saveFile("program.yaml", "application/x-yaml", text)
+}
 
 var open_top_menus = []
 
@@ -679,7 +684,8 @@ function create_top_menu(parent) {
 
     myAddEventListener(menu_btn, 'click', ()=> {
         let opt = [{text:"Save As...", func:function() { save_as(parent) }},
-                   {text:"Export State...", func: ()=>{ export_entire_state(parent) }},
+                   {text:"Export Program...", func:function() { export_prog() }},
+                   //{text:"Export State...", func: ()=>{ export_entire_state(parent) }},
                    //{text:"Export SVG...", func: ()=>{ export_svg(parent) }},
                    {text:'-'}]
         for(let up_name in user_saved_programs) {

@@ -409,7 +409,6 @@ function type_from_numelems(num_elems) {
     }
 }
 
-const VAL_INDICES = { r:0, g:1, b:2, alpha:3, x:0, y:1, z:2, w:3 } // TBD add HSV 
 
 class MeshPropEvaluator extends NodeBase
 {
@@ -428,7 +427,7 @@ class MeshPropEvaluator extends NodeBase
         else {
             // valname is line x,y,alpha
             this.valname = (subscripts.length == 2) ? subscripts[1] : null
-            this.valindex = (this.valname !== null) ? VAL_INDICES[this.valname] : 0  // 0 for the case it's a float property
+            this.valindex = (this.valname !== null) ? SUBSCRIPT_TO_IDX[this.valname] : 0  // 0 for the case it's a float property
             eassert(this.valindex !== undefined, "Unknown subscript `" + this.valname + "`")
         }
         // idx is in meshref not multiplied for any property

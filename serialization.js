@@ -160,6 +160,9 @@ function load_program(sprog)
                 p.post_load_hook()
     }
 
+    program.next_obj_id = parseInt(sprog.next_node_id) // reload it since all the nodes and lines just created inflated it unnecessarily
+
+
     program.display_node = (sprog.display_node_id == null) ? null : program.obj_map[sprog.display_node_id]
     program.tdisp_nodes = []
     if (sprog.tdisp_node_ids !== undefined) {

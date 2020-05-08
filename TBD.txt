@@ -44,20 +44,22 @@ EXPRESSIONS
 - expression in color box
 - swizzle
 - func with 0 argument has a bug in parse
-
+- remove exponent opertor instead do it on number parsing
 
 
 ****** CURRENT AGENDA ******
+- yaml exceptions
+- BUG: in_texi(1,ncoord) should be an error if there's no 1 texture
 - Param2d short expression, slider
 - terminal dirty in Variables?
+- swizzle
 - code editor
-- assign to var.x
-    test plasma setattr
 - non-square frame buffer
 - unify PImage and FrameBuffer
 - gradient as image source to func
 - interpolate between two gradients
-- shader to render geometry to texture
+- render geometry to texture
+    extend point-gradient
 - Manual geom move
 - allow terminal name change backwards compatibility - in_tex to in_framebuffer
 - green coordinates
@@ -100,6 +102,7 @@ NODES:
 - triangulate  
     check why there's jumping when triangulating a primitive pentagon  
 - SetAttr 
+   - sample gradient in code
    - fill-from-node transform fill along with the shape 
       - need a shader to avoid many many renderings - need a separate node to render this
    - fill vertices circles?

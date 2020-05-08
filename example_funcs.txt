@@ -12,8 +12,8 @@ return in_tex(ncoord)
 
 ** plasma from https://stuff.brm.sk/plasma/
 
-x = coord.x*10
-y = coord.y*10
+x = coord.x*10  # can be in_obj.face_center.x in SetAttr
+y = coord.y*10 
 t = 20000 
 uMouse = vec2(0,0)
 da = distance(vec2(x+cos(t/1110)*4,y), vec2(1.0,2.1))
