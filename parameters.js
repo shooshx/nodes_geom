@@ -1378,7 +1378,7 @@ class ParamTransform extends Parameter {
         this.rotate_pivot = [0,0]
         
         this.elems = {tx:null, ty:null, r:null, sx:null, sy:null, pvx:null, pvy:null }
-        this.dial = null
+        this.dial = new TransformDial(this)
         
         const sld_conf = {allowed:false}
         this.item_tx = new ExpressionItem(this, "tx", ED_FLOAT, (v)=>{this.translate[0] = v; this.calc_mat()}, ()=>{ return this.translate[0]}, sld_conf)
@@ -1491,8 +1491,6 @@ class ParamTransform extends Parameter {
         center[1] += this.translate[1]
         vec2.transformMat3(center, center, m) // to canvas coords
 
-        if (this.dial === null)
-            this.dial = new TransformDial(this)
         this.dial.set_center(center[0], center[1])
         this.dial.draw()
     }
@@ -1578,7 +1576,37 @@ class PointDial {
             this.on_move(dv[0], dv[1], start_ctx, e)  
         })
     }
+}
 
+class SizeDial extends PointDial {
+    constructor(size_param) {
+        super((dx, dy, ctx, e)=>{
+            if (!e.shiftKey) {
+                size_param.increment(vec2.fromValues(dx*2, dy*2))
+            }
+            else {  // if shift is pressed, maintain the ratio from when the mouse was pressed
+                ctx.shadow_x = ctx.shadow_x + dx*2
+                ctx.shadow_y = ctx.shadow_y + dy*2
+                let nx, ny
+                if (ctx.shadow_x < ctx.shadow_y) { // go by the minimum and calc the other one
+                    nx = ctx.shadow_x
+                    ny = nx * ctx.start_yx_ratio
+                }
+                else {
+                    ny = ctx.shadow_y
+                    nx = ny / ctx.start_yx_ratio
+                }
+                size_param.modify(vec2.fromValues(nx, ny))
+            }
+        }, ()=>{ // on start
+            return { shadow_x: size_param.x, shadow_y: size_param.y, start_yx_ratio: (size_param.y/size_param.x) }
+        })
+        this.size_param = size_param
+    }
+    draw(transform, m) {
+        //  /2 since size is the full object and we go from 0 to the corner
+        super.draw(this.size_param.x/2, this.size_param.y/2, transform, m)
+    }
 }
 
 class DialMoveHandle {
@@ -1648,7 +1676,7 @@ function rect_hit(ex, ey, c) {
 }
 
 class TransformDial {
-    constructor(param, move_rect) {
+    constructor(param) {
         this.param = param
         this.cx = null; this.cy = null
         this.with_resize = false

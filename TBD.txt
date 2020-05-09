@@ -52,7 +52,7 @@ EXPRESSIONS
 - swizzle
 - code editor
 - non-square frame buffer
-    resize dial
+    button to set ratio
 - unify PImage and FrameBuffer
 - gradient as image source to func
 - interpolate between two gradients

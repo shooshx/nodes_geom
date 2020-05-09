@@ -159,6 +159,7 @@ class NodeCreateFrameBuffer extends NodeCls
         this.smoothImage = new ParamBool(node, "Smooth Scaling", true)
         this.transform = new ParamTransform(node, "Transform")
         res_fit()
+        this.size_dial = new SizeDial(this.size)
     }
     run() {
         assert(this.transform.is_valid(), this, "invalid transform")
@@ -184,10 +185,11 @@ class NodeCreateFrameBuffer extends NodeCls
         if (tex === null)  // happens if we never did run()
             return
         this.transform.draw_dial_at_obj(tex, m)
+        this.size_dial.draw(this.transform.v, m)
         tex.draw_border(m)
     }    
     image_find_obj(vx, vy, ex, ey) {
-        return this.transform.dial.find_obj(ex, ey)
+        return this.transform.dial.find_obj(ex, ey) || this.size_dial.find_obj(ex, ey)
     }
 }
 
@@ -487,8 +489,8 @@ class NodeShader extends NodeCls
 
     }
 
-    make_tex_aligned_mesh(tex) {
-        let obj = make_mesh_quadtri(2, 2)
+    make_tex_aligned_mesh(tex, sz_x, sz_y) {
+        let obj = make_mesh_quadtri(sz_x, sz_y) // can probably be 2,2 but not sure
         obj.transform(tex.t_mat);
         return obj
     }
@@ -508,7 +510,7 @@ class NodeShader extends NodeCls
 
         let mesh = this.in_mesh.get_const()
         if (mesh === null)
-            mesh = this.make_tex_aligned_mesh(tex)
+            mesh = this.make_tex_aligned_mesh(tex, tex.sz_x, tex.sz_y)
         //assert(mesh !== null, this, "missing input mesh") 
         assert(mesh.type == MESH_TRI, this, "No triangle faces in input mesh")
 //        assert(this.attr_names !== null, this, "Missing attr_names") // TBD parse this from the shaders
@@ -544,14 +546,20 @@ class NodeShader extends NodeCls
 
         gl.useProgram(this.program);
 
+        // transform for the geometry
         let transform = mat3.create()
         mat3.invert(transform, tex.t_mat)  // frame-buffer movement, rotation
         const szsc = mat3.create()
         mat3.fromScaling(szsc, vec2.fromValues(2/tex.sz_x, 2/tex.sz_y)) // account for the size of the frame-buffer, normalize it to the [2,2] of the normalized coordinate system
         mat3.mul(transform, szsc, transform)
 
+        // transform to pass to the shader 
+        let t_shader = mat3.create()
+        mat3.copy(t_shader, tex.t_mat)
+        mat3.scale(t_shader, t_shader, vec2.fromValues(tex.sz_x/2, tex.sz_y/2))
+
         if (this.program.uniforms['t_mat'] !== null)
-            gl.uniformMatrix3fv(this.program.uniforms['t_mat'], false, tex.t_mat)
+            gl.uniformMatrix3fv(this.program.uniforms['t_mat'], false, t_shader)
         
         for(let uniform_name in this.uniforms) {
             if (this.program.uniforms[uniform_name] !== null)

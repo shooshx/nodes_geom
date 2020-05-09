@@ -50,30 +50,7 @@ class NodeGeomPrimitive extends NodeCls
 
         this.transform = new ParamTransform(node, "Transform")
 
-        this.size_dial = new PointDial((dx, dy, ctx, e)=>{
-            if (!e.shiftKey) {
-                this.size.increment(vec2.fromValues(dx*2, dy*2))
-            }
-            else {
-                ctx.shadow_x = ctx.shadow_x + dx*2
-                ctx.shadow_y = ctx.shadow_y + dy*2
-                let nx, ny
-                if (ctx.shadow_x < ctx.shadow_y) { // go by the minimum and calc the other one
-                    nx = ctx.shadow_x
-                    ny = nx * ctx.start_yx_ratio
-                }
-                else {
-                    ny = ctx.shadow_y
-                    nx = ny / ctx.start_yx_ratio
-                }
-                this.size.modify(vec2.fromValues(nx, ny))
-            }
-        }, ()=>{ // on start
-            return { shadow_x: this.size.x, shadow_y: this.size.y, start_yx_ratio: (this.size.y/this.size.x) }
-        })
-        this.inner_dial = new PointDial((dx,dy)=>{
-            this.inner_point.increment(vec2.fromValues(dx/this.size.x*2, dy/this.size.y*2))
-        })
+        this.size_dial = new SizeDial(this.size)
     }
     run() {
         assert(this.transform.is_valid(), this, "invalid transform")
@@ -129,18 +106,16 @@ class NodeGeomPrimitive extends NodeCls
             return
         this.transform.draw_dial_at_obj(outmesh, m)
 
-        //  resize dial, /2 since size is the full object and we go from 0 to the corner
-        this.size_dial.draw(this.size.x/2, this.size.y/2, this.transform.v, m)
+        //  dials
+        this.size_dial.draw(this.transform.v, m)
         // the inner point needs to move along with the entire size
         if (this.shape.sel_idx == 4)
             this.inner_dial.draw(this.inner_point.x*this.size.x/2, this.inner_point.y*this.size.y/2, this.transform.v, m)
     }    
     image_find_obj(vx, vy, ex, ey) {
-        if (this.transform.dial !== null) {
-            let hit = this.transform.dial.find_obj(ex, ey) || this.size_dial.find_obj(ex, ey)
-            if (hit)
-                return hit
-        }
+        let hit = this.transform.dial.find_obj(ex, ey) || this.size_dial.find_obj(ex, ey)
+        if (hit)
+            return hit
         if (this.shape.sel_idx == 4)
             return this.inner_dial.find_obj(ex, ey)
         return null
