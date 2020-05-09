@@ -316,7 +316,7 @@ class NodeFuncFill extends BaseNodeShaderWrap
                     }
                     else if (tex.constructor == FrameBuffer) {
                         // scale 0-1 range of a texture to -1:1 of the framebuffer (with the translation above)
-                        mat3.scale(adj_m, adj_m, vec2.fromValues(0.5, 0.5))
+                        mat3.scale(adj_m, adj_m, vec2.fromValues(1 / tex.sz_x, 1 / tex.sz_y))
                     }
                 
                     let inv_tex_tmat = mat3.create()

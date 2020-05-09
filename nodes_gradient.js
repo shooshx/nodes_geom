@@ -402,19 +402,8 @@ class LinearGradient extends Gradient {
         tex.width = this.tex_res
         tex.height = HEIGHT
         
-        // set the filtering so we don't need mips
-        let minfilt = gl.LINEAR
-        if (!this.tex_smooth)
-            minfilt = gl.NEAREST
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, minfilt);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, minfilt);
-        let wrap = gl.CLAMP_TO_EDGE
-        if (this.spread == "reflect")
-            wrap = gl.MIRRORED_REPEAT
-        else if (this.spread == "repeat")
-            wrap = gl.REPEAT
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        // should be pad always for y since the gradient change is in x direction
+        setTexParams(this.tex_smooth, this.spread, 'pad')
 
         this.tex_obj_cache = tex
         return tex

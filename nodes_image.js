@@ -69,21 +69,7 @@ class PImage extends ImageBase
         mat3.copy(tex.t_mat, this.t_mat)
         // normalize scale factor to 0-1 since that's the range of the texture coordinates. WebGL is oblivious to the pixels scaling
 
-        let minfilt = gl.LINEAR
-        if (!this.smooth)
-            minfilt = gl.NEAREST
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, minfilt);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, minfilt);
-
-        let wrap = gl.CLAMP_TO_EDGE
-        if (this.tex_edge == "reflect")
-            wrap = gl.MIRRORED_REPEAT
-        else if (this.tex_edge == "repeat")
-            wrap = gl.REPEAT
-
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrap);
-        gl.bindTexture(gl.TEXTURE_2D, null);
+        setTexParams(this.smooth, this.tex_edge, this.tex_edge)
 
         this.tex_obj_cache = tex
         return tex

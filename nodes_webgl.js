@@ -8,6 +8,8 @@ class ImageBase extends PObject
         super()
         this.t_mat = mat3.create() 
         this.smooth = smooth
+        this.sz_x = sz_x
+        this.sz_y = sz_y
 
         let hw = sz_x * 0.5
         let hh = sz_y * 0.5
@@ -107,7 +109,7 @@ class FrameBuffer extends ImageBase
     }
 
     async pre_draw(m, disp_values) {
-        this.imgBitmap = await renderTexToImgBitmap(this.tex_obj)
+        this.imgBitmap = await renderTexToImgBitmap(this.tex_obj, this.sz_x, this.sz_y)
     }
 
     draw(m, disp_values) {
@@ -121,9 +123,10 @@ class FrameBuffer extends ImageBase
     }
     get_transform_to_pixels() {
         let transform = mat3.create()
-        // half in the case of frame buffer since frame buffers are sized 2x2
-        let hs = vec2.fromValues(this.width()/2, this.height()/2)
-        mat3.translate(transform, transform, hs)
+        // half in the case of frame buffer since frame buffers are sized 2x2 (actually sz_x*sz_y)
+        let hsf = vec2.fromValues(this.width()/2, this.height()/2) // yea.. I don't know why but that works.
+        let hs = vec2.fromValues(this.width()/this.sz_x, this.height()/this.sz_y)
+        mat3.translate(transform, transform, hsf)
         mat3.scale(transform, transform, hs)
         let inv_t = mat3.create()
         mat3.invert(inv_t, this.t_mat)     
@@ -143,13 +146,13 @@ class NodeCreateFrameBuffer extends NodeCls
     constructor(node) {
         super(node)
         this.out_tex = new OutTerminal(node, "out_tex")
-        this.resolution = new ParamVec2Int(node, "Resolution", 800, 800) // TBD according to current viewport
-                                                                          // TBD connect this to transform zoom
+        this.resolution = new ParamVec2Int(node, "Resolution", 800, 800)
+        this.size = new ParamVec2(node, "Size", 2, 2)                                                                        
         let res_fit = ()=>{
             let minp = Math.min(canvas_image.width, canvas_image.height)
             // if it's scaled, the size in pixels need to adjust for that
-            let rx = minp * this.transform.scale[0] * image_view.zoom
-            let ry = minp * this.transform.scale[1] * image_view.zoom
+            let rx = minp * this.transform.scale[0] * image_view.zoom * this.size.x/2
+            let ry = minp * this.transform.scale[1] * image_view.zoom * this.size.y/2
             this.resolution.set(rx, ry)
         }
         this.zoom_fit = new ParamButton(node, "Fit resolution to viewport", res_fit)
@@ -167,11 +170,10 @@ class NodeCreateFrameBuffer extends NodeCls
         tex.width = cw
         tex.height = ch
         
-        // set the filtering so we don't need mips
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-        let fb = new FrameBuffer(tex, 2, 2, this.smoothImage.v)
+        setTexParams(this.smoothImage.get_value(), 'pad', 'pad')
+
+        const sz = this.size.get_value()
+        let fb = new FrameBuffer(tex, sz[0], sz[1], this.smoothImage.get_value())
         fb.transform(this.transform.v)
         gl.bindTexture(gl.TEXTURE_2D, null);
         this.out_tex.set(fb)
@@ -188,6 +190,29 @@ class NodeCreateFrameBuffer extends NodeCls
         return this.transform.dial.find_obj(ex, ey)
     }
 }
+
+
+function setTexParams(smooth, spread_x, spread_y) {
+    let minfilt = gl.LINEAR
+    if (!smooth)
+        minfilt = gl.NEAREST
+    // set the filtering so we don't need mips
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, minfilt);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, minfilt);
+    let wrap_x = gl.CLAMP_TO_EDGE // "pad"
+    if (spread_x == "reflect")
+        wrap_x = gl.MIRRORED_REPEAT
+    else if (spread_x == "repeat")
+        wrap_x = gl.REPEAT
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap_x);
+    let wrap_y = gl.CLAMP_TO_EDGE // "pad"
+    if (spread_x == "reflect")
+        wrap_y = gl.MIRRORED_REPEAT
+    else if (spread_x == "repeat")
+        wrap_y = gl.REPEAT    
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrap_y);
+}
+
 
 function createShader(gl, type, source) {
     var shader = gl.createShader(type);
@@ -510,14 +535,21 @@ class NodeShader extends NodeCls
 
         // draw
         gl.bindFramebuffer(gl.FRAMEBUFFER, gl.my_fb);
-        canvas_webgl.width = tex.width()
-        canvas_webgl.height = tex.height()
+        if (canvas_webgl.width !== tex.width() || canvas_webgl.height !== tex.height()) {
+            // this takes time 
+            canvas_webgl.width = tex.width()
+            canvas_webgl.height = tex.height()
+        }
         gl.viewport(0, 0, canvas_webgl.width, canvas_webgl.height);
 
         gl.useProgram(this.program);
 
         let transform = mat3.create()
-        mat3.invert(transform, tex.t_mat)
+        mat3.invert(transform, tex.t_mat)  // frame-buffer movement, rotation
+        const szsc = mat3.create()
+        mat3.fromScaling(szsc, vec2.fromValues(2/tex.sz_x, 2/tex.sz_y)) // account for the size of the frame-buffer, normalize it to the [2,2] of the normalized coordinate system
+        mat3.mul(transform, szsc, transform)
+
         if (this.program.uniforms['t_mat'] !== null)
             gl.uniformMatrix3fv(this.program.uniforms['t_mat'], false, tex.t_mat)
         
@@ -567,7 +599,7 @@ void main() {
 }
     `
 }
-async function renderTexToImgBitmap(tex_obj)
+async function renderTexToImgBitmap(tex_obj, sz_x, sz_y)
 {
     // render to actual canvas
     dassert(tex_obj.width !== undefined && tex_obj.height !== undefined, "Missing dimentions of tex")
@@ -576,13 +608,13 @@ async function renderTexToImgBitmap(tex_obj)
         canvas_webgl.height = tex_obj.height
     }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.viewport(0, 0, canvas_webgl.width, canvas_webgl.height);
+    gl.viewport(0, 0, canvas_webgl.width, canvas_webgl.height); // we just set this to the size from the texture
 
     if (render_teximg.mesh === null) {
         render_teximg.program = createProgram(gl, render_teximg.vtx_src, render_teximg.frag_src, ['vtx_pos'], [])
         dassert(render_teximg.program !== null, "failed compile teximg")
 
-        render_teximg.mesh = make_mesh_quadtri(2, 2)
+        render_teximg.mesh = make_mesh_quadtri(sz_x, sz_y)
     }
     gl.useProgram(render_teximg.program);
     // no need to set value to uTex since default 0 is ok

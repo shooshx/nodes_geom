@@ -37,10 +37,8 @@ EXPRESSIONS
 - ?? in any params view that can have expressions, add a custom user parameter that can be used with a slider
     - and added to the object that carries it
 - expression in color in table (gradient)
-- transform with code
 - clear_all should also clear expressions cache
 - !!! code for transform param
-- assign to subscript col.r = 222
 - expression in color box
 - swizzle
 - func with 0 argument has a bug in parse
@@ -48,13 +46,13 @@ EXPRESSIONS
 
 
 ****** CURRENT AGENDA ******
-- yaml exceptions
 - BUG: in_texi(1,ncoord) should be an error if there's no 1 texture
 - Param2d short expression, slider
 - terminal dirty in Variables?
 - swizzle
 - code editor
 - non-square frame buffer
+    resize dial
 - unify PImage and FrameBuffer
 - gradient as image source to func
 - interpolate between two gradients
