@@ -1471,6 +1471,10 @@ class ParamTransform extends Parameter {
         this.item_tx.set_to_const(this.translate[0] + dx); 
         this.item_ty.set_to_const(this.translate[1] + dy); 
     }
+    set_translate(x, y) {
+        this.item_tx.set_to_const(x); 
+        this.item_ty.set_to_const(y); 
+    }
     do_rotate(d_angle) {
         let r = this.rotate + d_angle;
         if (r > 360) r -= 360

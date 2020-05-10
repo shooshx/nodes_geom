@@ -148,14 +148,26 @@ class NodeCreateFrameBuffer extends NodeCls
         this.out_tex = new OutTerminal(node, "out_tex")
         this.resolution = new ParamVec2Int(node, "Resolution", 800, 800)
         this.size = new ParamVec2(node, "Size", 2, 2)                                                                        
-        let res_fit = ()=>{
-            let minp = Math.min(canvas_image.width, canvas_image.height)
+        const res_fit = ()=>{
+            const minp = Math.min(canvas_image.width, canvas_image.height)
             // if it's scaled, the size in pixels need to adjust for that
-            let rx = minp * this.transform.scale[0] * image_view.zoom * this.size.x/2
-            let ry = minp * this.transform.scale[1] * image_view.zoom * this.size.y/2
+            const rx = minp * this.transform.scale[0] * image_view.zoom * this.size.x/2
+            const ry = minp * this.transform.scale[1] * image_view.zoom * this.size.y/2
             this.resolution.set(rx, ry)
         }
         this.zoom_fit = new ParamButton(node, "Fit resolution to viewport", res_fit)
+        const size_fit = ()=>{
+            const sx = (image_view.rect.right - image_view.rect.left) / image_view.viewport_zoom
+            const sy = (image_view.rect.bottom - image_view.rect.top) / image_view.viewport_zoom
+            this.size.modify(vec2.fromValues(sx, sy))
+
+            //transform to where the middle of the canvas goes
+            let mid = vec2.fromValues(canvas_image.width*0.5, canvas_image.height*0.5)
+            vec2.transformMat3(mid, mid, image_view.t_inv_viewport)
+            this.transform.set_translate(mid[0], mid[1]);
+        }
+        this.size_fit = new ParamButton(node, "Fit size to viewport", size_fit)
+        this.size_fit.share_line_elem_from(this.zoom_fit)
         this.smoothImage = new ParamBool(node, "Smooth Scaling", true)
         this.transform = new ParamTransform(node, "Transform")
         res_fit()
