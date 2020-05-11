@@ -1138,7 +1138,7 @@ class ParamVec2 extends CodeItemMixin(Parameter) {
         this.add_code_elem()
     }
     get_value() {
-        dassert(this.x !== undefined, "value of vec2 expr not set")
+        dassert(this.x !== null && this.x !== undefined, "value of vec2 expr not set")
         return [this.x, this.y]
     }
     increment(dv) {
@@ -1149,11 +1149,14 @@ class ParamVec2 extends CodeItemMixin(Parameter) {
         this.pset_dirty() 
     }
     modify(v, dirtyify=true) {
+        this.modify_e(v[0], v[1], dirtyify)
+    }
+    modify_e(x, y, dirtyify=true) {
         if (this.show_code)
             return
         let changed = false
-        changed = this.item_x.set_to_const(v[0])
-        changed |= this.item_y.set_to_const(v[1])
+        changed = this.item_x.set_to_const(x)
+        changed |= this.item_y.set_to_const(y)
         if (changed && dirtyify)
             this.pset_dirty() 
     }
@@ -2330,7 +2333,7 @@ class ParamImageUpload extends ParamFileUpload
 {
     constructor(node, label) {
         super(node, label)
-        this.image = null
+        this.image = null  
         this.last_error = null
     }
     load_url(url) {
@@ -2339,6 +2342,7 @@ class ParamImageUpload extends ParamFileUpload
         let newimage = new Image()
         myAddEventListener(newimage, "load", (e)=>{
             this.image = newimage
+            this.last_error = null
             this.pset_dirty()
         })
         myAddEventListener(newimage, "error", (e)=>{
@@ -2349,12 +2353,17 @@ class ParamImageUpload extends ParamFileUpload
         })
         newimage.crossOrigin = ''
         newimage.src = url
-        this.image = newimage // first time it may not be there but then the load even is going to refresh the display   
+        // first time after load will be an empty image but then the load even is going to refresh the display   
+        // empty image is preferable to null since it can still pass through stuff
+        // it will become null if there's an error which needs to be visible
+        this.image = newimage 
     }
 
     get_image() {
-        if (this.image === null && this.last_error !== null)
-            assert(false, this.owner.cls, this.last_error)
+        assert(this.image !== null, this.owner.cls, (this.last_error !== null) ? this.last_error : "Image not loaded yet")
+        return this.image
+    }
+    try_get_image() {  // may return null
         return this.image
     }
 }

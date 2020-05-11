@@ -114,9 +114,9 @@ input {
 .param_line_group {
     display: block; /* override the display flex from the parent .param_line */
 }
-.param_multi_line {
+/*.param_multi_line {*/
     /*padding: 5px 0 0 0; interferes with ParamBaseExpr */
-}
+/*}*/
 
 .param_block {
     padding: 5px 0 5px 0;
@@ -236,8 +236,8 @@ input {
 .param_list_title {
     margin: 0 0 3px 0;
 }
-.param_list_entry {
-}
+/*.param_list_entry {
+}*/
 .param_list_row:nth-child(even) {
     background-color: #4e494e;
 }
@@ -252,8 +252,8 @@ input {
     vertical-align: bottom; /* avoid the baseline change that overflow makes */
 }
 
-.param_list_row {
-}
+/*.param_list_row {
+}*/
 .param_monospace {
     font-family: monospace;
     font-size: 16px;
@@ -358,9 +358,9 @@ input {
     position: absolute;    
     display: none; /* comment out to debug nodes shadow */
 }
-#canvas_image {
+/*#canvas_image {*/
     /*display: none; /*TEMP*/
-}
+/*}*/
 #canvas_img_shadow {
     border: solid 1px;
     display: none;  /* comment out to see canvas_img_shadow */
@@ -419,8 +419,8 @@ input {
 .param_btn:active , .param_checkbox_input:checked+.param_btn {
     background-image: linear-gradient(to bottom, #9090d0, #8080d0); 
 }
-.param_select {
-}
+/*.param_select {
+}*/
 .param_file_input {
     display: none;
 }
@@ -618,10 +618,10 @@ input {
     left: 10px;
 }
 
-.dlg_size_save_as {
+/*.dlg_size_save_as {*/
     /*width: 230px;
     height: 120px;*/
-}
+/*}*/
 .dlg_size_shader_edit {
     width: 600px;
     height: 600px;

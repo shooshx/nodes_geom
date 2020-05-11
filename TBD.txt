@@ -28,8 +28,9 @@ ENGINE:
 - !!! frame buffer transform??
     - or maybe func transform?
     - explicit error
-- save to Yaml, edit Yaml
-
+- load Yaml
+ -figure out constness of images thing (can't get mutable ref?)
+    - also texture destructor
 
 EXPRESSIONS
 - boolean comparisons operator ?: - better than if(,,) since false side is not evaluated
@@ -43,17 +44,20 @@ EXPRESSIONS
 - swizzle
 - func with 0 argument has a bug in parse
 - remove exponent opertor instead do it on number parsing
+- *** Vec2Int (resolution image)
 
 
 ****** CURRENT AGENDA ******
-- BUG: in_texi(1,ncoord) should be an error if there's no 1 texture
 - Param2d short expression, slider
 - terminal dirty in Variables?
-- swizzle
+- optiomize, load Yaml
+- clear_all should dirty all params (for run() that checks that)
 - code editor
-- non-square frame buffer
-    button to set ratio
+- swizzle
 - unify PImage and FrameBuffer
+    - refactor NodeLoadImage
+    - repeat in frame-buffer create
+- BUG: func node bind null to non-connected textures
 - gradient as image source to func
 - interpolate between two gradients
 - render geometry to texture

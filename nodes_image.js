@@ -1,24 +1,26 @@
 "use strict"
 
 
-class PImage extends ImageBase
+class PImage extends FrameBuffer
 {
     static name() { return "PImage" }
-    constructor(js_img, smooth) {
-        super((js_img !== undefined)?js_img.width:0, (js_img !== undefined)?js_img.height:0, smooth)
+    constructor(js_img, smooth, spread, sz_x, sz_y) {
+        let tex = null
+        if (js_img !== undefined && js_img !== null) {
+            tex = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, tex);
+            // if the input image is empty (not loaded), init with an empty texture
+            var init_img =  (js_img.width > 0 && js_img.height > 0) ? js_img : null
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, js_img.width, js_img.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, init_img);
+            tex.width = js_img.width
+            tex.height = js_img.height
+            setTexParams(smooth, spread, spread)
+            gl.bindTexture(gl.TEXTURE_2D, null);
+        }
+        super(tex, sz_x, sz_y, smooth)
         this.img = js_img
         this.pixels = null
-        this.tex_edge = 'pad'
-
-        this.tex_obj_cache = null
     }
-    destructor() {
-        if (this.tex_obj_cache !== null)
-            this.del_texture_cache()
-    }
-
-    width() { return this.img.width }
-    height() { return this.img.height }
 
     draw(m) {
         this.draw_image(this.img, m)
@@ -33,47 +35,7 @@ class PImage extends ImageBase
         }
         return this.pixels
     }
-    get_transform_to_pixels() {
-        let transform = mat3.create()
-        // with image scaling x,y by the wf,hf is not needed since the image t_mat includes the zoom factor
-        // still using halfs since the center is the reference point
-        mat3.translate(transform, transform, vec2.fromValues(this.width()/2, this.height()/2))
-        let inv_t = mat3.create()
-        mat3.invert(inv_t, this.t_mat)
-        mat3.mul(transform, transform, inv_t)
-        return transform
-    }
 
-    
-    del_texture_cache() {
-        gl.deleteTexture(this.tex_obj_cache)
-        this.tex_obj_cache = null
-        this.tex_with_params = null        
-    }
-
-    make_gl_texture() {
-        if (this.tex_obj_cache !== null) {
-            return this.tex_obj_cache // caller should do bind
-        }
-
-        let tex = gl.createTexture();
-        gl.bindTexture(gl.TEXTURE_2D, tex);
-        // TBD invalid image warning
-        let glimg = this.img
-        if (glimg.width == 0 || glimg.height == 0)
-            glimg = null
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.width(), this.height(), 0, gl.RGBA, gl.UNSIGNED_BYTE, glimg);
-        tex.width = this.width()
-        tex.height = this.height()
-        tex.t_mat = mat3.create()
-        mat3.copy(tex.t_mat, this.t_mat)
-        // normalize scale factor to 0-1 since that's the range of the texture coordinates. WebGL is oblivious to the pixels scaling
-
-        setTexParams(this.smooth, this.tex_edge, this.tex_edge)
-
-        this.tex_obj_cache = tex
-        return tex
-    }
 }
 
 class NodeLoadImage extends NodeCls
@@ -82,15 +44,14 @@ class NodeLoadImage extends NodeCls
     constructor(node) {
         super(node)
         this.file_upload = new ParamImageUpload(node, "File Upload")
+        this.size = new ParamVec2(node, "size", 2, 2);
+
+        this.size_fit = new ParamButton(node, "Fit size to viewport", ()=>{this.size_fit_func()})
         this.smooth_image = new ParamBool(node, "Smooth Scaling", true)
         this.transform = new ParamTransform(node, "Transform")
         this.out_img = new OutTerminal(node, "out_img")
-        let zoom_fit_func = ()=>{
-            let inv_tz = 1/image_view.viewport_zoom
-            this.transform.set_scale(inv_tz, inv_tz)
-        }
-        this.zoom_fit = new ParamButton(node, "Zoom to fit viewport pixel size", zoom_fit_func)
-        zoom_fit_func() // fit to the viewport at the time the node is created
+
+       // size_fit_func() // fit to the viewport at the time the node is created
         this.tex_edge = new ParamSelect(node, "Texture Edge", 0, ["Pad", "Reflect", "Repeat"])
 
         this.size_dial = new ScaleDial(this.transform, ()=>{
@@ -99,15 +60,27 @@ class NodeLoadImage extends NodeCls
                 return null
             return [oimg.width(), oimg.height()]
         })
+
+    }
+
+    // setting the image size is only manual since there's currently no way to differentiate between dirty image param
+    // due to page (which shouldn't change the size) load and dirty due to user setting a new file (which should)
+    size_fit_func() { // make the image appear in its natural resolution
+        const img = this.file_upload.try_get_image()
+        if (img === null)
+            return
+        const nw = img.width/image_view.viewport_zoom
+        const nh = img.height/image_view.viewport_zoom
+        this.size.modify_e(nw, nh)
     }
 
     run() {
+        ensure_webgl()
         let image = this.file_upload.get_image()
-        assert(image !== null, this, "No image uploaded")
         assert(this.transform.is_valid(), this, "invalid transform")
-        let pimg = new PImage(image, this.smooth_image.v)
+        let sz = this.size.get_value()
+        let pimg = new PImage(image, this.smooth_image.v, this.tex_edge.get_sel_name(), sz[0], sz[1])
         pimg.transform(this.transform.v)
-        pimg.tex_edge = this.tex_edge.get_sel_name()
         this.out_img.set(pimg)
     }
 
@@ -122,12 +95,7 @@ class NodeLoadImage extends NodeCls
 
     }    
     image_find_obj(vx, vy, ex, ey) {
-        if (this.transform.dial !== null) {
-            const hit = this.transform.dial.find_obj(ex, ey)
-            if (hit)
-                return hit
-        }
-        return this.size_dial.find_obj(ex, ey)
+        return this.transform.dial.find_obj(ex, ey) || this.size_dial.find_obj(ex, ey)
     }
 }
 

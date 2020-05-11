@@ -134,6 +134,7 @@ class FrameBuffer extends ImageBase
         return transform
     }
     make_gl_texture() {
+        dassert(this.tex_obj !== null, "No texture in object")
         this.tex_obj.t_mat = mat3.create()
         mat3.copy(this.tex_obj.t_mat, this.t_mat)
         return this.tex_obj
