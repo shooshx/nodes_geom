@@ -321,6 +321,14 @@ class NodeFuncFill extends BaseNodeShaderWrap
                     
                 }
             }
+            // make sure textures uniform that don't have connected inputs to fill it are not set to something unknown
+            for(let ti = texs.length; ti < IN_TEX_COUNT; ++ti) {
+                gl.activeTexture(gl.TEXTURE0 + ti)
+                gl.bindTexture(gl.TEXTURE_2D, g_dummy_texture);
+                const texParam = this.shader_node.cls.param_of_uniform('u_in_tex_' + ti)
+                if (texParam !== null)
+                    texParam.modify(ti, false)
+            }
             gl.activeTexture(gl.TEXTURE0); // restore default state
         }
 
@@ -330,7 +338,7 @@ class NodeFuncFill extends BaseNodeShaderWrap
             // restore stull to default state to avoid texture leak and easier bug finding
             for(let ti = 0; ti < texs.length; ++ti) {
                 gl.activeTexture(gl.TEXTURE0 + ti)
-                gl.bindTexture(gl.TEXTURE_2D, null);
+                gl.bindTexture(gl.TEXTURE_2D, g_dummy_texture);
             }
             gl.activeTexture(gl.TEXTURE0);
         }

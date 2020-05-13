@@ -84,6 +84,7 @@ class NodeLoadImage extends NodeCls
         this.out_img.set(pimg)
     }
 
+    // duplicated in NodeCreateFrameBuffer
     draw_selection(m) {
         let outimg = this.out_img.get_const()
         if (outimg === null) // happens if we never did run()

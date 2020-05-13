@@ -55,9 +55,6 @@ EXPRESSIONS
 - code editor
 - swizzle
 - unify PImage and FrameBuffer
-    - refactor NodeLoadImage
-    - repeat in frame-buffer create
-- BUG: func node bind null to non-connected textures
 - gradient as image source to func
 - interpolate between two gradients
 - render geometry to texture
@@ -77,6 +74,7 @@ NODES:
     - merge create and shader?
     - variable ratio, not just square, take the ratio of the current viewport
         - !!!!!! pixel buffer ratio according to resolution ratio (with checkbox - square pixels)
+    - canvas set_width takes a long time, use a pool of canvases
 - Geom primitive
     - rect round edges
     - spiral
@@ -131,6 +129,7 @@ NODES:
     simplex?
 - Load-Image
     menu on the side to load presets?
+    !!! know when the user changed the filename and set size only when that happens and not on pis_dirty which happens on load
 - point size to path circle
     and lines -- according to changing width
 - bitmap trace

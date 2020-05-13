@@ -109,6 +109,8 @@ class FrameBuffer extends ImageBase
     }
 
     async pre_draw(m, disp_values) {
+        if (this.tex_obj.width === 0 || this.tex_obj.height === 0)
+            return // happens when an file image was not loaded yet
         this.imgBitmap = await renderTexToImgBitmap(this.tex_obj, this.sz_x, this.sz_y)
     }
 
@@ -170,6 +172,7 @@ class NodeCreateFrameBuffer extends NodeCls
         this.size_fit = new ParamButton(node, "Fit size to viewport", size_fit)
         this.size_fit.share_line_elem_from(this.zoom_fit)
         this.smoothImage = new ParamBool(node, "Smooth Scaling", true)
+        this.tex_edge = new ParamSelect(node, "Texture Edge", 0, ["Pad", "Reflect", "Repeat"])
         this.transform = new ParamTransform(node, "Transform")
         res_fit()
         this.size_dial = new SizeDial(this.size)
@@ -184,7 +187,7 @@ class NodeCreateFrameBuffer extends NodeCls
         tex.width = cw
         tex.height = ch
         
-        setTexParams(this.smoothImage.get_value(), 'pad', 'pad')
+        setTexParams(this.smoothImage.get_value(), this.tex_edge.get_sel_name(), this.tex_edge.get_sel_name())
 
         const sz = this.size.get_value()
         let fb = new FrameBuffer(tex, sz[0], sz[1], this.smoothImage.get_value())
@@ -221,9 +224,9 @@ function setTexParams(smooth, spread_x, spread_y) {
         wrap_x = gl.REPEAT
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap_x);
     let wrap_y = gl.CLAMP_TO_EDGE // "pad"
-    if (spread_x == "reflect")
+    if (spread_y == "reflect")
         wrap_y = gl.MIRRORED_REPEAT
-    else if (spread_x == "repeat")
+    else if (spread_y == "repeat")
         wrap_y = gl.REPEAT    
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrap_y);
 }
@@ -272,6 +275,24 @@ function createProgram(gl, vtxSource, fragSource, attr_names, defines) {
     return program;
 }
 
+const g_dummy_texture_opt = {sz:50, width:5, dark:180, light:255 }
+function make_dummy_texture()
+{
+    ensure_scratch_canvas()
+    const sz = g_dummy_texture_opt.sz
+    scratch_canvas.width = sz
+    scratch_canvas.height = sz
+    checkers_rect(ctx_scratch, sz, sz, g_dummy_texture_opt)
+
+    const t = gl.createTexture()
+    gl.bindTexture(gl.TEXTURE_2D, t)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, sz, sz, 0, gl.RGBA, gl.UNSIGNED_BYTE, scratch_canvas)
+    setTexParams(false, 'repeat', 'repeat')
+    gl.bindTexture(gl.TEXTURE_2D, null)
+    return t
+}
+
+let g_dummy_texture = null
 function ensure_webgl() {
     if (gl !== null)    
         return
@@ -282,6 +303,10 @@ function ensure_webgl() {
 
     gl.my_fb = gl.createFramebuffer();
     gl.bindFramebuffer(gl.FRAMEBUFFER, gl.my_fb);
+
+    // dummy texture
+    g_dummy_texture = make_dummy_texture()
+
 
     // create a depth renderbuffer
    // gl.my_depthBuffer = gl.createRenderbuffer();

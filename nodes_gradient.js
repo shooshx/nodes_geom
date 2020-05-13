@@ -692,8 +692,10 @@ const GRADIENT_PRESETS = [
 
 ]
 
-function checkers_rect(ctx, w, h) {
-    const l = ColorPicker.CHECKERS.light, d = ColorPicker.CHECKERS.dark, cw = ColorPicker.CHECKERS.width
+function checkers_rect(ctx, w, h, opt) {
+    if (opt === undefined)
+        opt = ColorPicker.CHECKERS
+    const l = opt.light, d = opt.dark, cw = opt.width
     ctx.fillStyle = "rgb(" + l + "," + l + "," + l + ")"
     ctx.fillRect(0, 0, w, h)
     ctx.fillStyle = "rgb(" + d + "," + d + "," + d + ")"

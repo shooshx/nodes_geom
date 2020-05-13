@@ -233,6 +233,16 @@ function add_param_label(line, text, cls) {
     }
     return e
 }
+function add_upload_btn(parent, change_func) {
+    let fin = add_elem(parent, "input", "param_file_input")
+    fin.type = "file"
+    fin.id = "p_fl_" + g_input_ids++  // for the "for"
+    let btn = add_elem(parent, "label", ["param_btn", "param_file_choose_btn"])
+    btn.innerText = "Choose File..."
+    btn.setAttribute("for", fin.id)
+    myAddEventListener(fin, "change", ()=>{change_func(fin.files[0]) })
+    fin.value = "" // make the input forget about this file so that the same filename can be uploaded again
+}
 
 function formatType(value, type) {
     if (type == ED_FLOAT || type == ED_FLOAT_OUT_ONLY)
@@ -1114,7 +1124,7 @@ class ParamVec2 extends CodeItemMixin(Parameter) {
         this.item_y.set_eactive(v)
     }
     save() { 
-        let r = { x:this.x, y:this.y }; 
+        let r = { }; 
         this.item_x.save_to(r); 
         this.item_y.save_to(r); 
         this.save_code(r)
@@ -2236,15 +2246,8 @@ class ParamFileUpload extends Parameter
     add_elems(parent) {
         this.line_elem = add_param_line(parent)
         this.label_elem = add_param_label(this.line_elem, this.label)
-        let fin = add_elem(this.line_elem, "input", "param_file_input")
-        fin.type = "file"
-        fin.id = "p_fl_" + g_input_ids++
-        let btn = add_elem(this.line_elem, "label", ["param_btn", "param_file_choose_btn"])
-        btn.innerText = "Choose File..."
-        btn.setAttribute("for", fin.id)
-        myAddEventListener(fin, "change", ()=>{ 
-            this.file = fin.files[0]
-            fin.value = "" // make the input forget about this file so that the same filename can be uploaded again
+        add_upload_btn(this.line_elem, (in_file)=>{ 
+            this.file = in_file
             filename_show.textContent = this.file.name 
             this.read_file(this.file, true, (file, url)=>{ this.load_url(url) })
             upload_btn.style.display = ""

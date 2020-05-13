@@ -12,7 +12,9 @@ function save_program() {
     for(let n of program.nodes) {
         let sn = { params: {}, name:n.name, cls_name: n.cls.constructor.name(), x:n.x, y:n.y, disp_param:n.display_values }
         for(let p of n.parameters) {
-            sn.params[p.label] = p.save()
+            const ov = p.save()
+            if (ov !== null)
+                sn.params[p.label] = ov
         }        
         sprog.nodes[n.id] = sn
     }

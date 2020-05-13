@@ -670,9 +670,19 @@ function export_entire_state(parent) {
 }
 
 function export_prog() {
-    let obj = save_program()
-    let text = jsyaml.safeDump(obj, {noCompatMode:true, lineWidth:-1})
+    const obj = save_program()
+    const text = jsyaml.safeDump(obj, {noCompatMode:true, lineWidth:-1, _flowArrLevel:3}) // don't want lines to be flow (single line)
     saveFile("program.yaml", "application/x-yaml", text)
+}
+
+function upload_file_dlg()
+{
+
+}
+
+function import_prog() {
+
+    //const obj = jsyaml.safeLoad()
 }
 
 var open_top_menus = []
@@ -684,7 +694,8 @@ function create_top_menu(parent) {
 
     myAddEventListener(menu_btn, 'click', ()=> {
         let opt = [{text:"Save As...", func:function() { save_as(parent) }},
-                   {text:"Export Program...", func:function() { export_prog() }},
+                   {text:"Export Program...", func:export_prog },
+                   {text:"Import Program...", func:import_prog },
                    //{text:"Export State...", func: ()=>{ export_entire_state(parent) }},
                    //{text:"Export SVG...", func: ()=>{ export_svg(parent) }},
                    {text:'-'}]
