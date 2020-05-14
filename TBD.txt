@@ -51,6 +51,7 @@ EXPRESSIONS
 - Param2d short expression, slider
 - terminal dirty in Variables?
 - optiomize, load Yaml
+    deserialize: don't swap prog before successful load
 - clear_all should dirty all params (for run() that checks that)
 - code editor
 - swizzle

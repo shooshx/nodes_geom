@@ -421,33 +421,35 @@ function addTextChild(elem, txt) {
 function open_context_menu(options, wx, wy, parent_elem, dismiss_func)
 {
     let menu_elem = add_div(parent_elem, "ctx_menu")
-    let child_elems = []
     for(let opt of options) {
+        let e = null
         if (opt.cmake_elems)
-            child_elems.push(opt.cmake_elems(menu_elem))
+            e = opt.cmake_elems(menu_elem)
         else if (opt.text == '-') 
-            child_elems.push(add_elem(menu_elem, 'HR', "ctx_menu_sep"))
-        else {
-            let e = add_div(menu_elem, 'ctx_menu_opt')
-            e.innerText = opt.text
-            child_elems.push(e)
+            e = add_elem(menu_elem, 'HR', "ctx_menu_sep")
+        else if (opt.type === "file-in") {
+            const [fin,btn] = add_upload_btn(menu_elem, 'ctx_menu_opt', opt.text, opt.func)
+            e = fin
         }
+        else {
+            e = add_div(menu_elem, 'ctx_menu_opt')
+            e.innerText = opt.text
+        }
+        
+        stop_propogation_on("mousedown", e)
+        if (opt.func === undefined)
+            continue
+        myAddEventListener(e, 'click', function() {
+            if (opt.type !== "file-in")
+                opt.func()
+            dismiss_func()
+        })        
+
     }
-    
+
     stop_propogation_on("mousedown", menu_elem) // stop it from dismissing on click due to other handlers in the document
 
     let parent_width = parent_elem.offsetWidth, parent_height = parent_elem.offsetHeight
-    for(let i = 0; i < child_elems.length; ++i) {
-        if (options[i].func === undefined)
-            continue
-        let child = child_elems[i]
-        stop_propogation_on("mousedown", child)
-        myAddEventListener(child, 'click', function() {
-            options[i].func()
-            dismiss_func()
-        })        
-    }
-    
     let menu_width = menu_elem.offsetWidth, menu_height = menu_elem.offsetHeight
     var rx = wx, ry = wy
     
@@ -675,14 +677,25 @@ function export_prog() {
     saveFile("program.yaml", "application/x-yaml", text)
 }
 
-function upload_file_dlg()
-{
 
-}
 
-function import_prog() {
-
-    //const obj = jsyaml.safeLoad()
+function import_prog(file) {
+    console.log("import!", file)
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const obj = jsyaml.safeLoad(e.target.result)
+            load_prog_obj(obj)
+        }
+        catch(e) {
+            console.error(e)
+            return
+        }
+    }
+    reader.onerror = function(e) {
+        console.error(e)
+    }
+    reader.readAsText(file)
 }
 
 var open_top_menus = []
@@ -695,7 +708,7 @@ function create_top_menu(parent) {
     myAddEventListener(menu_btn, 'click', ()=> {
         let opt = [{text:"Save As...", func:function() { save_as(parent) }},
                    {text:"Export Program...", func:export_prog },
-                   {text:"Import Program...", func:import_prog },
+                   {text:"Import Program...", func:import_prog, type:"file-in" },
                    //{text:"Export State...", func: ()=>{ export_entire_state(parent) }},
                    //{text:"Export SVG...", func: ()=>{ export_svg(parent) }},
                    {text:'-'}]

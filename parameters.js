@@ -233,15 +233,18 @@ function add_param_label(line, text, cls) {
     }
     return e
 }
-function add_upload_btn(parent, change_func) {
+function add_upload_btn(parent, cls, text, change_func) {
     let fin = add_elem(parent, "input", "param_file_input")
     fin.type = "file"
     fin.id = "p_fl_" + g_input_ids++  // for the "for"
-    let btn = add_elem(parent, "label", ["param_btn", "param_file_choose_btn"])
-    btn.innerText = "Choose File..."
+    let btn = add_elem(parent, "label", cls)
+    btn.innerText = text
     btn.setAttribute("for", fin.id)
-    myAddEventListener(fin, "change", ()=>{change_func(fin.files[0]) })
-    fin.value = "" // make the input forget about this file so that the same filename can be uploaded again
+    myAddEventListener(fin, "change", ()=>{
+        change_func(fin.files[0]) 
+        fin.value = "" // make the input forget about this file so that the same filename can be uploaded again
+    })
+    return [fin, btn]
 }
 
 function formatType(value, type) {
@@ -2246,7 +2249,7 @@ class ParamFileUpload extends Parameter
     add_elems(parent) {
         this.line_elem = add_param_line(parent)
         this.label_elem = add_param_label(this.line_elem, this.label)
-        add_upload_btn(this.line_elem, (in_file)=>{ 
+        add_upload_btn(this.line_elem, ["param_btn", "param_file_choose_btn"], "Choose File...", (in_file)=>{ 
             this.file = in_file
             filename_show.textContent = this.file.name 
             this.read_file(this.file, true, (file, url)=>{ this.load_url(url) })

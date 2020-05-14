@@ -48,12 +48,15 @@ function save_program_json() {
     return json_stringify(sprog)
 }
 
-function load_prog_json(prog_s) {
-    
-    let prog = JSON.parse(prog_s)
+function load_prog_obj(prog) {
     load_program(prog)
     draw_nodes()
     trigger_frame_draw(true)
+}
+
+function load_prog_json(prog_s) {
+    let prog = JSON.parse(prog_s)
+    load_prog_obj(prog)
 }
 
 var user_saved_programs = {}

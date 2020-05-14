@@ -75,6 +75,7 @@ input {
 }
 .ctx_menu_opt {  
     padding: 0 7px;
+    display: block;  /* for the benefit of import label element */
 }
 .ctx_menu_opt:hover {  
     background-color: #888888;
