@@ -1,0 +1,254 @@
+nodes:
+  '22':
+    params:
+      Shape:
+        sel_str: Rectangle
+      Size:
+        e_x: 1.4569999999999999
+        e_y: 1.348
+        se_cv: 'return vec2(0.5, 0.5)'
+      Num Points:
+        e_v: 5
+        se_cv: return 5
+      Inner Point:
+        e_x: 0.22600000000000003
+        se_y: '-0.311'
+        se_cv: 'return vec2(0.226, -0.311)'
+      Transform:
+        e_tx: 0.031100000000000006
+        e_ty: 0.05600000000000001
+        e_r: 0
+        sldcfg_r:
+          allowed: false
+          visible: true
+          min: 0
+          max: 360
+        e_pvx: 0
+        se_pvy: '-0.2'
+        e_sx: 1
+        e_sy: 1
+    name: geom_primitive_2
+    cls_name: Geom Primitive
+    x: 7
+    y: 458
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+  '24':
+    params:
+      Set approximate distance:
+        v: false
+      Divisions:
+        e_v: 10
+        se_cv: return 4
+      Distance:
+        e_v: 0.1
+        se_cv: return 0.1
+    name: divide_2
+    cls_name: Divide
+    x: 61
+    y: 550
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+  '29':
+    params:
+      npt:
+        v:
+          '0': color
+          '1': radius
+          '2': normal
+          '3': fill
+          '4': transform
+      Bind To:
+        sel_str: Faces
+      Type:
+        sel_str: Transform
+      Edit code:
+        v: false
+      Name:
+        v: transform
+      Color:
+        hex: '#CCCCCC'
+        se_cv: 'return rgb(204, 204, 204)'
+      Float:
+        e_v: 0
+        se_cv: return 0
+      Float2:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      Select:
+        e_v: 1
+        se_cv: return true
+      Transform:
+        se_tx: '-0.000226'
+        e_ty: 0.017200000000000003
+        se_r: in_obj.face_center.x*amt*2
+        se_pvx: in_obj.face_center.x
+        se_pvy: in_obj.face_center.y
+        e_sx: 1
+        e_sy: 1
+    name: set_attribute_3
+    cls_name: Set Attribute
+    x: 268
+    y: 843
+    disp_param:
+      show_vtx: false
+      show_lines: true
+      show_faces: true
+      show_ctrls: false
+  '31':
+    params:
+      Algorithm:
+        sel_str: Chaikin
+      Factor:
+        e_v: 0.5
+        se_cv: return 0.5
+    name: round_corners_1
+    cls_name: Round Corners
+    x: 60
+    y: 637
+    disp_param:
+      show_vtx: true
+      show_ctrls: true
+      show_lines: true
+      show_faces: true
+  '34':
+    params:
+      npt:
+        v:
+          '0': color
+          '1': radius
+          '2': normal
+          '3': fill
+          '4': transform
+      Bind To:
+        sel_str: Vertices
+      Type:
+        sel_str: Transform
+      Edit code:
+        v: false
+      Name:
+        v: transform
+      Color:
+        hex: '#CCCCCC'
+        se_cv: 'return rgb(204, 204, 204)'
+      Float:
+        e_v: 0
+        se_cv: return 0
+      Float2:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      Select:
+        e_v: 1
+        se_cv: return true
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        se_r: length(in_obj.vtx_pos)*amt
+        sldcfg_r:
+          min: 0
+          max: 360
+          allowed: true
+          visible: false
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: set_attribute_4
+    cls_name: Set Attribute
+    x: 183
+    y: 740
+    disp_param:
+      show_vtx: false
+      show_ctrls: false
+      show_lines: true
+      show_faces: true
+  '37':
+    params:
+      Type:
+        sel_str: Float
+      Name:
+        v: amt
+      Float:
+        e_v: 7.070707070707073
+        sldcfg_v:
+          min: -100
+          max: 100
+          allowed: true
+          visible: true
+        se_cv: return 1
+      Integer:
+        e_v: 1
+        se_cv: return 1
+      Float2:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      Color:
+        hex: '#CCCCCC'
+        se_cv: 'return rgb(204, 204, 204)'
+      Mouse Coord:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      Sample At:
+        sel_str: Mouse left down
+    name: amt
+    cls_name: Variable
+    x: 40
+    y: 827
+    disp_param: {}
+lines:
+  - from_name: out_mesh
+    from_id: 22
+    to_name: in_mesh
+    to_id: 24
+    uid: 25
+  - from_name: out_mesh
+    from_id: 24
+    to_name: in_obj
+    to_id: 31
+    uid: 32
+  - from_name: out_paths
+    from_id: 31
+    to_name: in_obj
+    to_id: 34
+    uid: 35
+  - from_name: out_mesh
+    from_id: 34
+    to_name: in_obj
+    to_id: 29
+    uid: 36
+  - from_name: variable_out
+    from_id: 37
+    to_name: vars_in
+    to_id: 34
+    uid: 40
+  - from_name: variable_out
+    from_id: 37
+    to_name: vars_in
+    to_id: 29
+    uid: 41
+next_node_id: 42
+names_idx_s:
+  Geom Primitive: 2
+  Divide: 2
+  Transform: 2
+  Boolean Operation: 1
+  Shrink Faces: 1
+  Set Attribute: 4
+  Create Pixel-Buffer: 1
+  Gradient: 1
+  Round Corners: 1
+  Variable: 1
+display_node_id: 29
+tdisp_node_ids: []
+input_node_ids: []
+nodes_view:
+  pan_x: 140
+  pan_y: -451

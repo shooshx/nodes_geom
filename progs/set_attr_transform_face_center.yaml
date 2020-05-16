@@ -1,0 +1,409 @@
+nodes:
+  '1':
+    params:
+      Shape:
+        sel_str: Rectangle
+      Size:
+        e_x: 1
+        e_y: 1
+        se_cv: 'return vec2(0.5, 0.5)'
+      Num Points:
+        e_v: 5
+        se_cv: return 5
+      Inner Point:
+        e_x: 0.22600000000000003
+        se_y: '-0.311'
+        se_cv: 'return vec2(0.226, -0.311)'
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        sldcfg_r:
+          allowed: false
+          visible: false
+          min: 0
+          max: 1
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: geom_primitive_1
+    cls_name: Geom Primitive
+    x: 296
+    y: 151
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+  '2':
+    params:
+      Set approximate distance:
+        v: false
+      Divisions:
+        e_v: 2
+        se_cv: return 4
+      Distance:
+        e_v: 0.1
+        se_cv: return 0.1
+    name: divide_1
+    cls_name: Divide
+    x: 367
+    y: 228
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+  '4':
+    params:
+      transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 19.595
+        sldcfg_r:
+          allowed: false
+          visible: false
+          min: 0
+          max: 1
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1.5
+        e_sy: 1.5
+    name: transform_1
+    cls_name: Transform
+    x: 368
+    y: 327
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+  '6':
+    params:
+      Operation:
+        sel_str: Intersection
+      Swap:
+        v: true
+    name: boolean_operation_1
+    cls_name: Boolean Operation
+    x: 236
+    y: 503
+    disp_param:
+      show_vtx: false
+      show_ctrls: true
+      show_lines: true
+      show_faces: true
+  '12':
+    params:
+      Offset:
+        e_v: 0.010000000000000002
+        se_cv: return 0.01
+      Allow over-shoot:
+        v: false
+    name: shrink_faces_1
+    cls_name: Shrink Faces
+    x: 365
+    y: 413
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+  '17':
+    params:
+      npt:
+        v:
+          '0': color
+          '1': radius
+          '2': normal
+          '3': fill
+          '4': transform
+      Bind To:
+        sel_str: Faces
+      Type:
+        sel_str: Transform
+      Edit code:
+        v: false
+      Name:
+        v: transform
+      Color:
+        hex: '#CCCCCC'
+        show_code: true
+        se_cv: |-
+          # r = rand(in_obj.index)*255
+          r = in_src.g 
+          return rgb(r, 128, 255)     
+      Float:
+        e_v: 0
+        se_cv: return 0
+      Float2:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      Select:
+        e_v: 1
+        se_cv: return true
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        se_r: rand(in_obj.index)*70
+        sldcfg_r:
+          allowed: false
+          visible: false
+          min: 0
+          max: 1
+        se_pvx: 'in_obj.face_center.x '
+        se_pvy: in_obj.face_center.y
+        e_sx: 1
+        e_sy: 1
+    name: set_attribute_1
+    cls_name: Set Attribute
+    x: 211
+    y: 782
+    disp_param:
+      show_vtx: false
+      show_ctrls: true
+      show_lines: true
+      show_faces: true
+  '19':
+    params:
+      Resolution:
+        x: 853
+        y: 853
+      Size:
+        e_x: 2
+        e_y: 2
+        se_cv: 'return vec2(2, 2)'
+      Smooth Scaling:
+        v: true
+      Texture Edge:
+        sel_str: Pad
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        sldcfg_r:
+          allowed: false
+          visible: false
+          min: 0
+          max: 1
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: create_pixel_buffer_1
+    cls_name: Create Pixel-Buffer
+    x: 10
+    y: 265
+    disp_param: {}
+  '20':
+    params:
+      Type:
+        sel_str: Linear
+      Method:
+        sel_str: Stops
+      Point 1:
+        se_x: '-0.770'
+        se_y: '-0.486'
+        se_cv: 'return vec2(-0.5, 0)'
+      Radius 1:
+        e_v: 0.1
+        se_cv: return 0.1
+      Point 2:
+        e_x: 0.8500000000000001
+        e_y: 0.49900000000000005
+        se_cv: 'return vec2(0.5, 0)'
+      Radius 2:
+        e_v: 0.7
+        se_cv: return 0.7
+      Spread:
+        sel_str: Pad
+      f(t)=:
+        hex: '#CCCCCC'
+        show_code: true
+        se_cv: 'return rgb(255, 128, 0.0) + rgb(t, t, t)*255'
+      Sample Num:
+        e_v: 10
+        se_cv: return 10
+      Add stops:
+        v: true
+      Value:
+        lst: [0, 0.5, 1]
+      Color:
+        lst: [255, 0, 0, 255, 255, 255, 0, 255, 0, 255, 0, 255]
+      Resolution:
+        e_v: 128
+        se_cv: return 128
+      Smooth:
+        v: false
+    name: gradient_1
+    cls_name: Gradient
+    x: 344
+    y: 577
+    disp_param:
+      show_fill: true
+  '22':
+    params:
+      Shape:
+        sel_str: Rectangle
+      Size:
+        e_x: 1.5
+        e_y: 1.5
+        se_cv: 'return vec2(0.5, 0.5)'
+      Num Points:
+        e_v: 5
+        se_cv: return 5
+      Inner Point:
+        e_x: 0.22600000000000003
+        se_y: '-0.311'
+        se_cv: 'return vec2(0.226, -0.311)'
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        sldcfg_r:
+          allowed: false
+          visible: false
+          min: 0
+          max: 1
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: geom_primitive_2
+    cls_name: Geom Primitive
+    x: 7
+    y: 458
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+  '24':
+    params:
+      Set approximate distance:
+        v: false
+      Divisions:
+        e_v: 20
+        se_cv: return 4
+      Distance:
+        e_v: 0.1
+        se_cv: return 0.1
+    name: divide_2
+    cls_name: Divide
+    x: 66
+    y: 567
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+  '27':
+    params:
+      npt:
+        v:
+          '0': color
+          '1': radius
+          '2': normal
+          '3': fill
+          '4': transform
+      Bind To:
+        sel_str: Faces
+      Type:
+        sel_str: Color
+      Edit code:
+        v: true
+      Name:
+        v: color
+      Color:
+        hex: '#CCCCCC'
+        show_code: true
+        se_cv: return in_src
+      Float:
+        e_v: 0
+        se_cv: return 0
+      Float2:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      Select:
+        e_v: 1
+        se_cv: return true
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        sldcfg_r:
+          allowed: false
+          visible: false
+          min: 0
+          max: 1
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: set_attribute_2
+    cls_name: Set Attribute
+    x: 205
+    y: 691
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+lines:
+  - from_name: out_mesh
+    from_id: 1
+    to_name: in_mesh
+    to_id: 2
+    uid: 3
+  - from_name: out_mesh
+    from_id: 2
+    to_name: input
+    to_id: 4
+    uid: 5
+  - from_name: out_mesh
+    from_id: 1
+    to_name: in_obj1
+    to_id: 6
+    uid: 10
+  - from_name: output
+    from_id: 4
+    to_name: in_obj
+    to_id: 12
+    uid: 13
+  - from_name: out_obj
+    from_id: 12
+    to_name: in_obj2
+    to_id: 6
+    uid: 14
+  - from_name: out_mesh
+    from_id: 22
+    to_name: in_mesh
+    to_id: 24
+    uid: 25
+  - from_name: out_mesh
+    from_id: 24
+    to_name: in_obj
+    to_id: 27
+    uid: 28
+  - from_name: out_mesh
+    from_id: 27
+    to_name: in_obj
+    to_id: 17
+    uid: 29
+  - from_name: out_gradient
+    from_id: 20
+    to_name: in_src
+    to_id: 27
+    uid: 30
+next_node_id: 31
+names_idx_s:
+  Geom Primitive: 2
+  Divide: 2
+  Transform: 2
+  Boolean Operation: 1
+  Shrink Faces: 1
+  Set Attribute: 2
+  Create Pixel-Buffer: 1
+  Gradient: 1
+display_node_id: 17
+tdisp_node_ids: []
+input_node_ids: []
+nodes_view:
+  pan_x: 11
+  pan_y: -311

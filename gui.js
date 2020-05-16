@@ -436,6 +436,8 @@ function open_context_menu(options, wx, wy, parent_elem, dismiss_func)
             e.innerText = opt.text
         }
         
+        if (e === undefined || e === null)
+            continue
         stop_propogation_on("mousedown", e)
         if (opt.func === undefined)
             continue

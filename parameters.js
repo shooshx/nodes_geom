@@ -2207,11 +2207,16 @@ class ParamSelect extends Parameter
     constructor(node, label, selected_idx, opts, change_func=null) {
         super(node, label)
         this.opts = opts
+        this.init_sel = selected_idx
         this.sel_idx = selected_idx
         this.change_func = change_func
     }
     save() { return { sel_str: this.opts[this.sel_idx] } }
-    load(v) { this.sel_idx = this.opts.indexOf(v.sel_str); }
+    load(v) { 
+        this.sel_idx = this.opts.indexOf(v.sel_str); 
+        if (this.sel_idx === -1) // happens if the option name changed
+            this.sel_idx = this.init_sel
+    }
     add_elems(parent) {
         this.line_elem = add_param_line(parent, this)
         this.label_elem = add_param_label(this.line_elem, this.label)

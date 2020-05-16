@@ -51,6 +51,10 @@ class NodeGeomPrimitive extends NodeCls
         this.transform = new ParamTransform(node, "Transform")
 
         this.size_dial = new SizeDial(this.size)
+
+        this.inner_dial = new PointDial((dx,dy)=>{
+            this.inner_point.increment(vec2.fromValues(dx/this.size.x*2, dy/this.size.y*2))
+        })
     }
     run() {
         assert(this.transform.is_valid(), this, "invalid transform")

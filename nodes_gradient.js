@@ -404,6 +404,7 @@ class LinearGradient extends Gradient {
         
         // should be pad always for y since the gradient change is in x direction
         setTexParams(this.tex_smooth, this.spread, 'pad')
+        gl.bindTexture(gl.TEXTURE_2D, null);
 
         this.tex_obj_cache = tex
         return tex

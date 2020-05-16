@@ -76,7 +76,7 @@ function make_state(with_saves) {
 }
 
 function save_state() {
-    if (loading)
+    if (g_loading_page || g_loading_prog)
         return
     const json = make_state(false)
     localStorage.setItem("state", json)
@@ -95,7 +95,17 @@ function find_param_by_name(name, parameters) {
     return null
 }
 
-function load_program(sprog) 
+function load_program(sprog) {
+    try {
+        g_loading_prog = true
+        _load_program(sprog)
+    }
+    finally {
+        g_loading_prog = false
+    }
+}
+
+function _load_program(sprog) 
 {
     nodes_unselect_all(false)
     clear_program()
@@ -110,7 +120,7 @@ function load_program(sprog)
         let nid = parseInt(nid_s)
         let sn = sprog.nodes[nid]
         let cls = nodes_classes_by_name[sn.cls_name]
-        console.assert(cls !== null, "Unknown node class " + sn.cls_name)
+        console.assert(cls !== undefined && cls !== null, "Unknown node class " + sn.cls_name)
         let n = program.add_node(sn.x, sn.y, sn.name, cls, nid)
         for(let spname in sn.params) {
             let sp = sn.params[spname]            
@@ -188,9 +198,10 @@ function load_program(sprog)
     }
 }
 
-var loading = false // used for avoiding spurious saves during load
+var g_loading_prog = false
+var g_loading_page = false // used for avoiding spurious saves during load
 function set_loading(v) {
-    loading = v
+    g_loading_page = v
 }
 
 function load_state() {

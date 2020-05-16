@@ -52,15 +52,19 @@ EXPRESSIONS
 - terminal dirty in Variables?
 - optiomize, load Yaml
     deserialize: don't swap prog before successful load
+    check saved stuff
+- node name aliases
 - clear_all should dirty all params (for run() that checks that)
 - code editor
+- mesh merge
 - swizzle
 - unify PImage and FrameBuffer
 - gradient as image source to func
 - interpolate between two gradients
 - render geometry to texture
     extend point-gradient
-- Manual geom move
+
+- Manual geom move -  maybe manual with multiple targets?
 - allow terminal name change backwards compatibility - in_tex to in_framebuffer
 - green coordinates
      - https://github.com/ugomadagu/Krita/blob/7626a015269510c13bf92268d00ad3fb13107e96/libs/image/kis_green_coordinates_math.cpp
@@ -144,7 +148,8 @@ NODES:
     for loop?
 - Gradient
     in stroke (line),
-    add nice presets
+- Boolean operation
+    all rects of a single input mesh (set_attr_transform_face_center.yaml)
 - 2d color function
     - time
 - random points  - https://www.sidefx.com/docs/houdini/nodes/sop/scatter.html

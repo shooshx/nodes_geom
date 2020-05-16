@@ -54,7 +54,7 @@ void main() {
 #ifndef EXPR_IS_COLOR
     float v = $EXPR$;
  #ifdef HAS_TEXTURE
-    outColor = texture(u_in_tex[0], vec2(v,0));
+    outColor = texture(u_in_tex_0, vec2(v,0));
  #else
     outColor = vec4(vec3(1.0, 0.5, 0.0) + vec3(v*2.0-1.0, v*2.0-1.0, v*2.0-1.0), 1.0);
  #endif
@@ -281,7 +281,8 @@ class NodeFuncFill extends BaseNodeShaderWrap
 
         // don't need to actually give anything to the evaluator since it's not doing eval, it's doing to_glsl
         const need_tex = (this.active_param.need_input_evaler('in_tex') !== null || 
-                          this.active_param.need_input_evaler('in_texi') !== null)
+                          this.active_param.need_input_evaler('in_texi') !== null || 
+                          (this.type.sel_idx === 0 && texs.length >= 1))  // with value, we always need texutre if we have it for gradient 
 
         if (need_tex) {
             assert(texs.length >= 1, this, "Code expect texture but none is connected")
