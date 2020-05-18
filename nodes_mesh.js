@@ -1330,7 +1330,7 @@ class NodeTriangulate extends NodeCls
     }
 }
 
-
+// build my kind of path from canvas ops
 class PathsBuilder {
     constructor() {
         this.vtx_pos = []

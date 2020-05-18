@@ -33,6 +33,7 @@ class MultiPath extends PObject
         this.tcache = { vtx_pos:null, m:null }  // transformed cache (for setattr)
         this.fill_objs = init_fill_objs()
         this.paper_obj = null // paper.js object
+        this.clipper_obj = null // clipper.js object
 
         this.effective_vtx_pos = null
         this.eff_ctrl_to_prev = null
@@ -51,6 +52,7 @@ class MultiPath extends PObject
     invalidate_pos() {
         this.paths = null
         this.paper_obj = null
+        this.clipper_obj = null
         this.make_effective_vtx_pos()
     }
     make_effective_vtx_pos() {
@@ -404,6 +406,33 @@ class MultiPath extends PObject
         this.paper_obj = paper_obj
     }
 
+    ensure_clipper() {
+        if (this.clipper_obj !== null)
+            return this.clipper_obj
+        const b = new ClipperPathsBuilder()
+        for(let pri = 0; pri < this.paths_ranges.length; pri += 3) {
+            this.call_path_commands(b, pri)
+        }
+        this.clipper_obj = b.d
+        return this.clipper_obj
+    }
+
+    from_clipper_paths(clipper_obj) {
+        let vtx = [], ranges = [], cur_idx = 0
+        for(let path of clipper_obj) {
+            const start_idx = cur_idx
+            for(let pnt of path) {
+                vtx.push(pnt.X, pnt.Y)
+                ++cur_idx
+            }
+            ranges.push(start_idx, cur_idx, PATH_CLOSED) // Paths are implicitly closed
+        }
+        this.set('vtx_pos', new TVtxArr(vtx), 2)
+        this.paths_ranges = ranges
+        this.invalidate_pos()
+        this.clipper_obj = clipper_obj
+    }
+
 }
 
 
@@ -686,8 +715,8 @@ class NodeBoolOp extends NodeCls
         this.in_obj2 = new InTerminal(node, "in_obj2")
         this.out_paths = new OutTerminal(node, "out_paths")
         
-        this.op = new ParamSelect(node, "Operation", 0, ["Union", "Intersection", "Subtract", "Exclude", "Divide"], (sel_idx)=>{
-            this.swap.set_visible(sel_idx == 2 || sel_idx == 4);
+        this.op = new ParamSelect(node, "Operation", 0, ["Union", "Intersection", "Subtract", "Xor"], (sel_idx)=>{
+            this.swap.set_visible(sel_idx == 2);
         })
         this.swap = new ParamBool(node, "Swap", false)
     }
@@ -702,25 +731,33 @@ class NodeBoolOp extends NodeCls
             const t = obj1; obj1 = obj2; obj2 = t
         }
 
-        const p1 = obj1.ensure_paper()
-        const p2 = obj2.ensure_paper()
-        let p_res
+        let type = null
         switch (this.op.sel_idx) {
-        case 0: p_res = p1.unite(p2); break;
-        case 1: p_res = p1.intersect(p2); break;
-        case 2: p_res = p1.subtract(p2); break;
-        case 3: p_res = p1.exclude(p2); break;
-        case 4: p_res = p1.divide(p2); break;
+        case 0: type = ClipperLib.ClipType.ctUnion; break;
+        case 1: type = ClipperLib.ClipType.ctIntersection; break;
+        case 2: type = ClipperLib.ClipType.ctDifference; break;
+        case 3: type = ClipperLib.ClipType.ctXor; break;
         }
 
-        if (p_res.children === undefined) {
-            const pc = new paper.CompoundPath()
-            pc.addChild(p_res)
-            p_res = pc
+        const p1 = obj1.ensure_clipper()
+        const p2 = obj2.ensure_clipper()
+        // see https://sourceforge.net/p/jsclipper/wiki/documentation/
+        const cpr = new ClipperLib.Clipper();
+
+        const p_res = new ClipperLib.Paths();
+        try {
+            cpr.AddPaths(p1, ClipperLib.PolyType.ptSubject, true);  // true means closed path
+            cpr.AddPaths(p2, ClipperLib.PolyType.ptClip, true);
+    
+            const succeeded = cpr.Execute(type, p_res, ClipperLib.PolyFillType.pftNonZero, ClipperLib.PolyFillType.pftNonZero);
+            assert(succeeded, this, "Clipper failed")
+        }
+        catch(e) {
+            assert(false, this, e.message)
         }
 
         let new_obj = new MultiPath()
-        new_obj.from_paper(p_res)
+        new_obj.from_clipper_paths(p_res)
         this.out_paths.set(new_obj)
     }
 

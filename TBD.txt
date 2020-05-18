@@ -48,17 +48,21 @@ EXPRESSIONS
 
 
 ****** CURRENT AGENDA ******
-- Param2d short expression, slider
 - terminal dirty in Variables?
 - optiomize, load Yaml
     deserialize: don't swap prog before successful load
     check saved stuff
 - node name aliases
 - clear_all should dirty all params (for run() that checks that)
+- Clipper BoolOp
+    - open paths with tree
+    - offset
+    - local surroundings of smaller bbox
+    - discretization of bezier (and back to bezier from paperjs?)
+    - union with multi input, of single object (has function)
 - code editor
 - mesh merge
 - swizzle
-- unify PImage and FrameBuffer
 - gradient as image source to func
 - interpolate between two gradients
 - render geometry to texture
@@ -133,6 +137,7 @@ NODES:
     https://github.com/shooshx/kawaiigl/blob/0f403512b49187b677865179f3ef5eb18433b68b/NoiseGenerator.cpp
     simplex?
 - Load-Image
+    video
     menu on the side to load presets?
     !!! know when the user changed the filename and set size only when that happens and not on pis_dirty which happens on load
 - point size to path circle
@@ -217,6 +222,7 @@ demo idea
 - plasma https://stuff.brm.sk/plasma/
 - filters from Krita G'MIC
 - Moving Voronoi disagram with stars in a random walk in it
+- fade from image to image?
 
 https://two.js.org/examples/
 

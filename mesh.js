@@ -92,6 +92,7 @@ class Mesh extends PObject
                              // it's the nodes responsibility that there would not be left objects that are not needed
                              // first entry is null so ids start with 1. 0 is reserved to nothing
         this.paper_obj = null
+        this.clipper_obj = null
         this.effective_vtx_pos = null // if there is vtx_transform/face_transform, this is already transformed vertices, otherwise just equal to vtx_pos
     }
     destructor() {
@@ -117,6 +118,8 @@ class Mesh extends PObject
         if (this.meta.vtx_pos !== null)
             this.meta.vtx_pos.made_glbuf = false
         this.paths = null
+        this.paper_obj = null
+        this.clipper_obj = null
         this.make_effective_vtx_pos()
         this.invalidate_fill()
     }
@@ -667,7 +670,42 @@ class Mesh extends PObject
         this.paper_obj = p
         return this.paper_obj        
     }
+
+    ensure_clipper() {
+        if (this.clipper_obj !== null)
+            return this.clipper_obj
+        const b = new ClipperPathsBuilder()
+        this.make_single_object_calls(b)
+        this.clipper_obj = b.d
+        return this.clipper_obj
+    }
 }
+
+// construct a clipper.js style object from context ops
+class ClipperPathsBuilder 
+{
+    constructor() {
+        this.d = []
+        this.curPath = null
+    }
+    moveTo(x, y) {
+        this.curPath = [{X:x, Y:y}]
+        this.curPath.closed = false
+        this.d.push(this.curPath)
+    }
+    lineTo(x, y) {
+        dassert(this.curPath !== null, "Path needs to start with moveTo")
+        this.curPath.push({X:x, Y:y})
+    }
+    closePath() {
+        dassert(this.curPath !== null, "Path needs to start with moveTo")
+        this.curPath.closed = true
+    }
+    bezierCurveTo() {
+        dassert(false, "not implemented")
+    }
+}
+
 
 let g_buf_id = 1
 
