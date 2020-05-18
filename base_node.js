@@ -543,13 +543,14 @@ class InTerminalMulti extends TerminalBase
     constructor(in_node, name) {
         super(name, in_node, true)
         this.dirty = true
+        this.width = TERM_MULTI_HWIDTH
     }
     draw_path(ctx) {
-        rounded_rect(ctx, this.px() - TERM_MULTI_HWIDTH, this.py() - TERM_RADIUS, TERM_MULTI_HWIDTH*2, 2*TERM_RADIUS, TERM_RADIUS)
+        rounded_rect(ctx, this.px() - this.width, this.py() - TERM_RADIUS, this.width*2, 2*TERM_RADIUS, TERM_RADIUS)
     }
 
     hit_test(px, py) {
-        return px >= this.center_x() - TERM_MULTI_HWIDTH && px <= this.center_x() + TERM_MULTI_HWIDTH && 
+        return px >= this.center_x() - this.width && px <= this.center_x() + this.width && 
                py >= this.center_y() - TERM_RADIUS && py <= this.center_y() + TERM_RADIUS
     } 
     get_attachment() {

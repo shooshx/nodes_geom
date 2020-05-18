@@ -686,20 +686,20 @@ class ClipperPathsBuilder
 {
     constructor() {
         this.d = []
-        this.curPath = null
+        this.cur_path = null
     }
     moveTo(x, y) {
-        this.curPath = [{X:x, Y:y}]
-        this.curPath.closed = false
-        this.d.push(this.curPath)
+        this.cur_path = [{X:x, Y:y}]
+        this.cur_path.closed = false
+        this.d.push(this.cur_path)
     }
     lineTo(x, y) {
-        dassert(this.curPath !== null, "Path needs to start with moveTo")
-        this.curPath.push({X:x, Y:y})
+        dassert(this.cur_path !== null, "Path needs to start with moveTo")
+        this.cur_path.push({X:x, Y:y})
     }
     closePath() {
-        dassert(this.curPath !== null, "Path needs to start with moveTo")
-        this.curPath.closed = true
+        dassert(this.cur_path !== null, "Path needs to start with moveTo")
+        this.cur_path.closed = true
     }
     bezierCurveTo() {
         dassert(false, "not implemented")

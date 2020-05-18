@@ -13,6 +13,9 @@ Node becomes dirty by
 - The object in one of its terminals changed
     This is needed for A->B, when the user displays A, changes it, then displays B - B needs to be invalidated and not hold on to old object
 
+Terminals
+- bad idea: having enabled/disabled terminals. Disabled terminal still has an invisible connection to it
+
 Colors
 - when dealing with images, ranges is 0-255 to r,g,b,alphai and 0-1 to alpha, as sampled from images
 - when dealing with shaders, webgl, all is in range 0-1

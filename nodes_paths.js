@@ -406,7 +406,15 @@ class MultiPath extends PObject
         this.paper_obj = paper_obj
     }
 
-    ensure_clipper() {
+    has_open() {
+        for(let pri = 0; pri < this.paths_ranges.length; pri += 3) {
+            if (!get_flag(this.paths_ranges[pri+2], PATH_CLOSED))
+                return true
+        }
+        return false
+    }
+
+    ensure_clipper() {     
         if (this.clipper_obj !== null)
             return this.clipper_obj
         const b = new ClipperPathsBuilder()
@@ -419,13 +427,27 @@ class MultiPath extends PObject
 
     from_clipper_paths(clipper_obj) {
         let vtx = [], ranges = [], cur_idx = 0
-        for(let path of clipper_obj) {
-            const start_idx = cur_idx
-            for(let pnt of path) {
-                vtx.push(pnt.X, pnt.Y)
-                ++cur_idx
-            }
-            ranges.push(start_idx, cur_idx, PATH_CLOSED) // Paths are implicitly closed
+        if (clipper_obj.constructor === ClipperLib.PolyTree) 
+        {
+            for(let path of clipper_obj.m_AllPolys) {
+                const start_idx = cur_idx
+                for(let pnt of path.m_polygon) {
+                    vtx.push(pnt.X, pnt.Y)
+                    ++cur_idx
+                }
+                ranges.push(start_idx, cur_idx, path.IsOpen ? 0 : PATH_CLOSED) // Paths are implicitly closed
+            }    
+
+        }
+        else {
+            for(let path of clipper_obj) {
+                const start_idx = cur_idx
+                for(let pnt of path) {
+                    vtx.push(pnt.X, pnt.Y)
+                    ++cur_idx
+                }
+                ranges.push(start_idx, cur_idx, PATH_CLOSED) // Paths are implicitly closed
+            }    
         }
         this.set('vtx_pos', new TVtxArr(vtx), 2)
         this.paths_ranges = ranges
@@ -711,24 +733,31 @@ class NodeBoolOp extends NodeCls
     static name() { return "Boolean Operation" }
     constructor(node) {
         super(node)
-        this.in_obj1 = new InTerminal(node, "in_obj1")
-        this.in_obj2 = new InTerminal(node, "in_obj2")
+        this.in_obj1 = new InTerminalMulti(node, "in_obj_subject")
+        this.in_obj1.width = 17
+        this.in_obj2 = new InTerminalMulti(node, "in_obj_clip")
+        this.in_obj2.width = 17
         this.out_paths = new OutTerminal(node, "out_paths")
         
         this.op = new ParamSelect(node, "Operation", 0, ["Union", "Intersection", "Subtract", "Xor"], (sel_idx)=>{
-            this.swap.set_visible(sel_idx == 2);
+            this.swap.set_visible(sel_idx === 2)
         })
         this.swap = new ParamBool(node, "Swap", false)
     }
 
     run() {
-        let obj1 = this.in_obj1.get_const()
-        assert(obj1 !== null, this, "Missing input 1")
-        let obj2 = this.in_obj2.get_const()
-        assert(obj2 !== null, this, "Missing input 2")
+        let objs1 = this.in_obj1.get_input_consts()
+        let objs2 = this.in_obj2.get_input_consts()
 
-        if (this.swap.v && (this.op.sel_idx == 2 || this.op.sel_idx == 4)) {
-            const t = obj1; obj1 = obj2; obj2 = t
+        if (this.swap.v && (this.op.sel_idx == 2)) {
+            const t = objs1; objs1 = objs2; objs2 = t
+        }
+        if (this.op.sel_idx !== 0) {
+            assert(objs1.length > 0, this, "Missing input subject")
+            assert(objs2.length > 0, this, "Missing input clip")
+        }
+        else {
+            assert(objs1.length + objs2.length > 0, this, "Missing input")
         }
 
         let type = null
@@ -739,15 +768,29 @@ class NodeBoolOp extends NodeCls
         case 3: type = ClipperLib.ClipType.ctXor; break;
         }
 
-        const p1 = obj1.ensure_clipper()
-        const p2 = obj2.ensure_clipper()
         // see https://sourceforge.net/p/jsclipper/wiki/documentation/
         const cpr = new ClipperLib.Clipper();
-
-        const p_res = new ClipperLib.Paths();
+        let p_res = null
         try {
-            cpr.AddPaths(p1, ClipperLib.PolyType.ptSubject, true);  // true means closed path
-            cpr.AddPaths(p2, ClipperLib.PolyType.ptClip, true);
+            let has_open = false
+            for(let obj of objs1) {
+                const p = obj.ensure_clipper()
+                for(let pp of p) {
+                    has_open |= !pp.closed
+                    assert(cpr.AddPath(pp, ClipperLib.PolyType.ptSubject, pp.closed), this, "failed AddPath")
+                }
+            }
+            for(let obj of objs2) {
+                const p = obj.ensure_clipper()
+                 for(let pp of p) {
+                    assert(pp.closed, this, "Clip obj should not be open") // also checked in AddPath
+                    assert(cpr.AddPath(pp, ClipperLib.PolyType.ptClip, true), this, "failed AddPath")
+                }
+            }
+            if (has_open)
+                p_res = new ClipperLib.PolyTree()
+            else
+                p_res = new ClipperLib.Paths();
     
             const succeeded = cpr.Execute(type, p_res, ClipperLib.PolyFillType.pftNonZero, ClipperLib.PolyFillType.pftNonZero);
             assert(succeeded, this, "Clipper failed")
