@@ -56,6 +56,9 @@ EXPRESSIONS
 - clear_all should dirty all params (for run() that checks that)
 - Clipper BoolOp
     - offset
+        - bug with oversizing divided square - lighten doesn't get rid of first point
+        - Z for preserving props
+        - mesh returns to be mesh?
     - local surroundings of smaller bbox
     - discretization of bezier (and back to bezier from paperjs?)
 - code editor

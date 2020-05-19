@@ -677,9 +677,12 @@ class Mesh extends PObject
         const b = new ClipperPathsBuilder()
         this.make_single_object_calls(b)
         this.clipper_obj = b.d
+        //ClipperLib.JS.ScaleUpPaths(this.clipper_obj, CLIPPER_SCALE);
         return this.clipper_obj
     }
 }
+
+const CLIPPER_SCALE = 1
 
 // construct a clipper.js style object from context ops
 class ClipperPathsBuilder 

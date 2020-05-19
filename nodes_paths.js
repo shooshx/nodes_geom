@@ -422,6 +422,7 @@ class MultiPath extends PObject
             this.call_path_commands(b, pri)
         }
         this.clipper_obj = b.d
+        //ClipperLib.JS.ScaleUpPaths(this.clipper_obj, CLIPPER_INT_SCALE);
         return this.clipper_obj
     }
 
@@ -432,7 +433,7 @@ class MultiPath extends PObject
             for(let path of clipper_obj.m_AllPolys) {
                 const start_idx = cur_idx
                 for(let pnt of path.m_polygon) {
-                    vtx.push(pnt.X, pnt.Y)
+                    vtx.push(pnt.X / CLIPPER_SCALE, pnt.Y / CLIPPER_SCALE)
                     ++cur_idx
                 }
                 ranges.push(start_idx, cur_idx, path.IsOpen ? 0 : PATH_CLOSED) // Paths are implicitly closed
@@ -443,7 +444,7 @@ class MultiPath extends PObject
             for(let path of clipper_obj) {
                 const start_idx = cur_idx
                 for(let pnt of path) {
-                    vtx.push(pnt.X, pnt.Y)
+                    vtx.push(pnt.X / CLIPPER_SCALE, pnt.Y / CLIPPER_SCALE)
                     ++cur_idx
                 }
                 ranges.push(start_idx, cur_idx, PATH_CLOSED) // Paths are implicitly closed

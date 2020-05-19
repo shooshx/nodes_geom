@@ -2202,15 +2202,29 @@ class ParamTextBlock extends Parameter
     }    
 }
 
+
 class ParamSelect extends Parameter
 {
+    // opts can be ["A", "B", "C"] or [["A",0.1], ["B", 0.2], ["C", 0.3]]
     constructor(node, label, selected_idx, opts, change_func=null) {
         super(node, label)
-        this.opts = opts
+        if (Array.isArray(opts[0])) { // has values
+            this.opts = []
+            this.opt_vals = []
+            for(let o of opts) {
+                this.opts.push(o[0])
+                this.opt_vals.push(o[1])
+            }
+        }
+        else {
+            this.opts = opts
+            this.opt_vals = null
+        }
         this.init_sel = selected_idx
         this.sel_idx = selected_idx
         this.change_func = change_func
     }
+
     save() { return { sel_str: this.opts[this.sel_idx] } }
     load(v) { 
         this.sel_idx = this.opts.indexOf(v.sel_str); 
@@ -2232,6 +2246,11 @@ class ParamSelect extends Parameter
     }        
     get_sel_name() {
         return this.opts[this.sel_idx].toLowerCase() // low case more appropriate for values
+    }
+    get_sel_val() {
+        if (this.opt_vals === null)
+            return null
+        return this.opt_vals[this.sel_idx]
     }
 }
 

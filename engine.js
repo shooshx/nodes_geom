@@ -629,6 +629,7 @@ var nodes_classes = [
     NodeLoadImage,
     NodeCreateFrameBuffer,
     NodeShrinkFaces,
+    NodeOffsetPath,
     NodeRoundCorners,
     NodeFuncFill,
     NodeBoolOp,

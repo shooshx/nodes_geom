@@ -1741,3 +1741,58 @@ class NodeShrinkFaces extends NodeCls
         this.out_obj.set(out_obj)
     }
 }
+
+
+class NodeOffsetPath extends NodeCls {
+    static name() { return "Offset Path" }
+    constructor(node) {
+        super(node)
+        this.in_obj = new InTerminal(node, "in_obj")
+        this.out_obj = new OutTerminal(node, "out_obj")    
+        this.offset = new ParamFloat(node, "Offset", 0.01, [-0.2,0.2])
+        const arcTolVis = ()=>{
+            this.arcTol.set_visible(this.point_type.sel_idx == 3 || this.open_op.sel_idx == 1)
+        }
+        this.point_type = new ParamSelect(node, "Point Type", 0, [["Square", ClipperLib.JoinType.jtSquare], 
+                                                                  ["Miter", ClipperLib.JoinType.jtMiterAlways],
+                                                                  ["Miter Thresh", ClipperLib.JoinType.jtMiter], 
+                                                                  ["Round", ClipperLib.JoinType.jtRound]], (sel_idx)=>{
+            this.miterLimit.set_visible(sel_idx === 2)
+            arcTolVis()        
+        })
+        this.closed_op = new ParamSelect(node, "Closed Paths", 0, [["Polygon", ClipperLib.EndType.etClosedPolygon],
+                                                                   ["Line", ClipperLib.EndType.etClosedLine]])
+        this.open_op = new ParamSelect(node, "Open Paths", 0, [["Square", ClipperLib.EndType.etOpenSquare],
+                                                               ["Round", ClipperLib.EndType.etOpenRound],
+                                                               ["Butt", ClipperLib.EndType.etOpenButt]], arcTolVis)
+
+        this.miterLimit = new ParamFloat(node, "Miter Thresh", 2.0, [1.0, 4.0]) // sharp edges limit
+        this.arcTol = new ParamFloat(node, "Arc Step", 0.002, [0.1, 1]) 
+        
+    }
+
+
+    run() {
+        const obj = this.in_obj.get_const()
+        assert(obj !== null, this, "missing input mesh")
+
+        let arcTol = this.arcTol.get_value()
+        if (arcTol <= 0)
+            arcTol = 0.1
+        const co = new ClipperLib.ClipperOffset(this.miterLimit.get_value() * CLIPPER_SCALE, arcTol * CLIPPER_SCALE)
+        const paths = obj.ensure_clipper()
+
+        for(let p of paths) {
+            co.AddPath(p, this.point_type.get_sel_val(), p.closed ? this.closed_op.get_sel_val() : this.open_op.get_sel_val())
+        }
+        let p_res = new ClipperLib.Paths()
+        co.Execute(p_res, this.offset.get_value() * CLIPPER_SCALE);
+
+        p_res = ClipperLib.JS.Lighten(p_res, 0.000001 * CLIPPER_SCALE);
+
+        let new_obj = new MultiPath()
+        new_obj.from_clipper_paths(p_res)
+        this.out_obj.set(new_obj)
+
+    }
+}
