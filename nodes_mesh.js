@@ -1626,120 +1626,107 @@ function get_line_intersection(l0, l1, allow_overshoot)
 }
 
 
-class NodeShrinkFaces extends NodeCls
+
+function fast_miter_run(mesh, offset, allow_overshoot, nodecls) 
 {
-    static name() { return "Shrink Faces" }
-    constructor(node) {
-        super(node)
-        this.in_obj = new InTerminal(node, "in_obj")
-        this.out_obj = new OutTerminal(node, "out_obj")    
-        this.offset = new ParamFloat(node, "Offset", 0.01, [-0.1,0.1])
-        // over-shoot happens when the triangle is thinner than the offset, in that case the intersctions are going to be reversed
-        this.allow_overshoot = new ParamBool(node, "Allow over-shoot", false) 
+    assert(mesh !== null, nodecls, "missing input mesh")
+    //assert(mesh.face_size !== undefined, this, "input needs to be a mesh")
+
+    // a line is a list of two points. `lines` has `face_size` lines for each face
+    // if face_sizes is not null, then it's different size for every face
+    if (mesh.constructor == Mesh) {
+        var const_face_size = mesh.face_size()
+        var lines = mesh_lines(mesh.arrs.idx, mesh.effective_vtx_pos, const_face_size)
+        var face_sizes = null
     }
-
-
-    run() {
-        let mesh = this.in_obj.get_const()
-        assert(mesh !== null, this, "missing input mesh")
-        //assert(mesh.face_size !== undefined, this, "input needs to be a mesh")
-
-        // a line is a list of two points. `lines` has `face_size` lines for each face
-        // if face_sizes is not null, then it's different size for every face
-        if (mesh.constructor == Mesh) {
-            var const_face_size = mesh.face_size()
-            var lines = mesh_lines(mesh.arrs.idx, mesh.effective_vtx_pos, const_face_size)
-            var face_sizes = null
-        }
-        else if (mesh.constructor == MultiPath) {
-            var const_face_size = null
-            var [lines, face_sizes] = path_lines(mesh.paths_ranges, mesh.effective_vtx_pos)
-        }
-        else {
-            assert(false, this, "input needs to be mesh or paths")
-        }
-        lines = inset_lines(lines, this.offset.v) // in-place
-
-
-        //this.out_mesh.set(new LinesObj(lines))
-        //return
-
-        let new_vtx = [], new_idx = [], from_face = [], new_ranges = []
-        let from_vidx = [] // for every vertex pushed to new_vtx, what's the index of the vertex in the original object it came from
-
-        let ri = 0
-        let cur_face_size = const_face_size
-        for (let i = 0, fi = 0; i < lines.length; i += cur_face_size, ++fi) 
-        {
-            if (face_sizes !== null)
-                cur_face_size = face_sizes[fi]
-
-            let got_null = false, intersections = []
-            for(let j = 0; j < cur_face_size; ++j) {
-                var p = get_line_intersection(lines[i+j], lines[i+((j+1) % cur_face_size)], this.allow_overshoot.v)
-                if (p === null) {
-                    got_null = true
-                    break
-                }
-                p.from_idx = lines[i+j][1].from_idx
-                intersections.push(p)
-            }
-            if (mesh.constructor == MultiPath) { // knots
-                skip_short_knots(intersections)
-            }
-
-            if (got_null)
-                continue
-            let start_idx = ri
-            for(let p of intersections) {
-                new_vtx.push(p[0], p[1])
-                from_vidx.push(p.from_idx)
-                new_idx.push(ri)
-                ri += 1
-            }
-            new_ranges.push(start_idx, ri, PATH_CLOSED)
-            from_face.push(fi)
-        }
-        // build output vertices and polys
-        if (mesh.constructor == Mesh) {
-            var out_obj = new Mesh()
-            out_obj.set('idx', new TIdxArr(new_idx))
-            out_obj.set_type(mesh.type)
-        }
-        else { // MultiPath
-            var out_obj = new MultiPath()
-            out_obj.paths_ranges = new_ranges;
-        }
-        out_obj.set('vtx_pos', new TVtxArr(new_vtx), 2)
-        // transfer other attributes
-        for(let arr_name in mesh.arrs) {
-            if (arr_name == "idx" || arr_name == "vtx_pos")
-                continue
-            
-            let from_arr = mesh.arrs[arr_name]
-            let num_elems = mesh.meta[arr_name].num_elems
-            let idx_src;
-            if (arr_name.startsWith("vtx_")) 
-                idx_src = from_vidx
-            else if (arr_name.startsWith("face_")) 
-                idx_src = from_face
-            else
-                continue
-
-            let new_arr = new from_arr.constructor(idx_src.length * num_elems)
-            let ni = 0
-
-            for(let idx of idx_src) {
-                for(let i = 0; i < num_elems; ++i) {
-                    new_arr[ni++] = from_arr[idx*num_elems+i]  
-                }
-            }
-            out_obj.set(arr_name, new_arr, num_elems, mesh.meta[arr_name].need_normalize)
-        }
-        out_obj.fill_objs = clone_fill_objs(mesh.fill_objs)
-
-        this.out_obj.set(out_obj)
+    else if (mesh.constructor == MultiPath) {
+        var const_face_size = null
+        var [lines, face_sizes] = path_lines(mesh.paths_ranges, mesh.effective_vtx_pos)
     }
+    else {
+        assert(false, nodecls, "input needs to be mesh or paths")
+    }
+    lines = inset_lines(lines, offset) // in-place
+
+
+    //this.out_mesh.set(new LinesObj(lines))
+    //return
+
+    let new_vtx = [], new_idx = [], from_face = [], new_ranges = []
+    let from_vidx = [] // for every vertex pushed to new_vtx, what's the index of the vertex in the original object it came from
+
+    let ri = 0
+    let cur_face_size = const_face_size
+    for (let i = 0, fi = 0; i < lines.length; i += cur_face_size, ++fi) 
+    {
+        if (face_sizes !== null)
+            cur_face_size = face_sizes[fi]
+
+        let got_null = false, intersections = []
+        for(let j = 0; j < cur_face_size; ++j) {
+            var p = get_line_intersection(lines[i+j], lines[i+((j+1) % cur_face_size)], allow_overshoot)
+            if (p === null) {
+                got_null = true
+                break
+            }
+            p.from_idx = lines[i+j][1].from_idx
+            intersections.push(p)
+        }
+        if (mesh.constructor == MultiPath) { // knots
+            skip_short_knots(intersections)
+        }
+
+        if (got_null)
+            continue
+        let start_idx = ri
+        for(let p of intersections) {
+            new_vtx.push(p[0], p[1])
+            from_vidx.push(p.from_idx)
+            new_idx.push(ri)
+            ri += 1
+        }
+        new_ranges.push(start_idx, ri, PATH_CLOSED)
+        from_face.push(fi)
+    }
+    // build output vertices and polys
+    let out_obj = null
+    if (mesh.constructor == Mesh) {
+        out_obj = new Mesh()
+        out_obj.set('idx', new TIdxArr(new_idx))
+        out_obj.set_type(mesh.type)
+    }
+    else { // MultiPath
+        out_obj = new MultiPath()
+        out_obj.paths_ranges = new_ranges;
+    }
+    out_obj.set('vtx_pos', new TVtxArr(new_vtx), 2)
+    // transfer other attributes
+    for(let arr_name in mesh.arrs) {
+        if (arr_name == "idx" || arr_name == "vtx_pos")
+            continue
+        
+        let from_arr = mesh.arrs[arr_name]
+        let num_elems = mesh.meta[arr_name].num_elems
+        let idx_src;
+        if (arr_name.startsWith("vtx_")) 
+            idx_src = from_vidx
+        else if (arr_name.startsWith("face_")) 
+            idx_src = from_face
+        else
+            continue
+
+        let new_arr = new from_arr.constructor(idx_src.length * num_elems)
+        let ni = 0
+
+        for(let idx of idx_src) {
+            for(let i = 0; i < num_elems; ++i) {
+                new_arr[ni++] = from_arr[idx*num_elems+i]  
+            }
+        }
+        out_obj.set(arr_name, new_arr, num_elems, mesh.meta[arr_name].need_normalize)
+    }
+    out_obj.fill_objs = clone_fill_objs(mesh.fill_objs)
+    return out_obj
 }
 
 
@@ -1751,13 +1738,17 @@ class NodeOffsetPath extends NodeCls {
         this.out_obj = new OutTerminal(node, "out_obj")    
         this.offset = new ParamFloat(node, "Offset", 0.01, [-0.2,0.2])
         const arcTolVis = ()=>{
-            this.arcTol.set_visible(this.point_type.sel_idx == 3 || this.open_op.sel_idx == 1)
+            this.arcTol.set_visible(this.point_type.sel_idx == 4 || this.open_op.sel_idx == 1)
         }
         this.point_type = new ParamSelect(node, "Point Type", 0, [["Square", ClipperLib.JoinType.jtSquare], 
                                                                   ["Miter", ClipperLib.JoinType.jtMiterAlways],
                                                                   ["Miter Thresh", ClipperLib.JoinType.jtMiter], 
+                                                                  ["Fast Miter", -1],
                                                                   ["Round", ClipperLib.JoinType.jtRound]], (sel_idx)=>{
             this.miterLimit.set_visible(sel_idx === 2)
+            this.closed_op.set_visible(sel_idx !== 3)
+            this.open_op.set_visible(sel_idx !== 3)
+            this.allow_overshoot.set_visible(sel_idx === 3)
             arcTolVis()        
         })
         this.closed_op = new ParamSelect(node, "Closed Paths", 0, [["Polygon", ClipperLib.EndType.etClosedPolygon],
@@ -1769,12 +1760,18 @@ class NodeOffsetPath extends NodeCls {
         this.miterLimit = new ParamFloat(node, "Miter Thresh", 2.0, [1.0, 4.0]) // sharp edges limit
         this.arcTol = new ParamFloat(node, "Arc Step", 0.002, [0.1, 1]) 
         
+        this.allow_overshoot = new ParamBool(node, "Allow over-shoot", false) 
     }
 
 
     run() {
         const obj = this.in_obj.get_const()
         assert(obj !== null, this, "missing input mesh")
+        if (this.point_type.sel_idx == 3) {
+            const new_obj = fast_miter_run(obj, -this.offset.get_value(), this.allow_overshoot.get_value(), this)
+            this.out_obj.set(new_obj)
+            return
+        }
 
         let arcTol = this.arcTol.get_value()
         if (arcTol <= 0)

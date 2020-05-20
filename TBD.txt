@@ -16,6 +16,7 @@ GUI:
 - define camera?
 - !!!!! input nodes are only active if they are in a current display tree
 - !! ability to resize code editor and pop it out
+- nodes - right click on name should show menu
 
 ENGINE:
 - serialization - save only if something is changed
@@ -45,6 +46,7 @@ EXPRESSIONS
 - func with 0 argument has a bug in parse
 - remove exponent opertor instead do it on number parsing
 - *** Vec2Int (resolution image)
+- default() to give value to non-existing variable
 
 
 ****** CURRENT AGENDA ******
@@ -58,7 +60,7 @@ EXPRESSIONS
     - offset
         - bug with oversizing divided square - lighten doesn't get rid of first point
         - Z for preserving props
-        - mesh returns to be mesh?
+
     - local surroundings of smaller bbox
     - discretization of bezier (and back to bezier from paperjs?)
 - code editor
@@ -157,7 +159,8 @@ NODES:
 - Gradient
     in stroke (line),
 - Boolean operation
-    all rects of a single input mesh (set_attr_transform_face_center.yaml)
+    faster with C++ clipper?
+
 - 2d color function
     - time
 - random points  - https://www.sidefx.com/docs/houdini/nodes/sop/scatter.html

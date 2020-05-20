@@ -628,7 +628,6 @@ var nodes_classes = [
     NodePointGradFill,
     NodeLoadImage,
     NodeCreateFrameBuffer,
-    NodeShrinkFaces,
     NodeOffsetPath,
     NodeRoundCorners,
     NodeFuncFill,
@@ -640,4 +639,5 @@ for(let c of nodes_classes)
     nodes_classes_by_name[c.name()] = c
 // old names from saves
 nodes_classes_by_name["Manual_Points"] = NodeManualGeom
+nodes_classes_by_name["Shrink Faces"] = NodeOffsetPath
 
