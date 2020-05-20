@@ -740,7 +740,10 @@ class NodeBoolOp extends NodeCls
         this.in_obj2.width = 17
         this.out_paths = new OutTerminal(node, "out_paths")
         
-        this.op = new ParamSelect(node, "Operation", 0, ["Union", "Intersection", "Subtract", "Xor"], (sel_idx)=>{
+        this.op = new ParamSelect(node, "Operation", 0, [["Union", ClipperLib.ClipType.ctUnion],
+                                                         ["Intersection", ClipperLib.ClipType.ctIntersection],
+                                                         ["Subtract", ClipperLib.ClipType.ctDifference],
+                                                         ["Xor", ClipperLib.ClipType.ctXor]], (sel_idx)=>{
             this.swap.set_visible(sel_idx === 2)
         })
         this.swap = new ParamBool(node, "Swap", false)
@@ -759,14 +762,6 @@ class NodeBoolOp extends NodeCls
         }
         else {
             assert(objs1.length + objs2.length > 0, this, "Missing input")
-        }
-
-        let type = null
-        switch (this.op.sel_idx) {
-        case 0: type = ClipperLib.ClipType.ctUnion; break;
-        case 1: type = ClipperLib.ClipType.ctIntersection; break;
-        case 2: type = ClipperLib.ClipType.ctDifference; break;
-        case 3: type = ClipperLib.ClipType.ctXor; break;
         }
 
         // see https://sourceforge.net/p/jsclipper/wiki/documentation/
@@ -793,7 +788,7 @@ class NodeBoolOp extends NodeCls
             else
                 p_res = new ClipperLib.Paths();
     
-            const succeeded = cpr.Execute(type, p_res, ClipperLib.PolyFillType.pftNonZero, ClipperLib.PolyFillType.pftNonZero);
+            const succeeded = cpr.Execute(this.op.get_sel_val(), p_res, ClipperLib.PolyFillType.pftNonZero, ClipperLib.PolyFillType.pftNonZero);
             assert(succeeded, this, "Clipper failed")
         }
         catch(e) {

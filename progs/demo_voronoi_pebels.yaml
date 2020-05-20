@@ -1,0 +1,265 @@
+nodes:
+  '1':
+    params:
+      Seed:
+        e_v: 1
+        se_cv: return 1
+      Min Distance:
+        se_v: 0.0200*(vtx_pos.y+2)+0.02
+        se_cv: return 0.02
+    name: scatter_1
+    cls_name: Scatter
+    x: 88
+    y: 123
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+  '2':
+    params:
+      Shape:
+        sel_str: Rectangle
+      Size:
+        e_x: 2
+        e_y: 2
+        se_cv: 'return vec2(0.5, 0.5)'
+      Num Points:
+        e_v: 5
+        se_cv: return 5
+      Inner Point:
+        e_x: 0.22600000000000003
+        se_y: '-0.311'
+        se_cv: 'return vec2(0.226, -0.311)'
+      Transform:
+        se_tx: '0'
+        se_ty: '0'
+        e_r: 0
+        se_pvx: '0'
+        se_pvy: '0'
+        se_sx: '1'
+        se_sy: '1'
+    name: geom_primitive_1
+    cls_name: Geom Primitive
+    x: 99
+    y: 17
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+  '4':
+    params: {}
+    name: triangulate_1
+    cls_name: Triangulate
+    x: 87
+    y: 237
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+  '6':
+    params:
+      Margin:
+        e_x: 0.2
+        e_y: 0.2
+        se_cv: 'return vec2(0.2, 0.2)'
+    name: voronoi_1
+    cls_name: Voronoi
+    x: 95
+    y: 340
+    disp_param:
+      show_vtx: false
+      show_ctrls: true
+      show_lines: true
+      show_faces: true
+  '18':
+    params:
+      Type:
+        sel_str: Mesh
+      Add points:
+        v: true
+      Coord:
+        lst: [0.06620139628648758, -0.03858521953225136, -0.4140000343322754, -1.2169960737228394, 1.0795990228652954, -0.7132421731948853, 0.3406215012073517, 0.7127290368080139, -1.0819741487503052, 0.618270993232727]
+      Dummy:
+        lst: [0, 0, 0, 0, 0]
+      Point Color:
+        lst: [16, 79, 255, 255, 255, 0, 0, 255, 0, 255, 87, 255, 231, 255, 0, 255, 243, 46, 255, 255]
+      path_ranges:
+        ranges: [0, 5, 0]
+    name: manual_geometry_1
+    cls_name: Manual Geometry
+    x: 277
+    y: 82
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+  '19':
+    params: {}
+    name: triangulate_2
+    cls_name: Triangulate
+    x: 304
+    y: 207
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+  '21':
+    params: {}
+    name: point_gradient_fill_1
+    cls_name: Point Gradient Fill
+    x: 344
+    y: 366
+    disp_param: {}
+  '23':
+    params:
+      Resolution:
+        x: 662
+        y: 662
+      Size:
+        e_x: 2
+        e_y: 2
+        se_cv: 'return vec2(2, 2)'
+      Smooth Scaling:
+        v: true
+      Texture Edge:
+        sel_str: Pad
+      Transform:
+        se_tx: '0'
+        se_ty: '0'
+        se_r: '0'
+        se_pvx: '0'
+        se_pvy: '0'
+        se_sx: '1'
+        se_sy: '1'
+    name: create_pixel_buffer_1
+    cls_name: Create Pixel-Buffer
+    x: 457
+    y: 269
+    disp_param: {}
+  '25':
+    params:
+      npt:
+        v:
+          '0': color
+          '1': radius
+          '2': normal
+          '3': fill
+          '4': transform
+      Bind To:
+        sel_str: Faces
+      Type:
+        sel_str: Color
+      Edit code:
+        v: true
+      Name:
+        v: color
+      Color:
+        show_code: true
+        se_cv: return in_src
+      Float:
+        e_v: 0
+        se_cv: return 0
+      Float2:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      Select:
+        e_v: 1
+        se_cv: return true
+      Transform:
+        se_tx: '0'
+        se_ty: '0'
+        e_r: 0
+        se_pvx: '0'
+        se_pvy: '0'
+        se_sx: '1'
+        se_sy: '1'
+    name: set_attribute_1
+    cls_name: Set Attribute
+    x: 193
+    y: 460
+    disp_param:
+      show_vtx: false
+      show_ctrls: false
+      show_lines: true
+      show_faces: true
+  '28':
+    params:
+      Algorithm:
+        sel_str: Chaikin
+      Factor:
+        e_v: 0.5
+        se_cv: return 0.5
+    name: round_corners_3
+    cls_name: Round Corners
+    x: 205
+    y: 561
+    disp_param:
+      show_vtx: false
+      show_ctrls: false
+      show_lines: true
+      show_faces: true
+lines:
+  - from_name: out_mesh
+    from_id: 2
+    to_name: in_obj
+    to_id: 1
+    uid: 3
+  - from_name: out_mesh
+    from_id: 1
+    to_name: in_obj
+    to_id: 4
+    uid: 5
+  - from_name: out_mesh
+    from_id: 4
+    to_name: in_mesh
+    to_id: 6
+    uid: 7
+  - from_name: out_mesh
+    from_id: 18
+    to_name: in_obj
+    to_id: 19
+    uid: 20
+  - from_name: out_mesh
+    from_id: 19
+    to_name: in_mesh
+    to_id: 21
+    uid: 22
+  - from_name: out_texture
+    from_id: 21
+    to_name: in_src
+    to_id: 25
+    uid: 27
+  - from_name: out_mesh
+    from_id: 25
+    to_name: in_obj
+    to_id: 28
+    uid: 29
+  - from_name: out_tex
+    from_id: 23
+    to_name: in_fb
+    to_id: 21
+    uid: 30
+  - from_name: out_paths
+    from_id: 6
+    to_name: in_obj
+    to_id: 25
+    uid: 31
+next_node_id: 32
+names_idx_s:
+  Scatter: 1
+  Geom_Primitive: 2
+  Triangulate: 2
+  Voronoi: 1
+  Round Corners: 3
+  Shrink Faces: 2
+  Manual Geometry: 1
+  Point Gradient Fill: 1
+  Create Pixel-Buffer: 1
+  Set Attribute: 1
+display_node_id: 28
+tdisp_node_ids: []
+input_node_ids: []
+nodes_view:
+  pan_x: -25
+  pan_y: -122

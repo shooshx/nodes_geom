@@ -186,13 +186,13 @@ function call_operator(v1, v2, op) {
         case OPERATOR_EXPONENT:       ret = v1 * Math.pow(10, v2); break;
         case OPERATOR_SUBSCRIPT:      throw new ExprErr("subscript in binary (bug)");
 
-        case OPERATOR_LESS:           ret = v1 < v2; break
-        case OPERATOR_LESS_EQ:        ret = v1 <= v2; break
-        case OPERATOR_GREATER:        ret = v1 > v2; break
-        case OPERATOR_GREATER_EQ:     ret = v1 >= v2; break
-        case OPERATOR_EQ:             ret = v1 == v2; break
-        case OPERATOR_LOGIC_AND:      ret = v1 && v2; break // not short-circuting evaluation since that would complicate vector ops
-        case OPERATOR_LOGIC_OR:       ret = v1 || v2; break
+        case OPERATOR_LESS:           ret = +(v1 < v2); break // + to make it a number
+        case OPERATOR_LESS_EQ:        ret = +(v1 <= v2); break
+        case OPERATOR_GREATER:        ret = +(v1 > v2); break
+        case OPERATOR_GREATER_EQ:     ret = +(v1 >= v2); break
+        case OPERATOR_EQ:             ret = +(v1 == v2); break
+        case OPERATOR_LOGIC_AND:      ret = +(v1 && v2); break // not short-circuting evaluation since that would complicate vector ops
+        case OPERATOR_LOGIC_OR:       ret = +(v1 || v2); break
         default:  throw new ExprErr("unexpected operator");
     }
     return ret;

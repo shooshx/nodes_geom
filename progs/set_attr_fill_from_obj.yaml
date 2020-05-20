@@ -1,0 +1,304 @@
+nodes:
+  '2':
+    params:
+      Type:
+        sel_str: Paths
+      Add points:
+        v: true
+      Coord:
+        lst: [0.582524299621582, -0.13160733878612518, -0.1553398072719574, -0.353829562664032, -0.15749730169773102, 0.0776699036359787, 0.44875943660736084, 0.2545846700668335]
+      Dummy:
+        lst: [0, 0, 0, 0]
+      Point Color:
+        lst: [204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255]
+      path_ranges:
+        ranges: [0, 4, 1]
+    name: manual_geometry_1
+    cls_name: Manual Geometry
+    x: -115
+    y: 443
+    disp_param:
+      show_vtx: true
+      show_ctrls: true
+      show_lines: true
+      show_faces: true
+  '3':
+    params:
+      Type:
+        sel_str: Mesh
+      Add points:
+        v: true
+      Coord:
+        lst: [0.088457390666008, -0.6601941585540771, 0.6105717420578003, -0.3754045367240906, 0.7055016160011292, -0.03451995551586151, 0.17259977757930756, 0.23516720533370972, -0.088457390666008, -0.2675296664237976]
+      Dummy:
+        lst: [0, 0, 0, 0, 0]
+      Point Color:
+        lst: [255, 70, 70, 255, 136, 255, 141, 255, 75, 231, 255, 255, 225, 147, 255, 255, 241, 249, 169, 255]
+      path_ranges:
+        ranges: [0, 5, 0]
+    name: manual_geometry_2
+    cls_name: Manual Geometry
+    x: 146
+    y: -12
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+  '4':
+    params: {}
+    name: triangulate_1
+    cls_name: Triangulate
+    x: 151
+    y: 103
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+  '6':
+    params:
+      Resolution:
+        x: 927
+        y: 927
+      Size:
+        e_x: 2
+        e_y: 2
+        se_cv: 'return vec2(2, 2)'
+      Smooth Scaling:
+        v: true
+      Texture Edge:
+        sel_str: Pad
+      Transform:
+        se_tx: '0'
+        se_ty: '0'
+        se_r: '0'
+        se_pvx: '0'
+        se_pvy: '0'
+        se_sx: '1'
+        se_sy: '1'
+    name: create_pixel_buffer_1
+    cls_name: Create Pixel-Buffer
+    x: 419
+    y: 108
+    disp_param: {}
+  '7':
+    params: {}
+    name: point_gradient_fill_1
+    cls_name: Point Gradient Fill
+    x: 280
+    y: 217
+    disp_param: &ref_0 {}
+  '10':
+    params:
+      Shape:
+        sel_str: Rectangle
+      Size:
+        e_x: 0.7000000000000001
+        e_y: 0.5
+        se_cv: 'return vec2(0.5, 0.5)'
+      Num Points:
+        e_v: 5
+        se_cv: return 5
+      Inner Point:
+        e_x: 0.22600000000000003
+        se_y: '-0.311'
+        se_cv: 'return vec2(0.226, -0.311)'
+      Transform:
+        se_tx: '0'
+        se_ty: '0'
+        se_r: '0'
+        se_pvx: '0'
+        se_pvy: '0'
+        se_sx: '1'
+        se_sy: '1'
+    name: geom_primitive_2
+    cls_name: Geom Primitive
+    x: -63
+    y: 134
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+  '11':
+    params:
+      Set approximate distance:
+        v: true
+      Divisions:
+        e_v: 4
+        se_cv: return 4
+      Distance:
+        e_v: 0.07200000000000001
+        se_cv: return 0.1
+    name: divide_1
+    cls_name: Divide
+    x: -5
+    y: 227
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+  '13':
+    params:
+      OrderInputs:
+        sorted_order: [0, 1]
+    name: group_objects_1
+    cls_name: Group Objects
+    x: 223
+    y: 423
+    disp_param: [*ref_0, &ref_1 {show_vtx: false, show_lines: true, show_faces: true}]
+  '16':
+    params:
+      npt:
+        v:
+          '0': color
+          '1': radius
+          '2': normal
+          '3': fill
+          '4': transform
+      Bind To:
+        sel_str: Faces
+      Type:
+        sel_str: Color
+      Edit code:
+        v: false
+      Name:
+        v: color
+      Color:
+        se_cv: 'return rgb(204, 204, 204)'
+      Float:
+        e_v: 0
+        se_cv: return 0
+      Float2:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      Select:
+        e_v: 1
+        se_cv: return true
+      Transform:
+        se_tx: '0'
+        se_ty: '0'
+        e_r: 0
+        se_pvx: '0'
+        se_pvy: '0'
+        se_sx: '1'
+        se_sy: '1'
+    name: set_attribute_1
+    cls_name: Set Attribute
+    x: 57
+    y: 313
+    disp_param: *ref_1
+  '21':
+    params:
+      npt:
+        v:
+          '0': fill
+          '1': radius
+          '2': normal
+          '3': fill
+          '4': transform
+      Bind To:
+        sel_str: Faces
+      Type:
+        sel_str: Image Fill
+      Edit code:
+        v: false
+      Name:
+        v: fill
+      Color:
+        hex: '#CCCCCC'
+        se_cv: 'return rgb(204, 204, 204)'
+      Float:
+        e_v: 0
+        se_cv: return 0
+      Float2:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      Select:
+        e_v: 1
+        se_cv: return true
+      Transform:
+        se_tx: '0'
+        se_ty: '0'
+        e_r: 0
+        se_pvx: '0'
+        se_pvy: '0'
+        se_sx: '1'
+        se_sy: '1'
+    name: set_attribute_2
+    cls_name: Set Attribute
+    x: 66
+    y: 569
+    disp_param:
+      show_vtx: true
+      show_ctrls: true
+      show_lines: true
+      show_faces: true
+lines:
+  - from_name: out_mesh
+    from_id: 3
+    to_name: in_obj
+    to_id: 4
+    uid: 5
+  - from_name: out_mesh
+    from_id: 4
+    to_name: in_mesh
+    to_id: 7
+    uid: 8
+  - from_name: out_mesh
+    from_id: 10
+    to_name: in_mesh
+    to_id: 11
+    uid: 12
+  - from_name: out_texture
+    from_id: 7
+    to_name: in_multi_mesh
+    to_id: 13
+    uid: 15
+  - from_name: out_texture
+    from_id: 7
+    to_name: in_src
+    to_id: 16
+    uid: 18
+  - from_name: out_mesh
+    from_id: 16
+    to_name: in_multi_mesh
+    to_id: 13
+    uid: 19
+  - from_name: out_mesh
+    from_id: 13
+    to_name: in_src
+    to_id: 21
+    uid: 23
+  - from_name: out_tex
+    from_id: 6
+    to_name: in_fb
+    to_id: 7
+    uid: 24
+  - from_name: out_mesh
+    from_id: 11
+    to_name: in_obj
+    to_id: 16
+    uid: 25
+  - from_name: out_mesh
+    from_id: 2
+    to_name: in_obj
+    to_id: 21
+    uid: 26
+next_node_id: 27
+names_idx_s:
+  Geom Primitive: 2
+  Manual Geometry: 2
+  Triangulate: 1
+  Create Pixel-Buffer: 1
+  Point Gradient Fill: 1
+  Divide: 1
+  Group Objects: 1
+  Set Attribute: 2
+  Function Fill: 1
+display_node_id: 21
+tdisp_node_ids: []
+input_node_ids: []
+nodes_view:
+  pan_x: 132
+  pan_y: -182

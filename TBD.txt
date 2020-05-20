@@ -17,6 +17,7 @@ GUI:
 - !!!!! input nodes are only active if they are in a current display tree
 - !! ability to resize code editor and pop it out
 - nodes - right click on name should show menu
+- BUG: can't drag due to hover elem
 
 ENGINE:
 - serialization - save only if something is changed

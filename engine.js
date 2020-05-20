@@ -640,4 +640,5 @@ for(let c of nodes_classes)
 // old names from saves
 nodes_classes_by_name["Manual_Points"] = NodeManualGeom
 nodes_classes_by_name["Shrink Faces"] = NodeOffsetPath
+nodes_classes_by_name["Geom_Primitive"] = NodeGeomPrimitive
 

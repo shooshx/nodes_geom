@@ -1,0 +1,248 @@
+nodes:
+  '14':
+    params:
+      Set approximate distance:
+        v: false
+      Divisions:
+        e_v: 4
+        se_cv: return 4
+      Distance:
+        e_v: 0.1
+        se_cv: return 0.1
+    name: divide_4
+    cls_name: Divide
+    x: 68
+    y: 269
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+  '15':
+    params:
+      Shape:
+        sel_str: Rectangle
+      Size:
+        e_x: 1.5
+        e_y: 1.5
+        se_cv: 'return vec2(0.5, 0.5)'
+      Num Points:
+        e_v: 5
+        se_cv: return 5
+      Inner Point:
+        e_x: 0.22600000000000003
+        se_y: '-0.311'
+        se_cv: 'return vec2(0.226, -0.311)'
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: geom_primitive_4
+    cls_name: Geom Primitive
+    x: 91
+    y: 185
+    disp_param: {}
+  '17':
+    params:
+      npt:
+        v:
+          '0': fill
+          '1': radius
+          '2': normal
+          '3': fill
+          '4': transform
+      Bind To:
+        sel_str: Faces
+      Type:
+        sel_str: Image Fill
+      Edit code:
+        v: false
+      Name:
+        v: fill
+      Color:
+        hex: '#000000'
+        se_cv: 'return rgb(204, 204, 204)'
+      Float:
+        e_v: 0
+        se_cv: return 0
+      Float2:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      Select:
+        se_v: 'rand(in_obj.index+1) > 0.3  '
+        se_cv: return true
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: set_attribute_3
+    cls_name: Set Attribute
+    x: 210
+    y: 381
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+  '18':
+    params:
+      File Upload:
+        rurl: img/test_img1.png
+      size:
+        e_x: 1.3048635824436536
+        e_y: 0.99644128113879
+        se_cv: 'return vec2(2, 2)'
+      Smooth Scaling:
+        v: true
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+      Texture Edge:
+        sel_str: Pad
+    name: load_image_2
+    cls_name: Load Image
+    x: 363
+    y: 261
+    disp_param: {}
+  '22':
+    params:
+      File Upload:
+        rurl: img/test_img2.png
+      size:
+        e_x: 1.3048635824436536
+        e_y: 0.99644128113879
+        se_cv: 'return vec2(2, 2)'
+      Smooth Scaling:
+        v: true
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+      Texture Edge:
+        sel_str: Pad
+    name: load_image_3
+    cls_name: Load Image
+    x: 525
+    y: 365
+    disp_param: {}
+  '27':
+    params:
+      npt:
+        v:
+          '0': fill
+          '1': radius
+          '2': normal
+          '3': fill
+          '4': transform
+      Bind To:
+        sel_str: Faces
+      Type:
+        sel_str: Image Fill
+      Edit code:
+        v: false
+      Name:
+        v: fill
+      Color:
+        hex: '#CCCCCC'
+        se_cv: 'return rgb(204, 204, 204)'
+      Float:
+        e_v: 0
+        se_cv: return 0
+      Float2:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      Select:
+        se_v: 'in_obj.face_fill == 0 '
+        se_cv: return true
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: set_attribute_5
+    cls_name: Set Attribute
+    x: 422
+    y: 551
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+  '29':
+    params:
+      transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: transform_2
+    cls_name: Transform
+    x: 43
+    y: 470
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+lines:
+  - from_name: out_mesh
+    from_id: 15
+    to_name: in_mesh
+    to_id: 14
+    uid: 16
+  - from_name: out_mesh
+    from_id: 14
+    to_name: in_obj
+    to_id: 17
+    uid: 19
+  - from_name: out_img
+    from_id: 18
+    to_name: in_src
+    to_id: 17
+    uid: 20
+  - from_name: out_mesh
+    from_id: 17
+    to_name: in_obj
+    to_id: 27
+    uid: 33
+  - from_name: out_img
+    from_id: 22
+    to_name: in_src
+    to_id: 27
+    uid: 34
+next_node_id: 35
+names_idx_s:
+  Manual Geometry: 1
+  Geom Primitive: 4
+  Divide: 4
+  Load Image: 3
+  Set Attribute: 5
+  Gradient: 1
+  Transform: 2
+display_node_id: 27
+tdisp_node_ids: []
+input_node_ids: []
+nodes_view:
+  pan_x: -36
+  pan_y: -148

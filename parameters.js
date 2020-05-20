@@ -1303,7 +1303,9 @@ class ParamColor extends CodeItemMixin(Parameter)
         return this.v
     }
     save() { 
-        let r = {hex:this.picker_v.hex}
+        let r = {}
+        if (this.picker_v !== null)
+            r.hex = this.picker_v.hex
         this.save_code(r)  // dirty it abit but it doesn't really matter
         return r 
     }
