@@ -665,4 +665,5 @@ input {
     position: absolute;
     color: #ffd067;
     padding: 5px;
+    pointer-events: none;
 }

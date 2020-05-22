@@ -64,10 +64,10 @@ function setup_vert_splitter(container, grip, resize1, resize2) //p1, c1, grip, 
     var p1sz = Math.trunc(container.offsetWidth * main_view_state.split_1_h) - GRIP_WIDTH
     
     var resize = function() {
-        resize1(p1sz, container.offsetHeight)
+        resize1(p1sz, container.offsetHeight, 0, 0)
 
         var p2sz = container.offsetWidth - p1sz - GRIP_WIDTH
-        resize2(p2sz, null)
+        resize2(p2sz, null, 0, p1sz + GRIP_WIDTH)
 
         recalc_canvases_rects()
     }
@@ -89,9 +89,9 @@ function setup_vert_splitter(container, grip, resize1, resize2) //p1, c1, grip, 
       if (moving && e.pageX > MIN_PANEL_SIZE && e.pageX < container.offsetWidth - MIN_PANEL_SIZE) {
           p1sz += e.pageX - lastX
           lastX = e.pageX
-          resize1(p1sz, null)
+          resize1(p1sz, null, 0, 0)
           var p2sz = container.offsetWidth - p1sz - GRIP_WIDTH
-          resize2(p2sz)
+          resize2(p2sz, null, 0, p1sz + GRIP_WIDTH)
           main_view_state.split_1_h = (p1sz + GRIP_WIDTH) / container.offsetWidth
           e.preventDefault(); // prevent selection action from messing it up
           recalc_canvases_rects()

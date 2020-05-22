@@ -1133,7 +1133,9 @@ function nodes_context_menu(px, py, wx, wy, cvs_x, cvs_y) {
         else if (obj.constructor === NodeFlagProxy)
             node = obj.node
         else if (obj.constructor === Line)
-            opt = [{text:"Delete Line", func:function() { program.delete_line(obj, true)} }]            
+            opt = [{text:"Delete Line", func:function() { program.delete_line(obj, true)} }]       
+        else if (obj.constructor === NameInput)
+            obj = null // treat it like we pressed the background
         else
             return null
     }

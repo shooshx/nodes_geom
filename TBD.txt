@@ -1,14 +1,11 @@
 GUI:
 - parameter value change with drag and right button like in houdini
-- before running - do type checking to nodes in/out terminals
 - color picker with null?
-- BUG: resize the window beyond the size of the nodes panel moves it
 - select *nodes* with Ctrl, rectangle (display params of multiple nodes at once?)
 - zoom nodes view
 - icons nodes view
 - node show node name class if name doesn't include it
 - progress bar for long run, abort button
-- first node created with display flag (otherwise nothing is visible)
 - fix jumping of splits on page load
 - Math.round lines just before drawing to avoid thinning artifacts when zooming?
 - layout: https://github.com/golden-layout/golden-layout
@@ -16,10 +13,10 @@ GUI:
 - define camera?
 - !!!!! input nodes are only active if they are in a current display tree
 - !! ability to resize code editor and pop it out
-- nodes - right click on name should show menu
-- BUG: can't drag due to hover elem
+
 
 ENGINE:
+- before running - do type checking to nodes in/out terminals
 - serialization - save only if something is changed
 - save to SVG
 - !!!!!! save to PNG

@@ -31,7 +31,7 @@ function ensure_scratch_canvas() {
 
 // this causes flicker when displaying an object that has pre_draw() since the canvas resize causes it to clear and then it's only 
 // drawn in the next micro-task
-function _resize_img_panel(w, h) {
+function _resize_img_panel(w, h, x, y) {
     if (w !== null) {
         image_panel.style.width = w + "px"
         canvas_image.width = w
@@ -39,14 +39,19 @@ function _resize_img_panel(w, h) {
     if (h !== null) {
         canvas_image.height = h // Assumes image canvas takes the whole height
     }
+    image_panel.style.top = x + "px"
+    image_panel.style.left = y + "px"
     image_view.resize_redraw()
 }
-function _resize_edit_panel(w, h) {
+function _resize_edit_panel(w, h, x, y) {
     if (w !== null) {
         edit_panel.style.width = w + "px"
         canvas_nodes.width = w
         canvas_nd_shadow.width = w
     }
+    edit_panel.style.top = x + "px"
+    edit_panel.style.left = y + "px"
+
     draw_nodes()    
 }
 function _resize_edit_param(w, h) {
@@ -155,6 +160,9 @@ class Program {
             t.tuid = this.alloc_graphic_obj_id() // not saving these ids anywhere because they're only for display of hover, not referenced by something else
             this.obj_map[t.tuid] = t
         }
+        if (this.nodes.length === 1) // first node, display it
+            set_display_node(node)
+
         return node
     }
 
