@@ -1016,38 +1016,6 @@ function nodes_unselect_all(redraw) {
     trigger_frame_draw(false) // if there was something selected, undisplay it's selection in the image
 }
 
-function set_display_node(node) {
-    if (node == program.display_node)
-        return
-    program.display_node = node
-    trigger_frame_draw(true)  // need to do run since the const output might have gotten changed
-}
-
-function set_template_node(node, do_draw=true) {
-    node.disp_template = !node.disp_template 
-    if (node.disp_template)
-        program.tdisp_nodes.push(node)
-    else {
-        const idx = program.tdisp_nodes.indexOf(node)
-        console.assert(idx !== -1)
-        program.tdisp_nodes.splice(idx, 1);
-    }
-    if (do_draw)
-        trigger_frame_draw(true)
-}
-
-function set_input_node(node, do_draw=true) {
-    node.receives_input = !node.receives_input
-    if (node.receives_input)
-        program.input_nodes.push(node)
-    else {
-        const idx = program.input_nodes.indexOf(node)
-        console.assert(idx !== -1)
-        program.input_nodes.splice(idx, 1)
-    }
-    if (do_draw)
-        draw_nodes()
-}
 
 // pass along the messages to the node and just flip the display flag
 class NodeFlagProxy
@@ -1106,13 +1074,13 @@ function find_node_obj(px, py, cvs_x, cvs_y) {
         if (py >= n.y && py <= n.y + n.height && px <= n.x + n.width) {
             if (n.can_display) {
                 if (px >= n.x + NODE_FLAG_DISPLAY.offset)
-                    return new NodeFlagProxy(n, set_display_node)
+                    return new NodeFlagProxy(n, (n)=>{ program.set_display_node(n) })
                 if (px >= n.x + NODE_FLAG_TEMPLATE.offset)
-                    return new NodeFlagProxy(n, set_template_node)
+                    return new NodeFlagProxy(n, (n)=>{ program.set_template_node(n) })
             }
             if (n.can_input) {
                 if (px <= n.x + NODE_FLAG_INPUT.width)
-                    return new NodeFlagProxy(n, set_input_node, false) // don't select node since that's only annying most of the time
+                    return new NodeFlagProxy(n, (n)=>{ program.set_input_node(n) }, false) // don't select node since that's only annying most of the time
             }
             if (px >= n.x)                
                 return n

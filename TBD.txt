@@ -13,6 +13,7 @@ GUI:
 - define camera?
 - !!!!! input nodes are only active if they are in a current display tree
 - !! ability to resize code editor and pop it out
+- global input indicator that can be quickly turned off
 
 
 ENGINE:
@@ -43,7 +44,7 @@ EXPRESSIONS
 - func with 0 argument has a bug in parse
 - remove exponent opertor instead do it on number parsing
 - *** Vec2Int (resolution image)
-- default() to give value to non-existing variable
+- default() to give value to non-existing variable - not so easy...
 - line in errors
 
 
@@ -56,7 +57,6 @@ EXPRESSIONS
     - offset
         - bug with oversizing divided square - lighten doesn't get rid of first point
         - Z for preserving props
-
     - local surroundings of smaller bbox
     - discretization of bezier (and back to bezier from paperjs?)
 - code editor

@@ -161,7 +161,7 @@ class Program {
             this.obj_map[t.tuid] = t
         }
         if (this.nodes.length === 1) // first node, display it
-            set_display_node(node)
+            program.set_display_node(node)
 
         return node
     }
@@ -172,11 +172,11 @@ class Program {
         if (selected_node == node)
             nodes_unselect_all(false)
         if (this.display_node == node) 
-            set_display_node(null)
+            program.set_display_node(null)
         if (node.disp_template)
-            set_template_node(node, false)
+            program.set_template_node(node, false)
         if (node.receives_input)
-            set_input_node(node, false)
+            program.set_input_node(node, false)
         if (node.destructor)
             node.destructor()
         var index = this.nodes.indexOf(node);
@@ -222,6 +222,41 @@ class Program {
         }
     }
 
+
+    set_display_node(node, do_draw=true) {
+        if (node == this.display_node)
+            return
+        this.display_node = node
+        if (do_draw)
+            trigger_frame_draw(true)  // need to do run since the const output might have gotten changed
+    }
+    
+    set_template_node(node, do_draw=true) {
+        node.disp_template = !node.disp_template 
+        if (node.disp_template)
+            this.tdisp_nodes.push(node)
+        else {
+            const idx = program.tdisp_nodes.indexOf(node)
+            console.assert(idx !== -1)
+            this.tdisp_nodes.splice(idx, 1);
+        }
+        if (do_draw)
+            trigger_frame_draw(true)
+    }
+    
+    set_input_node(node, do_draw=true) {
+        node.receives_input = !node.receives_input
+        if (node.receives_input)
+            this.input_nodes.push(node)
+        else {
+            const idx = program.input_nodes.indexOf(node)
+            console.assert(idx !== -1)
+            this.input_nodes.splice(idx, 1)
+        }
+        if (do_draw)
+            draw_nodes()
+    }
+    
 }
 
 var program = null

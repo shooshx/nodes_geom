@@ -110,18 +110,18 @@ function _load_program(sprog)
     nodes_unselect_all(false)
     clear_program()
     
-    if (sprog.nodes_view !== undefined) // old progs don't have it
-        nodes_view.load(sprog.nodes_view)
-    program.next_obj_id = parseInt(sprog.next_node_id) // needs to be first since creating nodes adds to this
+    const newprog = new Program()
+
+    newprog.next_obj_id = parseInt(sprog.next_node_id) // needs to be first since creating nodes adds to this
     for(let n in sprog.names_idx_s)
-        program.names_indices[n] = parseInt(sprog.names_idx_s[n])
+        newprog.names_indices[n] = parseInt(sprog.names_idx_s[n])
 
     for(let nid_s in sprog.nodes) {
         let nid = parseInt(nid_s)
         let sn = sprog.nodes[nid]
         let cls = nodes_classes_by_name[sn.cls_name]
         console.assert(cls !== undefined && cls !== null, "Unknown node class " + sn.cls_name)
-        let n = program.add_node(sn.x, sn.y, sn.name, cls, nid)
+        let n = newprog.add_node(sn.x, sn.y, sn.name, cls, nid)
         for(let spname in sn.params) {
             let sp = sn.params[spname]            
             let p = find_param_by_name(spname, n.parameters)
@@ -152,10 +152,10 @@ function _load_program(sprog)
         return null
     }
     for(let sl of sprog.lines) {
-        let from_node = program.obj_map[sl.from_id]
+        let from_node = newprog.obj_map[sl.from_id]
         console.assert(from_node.constructor === Node)
         let from_term = find_by_name(from_node.terminals, sl.from_name)
-        let to_node = program.obj_map[sl.to_id]
+        let to_node = newprog.obj_map[sl.to_id]
         console.assert(to_node.constructor === Node)
         let to_term = find_by_name(to_node.terminals, sl.to_name)
         if (to_term === null)
@@ -164,10 +164,10 @@ function _load_program(sprog)
             console.log("Can't find terminal ", sl.to_name, " for node ", to_node.name)
             continue // happens when terminal names change
         }
-        program.add_line(new Line(from_term.get_attachment(), to_term.get_attachment()), sl.uid)
+        newprog.add_line(new Line(from_term.get_attachment(), to_term.get_attachment()), sl.uid)
     }
 
-    for(let n of program.nodes) {
+    for(let n of newprog.nodes) {
         if (n.cls.post_load_hook)
             n.cls.post_load_hook()
         for(let p of n.parameters)
@@ -175,27 +175,32 @@ function _load_program(sprog)
                 p.post_load_hook()
     }
 
-    program.next_obj_id = parseInt(sprog.next_node_id) // reload it since all the nodes and lines just created inflated it unnecessarily
+    newprog.next_obj_id = parseInt(sprog.next_node_id) // reload it since all the nodes and lines just created inflated it unnecessarily
 
 
-    program.display_node = (sprog.display_node_id == null) ? null : program.obj_map[sprog.display_node_id]
-    program.tdisp_nodes = []
+    newprog.set_display_node( (sprog.display_node_id == null) ? null : newprog.obj_map[sprog.display_node_id] )
+    newprog.tdisp_nodes = []
     if (sprog.tdisp_node_ids !== undefined) {
         for(let tnid of sprog.tdisp_node_ids) {
-            let tn = program.obj_map[tnid]
+            let tn = newprog.obj_map[tnid]
             if (tn === undefined)
                 continue
             //console.assert(tn !== undefined, "template node not found")
-            set_template_node(tn, false)
+            newprog.set_template_node(tn, false)
         }
     }
     if (sprog.input_node_ids !== undefined) {
         for(let inid of sprog.input_node_ids) {
-            const inn = program.obj_map[inid]
+            const inn = newprog.obj_map[inid]
             console.assert(inn !== undefined, "input node not found")
-            set_input_node(inn, false)
+            newprog.set_input_node(inn, false)
         }
     }
+
+    if (sprog.nodes_view !== undefined) // old progs don't have it
+        nodes_view.load(sprog.nodes_view)
+
+    program = newprog // commit to it
 }
 
 var g_loading_prog = false

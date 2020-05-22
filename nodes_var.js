@@ -157,7 +157,7 @@ class NodeVariable extends NodeCls
             if (prev != node.can_input) {
                 draw_nodes()
                 if (!node.can_input && node.receives_input) { // just changed out of it, make sure it no longer receives input
-                    set_input_node(node)
+                    program.set_input_node(node)
                 }
             }
         }) 
