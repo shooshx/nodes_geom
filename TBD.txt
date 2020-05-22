@@ -37,23 +37,21 @@ EXPRESSIONS
 - ?? in any params view that can have expressions, add a custom user parameter that can be used with a slider
     - and added to the object that carries it
 - expression in color in table (gradient)
-- clear_all should also clear expressions cache
-- !!! code for transform param
+- code for transform param
 - expression in color box
 - swizzle
 - func with 0 argument has a bug in parse
 - remove exponent opertor instead do it on number parsing
 - *** Vec2Int (resolution image)
 - default() to give value to non-existing variable
+- line in errors
 
 
 ****** CURRENT AGENDA ******
 - terminal dirty in Variables?
 - optiomize, load Yaml
     deserialize: don't swap prog before successful load
-    check saved stuff
-- node name aliases
-- clear_all should dirty all params (for run() that checks that)
+    dialog for delete from state
 - Clipper BoolOp
     - offset
         - bug with oversizing divided square - lighten doesn't get rid of first point
@@ -64,6 +62,7 @@ EXPRESSIONS
 - code editor
 - mesh merge
 - swizzle
+- glsl compilation error not visible
 - gradient as image source to func
 - interpolate between two gradients
 - render geometry to texture

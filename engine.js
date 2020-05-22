@@ -376,10 +376,11 @@ function clear_inputs_errors(prog) {
         draw_nodes()
 }
 
-function clear_outputs(prog) {
+function do_clear_all(prog) {
     for(let n of prog.nodes) {
         // set the indicator that the node needs to run
         n._node_dirty = true
+        n.reeval_all_exprs() // if there are parsing error, trigger them
         // but we need to clear them all so there won't be leftovers from last run
         for(let t of n.outputs)
             t.clear() 
@@ -532,7 +533,7 @@ async function do_frame_draw(do_run, clear_all)
 
     if (do_run || disp_obj === null) { // not sure when the last term is needed...
         if (clear_all)
-            clear_outputs(program)
+            do_clear_all(program)
         clear_inputs_errors(program)
         clear_nodes_status(program)
         // first run variable node on the tree and resolve variables on normal nodes since this affects dirtiness of nodes

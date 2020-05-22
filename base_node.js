@@ -936,6 +936,12 @@ class Node {
             if (p.call_change)
                 p.call_change()
     }
+    reeval_all_exprs() {
+        for(let p of this.parameters)
+            if (p.pis_visible())
+                p.reeval_all_exprs()
+    }
+
     remove_param(prm) {
         const i = this.parameters.findIndex(function(p) { return Object.is(prm, p) })
         console.assert(i !== -1)

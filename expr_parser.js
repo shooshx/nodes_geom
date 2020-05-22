@@ -734,8 +734,8 @@ class InternalFuncCallNode extends NodeBase {
                 const gtype = TYPE_TO_STR[this.type]
                 let text = tr.func_str.replace(/\$T/g, gtype) // assume there's only on type, that's the same as the func return type
                 const key = name + "|" + gtype
-                if (g_added_funcs[key] === undefined)
-                    g_added_funcs[key] = text
+                if (g_glsl_added_funcs[key] === undefined)
+                    g_glsl_added_funcs[key] = text
             }
         }
         for(let arg of this.args)
@@ -1282,7 +1282,7 @@ class AssignNameStmt {  // not a proper node (no eval, has side-effects)
 
 // maps name to SymbolNode with the value that resulted from the expression
 var g_symbol_table = null
-var g_added_funcs = null // map [name of func]_[arg type] to the func text
+var g_glsl_added_funcs = null // map [name of func]_[arg type] to the func text
 
 class CodeNode extends NodeBase {
     constructor(stmts, symbol_table) {
@@ -1323,12 +1323,12 @@ class CodeNode extends NodeBase {
         return ret
     }
     to_glsl(emit_ctx) {
-        g_added_funcs = {}
+        g_glsl_added_funcs = {}
         for(let stmt of this.stmts) {
             let ret = stmt.sto_glsl(emit_ctx)
             if (stmt.isReturn()) {
-                for(let ti in g_added_funcs)
-                    emit_ctx.add_funcs.push(g_added_funcs[ti])
+                for(let ti in g_glsl_added_funcs)
+                    emit_ctx.add_funcs.push(g_glsl_added_funcs[ti])
                 return ret
             }
             emit_ctx.before_expr.push(ret)

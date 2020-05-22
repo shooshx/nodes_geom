@@ -41,6 +41,9 @@ class Parameter
         if (this.line_elem !== null)
             elem_set_visible(this.line_elem, this.visible)
     }
+    pis_visible() {
+        return this.visible
+    }
     init_enable_visible() {
         if (this.line_elem !== null) {
             if (!this.enable)
@@ -91,6 +94,11 @@ class Parameter
     resolve_variables(vars_box) { // each param that has expr_items implements this to its exprs
         for(let expr of this.my_expr_items)
             expr.eresolve_variables(vars_box)
+    }
+    reeval_all_exprs() {
+        for(let expr of this.my_expr_items)
+            if (expr.eis_active())
+                expr.peval_self()
     }
 }
 
@@ -621,6 +629,10 @@ class ExpressionItem {
     set_eactive(v) {
         this.eactive = v
     }
+    eis_active() {
+        // with color, it may still be active since it's the only one but not visible
+        return this.in_param.visible && this.eactive
+    }
     save_to(r) {
         if (this.e !== null && this.e.get_const_value() !== null)
             r["e_" + this.prop_name_ser] = this.e.get_const_value()
@@ -767,7 +779,7 @@ class ExpressionItem {
                 if (this.set_to_const(v)) // might not have changed (with int)
                     this.in_param.pset_dirty() 
             })
-            this.peval_self() // this will set the slider position and enablement (but not do pset_dirty since nothing changed)
+            this.peval_self() // TBD(lazy) this will set the slider position and enablement (but not do pset_dirty since nothing changed)
         }
         else if (!this.slider_conf.visible && this.slider != null) {
             this.slider.elem.parentNode.removeChild(this.slider.elem)
@@ -885,7 +897,7 @@ class ExpressionItem {
                 const from_in = in_vars_box.vb[ve.varname]
                 if (from_in === undefined) {
                     // resolve can be allowed to fail if this is not a active expression
-                    if (this.in_param.visible && this.eactive)
+                    if (this.eis_active()) // maybe don't need to do anything for it if it's not active?
                         throw new ExprErr("Unknown variable " + ve.varname) // TBD add what line
                     else
                         return
