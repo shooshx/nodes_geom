@@ -672,7 +672,7 @@ class InternalFuncCallNode extends NodeBase {
             return this.lookedup_f.apply(null, argvals)       
         if (this.def.dtype != FUNC_TYPE_BY_COMPONENT || this.type == TYPE_NUM)
             return this.f.apply(null, argvals)
-        apply_by_component(argvals, this.f)
+        return apply_by_component(argvals, this.f)
     }
     clear_types_cache() {
         this.type = null

@@ -1700,6 +1700,7 @@ function fast_miter_run(mesh, offset, allow_overshoot, nodecls)
         out_obj.paths_ranges = new_ranges;
     }
     out_obj.set('vtx_pos', new TVtxArr(new_vtx), 2)
+
     // transfer other attributes
     for(let arr_name in mesh.arrs) {
         if (arr_name == "idx" || arr_name == "vtx_pos")
@@ -1736,7 +1737,7 @@ class NodeOffsetPath extends NodeCls {
         super(node)
         this.in_obj = new InTerminal(node, "in_obj")
         this.out_obj = new OutTerminal(node, "out_obj")    
-        this.offset = new ParamFloat(node, "Offset", 0.01, [-0.2,0.2])
+        this.offset = new ParamFloat(node, "Offset", 0.1, [-0.2,0.2])
         const arcTolVis = ()=>{
             this.arcTol.set_visible(this.point_type.sel_idx == 4 || this.open_op.sel_idx == 1)
         }
@@ -1758,7 +1759,7 @@ class NodeOffsetPath extends NodeCls {
                                                                ["Butt", ClipperLib.EndType.etOpenButt]], arcTolVis)
 
         this.miterLimit = new ParamFloat(node, "Miter Thresh", 2.0, [1.0, 4.0]) // sharp edges limit
-        this.arcTol = new ParamFloat(node, "Arc Step", 0.002, [0.1, 1]) 
+        this.arcTol = new ParamFloat(node, "Arc Step", 0.002, [0.0001, 0.01]) 
         
         this.allow_overshoot = new ParamBool(node, "Allow over-shoot", false) 
     }
@@ -1776,8 +1777,19 @@ class NodeOffsetPath extends NodeCls {
         let arcTol = this.arcTol.get_value()
         if (arcTol <= 0)
             arcTol = 0.1
+        ClipperLib.use_xyz = true
         const co = new ClipperLib.ClipperOffset(this.miterLimit.get_value() * CLIPPER_SCALE, arcTol * CLIPPER_SCALE)
-        const paths = obj.ensure_clipper()
+        co.ZFillFunction = (bot1, top1, bot2, top2, pt)=>{
+            // getting the two lines that intersect, get the Z from the point that is the same on both lines, the common point to both lines
+            if (bot1.Z == top1.Z)      pt.Z = bot1.Z
+            else if (bot1.Z == bot2.Z) pt.Z = bot1.Z
+            else if (bot1.Z == top2.Z) pt.Z = bot1.Z
+            else if (top1.Z == bot2.Z) pt.Z = top1.Z
+            else if (top1.Z == top2.Z) pt.Z = top1.Z
+            else if (bot2.Z == top2.Z) pt.Z = bot2.Z
+            else pt.Z = -1
+        }
+        const paths = obj.ensure_clipper(true)
 
         for(let p of paths) {
             co.AddPath(p, this.point_type.get_sel_val(), p.closed ? this.closed_op.get_sel_val() : this.open_op.get_sel_val())
@@ -1786,9 +1798,37 @@ class NodeOffsetPath extends NodeCls {
         co.Execute(p_res, this.offset.get_value() * CLIPPER_SCALE);
 
         p_res = ClipperLib.JS.Lighten(p_res, 0.000001 * CLIPPER_SCALE);
-
+        ClipperLib.use_xyz = false
         let new_obj = new MultiPath()
-        new_obj.from_clipper_paths(p_res)
+        
+        const xfer_indices = new_obj.from_clipper_paths(p_res)
+        // returned for every element in the new vtx_pos, what index it came from from the original vtx_pos (unmultiplied)
+
+        // transfer other attributes
+        for(let arr_name in obj.arrs) {
+            if (arr_name == "idx" || arr_name == "vtx_pos")
+                continue
+            
+            let src_arr = obj.arrs[arr_name]
+            let num_elems = obj.meta[arr_name].num_elems
+            // it's meaningful to transfer only vertices since faces may be merged
+            if (!arr_name.startsWith("vtx_")) 
+                continue
+
+            let new_arr = new src_arr.constructor(xfer_indices.length * num_elems)
+            let ni = 0
+
+            for(let idx of xfer_indices) {
+                if (idx !== -1)
+                    for(let i = 0; i < num_elems; ++i) 
+                        new_arr[ni++] = src_arr[idx*num_elems+i]  
+                else  // happens when two expansions collide so there's no vertex use as sourse
+                    for(let i = 0; i < num_elems; ++i) 
+                        new_arr[ni++] = 0 // need some default value, this is as good as any  
+            }
+            new_obj.set(arr_name, new_arr, num_elems, obj.meta[arr_name].need_normalize)
+        }        
+
         this.out_obj.set(new_obj)
 
     }

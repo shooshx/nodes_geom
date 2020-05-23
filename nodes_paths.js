@@ -234,11 +234,11 @@ class MultiPath extends PObject
         let start_vidx = this.paths_ranges[pri]*2
         let end_vidx = this.paths_ranges[pri+1]*2
         let prev_x = vtx[start_vidx], prev_y = vtx[start_vidx+1]
-        obj.moveTo(prev_x, prev_y) // 'M'
+        obj.moveTo(prev_x, prev_y, start_vidx/2) // 'M'
         for(let vidx = start_vidx + 2; vidx < end_vidx; vidx += 2) {
             let vx = vtx[vidx], vy = vtx[vidx+1]
             if (!this.is_curve(vidx))
-                obj.lineTo(vx, vy) // 'L'
+                obj.lineTo(vx, vy, vidx/2) // 'L'
             else 
                 obj.bezierCurveTo(prev_x+cfp[vidx], prev_y+cfp[vidx+1], vx+ctp[vidx], vy+ctp[vidx+1], vx, vy) // 'C'
             prev_x = vx; prev_y = vy
@@ -427,13 +427,14 @@ class MultiPath extends PObject
     }
 
     from_clipper_paths(clipper_obj) {
-        let vtx = [], ranges = [], cur_idx = 0
+        let vtx = [], ranges = [], cur_idx = 0, xfer_indices = []
         if (clipper_obj.constructor === ClipperLib.PolyTree) 
         {
             for(let path of clipper_obj.m_AllPolys) {
                 const start_idx = cur_idx
                 for(let pnt of path.m_polygon) {
                     vtx.push(pnt.X / CLIPPER_SCALE, pnt.Y / CLIPPER_SCALE)
+                    xfer_indices.push(pnt.Z)
                     ++cur_idx
                 }
                 ranges.push(start_idx, cur_idx, path.IsOpen ? 0 : PATH_CLOSED) // Paths are implicitly closed
@@ -445,6 +446,7 @@ class MultiPath extends PObject
                 const start_idx = cur_idx
                 for(let pnt of path) {
                     vtx.push(pnt.X / CLIPPER_SCALE, pnt.Y / CLIPPER_SCALE)
+                    xfer_indices.push(pnt.Z)
                     ++cur_idx
                 }
                 ranges.push(start_idx, cur_idx, PATH_CLOSED) // Paths are implicitly closed
@@ -454,6 +456,7 @@ class MultiPath extends PObject
         this.paths_ranges = ranges
         this.invalidate_pos()
         this.clipper_obj = clipper_obj
+        return xfer_indices
     }
 
 }
@@ -765,6 +768,7 @@ class NodeBoolOp extends NodeCls
         }
 
         // see https://sourceforge.net/p/jsclipper/wiki/documentation/
+        ClipperLib.use_xyz = false
         const cpr = new ClipperLib.Clipper();
         let p_res = null
         try {

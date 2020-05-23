@@ -1,0 +1,165 @@
+nodes:
+  '5':
+    params:
+      Shape:
+        sel_str: Rectangle
+      Size:
+        e_x: 0.5
+        e_y: 0.5
+        se_cv: 'return vec2(0.5, 0.5)'
+      Num Points:
+        e_v: 5
+        se_cv: return 5
+      Inner Point:
+        e_x: 0.22600000000000003
+        se_y: '-0.311'
+        se_cv: 'return vec2(0.226, -0.311)'
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: geom_primitive_1
+    cls_name: Geom Primitive
+    x: 115
+    y: 122
+    disp_param: {}
+  '9':
+    params:
+      Type:
+        sel_str: Paths
+      Add points:
+        v: false
+      Coord:
+        lst: [0.18863636255264282, -0.45681819319725037, 0.5090909004211426, -0.20909090340137482, 0.4636363685131073, 0.23181818425655365, 0.3022727370262146, 0.5568181872367859, -0.44545453786849976, 0.12727272510528564, 0.034090910106897354, -0.06818182021379471, 0.6318181753158569, -0.6431818008422852, 0.949999988079071, -0.145454540848732, 0.9113636612892151, 0.2590909004211426]
+      Dummy:
+        lst: [0, 0, 0, 0, 0, 0, 0, 0, 0]
+      Point Color:
+        lst: [250, 40, 40, 255, 82, 167, 255, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 92, 255, 122, 255, 32, 251, 255, 255, 255, 219, 42, 255, 140, 217, 242, 255]
+      path_ranges:
+        ranges: [0, 6, 1, 6, 9, 0]
+    name: manual_geometry_1
+    cls_name: Manual Geometry
+    x: 353
+    y: 182
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+      show_ctrls: true
+  '13':
+    params:
+      Offset:
+        e_v: 0.15500000000000003
+        sldcfg_v:
+          min: -0.2
+          max: 0.3
+          visible: true
+          allowed: true
+        se_cv: return 0.01
+      Point Type:
+        sel_str: Round
+      Closed Paths:
+        sel_str: Line
+      Open Paths:
+        sel_str: Square
+      Miter Thresh:
+        e_v: 2
+        se_cv: return 2
+      Arc Step:
+        e_v: 0.00045000000000000015
+        se_cv: return 0.002
+      Allow over-shoot:
+        v: false
+    name: offset_path_2
+    cls_name: Offset Path
+    x: 304
+    y: 330
+    disp_param:
+      show_vtx: true
+      show_ctrls: true
+      show_lines: true
+      show_faces: true
+  '18':
+    params: {}
+    name: triangulate_1
+    cls_name: Triangulate
+    x: 312
+    y: 426
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+  '23':
+    params:
+      Resolution:
+        x: 880
+        y: 880
+      Size:
+        e_x: 2
+        e_y: 2
+        se_cv: 'return vec2(2, 2)'
+      Smooth Scaling:
+        v: true
+      Texture Edge:
+        sel_str: Pad
+      Transform:
+        e_tx: 0.1818181818181819
+        e_ty: -0.020454545454545447
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: create_pixel_buffer_1
+    cls_name: Create Pixel-Buffer
+    x: 537
+    y: 431
+    disp_param: {}
+  '47':
+    params: {}
+    name: point_gradient_fill_4
+    cls_name: Point Gradient Fill
+    x: 430
+    y: 551
+    disp_param: {}
+lines:
+  - from_name: out_mesh
+    from_id: 9
+    to_name: in_obj
+    to_id: 13
+    uid: 17
+  - from_name: out_obj
+    from_id: 13
+    to_name: in_obj
+    to_id: 18
+    uid: 22
+  - from_name: out_mesh
+    from_id: 18
+    to_name: in_mesh
+    to_id: 47
+    uid: 52
+  - from_name: out_tex
+    from_id: 23
+    to_name: in_fb
+    to_id: 47
+    uid: 53
+next_node_id: 54
+names_idx_s:
+  Offset Path: 2
+  Geom Primitive: 1
+  Manual Geometry: 1
+  Triangulate: 1
+  Create Pixel-Buffer: 3
+  Point Gradient Fill: 4
+display_node_id: 23
+tdisp_node_ids:
+  - 9
+  - 47
+input_node_ids: []
+nodes_view:
+  pan_x: -199
+  pan_y: -141

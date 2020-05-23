@@ -177,8 +177,11 @@ function _load_program(sprog)
 
     newprog.next_obj_id = parseInt(sprog.next_node_id) // reload it since all the nodes and lines just created inflated it unnecessarily
 
+    if (sprog.display_node_id == null || newprog.obj_map[sprog.display_node_id] === undefined)
+        newprog.set_display_node(null)
+    else
+        newprog.set_display_node(newprog.obj_map[sprog.display_node_id])
 
-    newprog.set_display_node( (sprog.display_node_id == null) ? null : newprog.obj_map[sprog.display_node_id] )
     newprog.tdisp_nodes = []
     if (sprog.tdisp_node_ids !== undefined) {
         for(let tnid of sprog.tdisp_node_ids) {

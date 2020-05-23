@@ -160,8 +160,8 @@ class Program {
             t.tuid = this.alloc_graphic_obj_id() // not saving these ids anywhere because they're only for display of hover, not referenced by something else
             this.obj_map[t.tuid] = t
         }
-        if (this.nodes.length === 1) // first node, display it
-            program.set_display_node(node)
+        if (this.nodes.length === 1) // first node, display it (also happens in internal programs)
+            this.set_display_node(node)
 
         return node
     }
@@ -263,6 +263,7 @@ var program = null
 
 
 function clear_program() {
+    nodes_unselect_all(false, false) // don't want to delete the image of the prog just cleared, it's nice that it stays
     program = new Program()
 }
 

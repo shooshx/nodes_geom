@@ -640,21 +640,21 @@ class Mesh extends PObject
     make_single_object_calls(p) {
         let vtx = this.effective_vtx_pos
         let idxs = this.arrs.idx        
-        let idx
+        let idx, vidx
         if (this.type == MESH_QUAD) {
             for(let vi = 0, i = 0; vi < idxs.length; vi += 4, ++i) {
-                idx = idxs[vi]<<1; p.moveTo(vtx[idx], vtx[idx+1])
-                idx = idxs[vi+1]<<1; p.lineTo(vtx[idx], vtx[idx+1])
-                idx = idxs[vi+2]<<1; p.lineTo(vtx[idx], vtx[idx+1])
-                idx = idxs[vi+3]<<1; p.lineTo(vtx[idx], vtx[idx+1])
+                vidx = idxs[vi];   idx = vidx<<1; p.moveTo(vtx[idx], vtx[idx+1], vidx)
+                vidx = idxs[vi+1]; idx = vidx<<1; p.lineTo(vtx[idx], vtx[idx+1], vidx)
+                vidx = idxs[vi+2]; idx = vidx<<1; p.lineTo(vtx[idx], vtx[idx+1], vidx)
+                vidx = idxs[vi+3]; idx = vidx<<1; p.lineTo(vtx[idx], vtx[idx+1], vidx)
                 p.closePath()
             }
         }
         else if (this.type == MESH_TRI) {
             for(let vi = 0, i = 0; vi < idxs.length; vi += 3, ++i) {
-                idx = idxs[vi]<<1; p.moveTo(vtx[idx], vtx[idx+1])
-                idx = idxs[vi+1]<<1; p.lineTo(vtx[idx], vtx[idx+1])
-                idx = idxs[vi+2]<<1; p.lineTo(vtx[idx], vtx[idx+1])
+                vidx = idxs[vi];   idx = vidx<<1; p.moveTo(vtx[idx], vtx[idx+1], idx)
+                vidx = idxs[vi+1]; idx = vidx<<1; p.lineTo(vtx[idx], vtx[idx+1], idx)
+                vidx = idxs[vi+2]; idx = vidx<<1; p.lineTo(vtx[idx], vtx[idx+1], idx)
                 p.closePath()
             }
         }       
@@ -691,14 +691,14 @@ class ClipperPathsBuilder
         this.d = []
         this.cur_path = null
     }
-    moveTo(x, y) {
-        this.cur_path = [{X:x, Y:y}]
+    moveTo(x, y, vidx) {
+        this.cur_path = [{X:x, Y:y, Z:vidx}]
         this.cur_path.closed = false
         this.d.push(this.cur_path)
     }
-    lineTo(x, y) {
+    lineTo(x, y, vidx) {
         dassert(this.cur_path !== null, "Path needs to start with moveTo")
-        this.cur_path.push({X:x, Y:y})
+        this.cur_path.push({X:x, Y:y, Z:vidx})
     }
     closePath() {
         dassert(this.cur_path !== null, "Path needs to start with moveTo")

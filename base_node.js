@@ -1003,17 +1003,15 @@ class NodeCls {
 }
 
 
-
-
-
-function nodes_unselect_all(redraw) {
+function nodes_unselect_all(redraw=true, trig_frame=true) {
     if (selected_node == null)
         return
     selected_node = null
     if (redraw)
         draw_nodes()
     show_params_of(null)
-    trigger_frame_draw(false) // if there was something selected, undisplay it's selection in the image
+    if (trig_frame)
+        trigger_frame_draw(false) // if there was something selected, undisplay it's selection in the image
 }
 
 
