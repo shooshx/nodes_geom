@@ -28,7 +28,6 @@ ENGINE:
 - !!! frame buffer transform??
     - or maybe func transform?
     - explicit error
-- load Yaml
  -figure out constness of images thing (can't get mutable ref?)
     - also texture destructor
 
@@ -57,6 +56,13 @@ EXPRESSIONS
 - swizzle
 - glsl compilation error not visible
 - gradient as image source to func - new type
+    - cache in ensure_svg
+    - use canvas instead of image data
+    - strage whitenings
+    - rotate fast to 0 makes it skip frames?
+    - transform from the gradient as well
+    - zoom in the framebuffer
+- Gradient BUG? - radial point case with reflect is different from pad
 - interpolate between two gradients
 - render any geometry to texture
     extend point-gradient
@@ -159,6 +165,8 @@ NODES:
     interpolate property from input geometry
 - Graph (4) coloring - for selecting some vertices at seemingly random
 - 3D model and render
+    sample models - sphere, torus, cylinder, pyramid-cylinder, cube, sphere from triangles
+    with catmul-clark smoothing
 - topograph
 - Text paths  https://opentype.js.org/
 - Mesh merge, path merge
@@ -238,6 +246,7 @@ https://society6.com/product/gray-polygon-background_stretched-canvas
 VEX random attr video: https://www.youtube.com/watch?v=0qfBj15IoQM
 2D graphs: https://www.desmos.com/
 
+beziers stuff? https://pomax.github.io/bezierjs/
 
 Name?
 - 2dini?

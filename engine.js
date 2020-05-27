@@ -372,6 +372,10 @@ function progress_io(n)
     }
 }
 
+function isPromise(x) {
+    return Boolean(x && typeof x.then === 'function')
+}
+
 async function run_nodes_tree(n) 
 {
     console.assert(n._node_dirty !== null)
@@ -391,7 +395,9 @@ async function run_nodes_tree(n)
         for(let out_t of n.outputs) {
             out_t.clear()
         }
-        await n.cls.run()
+        const r = n.cls.run()
+        if (isPromise(r))
+            await r
         n.clear_dirty() // it finished running so it didn't throw and exception
     }
 

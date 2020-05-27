@@ -34,11 +34,19 @@ class ImageBase extends PObject
         ctx_img.restore()   
     }
 
-    get_bbox() { // TBD wrong (doesn't rotate)
-        let tl = vec2.create(), br = vec2.create()
-        vec2.transformMat3(tl, this.top_left, this.t_mat)
-        vec2.transformMat3(br, this.bottom_right, this.t_mat)
-        return new BBox(tl[0], tl[1], br[0], br[1])
+    get_bbox() { 
+        const mn = vec2.fromValues(Number.MAX_VALUE, Number.MAX_VALUE), mx = vec2.fromValues(-Number.MAX_VALUE, -Number.MAX_VALUE)
+        const p = vec2.create()
+        const mnmx = (ep)=>{            
+            vec2.transformMat3(p, ep, this.t_mat)
+            vec2.min(mn, mn, p)
+            vec2.max(mx, mx, p)
+        }
+        mnmx(this.top_left)
+        mnmx(this.bottom_right)
+        mnmx(vec2.fromValues(this.top_left[0], this.bottom_right[1]))
+        mnmx(vec2.fromValues(this.bottom_right[0], this.top_left[1]))
+        return new BBox(mn[0], mn[1], mx[0], mx[1])
     }
 
     draw_border(m, line_color="#000") {
@@ -209,6 +217,19 @@ class NodeCreateFrameBuffer extends NodeCls
     }
 }
 
+function generateTexture(width, height, source, smooth, spread_x, spread_y)
+{
+    const tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, source);
+    tex.width = width
+    tex.height = height
+    
+    // should be pad always for y since the gradient change is in x direction
+    setTexParams(smooth, spread_x, spread_y)
+    gl.bindTexture(gl.TEXTURE_2D, null);    
+    return tex
+}
 
 function setTexParams(smooth, spread_x, spread_y) {
     let minfilt = gl.LINEAR

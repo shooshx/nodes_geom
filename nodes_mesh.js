@@ -766,7 +766,7 @@ class NodeSetAttr extends NodeCls
             src = this.in_source.get_const()
             assert(src !== null, this, "missing input source")
             if (src.get_pixels_adapter !== undefined)
-                src = await src.get_pixels_adapter(mesh) // got Gradient
+                src = await src.get_pixels_adapter(mesh, false) // got Gradient
             assert(src.get_pixels !== undefined, this, "expected object with pixels")
         }
         if (value_need_mesh !== null) {

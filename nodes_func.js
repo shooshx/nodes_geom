@@ -257,7 +257,10 @@ class NodeFuncFill extends BaseNodeShaderWrap
         this.glsl_emit_ctx = emit_ctx
     }
 
-    run() {
+    async run() {
+        let in_fb = this.in_fb.get_const() // TBD wrong
+        assert(in_fb !== null, this, "missing input texture")
+
         // need to remake text due to expression change
         if (this.active_param.pis_dirty() || this.type.pis_dirty()) {
             this.make_frag_text()
@@ -287,6 +290,7 @@ class NodeFuncFill extends BaseNodeShaderWrap
         if (need_tex) {
             assert(texs.length >= 1, this, "Code expect texture but none is connected")
             assert(texs.length == this.sorted_order.length, this, "unexpected sorted_order size")
+
             for(let ti = 0; ti < texs.length; ++ti)
             {
                 const tex = texs[this.sorted_order[ti]]
@@ -297,7 +301,9 @@ class NodeFuncFill extends BaseNodeShaderWrap
                 gl.activeTexture(gl.TEXTURE0 + ti)
                 let tex_obj;
                 try {                    
-                    tex_obj = tex.make_gl_texture()
+                    tex_obj = tex.make_gl_texture(in_fb)  // in_fb needed for gradient
+                    if (isPromise(tex_obj))
+                        tex_obj = await tex_obj
                 }
                 catch(e) {
                     assert(false, this, e.message)
@@ -312,12 +318,16 @@ class NodeFuncFill extends BaseNodeShaderWrap
 
                     let adj_m = mat3.create()
                     mat3.translate(adj_m, adj_m, vec2.fromValues(0.5,0.5))
+
+                    const tr_from = (tex instanceof Gradient) ? in_fb : tex
+
                     // scale 0-1 range of a texture to -1:1 of the framebuffer (with the translation above)
-                    mat3.scale(adj_m, adj_m, vec2.fromValues(1 / tex.sz_x, 1 / tex.sz_y))
+                    mat3.scale(adj_m, adj_m, vec2.fromValues(1 / tr_from.sz_x, 1 / tr_from.sz_y))
                 
                     let inv_tex_tmat = mat3.create()
-                    mat3.invert(inv_tex_tmat, tex_obj.t_mat)
+                    mat3.invert(inv_tex_tmat, tr_from.t_mat)
                     mat3.mul(adj_m, adj_m, inv_tex_tmat)
+
                     tex_tmat.modify(adj_m, false)
                     
                 }

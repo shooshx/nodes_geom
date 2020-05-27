@@ -206,9 +206,9 @@ class Gradient extends PObject
         ctx_img.stroke()        
     }
 
-    async get_pixels_adapter(for_mesh) {
-        let bbox = for_mesh.get_bbox()
-        let ad = new GradientPixelsAdapter(bbox, this)
+    // from SetAttr
+    async get_pixels_adapter(for_obj, is_fb) {
+        let ad = new GradientPixelsAdapter(for_obj, this, is_fb)
         await ad.make_pixels()
         return ad
     }
@@ -278,13 +278,28 @@ class Gradient extends PObject
             svg.onerror = (e)=>{ reject( { message:"SVG error" }) };
         })
 
+        svg.decoding = 'sync' // doesn't always work, just a hint
         svg.src = "data:image/svg+xml;base64," + btoa(text)
         //svg.setAttribute("href", "data:image/svg+xml;base64," + btoa(text))
-
-        this.svg = await promise
+        if (svg.complete) {
+            this.svg = svg
+        }
+        else {
+            this.svg = await promise
+        }
         this.svg_of_rect = rect
         //main_view.appendChild(this.svg)
         return this.svg
+    }
+
+    async make_img_gl_texture(for_fb) {
+        const pa = await this.get_pixels_adapter(for_fb, true)
+        // TBD use canvas directly instead of ImageData
+        const pixels = pa.get_pixels()
+        const tex = generateTexture(pa.width(), pa.height(), pixels, false, 'pad', 'pad') // TBD radial smooth param
+        tex.t_mat = mat3.create()
+        mat3.copy(tex.t_mat, this.t_mat)        
+        return tex
     }
 
     
@@ -295,15 +310,31 @@ class Gradient extends PObject
 // SetAttr which samples pixels.
 // take the bbox that we want to sample in and render the gradient only there
 class GradientPixelsAdapter {
-    constructor(bbox, grd_obj) {
+    constructor(for_obj, grd_obj, is_fb) {
         this.pixels = null
         this.obj = grd_obj
-        this.bbox = bbox // in abstract coords
+        this.bbox = for_obj.get_bbox() // in abstract coords
         this.w_width = this.bbox.width()   
         this.w_height = this.bbox.height()
-        this.px_width = Math.round(this.w_width * image_view.viewport_zoom)
-        this.px_height = Math.round(this.w_height * image_view.viewport_zoom)
-        this.t_mat = grd_obj.t_mat
+
+        if (!is_fb) { // either size is coming from the texture destination or we're drawing on the viewport so the size is coming from the viewport
+            this.px_width = Math.round(this.w_width * image_view.viewport_zoom)
+            this.px_height = Math.round(this.w_height * image_view.viewport_zoom)
+            this.draw_scale = [image_view.viewport_zoom, image_view.viewport_zoom]
+            this.dest_tmat = null
+            this.obj_sz_x = null
+            this.obj_sz_y = null            
+        }
+        else {
+            this.px_width = for_obj.width()
+            this.px_height = for_obj.height()
+            this.obj_sz_x = for_obj.sz_x
+            this.obj_sz_y = for_obj.sz_y
+            //this.draw_scale = [this.px_width/this.w_width, this.px_height/this.w_height] // good
+            this.draw_scale = [this.px_width/this.obj_sz_x, this.px_height/this.obj_sz_y]
+            this.dest_tmat = for_obj.t_mat // transform of the destination (Framebuffer)
+        }
+       // this.t_mat = grd_obj.t_mat
     }
     width() { return this.px_width }
     height() { return this.px_height }
@@ -319,9 +350,20 @@ class GradientPixelsAdapter {
         ctx_img_shadow.save()
         // bring to top-left corner of the mesh to 0,0
         let m = mat3.create()
-        mat3.scale(m, m, [image_view.viewport_zoom, image_view.viewport_zoom])
+        mat3.scale(m, m, this.draw_scale)
         canvas_setTransform(ctx_img_shadow, m)
-        ctx_img_shadow.translate(-this.bbox.min_x, -this.bbox.min_y)
+       if (this.dest_tmat === null) {
+           ctx_img_shadow.translate(-this.bbox.min_x, -this.bbox.min_y)
+        }
+        else { // from FrameBuffer
+           //ctx_img_shadow.translate(this.bbox.width()*0.5, this.bbox.height()*0.5) // good
+            ctx_img_shadow.translate(this.obj_sz_x*0.5, this.obj_sz_y*0.5)
+
+            // if the destination FrameBuffer is also transformed, do the opposite of that
+            let dminv = mat3.create()
+            mat3.invert(dminv, this.dest_tmat)
+            canvas_transform(ctx_img_shadow, dminv)
+        }
 
         const rp = this.obj.make_rect_points(vec2.fromValues(this.bbox.min_x,this.bbox.min_y), vec2.fromValues(this.bbox.max_x, this.bbox.max_y), false)
         await this.obj.draw_fill_rect(ctx_img_shadow, rp, true)
@@ -346,13 +388,14 @@ class GradientPixelsAdapter {
 
 class LinearGradient extends Gradient {
     static name() { return "Linear Gradient" }
-    constructor(x1,y1, x2,y2, tex_res,tex_smooth) {
+    constructor(x1,y1, x2,y2, tex_res, tex_smooth, sample_tex) {
         super(x1,y1, x2, y2)
         this.ctx_create_func = function() { return ctx_img.createLinearGradient(x1,y1, x2,y2) }
 
         this.tex_res = tex_res // const
         this.tex_smooth = tex_smooth
         this.tex_obj_cache = null
+        this.sample_tex = sample_tex  // means the texture is going to be a 1d sample range and not an actual image
     }
     destructor() {
         if (this.tex_obj_cache !== null)
@@ -376,7 +419,7 @@ class LinearGradient extends Gradient {
         this.tex_with_params = null        
     }
 
-    make_gl_texture() {
+    make_sample_gl_texture() {
         if (this.tex_obj_cache !== null) {
             return this.tex_obj_cache // caller should do bind
         }
@@ -396,20 +439,21 @@ class LinearGradient extends Gradient {
         ctx_img_shadow.fill()
         //const im = ctx_img_shadow.getImageData(0, 0, resolution, HEIGHT)
      
-        let tex = gl.createTexture();
-        gl.bindTexture(gl.TEXTURE_2D, tex);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.tex_res, HEIGHT, 0, gl.RGBA, gl.UNSIGNED_BYTE, canvas_img_shadow);
-        tex.width = this.tex_res
-        tex.height = HEIGHT
-        
-        // should be pad always for y since the gradient change is in x direction
-        setTexParams(this.tex_smooth, this.spread, 'pad')
-        gl.bindTexture(gl.TEXTURE_2D, null);
+        let tex = generateTexture(this.tex_res, HEIGHT, canvas_img_shadow, this.tex_smooth, this.spread, 'pad')
 
         this.tex_obj_cache = tex
         return tex
     }
+
+
+    async make_gl_texture(for_obj) {
+        if (this.sample_tex)
+            return this.make_sample_gl_texture()
+        return await this.make_img_gl_texture(for_obj)
+    }
 }
+
+
 
 // get the points on the circle that are used for changing the radius
 function get_circle_points(p1, r1, p2, r2) {
@@ -494,8 +538,8 @@ class RadialGradient extends Gradient {
         return ["radialGradient", ['cx="', this.p1[0], '" cy="', this.p1[1], '" r="',  this.r1, '" fx="', this.p2[0], '" fy="', this.p2[1], '" fr="', this.r2, '"']]
     }
 
-    make_gl_texture() {
-        dassert(false, "Radial gradient can't be texture source")
+    async make_gl_texture(for_obj) {
+        return await this.make_img_gl_texture(for_obj)
     }
 }
 
@@ -755,15 +799,15 @@ class NodeGradient extends NodeCls
         node.set_state_evaluators({"t":  (m,s)=>{ return new ObjSingleEvaluator(m,s) }})
 
         this.out = new OutTerminal(node, "out_gradient")
-        this.type = new ParamSelect(node, "Type", 0, ["Linear", "Radial"], (sel_idx)=>{
+        this.type = new ParamSelect(node, "Type", 0, ["Linear", "Radial", "Sample"], (sel_idx)=>{
             this.r1.set_visible(sel_idx == 1)
             this.r2.set_visible(sel_idx == 1)
 
-            this.tex_resolution.set_visible(sel_idx == 0)
-            this.tex_smooth.set_visible(sel_idx == 0)
+            this.tex_resolution.set_visible(sel_idx != 1)
+            this.tex_smooth.set_visible(sel_idx != 1)
 
             // set points adapter
-            if (sel_idx == 0)
+            if (sel_idx != 1)
                 this.points_adapter = new Linear_GradPointsAdapterParam(this.p1, this.p2, this.values, this)
             else
                 this.points_adapter = new Radial_GradPointsAdapterParam(this.p1, this.r1, this.p2, this.r2, this.values, this)
@@ -844,7 +888,7 @@ class NodeGradient extends NodeCls
         }
         let obj
         if (!this.is_radial()) 
-            obj = new LinearGradient(this.p1.x, this.p1.y, this.p2.x, this.p2.y, this.tex_resolution.get_value(), this.tex_smooth.get_value())
+            obj = new LinearGradient(this.p1.x, this.p1.y, this.p2.x, this.p2.y, this.tex_resolution.get_value(), this.tex_smooth.get_value(), this.type.sel_idx == 2)
         else 
             obj = new RadialGradient(this.p1.x, this.p1.y, this.r1.v, this.p2.x, this.p2.y, this.r2.v)
         
