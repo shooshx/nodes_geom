@@ -37,6 +37,7 @@ class Gradient extends PObject
         this.ctx_create_func = null
         this.t_mat = mat3.create() // transform for circles and fill
         this.spread = 'pad'
+        this.via_svg = false
         this.svg = null  // image object
         this.svg_of_rect = null // the pmin,pmax points of the rect this svg was generated with
     }
@@ -50,7 +51,7 @@ class Gradient extends PObject
     }
 
     need_svg() {
-        return this.spread !== 'pad'
+        return this.via_svg
     }
 
     add_stops(grd) {
@@ -209,7 +210,7 @@ class Gradient extends PObject
     // from SetAttr
     async get_pixels_adapter(for_obj, is_fb) {
         let ad = new GradientPixelsAdapter(for_obj, this, is_fb)
-        await ad.make_pixels()
+        await ad.make_pixels(!is_fb)
         return ad
     }
 
@@ -238,17 +239,12 @@ class Gradient extends PObject
         lst = lst.concat(geom)
         lst.push(' >')
 
-        const isRadial = (elem_name == "radialGradient") 
         const add_stop = (s)=>{
-            const c = s.color, v = (isRadial) ? (1.0 - s.value) : s.value            
+            const c = s.color, v = s.value            
             lst.push('<stop offset="', v * 100, '%" stop-color="rgb(', c[0], ',', c[1], ',', c[2], ')" stop-opacity="', c[3]/255, '" />')
         }
-        if (!isRadial)
-            for(let s of this.stops)
-                add_stop(s)
-        else 
-            for(let i = this.stops.length-1; i >= 0; --i)
-                add_stop(this.stops[i])
+        for(let s of this.stops)
+            add_stop(s)
         
         lst.push('</', elem_name, '><rect x="', rect.x,'" y="', rect.y,'" width="', rect.w, '" height="', rect.h, '" fill="url(\'#grad\')" /></svg>')
         let text = lst.join('')
@@ -295,8 +291,8 @@ class Gradient extends PObject
     async make_img_gl_texture(for_fb) {
         const pa = await this.get_pixels_adapter(for_fb, true)
         // TBD use canvas directly instead of ImageData
-        const pixels = pa.get_pixels()
-        const tex = generateTexture(pa.width(), pa.height(), pixels, false, 'pad', 'pad') // TBD radial smooth param
+        //const pixels = pa.get_pixels()
+        const tex = generateTexture(for_fb.width(), for_fb.height(), canvas_img_shadow, false, 'pad', 'pad') // TBD radial smooth param
         tex.t_mat = mat3.create()
         mat3.copy(tex.t_mat, this.t_mat)        
         return tex
@@ -339,7 +335,7 @@ class GradientPixelsAdapter {
     width() { return this.px_width }
     height() { return this.px_height }
 
-    async make_pixels() {
+    async make_pixels(doImageData) {
         if (this.pixels !== null) 
             return
         this.obj.ensure_grd()
@@ -369,7 +365,10 @@ class GradientPixelsAdapter {
         await this.obj.draw_fill_rect(ctx_img_shadow, rp, true)
 
         ctx_img_shadow.restore()
-        this.pixels = ctx_img_shadow.getImageData(0, 0, this.px_width, this.px_height).data;
+        if (doImageData)
+            this.pixels = ctx_img_shadow.getImageData(0, 0, this.px_width, this.px_height).data;
+        else
+            this.pixels = null
     }
 
     get_pixels() {
@@ -457,13 +456,13 @@ class LinearGradient extends Gradient {
 
 // get the points on the circle that are used for changing the radius
 function get_circle_points(p1, r1, p2, r2) {
-    let v12 = vec2.fromValues(p2[0]-p1[0], p2[1]-p1[1])
+    let v12 = vec2.fromValues(p2[0]-p1[0], p2[1]-p1[1])  // this is what canvas does
     if (v12[0] == 0 && v12[1] == 0)
         v12 = vec2.fromValues(1,0)
     vec2.normalize(v12, v12)
-    let pa = vec2.fromValues(p1[0], p1[1])
+    const pa = vec2.fromValues(p1[0], p1[1])
     vec2.scaleAndAdd(pa, pa, v12, -r1)
-    let pb = vec2.fromValues(p2[0], p2[1])
+    const pb = vec2.fromValues(p2[0], p2[1])
     vec2.scaleAndAdd(pb, pb, v12, -r2)
     return [pa,pb]       
 }
@@ -535,7 +534,7 @@ class RadialGradient extends Gradient {
     }
 
     svg_text_geom(grad) {
-        return ["radialGradient", ['cx="', this.p1[0], '" cy="', this.p1[1], '" r="',  this.r1, '" fx="', this.p2[0], '" fy="', this.p2[1], '" fr="', this.r2, '"']]
+        return ["radialGradient", ['cx="', this.p2[0], '" cy="', this.p2[1], '" r="',  this.r2, '" fx="', this.p1[0], '" fy="', this.p1[1], '" fr="', this.r1, '"']]
     }
 
     async make_gl_texture(for_obj) {
@@ -612,7 +611,8 @@ function went_other_way(pr2, pcenter, pv) {
 class Radial_GradPointsAdapterParam extends GradPointsAdapterParam {
     constructor(p1, r1, p2, r2, range_lst_param, nodecls) {
         super(p1, p2, range_lst_param, nodecls)
-        this.r1 = r1; this.r2 = r2
+        this.r1 = r1
+        this.r2 = r2
     }
     get_pa_pb() {
         return get_circle_points_xy(this.p1, this.r1.v, this.p2, this.r2.v)
@@ -827,7 +827,10 @@ class NodeGradient extends NodeCls
         this.r1 = new ParamFloat(node, "Radius 1", 0.1)
         this.p2 = new ParamVec2(node, "Point 2", 0.5, 0)
         this.r2 = new ParamFloat(node, "Radius 2", 0.7)
-        this.spread = new ParamSelect(node, "Spread", 0, ["Pad", "Reflect", "Repeat"])
+        this.spread = new ParamSelect(node, "Spread", 0, [["Pad",       ['pad', false]], // [display-name, [spread-name, via_svg]]
+                                                          ["Pad (svg)", ['pad', true]],
+                                                          ["Reflect",   ['reflect', true]],
+                                                          ["Repeat",    ['repeat', true]] ])
         this.func = new ParamColor(node, "f(t)=", ["#cccccc", "rgb(255, 128, 0.0) + rgb(t, t, t)*255"], {show_code:true}) // just a way to generate points example: rgb(255,128,0)+rgb(t,t,t)*255
         this.func_samples = new ParamInt(node, "Sample Num", 10, {min:1, max:30, visible:false})
         const presets_btn = new ParamImageSelectBtn(node, "Presets", GRADIENT_PRESETS, make_preset_img, (pr)=>{this.load_preset(pr)})
@@ -895,7 +898,9 @@ class NodeGradient extends NodeCls
         for(let i = 0, ci = 0; i < this.values.lst.length; ++i, ci += 4) {
             obj.add_stop(this.values.lst[i], this.colors.lst.slice(ci, ci+4))
         }
-        obj.spread = this.spread.get_sel_name()
+        const [spreadName, via_svg] = this.spread.get_sel_val()
+        obj.spread = spreadName
+        obj.via_svg = via_svg
         // making the svg (if needed) is in pre_draw or in adapter's make_pixels()
         this.out.set(obj)
     }

@@ -57,12 +57,8 @@ EXPRESSIONS
 - glsl compilation error not visible
 - gradient as image source to func - new type
     - cache in ensure_svg
-    - use canvas instead of image data
-    - strage whitenings
     - rotate fast to 0 makes it skip frames?
-    - transform from the gradient as well
-    - zoom in the framebuffer
-- Gradient BUG? - radial point case with reflect is different from pad
+    - sampler gradient with no points
 - interpolate between two gradients
 - render any geometry to texture
     extend point-gradient
@@ -251,3 +247,7 @@ beziers stuff? https://pomax.github.io/bezierjs/
 Name?
 - 2dini?
 - picodini
+
+
+Write-About
+- difference in radial gradient between canvas and svg (opposite circles), browsers difference
