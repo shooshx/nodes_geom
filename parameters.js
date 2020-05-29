@@ -415,6 +415,7 @@ class ParamSeparator extends Parameter {
 }
 
 // not a real param, just a way to store objects with the params save/load mechanism
+// usually stores some other param depending on a SelectParam
 class ParamObjStore extends Parameter {
     constructor(node, label, start_v) {
         super(node, label)
@@ -423,8 +424,13 @@ class ParamObjStore extends Parameter {
     save() { return {v:this.v}}
     load(v) { this.v = v.v }
     add_elems(parent) {}
-    modified() {
+    st_set(k, v) {
+        this.v[k] = v
         this.pset_dirty() 
+    }
+    st_get(k) {
+        dassert(this.v[k] !== undefined, "Unknown store index " + k)
+        return this.v[k]
     }
 }
 

@@ -535,7 +535,7 @@ class NodeSetAttr extends NodeCls
             else
                 this.edit_code.modify(false)
 
-            this.attr_name.modify(this.name_per_type.v[sel_idx])
+            this.attr_name.modify(this.name_per_type.st_get(sel_idx))
         })
         this.edit_code = new ParamBool(node, "Edit code", false, (v)=>{
             // can be different for each type
@@ -546,8 +546,7 @@ class NodeSetAttr extends NodeCls
         this.edit_code.share_line_elem_from(this.attr_type)
 
         this.attr_name = new ParamStr(node, "Name", "color", (v)=>{
-            this.name_per_type.v[this.attr_type.sel_idx] = v
-            this.name_per_type.modified()
+            this.name_per_type.st_set(this.attr_type.sel_idx, v)
         })
         this.expr_color = new ParamColor(node, "Color", ["#cccccc", "rgb(204, 204, 204)"])
         this.expr_float = new ParamFloat(node, "Float", 0)

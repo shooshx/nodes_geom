@@ -28,10 +28,11 @@ const NODE_POINT_LST_OFFSET = 4
 
 class Gradient extends PObject 
 {
-    constructor(x1,y1, x2,y2) {
+    constructor(x1,y1, x2,y2, tex_smooth) {
         super()
         this.p1 = vec2.fromValues(x1,y1) // point at v=0
         this.p2 = vec2.fromValues(x2,y2) // point at v=1
+        this.tex_smooth = tex_smooth
         this.stops = [] // list of [value,color] where color is [r,g,b,alpha]
         this.grd = null
         this.ctx_create_func = null
@@ -217,8 +218,10 @@ class Gradient extends PObject
     async pre_draw(m, disp_values) {
         if (this.need_svg() && disp_values.show_fill) {
             //console.log("PRE-DRAW ", canvas_image.width)
-            const rp = this.make_viewport_rect_points()  
-            await this.ensure_svg(rp)
+            const rp = this.make_viewport_rect_points()
+            if (this.need_ensure_svg(rp)) {
+                await this.ensure_svg(rp)
+            }
         }
     }
 
@@ -261,9 +264,6 @@ class Gradient extends PObject
     // rather than pre_draw
     // this function returns either a promise of an svg image or the svg image if it's already created
     async ensure_svg(rect) {
-        //let svg_wrap = svg_create_elem("svg")
-        //let im = svg_add_elem(svg_wrap, "image")
-
 
         const text = this.make_svg_text(rect)
         let svg = new Image()
@@ -292,7 +292,8 @@ class Gradient extends PObject
         const pa = await this.get_pixels_adapter(for_fb, true)
         // TBD use canvas directly instead of ImageData
         //const pixels = pa.get_pixels()
-        const tex = generateTexture(for_fb.width(), for_fb.height(), canvas_img_shadow, false, 'pad', 'pad') // TBD radial smooth param
+        const tex = generateTexture(for_fb.width(), for_fb.height(), canvas_img_shadow, this.tex_smooth, 'pad', 'pad') 
+            // pad since we're rendering at the size of the frame-buffer so this is not very important (still can be visible if texture is sampled outside the framebuffer)
         tex.t_mat = mat3.create()
         mat3.copy(tex.t_mat, this.t_mat)        
         return tex
@@ -388,17 +389,26 @@ class GradientPixelsAdapter {
 class LinearGradient extends Gradient {
     static name() { return "Linear Gradient" }
     constructor(x1,y1, x2,y2, tex_res, tex_smooth, sample_tex) {
-        super(x1,y1, x2, y2)
+        if (sample_tex) {
+            x1 = -1; y1 = 0; x2 = 1; y2 = 0;
+        }
+        super(x1,y1, x2, y2, tex_smooth)
+        this.tex_res = tex_res // only relevant for Sample tex
+
         this.ctx_create_func = function() { return ctx_img.createLinearGradient(x1,y1, x2,y2) }
 
-        this.tex_res = tex_res // const
-        this.tex_smooth = tex_smooth
         this.tex_obj_cache = null
         this.sample_tex = sample_tex  // means the texture is going to be a 1d sample range and not an actual image
     }
     destructor() {
         if (this.tex_obj_cache !== null)
             this.del_texture_cache()
+    }
+
+    transform(m) { 
+        if (this.sample_tex)
+            return // it should be appear to be possible to transform a sampler gradient
+        super.transform(m)
     }
 
     draw_selection_m(m, selected_indices) {
@@ -478,8 +488,8 @@ function circle(p, r) {
 
 class RadialGradient extends Gradient {
     static name() { return "Radial Gradient" }
-    constructor(x1,y1,r1, x2,y2,r2) {
-        super(x1,y1, x2, y2)
+    constructor(x1,y1,r1, x2,y2,r2, tex_smooth) {
+        super(x1,y1, x2, y2, tex_smooth)
         this.r1 = r1
         this.r2 = r2
         this.ctx_create_func = function() { return ctx_img.createRadialGradient(x1,y1,r1, x2,y2,r2) }
@@ -787,6 +797,18 @@ function col_equals(a, b) {
     return Math.abs(a[0]-b[0]) < ACCURACY && Math.abs(a[1]-b[1]) < ACCURACY && Math.abs(a[2]-b[2]) < ACCURACY && Math.abs(a[3]-b[3]) < ACCURACY
 }
 
+// This mocks a param that has fixed coordinates that can't be changed
+class DummyVec2Param {
+    constructor(x, y) {
+        this.x = x // used in GradPointsAdapterParam::get_value
+        this.y = y
+        this.v = [x,y]
+    }
+    get_value() {
+        return this.v
+    }
+    increment() {}
+}
 
 class NodeGradient extends NodeCls
 {
@@ -799,16 +821,20 @@ class NodeGradient extends NodeCls
         node.set_state_evaluators({"t":  (m,s)=>{ return new ObjSingleEvaluator(m,s) }})
 
         this.out = new OutTerminal(node, "out_gradient")
+        // Sample is for NodeFuncFill to get color from float. It's just a linear gradient without any geometry
         this.type = new ParamSelect(node, "Type", 0, ["Linear", "Radial", "Sample"], (sel_idx)=>{
             this.r1.set_visible(sel_idx == 1)
             this.r2.set_visible(sel_idx == 1)
+            this.p1.set_visible(sel_idx != 2)
+            this.p2.set_visible(sel_idx != 2)
 
-            this.tex_resolution.set_visible(sel_idx != 1)
-            this.tex_smooth.set_visible(sel_idx != 1)
-
+            this.tex_resolution.set_visible(sel_idx == 2)
+ 
             // set points adapter
-            if (sel_idx != 1)
+            if (sel_idx == 0)
                 this.points_adapter = new Linear_GradPointsAdapterParam(this.p1, this.p2, this.values, this)
+            else if (sel_idx == 2)
+                this.points_adapter = new Linear_GradPointsAdapterParam(new DummyVec2Param(-1,0), new DummyVec2Param(1,0), this.values, this)
             else
                 this.points_adapter = new Radial_GradPointsAdapterParam(this.p1, this.r1, this.p2, this.r2, this.values, this)
             this.selected_indices.includes_shifted = function(v) { return this.includes(v + NODE_POINT_LST_OFFSET) } // used for yellow mark of the selected point
@@ -827,6 +853,7 @@ class NodeGradient extends NodeCls
         this.r1 = new ParamFloat(node, "Radius 1", 0.1)
         this.p2 = new ParamVec2(node, "Point 2", 0.5, 0)
         this.r2 = new ParamFloat(node, "Radius 2", 0.7)
+ 
         this.spread = new ParamSelect(node, "Spread", 0, [["Pad",       ['pad', false]], // [display-name, [spread-name, via_svg]]
                                                           ["Pad (svg)", ['pad', true]],
                                                           ["Reflect",   ['reflect', true]],
@@ -851,6 +878,7 @@ class NodeGradient extends NodeCls
     }
     is_radial() { return this.type.sel_idx == 1 }
     post_load_hook() { this.redo_sort() } // sort loaded values for the table
+    // sort the arrays in the order of the value
     redo_sort(force) {
         let tmparr = []
         for(let i = 0; i < this.values.lst.length; ++i)
@@ -866,8 +894,9 @@ class NodeGradient extends NodeCls
         if (!changed)
             return
         this.sorted_order.length = 0
-        for(let t of tmparr)
+        for(let t of tmparr) {
             this.sorted_order.push(t[1])
+        }
         this.table.remake_table()
     }
     image_click(ex, ey) {
@@ -893,10 +922,12 @@ class NodeGradient extends NodeCls
         if (!this.is_radial()) 
             obj = new LinearGradient(this.p1.x, this.p1.y, this.p2.x, this.p2.y, this.tex_resolution.get_value(), this.tex_smooth.get_value(), this.type.sel_idx == 2)
         else 
-            obj = new RadialGradient(this.p1.x, this.p1.y, this.r1.v, this.p2.x, this.p2.y, this.r2.v)
+            obj = new RadialGradient(this.p1.x, this.p1.y, this.r1.v, this.p2.x, this.p2.y, this.r2.v, this.tex_smooth.get_value())
         
-        for(let i = 0, ci = 0; i < this.values.lst.length; ++i, ci += 4) {
-            obj.add_stop(this.values.lst[i], this.colors.lst.slice(ci, ci+4))
+        for(let i = 0; i < this.values.lst.length; ++i) {
+            const sorted_i = this.sorted_order[i]
+            const ci = sorted_i*4
+            obj.add_stop(this.values.lst[sorted_i], this.colors.lst.slice(ci, ci+4))
         }
         const [spreadName, via_svg] = this.spread.get_sel_val()
         obj.spread = spreadName

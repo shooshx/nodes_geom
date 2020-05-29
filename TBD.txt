@@ -56,13 +56,12 @@ EXPRESSIONS
 - swizzle
 - glsl compilation error not visible
 - gradient as image source to func - new type
-    - cache in ensure_svg
-    - rotate fast to 0 makes it skip frames?
     - sampler gradient with no points
+    - smooth param not taken
+    - variables
 - interpolate between two gradients
 - render any geometry to texture
     extend point-gradient
-
 - Manual geom move -  maybe manual with multiple targets?
 - allow terminal name change backwards compatibility - in_tex to in_framebuffer
 - green coordinates
@@ -183,6 +182,8 @@ NODES:
     - bug with oversizing divided square - lighten doesn't get rid of first point of merge
     - discretization of bezier (and back to bezier from paperjs?)
     - detect what points are coming from round corner, convert to bezier
+- WebGL
+    - FrameBuffer rotate fast to 0 makes it skip frames? 
 
 - Anim: Accumulate geometry every N frames
 - Anim: object feedback - from specific frame, every N frame, from N frames in the past (delay line)
