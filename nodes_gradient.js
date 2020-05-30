@@ -490,9 +490,13 @@ class RadialGradient extends Gradient {
     static name() { return "Radial Gradient" }
     constructor(x1,y1,r1, x2,y2,r2, tex_smooth) {
         super(x1,y1, x2, y2, tex_smooth)
+        dassert(r1 > 0 && r2 > 0, "radius radius needs to be positive")
+
         this.r1 = r1
         this.r2 = r2
-        this.ctx_create_func = function() { return ctx_img.createRadialGradient(x1,y1,r1, x2,y2,r2) }
+        this.ctx_create_func = ()=>{ 
+            return ctx_img.createRadialGradient(x1,y1,r1, x2,y2,r2) 
+        }
     }
     draw_circles(tp1, tp2, line_color="#000") {
         let p1 = this.p1, p2 = this.p2, r1 = this.r1, r2 = this.r2
@@ -919,10 +923,15 @@ class NodeGradient extends NodeCls
             this.load_from_func()
         }
         let obj
-        if (!this.is_radial()) 
-            obj = new LinearGradient(this.p1.x, this.p1.y, this.p2.x, this.p2.y, this.tex_resolution.get_value(), this.tex_smooth.get_value(), this.type.sel_idx == 2)
-        else 
-            obj = new RadialGradient(this.p1.x, this.p1.y, this.r1.v, this.p2.x, this.p2.y, this.r2.v, this.tex_smooth.get_value())
+        try {
+            if (!this.is_radial()) 
+                obj = new LinearGradient(this.p1.x, this.p1.y, this.p2.x, this.p2.y, this.tex_resolution.get_value(), this.tex_smooth.get_value(), this.type.sel_idx == 2)
+            else 
+                obj = new RadialGradient(this.p1.x, this.p1.y, this.r1.v, this.p2.x, this.p2.y, this.r2.v, this.tex_smooth.get_value())
+        }
+        catch(e) {
+            assert(false, this, e.message)
+        }
         
         for(let i = 0; i < this.values.lst.length; ++i) {
             const sorted_i = this.sorted_order[i]

@@ -364,7 +364,7 @@ function clone(obj) {
         // it's a typed array or Path2D (that have copy ctor)
         return new obj.constructor(obj)
     }
-    if (obj.constructor === WebGLBuffer || obj.constructor === CanvasGradient) {
+    if (obj.constructor === WebGLBuffer || obj.constructor === WebGLTexture || obj.constructor === CanvasGradient) {
         return null // gl buffers can't be cloned
     }
     if (obj.constructor === HTMLImageElement) {
