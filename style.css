@@ -558,10 +558,11 @@ input {
     cursor: s-resize;
 }
 .dlg_param_text_area {
+    position: absolute;
     margin: 5px;
-    height: calc( 100% - 10px - 21px);
+    height: calc( 100% - 10px - 31px);
     width: calc( 100% - 10px );
-    background-color: #5a5a5a;
+  /*  background-color: #5a5a5a;*/
     flex-grow: 1;
 }
 .panel_param_text_area {

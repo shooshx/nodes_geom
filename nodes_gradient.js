@@ -806,10 +806,9 @@ class DummyVec2Param {
     constructor(x, y) {
         this.x = x // used in GradPointsAdapterParam::get_value
         this.y = y
-        this.v = [x,y]
     }
     get_value() {
-        return this.v
+        return [null, null] // indicate that it can't be selected and moved
     }
     increment() {}
 }
@@ -968,6 +967,7 @@ class NodeGradient extends NodeCls
             this.colors.add([c.r, c.g, c.b, c.alphai])
         }
         this.redo_sort(true) // force sort since we want to force a remake_table 
+        this.clear_selection()
         trigger_frame_draw(true)
     }
 

@@ -2208,10 +2208,24 @@ class ParamTextBlock extends Parameter
         this.dlg_rect = this.dlg.rect
         let [edit_btn, edit_disp] = add_checkbox_btn(this.line_elem, "Edit...", this.dlg.rect.visible, this.dlg.set_visible)
 
-        this.text_input = add_elem(this.dlg.client, "textarea", ["dlg_param_text_area","param_text_area"])
-        this.text_input.spellcheck = false
-        this.text_input.value = this.text
-        myAddEventListener(this.text_input, "input", ()=>{ this.text = this.text_input.value; this.pset_dirty(); this.call_change() }) // TBD save and trigger draw after timeout
+        this.ed_elem = add_div(this.dlg.client, ["dlg_param_text_area","param_text_area"])
+        this.editor = ace.edit(this.ed_elem);
+        this.editor.setShowPrintMargin(false)
+        const GlslMode = ace.require("ace/mode/glsl").Mode;
+        this.editor.session.setMode(new GlslMode());
+        this.editor.setTheme("ace/theme/tomorrow_night_bright");
+        this.editor.setBehavioursEnabled(false) // no auto-pairing of brackets
+        this.editor.setValue(this.text, 1)
+
+        this.editor.on("change", eventWrapper(()=>{ 
+            this.text = this.editor.getValue(); 
+            this.pset_dirty(); 
+            this.call_change() 
+        }))
+        //this.text_input = add_elem(this.dlg.client, "textarea", ["dlg_param_text_area","param_text_area"])
+        //this.text_input.spellcheck = false
+        //this.text_input.value = this.text
+        //myAddEventListener(this.text_input, "input", ()=>{ this.text = this.text_input.value; this.pset_dirty(); this.call_change() }) // TBD save and trigger draw after timeout
         //this.text_input.value = this.text        
     }
 

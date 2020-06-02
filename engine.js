@@ -480,8 +480,8 @@ function clear_draw_req() {
     draw_request.clear_all = false    
 }
 
-function myAddEventListener(obj, event_name, func) {
-    obj.addEventListener(event_name, function() {
+function eventWrapper(func) {
+    return function() {
         //console.log("Added event ", event_name, " ", obj)
         //clear_draw_req()
         let r
@@ -504,8 +504,12 @@ function myAddEventListener(obj, event_name, func) {
             call_frame_draw(do_run, clear_all)
             clear_draw_req() // in case any run triggered a frame again (happens with shaders that are generated in run()
         }
-        return r;
-    })
+        return r;    
+    }
+}
+
+function myAddEventListener(obj, event_name, func) {
+    obj.addEventListener(event_name, eventWrapper(func))
 }
 
 function stop_propogation_on(event_name, ...elems) {

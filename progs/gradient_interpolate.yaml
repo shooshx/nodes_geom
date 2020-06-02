@@ -1,0 +1,171 @@
+nodes:
+  '1':
+    params:
+      Type:
+        sel_str: Sample
+      Method:
+        sel_str: Stops
+      Point 1:
+        se_x: '-0.5'
+        e_y: 0
+        se_cv: 'return vec2(-0.5, 0)'
+      Radius 1:
+        e_v: 0.1
+        se_cv: return 0.1
+      Point 2:
+        e_x: 0.5
+        e_y: 0
+        se_cv: 'return vec2(0.5, 0)'
+      Radius 2:
+        e_v: 0.7
+        se_cv: return 0.7
+      Spread:
+        sel_str: Pad
+      f(t)=:
+        hex: '#CCCCCC'
+        show_code: true
+        se_cv: 'return rgb(255, 128, 0.0) + rgb(t, t, t)*255'
+      Sample Num:
+        e_v: 10
+        se_cv: return 10
+      Add stops:
+        v: true
+      Value:
+        lst: [0.0841529369354248, 0.5, 1]
+      Color:
+        lst: [255, 0, 0, 255, 255, 255, 0, 255, 0, 255, 0, 255]
+      Resolution:
+        e_v: 128
+        se_cv: return 128
+      Smooth:
+        v: true
+    name: gradient_1
+    cls_name: Gradient
+    x: 216
+    y: 123
+    disp_param:
+      show_fill: true
+  '4':
+    params:
+      Type:
+        sel_str: Sample
+      Method:
+        sel_str: Stops
+      Point 1:
+        se_x: '-0.5'
+        e_y: 0
+        se_cv: 'return vec2(-0.5, 0)'
+      Radius 1:
+        e_v: 0.1
+        se_cv: return 0.1
+      Point 2:
+        e_x: 0.5
+        e_y: 0
+        se_cv: 'return vec2(0.5, 0)'
+      Radius 2:
+        e_v: 0.7
+        se_cv: return 0.7
+      Spread:
+        sel_str: Pad
+      f(t)=:
+        hex: '#CCCCCC'
+        show_code: true
+        se_cv: 'return rgb(255, 128, 0.0) + rgb(t, t, t)*255'
+      Sample Num:
+        e_v: 10
+        se_cv: return 10
+      Add stops:
+        v: true
+      Value:
+        lst: [0, 0.20000000298023224, 0.4000000059604645, 0.6000000238418579, 0.800000011920929, 0.9711476564407349]
+      Color:
+        lst: [255, 0, 0, 255, 255, 255, 0, 255, 0, 255, 0, 255, 0, 255, 255, 255, 0, 0, 255, 255, 255, 0, 255, 255]
+      Resolution:
+        e_v: 228
+        se_cv: return 128
+      Smooth:
+        v: true
+    name: gradient_2
+    cls_name: Gradient
+    x: 428
+    y: 117
+    disp_param:
+      show_fill: true
+  '7':
+    params:
+      Type:
+        sel_str: Direct Color
+      "Float\nExpression":
+        se_v: coord.x
+        show_code: true
+        se_cv: 'return in_texi(0, coord)'
+      "Color\nExpression":
+        hex: '#CCCCCC'
+        show_code: true
+        se_cv: |-
+          g1 =  in_texi(0, coord*0.5+0.5)
+          g2 =  in_texi(1, coord*0.5+0.5)
+          f = coord.y*0.5+0.5
+          c = f*g1 + (1-f)*g2
+          c2 = sqrt(f*sqr(g1) + (1-f)*sqr(g2))
+          return c2
+      OrderInputs:
+        sorted_order: [0, 1]
+    name: function_fill_1
+    cls_name: Function Fill
+    x: 345
+    y: 328
+    disp_param: {}
+  '14':
+    params:
+      Resolution:
+        x: 915
+        y: 915
+      Size:
+        e_x: 2
+        e_y: 2
+        se_cv: 'return vec2(2, 2)'
+      Smooth Scaling:
+        v: true
+      Texture Edge:
+        sel_str: Pad
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: create_pixel_buffer_1
+    cls_name: Create Pixel-Buffer
+    x: 553
+    y: 184
+    disp_param: {}
+lines:
+  - from_name: out_gradient
+    from_id: 1
+    to_name: in_texs
+    to_id: 7
+    uid: 12
+  - from_name: out_gradient
+    from_id: 4
+    to_name: in_texs
+    to_id: 7
+    uid: 13
+  - from_name: out_tex
+    from_id: 14
+    to_name: in_fb
+    to_id: 7
+    uid: 17
+next_node_id: 18
+names_idx_s:
+  Gradient: 2
+  Function Fill: 1
+  Create Pixel-Buffer: 1
+display_node_id: 7
+tdisp_node_ids: []
+input_node_ids: []
+nodes_view:
+  pan_x: -75
+  pan_y: 71

@@ -52,14 +52,12 @@ EXPRESSIONS
 - optiomize, load Yaml
     dialog for delete from state
 - code editor
+    errors in editor
 - mesh merge
 - swizzle
+- gradient
+    sampler transform only x
 - glsl compilation error not visible
-- gradient as image source to func - new type
-    - sampler gradient with no points
-    - smooth param not taken
-    - variables
-- interpolate between two gradients
 - render any geometry to texture
     extend point-gradient
 - Manual geom move -  maybe manual with multiple targets?
