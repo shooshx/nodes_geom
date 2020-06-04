@@ -668,3 +668,9 @@ input {
     padding: 5px;
     pointer-events: none;
 }
+
+.editor_error_marker {
+    position:absolute;
+    background: rgba(255, 81, 81, 0.3);;
+    z-index:20
+  }

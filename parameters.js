@@ -2173,6 +2173,8 @@ function add_grip_handlers(grip, cell) {
     });
 }
 
+const AceRange = ace.require('ace/range').Range;
+
 // used for glsl
 class ParamTextBlock extends Parameter 
 {
@@ -2187,6 +2189,8 @@ class ParamTextBlock extends Parameter
         node.register_rename_observer((name)=>{
             this.dlg.set_title(this.title())
         })
+        this.errors = null
+        this.editor = null
     }
     save() { return { dlg_rect: this.dlg_rect, text:this.text } }
     load(v) { this.text = v.text; this.dlg_rect = v.dlg_rect;  }
@@ -2222,11 +2226,38 @@ class ParamTextBlock extends Parameter
             this.pset_dirty(); 
             this.call_change() 
         }))
+
+        this.show_errors()
+
+        //ace.showErrorMarker(this.editor, 10)
+
         //this.text_input = add_elem(this.dlg.client, "textarea", ["dlg_param_text_area","param_text_area"])
         //this.text_input.spellcheck = false
         //this.text_input.value = this.text
         //myAddEventListener(this.text_input, "input", ()=>{ this.text = this.text_input.value; this.pset_dirty(); this.call_change() }) // TBD save and trigger draw after timeout
         //this.text_input.value = this.text        
+    }
+
+    show_errors() {
+        this.editor.session.$backMarkers = {}
+        if (this.errors === null || this.errors.length == 0) {
+            this.editor.session.setAnnotations([])
+            return
+        }
+
+        for(let e of this.errors) {
+            e.row = e.line-1 // line is 1 based
+            e.type = "error"
+            this.editor.session.addMarker( new AceRange(e.row, 0, e.row, 1), "editor_error_marker", "fullLine")
+        }
+        this.editor.session.setAnnotations(this.errors)        
+    }
+    
+    set_errors(err_lst) { // list of {line:, text:}
+        this.errors = err_lst
+        if (this.editor === null)
+            return
+        this.show_errors()
     }
 
     

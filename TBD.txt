@@ -53,6 +53,7 @@ EXPRESSIONS
     dialog for delete from state
 - code editor
     errors in editor
+    disable Ctrl+F
 - mesh merge
 - swizzle
 - gradient

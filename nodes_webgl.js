@@ -252,6 +252,29 @@ function setTexParams(smooth, spread_x, spread_y) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrap_y);
 }
 
+function analyzeInfoLog(text) {
+    if (text[text.length-1] == '\0') // happens in chrome
+        text = text.substr(0,text.length-1)
+    const lines = text.split('\n')
+    const messages = []
+    for(let line of lines) {
+        const trl = line.trim()
+        if (trl.length == 0)
+            continue
+        if (!line.startsWith('ERROR:')) 
+            throw Error("unknown line")
+        const tl = trl.substr(6)    
+        const colon = tl.indexOf(":")
+        const nxcolon = tl.indexOf(":",colon+1)
+        if (colon == -1 || nxcolon == -1)
+            throw Error("Failed parsing line " + line)
+        const numcol = parseInt(tl.substr(0,colon))
+        const numline = parseInt(tl.substr(colon+1, nxcolon))
+        const msg = tl.substr(nxcolon+1).trim()
+        messages.push({line:numline, col:numcol, text:msg})
+    }
+    return messages
+}
 
 function createShader(gl, type, source) {
     var shader = gl.createShader(type);
@@ -259,12 +282,14 @@ function createShader(gl, type, source) {
     gl.compileShader(shader);
     var success = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
     if (success) {
-        return shader;
+        return [shader, null];
     }
 
-    console.log(gl.getShaderInfoLog(shader));  // eslint-disable-line
+    const errlog = gl.getShaderInfoLog(shader)
+    console.log(errlog);  // eslint-disable-line
     gl.deleteShader(shader);
-    return undefined;
+    const errlst = analyzeInfoLog(errlog)
+    return [null, errlst];
 }
 
 function createProgram(gl, vtxSource, fragSource, attr_names, defines) {
@@ -273,10 +298,10 @@ function createProgram(gl, vtxSource, fragSource, attr_names, defines) {
         prefixSrc += "#define " + name + " (" + defines[name] + ")\n"
     prefixSrc += "#line 1\n"
 
-    let vtxShader = createShader(gl, gl.VERTEX_SHADER, prefixSrc + vtxSource);
-    let fragShader = createShader(gl, gl.FRAGMENT_SHADER, prefixSrc + fragSource);
+    const [vtxShader, vtxerr] = createShader(gl, gl.VERTEX_SHADER, prefixSrc + vtxSource);
+    const [fragShader, fragerr] = createShader(gl, gl.FRAGMENT_SHADER, prefixSrc + fragSource);
     if (!vtxShader || !fragShader || !attr_names)
-        return null // TBD integrate error message
+        return [null, vtxerr, fragerr] // TBD integrate error message
 
     var program = gl.createProgram();
     gl.attachShader(program, vtxShader);
@@ -286,14 +311,16 @@ function createProgram(gl, vtxSource, fragSource, attr_names, defines) {
     gl.deleteShader(fragShader) 
     var success = gl.getProgramParameter(program, gl.LINK_STATUS);
     if (!success) {
-        console.log(gl.getProgramInfoLog(program));  // eslint-disable-line
+        const errlog = gl.getProgramInfoLog(program)
+        console.log(errlog);  // eslint-disable-line
         gl.deleteProgram(program);
+        return null
     }
     program.attrs = {}
     for(let attr_name of attr_names)
         program.attrs[attr_name] = gl.getAttribLocation(program, attr_name);
 
-    return program;
+    return [program, vtxerr, fragerr];
 }
 
 const g_dummy_texture_opt = {sz:50, width:5, dark:180, light:255 }
@@ -585,7 +612,10 @@ class NodeShader extends NodeCls
                     defines[def_name] = 1 // it's either defined or not defines
             }
 
-            this.program = createProgram(gl, this.vtx_text.text, this.frag_text.text, this.attr_names, defines);
+            const [_prog, vtxerr, fragerr] = createProgram(gl, this.vtx_text.text, this.frag_text.text, this.attr_names, defines);
+            this.program = _prog
+            this.vtx_text.set_errors(vtxerr)
+            this.frag_text.set_errors(fragerr)
             assert(this.program, this, "failed to compile shaders")
                 
             this.program.uniforms = {}
