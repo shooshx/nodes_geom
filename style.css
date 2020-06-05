@@ -673,4 +673,18 @@ input {
     position:absolute;
     background: rgba(255, 81, 81, 0.3);;
     z-index:20
-  }
+}
+
+.prm_text_err {
+    position: absolute;
+    bottom: 4px;
+    background-color: #6d0b0b;
+    border: 1px solid #9e0202;
+    border-radius: 4px;
+    padding: 4px;
+    transform: translate(0, 100%);
+    /* for breaking the lines
+    max-width: 100%;
+    white-space: normal;
+    */
+}

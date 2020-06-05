@@ -2189,8 +2189,8 @@ class ParamTextBlock extends Parameter
         node.register_rename_observer((name)=>{
             this.dlg.set_title(this.title())
         })
-        this.errors = null
-        this.editor = null
+        this.errors = null // map line number to {text:err message}
+        this.editor = null  
     }
     save() { return { dlg_rect: this.dlg_rect, text:this.text } }
     load(v) { this.text = v.text; this.dlg_rect = v.dlg_rect;  }
@@ -2226,6 +2226,25 @@ class ParamTextBlock extends Parameter
             this.pset_dirty(); 
             this.call_change() 
         }))
+        
+        const err_elem = add_div(this.dlg.client, "prm_text_err")
+        err_elem.style.display = "none"
+        let err_elem_visible = false
+        this.editor.getSelection().on("changeCursor", eventWrapper(()=>{
+            const line = this.editor.getSelection().getCursor().row + 1
+            const e = this.errors[line]
+            if (e !== undefined) {
+                err_elem.innerText = e.text
+                err_elem.style.display = ""
+                err_elem_visible = true
+                return
+            }
+            if (err_elem_visible) {
+                err_elem.innerText = ""
+                err_elem.style.display = "none"
+                err_elem_visible = false
+            }
+        }))
 
         this.show_errors()
 
@@ -2245,8 +2264,9 @@ class ParamTextBlock extends Parameter
             return
         }
 
-        for(let e of this.errors) {
-            e.row = e.line-1 // line is 1 based
+        for(let eline in this.errors) {
+            const e = this.errors[eline]
+            e.row = eline-1 // line is 1 based
             e.type = "error"
             this.editor.session.addMarker( new AceRange(e.row, 0, e.row, 1), "editor_error_marker", "fullLine")
         }

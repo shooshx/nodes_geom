@@ -256,7 +256,7 @@ function analyzeInfoLog(text) {
     if (text[text.length-1] == '\0') // happens in chrome
         text = text.substr(0,text.length-1)
     const lines = text.split('\n')
-    const messages = []
+    const messages = {}
     for(let line of lines) {
         const trl = line.trim()
         if (trl.length == 0)
@@ -271,7 +271,11 @@ function analyzeInfoLog(text) {
         const numcol = parseInt(tl.substr(0,colon))
         const numline = parseInt(tl.substr(colon+1, nxcolon))
         const msg = tl.substr(nxcolon+1).trim()
-        messages.push({line:numline, col:numcol, text:msg})
+        //messages.push({line:numline, col:numcol, text:trl})
+        if (messages[numline] === undefined)
+            messages[numline] = {text: trl}
+        else
+            messages[numline].text += "\n" + trl
     }
     return messages
 }
@@ -708,7 +712,8 @@ async function renderTexToImgBitmap(tex_obj, sz_x, sz_y)
     gl.viewport(0, 0, canvas_webgl.width, canvas_webgl.height); // we just set this to the size from the texture
 
     if (render_teximg.mesh === null) {
-        render_teximg.program = createProgram(gl, render_teximg.vtx_src, render_teximg.frag_src, ['vtx_pos'], [])
+        const [_prog, vtxerr, fragerr] = createProgram(gl, render_teximg.vtx_src, render_teximg.frag_src, ['vtx_pos'], [])
+        render_teximg.program = _prog
         dassert(render_teximg.program !== null, "failed compile teximg")
 
         render_teximg.mesh = make_mesh_quadtri(sz_x, sz_y)
