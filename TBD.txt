@@ -54,6 +54,7 @@ EXPRESSIONS
 - code editor
     errors in editor
     disable Ctrl+F
+- default(var, 1)
 - mesh merge
 - swizzle
 - gradient

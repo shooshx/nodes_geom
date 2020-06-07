@@ -2175,6 +2175,82 @@ function add_grip_handlers(grip, cell) {
 
 const AceRange = ace.require('ace/range').Range;
 
+function createCodeDlg(parent, dlg_rect, lang, title, start_v, change_func, visible_changed_func)
+{
+    const dlg = create_dialog(parent, title, true, dlg_rect, visible_changed_func)
+    dlg.elem.classList.add("dlg_size_shader_edit")
+    const ed_elem = add_div(dlg.client, ["dlg_param_text_area","param_text_area"])
+
+    const editor = ace.edit(ed_elem);
+    editor.setShowPrintMargin(false)
+    if (lang == "glsl") {
+        const GlslMode = ace.require("ace/mode/glsl").Mode;
+        editor.session.setMode(new GlslMode());
+    }
+    editor.setTheme("ace/theme/tomorrow_night_bright");
+    editor.setBehavioursEnabled(false) // no auto-pairing of brackets
+    editor.setValue(start_v, 1) // 1: cursorPos end
+
+    editor.on("change", eventWrapper(()=>{ 
+        change_func(editor.getValue())
+    }))
+
+    const err_elem = add_div(dlg.client, "prm_text_err")
+    err_elem.style.display = "none"
+    let err_elem_visible = false
+    let state = null
+    const update_err_elem = ()=>{
+        const line = editor.getSelection().getCursor().row + 1
+        if (state.errors !== null) {
+            const e = state.errors[line]
+            if (e !== undefined) {
+                err_elem.innerText = e.text
+                err_elem.style.display = ""
+                err_elem_visible = true
+                return
+            }
+        }
+        if (err_elem_visible) {
+            err_elem.innerText = ""
+            err_elem.style.display = "none"
+            err_elem_visible = false
+        }
+    }
+
+    editor.getSelection().on("changeCursor", eventWrapper(update_err_elem))
+    const marker_ids = []
+    const show_errors = ()=>{        
+        for(let marker_id of marker_ids)
+            editor.session.removeMarker(marker_id)
+        if (state.errors === null || state.errors.length == 0) {
+            editor.session.setAnnotations([])
+        }
+        else {
+            for(let eline in state.errors) {
+                const e = state.errors[eline]
+                e.row = eline-1 // line is 1 based
+                e.type = "error"
+                marker_ids.push(editor.session.addMarker( new AceRange(e.row, 0, e.row, 1), "editor_error_marker", "fullLine"))
+            }
+            editor.session.setAnnotations(Object.values(state.errors))
+        }
+        update_err_elem()
+    }
+        
+    const set_errors = (err_lst)=>{ // list of {line:, text:}
+        state.errors = err_lst
+        show_errors()
+    }
+
+    const set_value = (v)=>{
+        editor.setValue(v, 1)
+    }
+
+    state = {errors: null, dlg:dlg, set_errors:set_errors, set_value:set_value }
+    show_errors()
+    return state
+}
+
 // used for glsl
 class ParamTextBlock extends Parameter 
 {
@@ -2183,108 +2259,57 @@ class ParamTextBlock extends Parameter
         this.dlg = null
 
         this.text_input = null
-        this.dlg_rect = null
-        this.text = ""
+        this.dlg_rect = null  // state of the dialog display
+        this.v = ""
         this.change_func = change_func
         node.register_rename_observer((name)=>{
-            this.dlg.set_title(this.title())
+            this.code_dlg.dlg.set_title(this.title())
         })
-        this.errors = null // map line number to {text:err message}
-        this.editor = null  
+        this.set_errors = (err_lst)=>{}
+        this.code_dlg = null
     }
-    save() { return { dlg_rect: this.dlg_rect, text:this.text } }
-    load(v) { this.text = v.text; this.dlg_rect = v.dlg_rect;  }
+    save() { return { dlg_rect: this.dlg_rect, text:this.v } }
+    load(v) { this.v = v.text; this.dlg_rect = v.dlg_rect;  } // dlg_rect saved only if text is saved
     
     title() { return this.owner.name + " - " + this.label }
     set_text(v, do_draw=true) { // when calling this from run(), set to false to avoid endless loop of draws
-        if (this.text === v)
+        if (this.v === v)
             return
-        this.text = v; 
+        this.v = v; 
         this.pset_dirty(do_draw); 
-        this.call_change() 
+        this.call_change()
+
+        if (this.code_dlg !== null)
+            this.code_dlg.set_value(this.v)
     }
 
     add_elems(parent) {
         this.line_elem = add_param_line(parent, this)
         this.label_elem = add_param_label(this.line_elem, this.label)
-        this.dlg = create_dialog(parent, this.title(), true, this.dlg_rect, (visible)=>{ edit_btn.checked = visible })
-        this.dlg.elem.classList.add("dlg_size_shader_edit")
-        this.dlg_rect = this.dlg.rect
-        let [edit_btn, edit_disp] = add_checkbox_btn(this.line_elem, "Edit...", this.dlg.rect.visible, this.dlg.set_visible)
 
-        this.ed_elem = add_div(this.dlg.client, ["dlg_param_text_area","param_text_area"])
-        this.editor = ace.edit(this.ed_elem);
-        this.editor.setShowPrintMargin(false)
-        const GlslMode = ace.require("ace/mode/glsl").Mode;
-        this.editor.session.setMode(new GlslMode());
-        this.editor.setTheme("ace/theme/tomorrow_night_bright");
-        this.editor.setBehavioursEnabled(false) // no auto-pairing of brackets
-        this.editor.setValue(this.text, 1)
-
-        this.editor.on("change", eventWrapper(()=>{ 
-            this.text = this.editor.getValue(); 
+        this.code_dlg = createCodeDlg(this.line_elem, this.dlg_rect, "glsl", this.title(), this.v, (v)=>{
+            this.v = v
             this.pset_dirty(); 
             this.call_change() 
-        }))
-        
-        const err_elem = add_div(this.dlg.client, "prm_text_err")
-        err_elem.style.display = "none"
-        let err_elem_visible = false
-        this.editor.getSelection().on("changeCursor", eventWrapper(()=>{
-            const line = this.editor.getSelection().getCursor().row + 1
-            const e = this.errors[line]
-            if (e !== undefined) {
-                err_elem.innerText = e.text
-                err_elem.style.display = ""
-                err_elem_visible = true
-                return
-            }
-            if (err_elem_visible) {
-                err_elem.innerText = ""
-                err_elem.style.display = "none"
-                err_elem_visible = false
-            }
-        }))
+        }, (visible)=>{ edit_btn.checked = visible })
+        this.set_errors = this.code_dlg.set_errors
+        this.dlg_rect = this.code_dlg.dlg.rect
 
-        this.show_errors()
+        const [edit_btn, edit_disp] = add_checkbox_btn(this.line_elem, "Edit...", this.dlg_rect.visible, this.code_dlg.dlg.set_visible)
+
 
         //ace.showErrorMarker(this.editor, 10)
 
         //this.text_input = add_elem(this.dlg.client, "textarea", ["dlg_param_text_area","param_text_area"])
         //this.text_input.spellcheck = false
-        //this.text_input.value = this.text
-        //myAddEventListener(this.text_input, "input", ()=>{ this.text = this.text_input.value; this.pset_dirty(); this.call_change() }) // TBD save and trigger draw after timeout
-        //this.text_input.value = this.text        
+        //this.text_input.value = this.v
+        //myAddEventListener(this.text_input, "input", ()=>{ this.v = this.text_input.value; this.pset_dirty(); this.call_change() }) // TBD save and trigger draw after timeout
+        //this.text_input.value = this.v        
     }
 
-    show_errors() {
-        this.editor.session.$backMarkers = {}
-        if (this.errors === null || this.errors.length == 0) {
-            this.editor.session.setAnnotations([])
-            return
-        }
 
-        for(let eline in this.errors) {
-            const e = this.errors[eline]
-            e.row = eline-1 // line is 1 based
-            e.type = "error"
-            this.editor.session.addMarker( new AceRange(e.row, 0, e.row, 1), "editor_error_marker", "fullLine")
-        }
-        this.editor.session.setAnnotations(this.errors)        
-    }
-    
-    set_errors(err_lst) { // list of {line:, text:}
-        this.errors = err_lst
-        if (this.editor === null)
-            return
-        this.show_errors()
-    }
 
     
-    call_change() { 
-        if (this.change_func) 
-            this.change_func(this.text)
-    }    
 }
 
 

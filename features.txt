@@ -1,0 +1,52 @@
+**** Application ****
+- Import and export programs to readable YAML
+- Display the output of a single selected node marked with the blue display flag
+- Display outline of any number of "template" outputs of nodes marked with the template flag
+
+**** Expression Engine ****
+
+- Variable nodes can calculate and distribute values to other nodes
+
+
+**** Nodes ****
+
+Node: Geom Primitive
+- Create a simple geometry Primitive
+- Rect, rect with triangles, ellipse (circle), regular polygon, star shape
+- Base size and Transform
+
+Node: Manual Geometry
+- Create a collection of vertices (Mesh) or closed straight-line paths
+- Control color of every vertex
+- Input exact coordinates by clicking the coordinate in the table
+
+Node: Gradient
+- Create linear, radial and sampler gradient
+    - sampler are gradients without geometry used for function sampling see Node Func
+- Edit geometry, edit color stop points and colors
+- Edit exact position of stop by clicking in the table
+- Control gradient spread beyond edges: pad, repeat, reflect
+- generate stops using a function of t
+    - "return rgb(255,128,0) + rgb(t, t, t)*255"
+- Control smoothing and resolution in case it's rendered to a texture
+- Load a preset gradient
+
+Node: Divide
+- Divide each quad in a quad mesh into smaller quads
+- by a constant number of division or a constant required distance
+
+Node: Set Attribute
+- Set an attribute of vertices or faces of gemortry to a constant, sampled or calculated value
+- Set attribute name, type and object to bind to (vertices or faces)
+- types: float, vec2 (normal), color (vec4), image-fill, transform
+- Sample color value from an image or gradient
+- Calculate value according to vertex or face position
+- Expression possibilites:
+    - Any atteibute that already exists the input bound objects (in_obj.vtx_pos.x, in_obj.face_color.r)
+    - Color from the source input (in_src to get the color vec4, in_src.r for just red)
+    - computed attributes: 
+        in_obj.face_center: geomtric center of face (vec3)
+- Set fill - makes the input geometry a clipping path for the source
+    - name needs to be "fill", works only for faces
+
+Node: Group Objects

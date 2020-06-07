@@ -667,7 +667,6 @@ async function do_frame_draw(do_run, clear_all)
 
 var nodes_classes = [
     //NodeTestDummy, 
-    NodeShader,
     NodeGeomPrimitive, 
     NodeManualGeom,
     NodeGradient,

@@ -616,7 +616,7 @@ class NodeShader extends NodeCls
                     defines[def_name] = 1 // it's either defined or not defines
             }
 
-            const [_prog, vtxerr, fragerr] = createProgram(gl, this.vtx_text.text, this.frag_text.text, this.attr_names, defines);
+            const [_prog, vtxerr, fragerr] = createProgram(gl, this.vtx_text.v, this.frag_text.v, this.attr_names, defines);
             this.program = _prog
             this.vtx_text.set_errors(vtxerr)
             this.frag_text.set_errors(fragerr)
