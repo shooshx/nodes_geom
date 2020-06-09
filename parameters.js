@@ -606,7 +606,7 @@ class ExpressionItem {
         this.set_prop = (set_prop !== null) ? set_prop : (v)=>{ this.in_param[prop_name] = v }
         this.get_prop = (get_prop !== null) ? get_prop : ()=>{ return this.in_param[prop_name] }
         this.prop_type = prop_type  // constant like ED_FLOAT used for formatting the value
-        this.elem = null
+        this.editor = null
         this.e = null  // expression AST, can call eval() on this or null of the value is just a number
         this.se = "" + this.get_prop() // expression string
         this.last_error = null // string of the error if there was one or null
@@ -687,33 +687,21 @@ class ExpressionItem {
         this.set_prop(v)
         return true
     }
-    show_err() {
-        //let edit_rect = this.elem.getBoundingClientRect(), line_rect = this.this.elem.parentElement.getBoundingClientRect()
-        this.err_elem = create_div("param_edit_err_box")
-        this.err_elem.innerText = this.last_error
-        this.err_elem.style.left = Math.round(this.elem.offsetLeft) + "px"
-        this.err_elem.style.top = Math.round(this.elem.offsetHeight) + "px"
-        this.elem.parentElement.insertBefore(this.err_elem, this.elem.nextSibling)
-    }
+
     eset_error(ex) {
         if (this.last_error !== null)
             return
         this.last_error = ex.message
-        if (this.elem) {
-            this.elem.classList.toggle("param_input_error", true)
-            this.show_err()
+        if (this.editor) {
+            this.editor.show_err(this.last_error)
         }
     }
     eclear_error() {
         if (this.last_error === null) 
             return
         this.last_error = null
-        if (this.elem)
-            this.elem.classList.toggle("param_input_error", false)
-        if (this.err_elem) {
-            this.err_elem.parentElement.removeChild(this.err_elem)
-            this.err_elem = null
-        }
+        if (this.editor)
+            this.editor.clear_err()
     }
     do_check_type(expect_vars_resolved=false) {
         this.etype = ExprParser.check_type(this.e, expect_vars_resolved)
@@ -834,27 +822,26 @@ class ExpressionItem {
 
         const str_change_callback = (se)=>{this.peval(se)}
         if (this.override_create_elem === null)
-            this.elem = add_param_edit(line, this.se, ED_STR, str_change_callback)
+            this.editor = new EditBoxEditor(add_param_edit(line, this.se, ED_STR, str_change_callback))
         else
-            this.elem = this.override_create_elem(line, this.se, str_change_callback)
+            this.editor = this.override_create_elem(line, this.se, str_change_callback)
 
         if (this.last_error !== null) {
-            this.elem.classList.toggle("param_input_error", true)
-            this.show_err()
+            this.editor.show_err(this.last_error)
         }
 
         if (this.slider_conf.allowed)
             this.display_slider(line, true)
         this.ctx_menu.add_context_menu(line)
 
-        return this.elem
+        return this.editor
     }
     set_to_const(v) { // return true if value actually changed
         this.e = ExprParser.make_num_node(this.e, v)
         this.se = formatType(v, this.prop_type)
         this.need_inputs = null
-        if (this.elem !== null)
-            this.elem.value = this.se
+        if (this.editor !== null)
+            this.editor.set_value(this.se)
         return this.do_set_prop(v) // in color, need it the picker style to not be italic
         // pset_dirty done in caller
     }
@@ -938,6 +925,37 @@ class ExpressionItem {
     }
 }
 
+// abstract setting the error and value into an editor object so that it can be interchanged with Ace Editor for code
+// this just wraps a normal edit-box
+class EditBoxEditor {
+    constructor(elem) {
+        this.elem = elem
+        this.err_elem = null
+    }
+
+    show_err(err_text) {
+        //let edit_rect = this.elem.getBoundingClientRect(), line_rect = this.this.elem.parentElement.getBoundingClientRect()
+        this.err_elem = create_div("param_edit_err_box")
+        this.err_elem.innerText = err_text
+        this.err_elem.style.left = Math.round(this.elem.offsetLeft) + "px"
+        this.err_elem.style.top = Math.round(this.elem.offsetHeight) + "px"
+        this.elem.parentElement.insertBefore(this.err_elem, this.elem.nextSibling)
+
+        this.elem.classList.toggle("param_input_error", true)
+    }
+    clear_err() {
+        this.elem.classList.toggle("param_input_error", false) 
+        if (this.err_elem) {
+            this.err_elem.parentElement.removeChild(this.err_elem)
+            this.err_elem = null
+        }  
+    }
+
+    set_value(v) {
+        this.elem.value = v
+    }
+}
+
 // used by all params that have code option
 let CodeItemMixin = (superclass) => class extends superclass {
     constructor(node, label, conf) {
@@ -949,14 +967,17 @@ let CodeItemMixin = (superclass) => class extends superclass {
         this.code_item = code_expr
         this.code_item.prop_name_ser = "cv"
         this.code_item.override_create_elem = (line, show_v, change_func)=>{
-            const elem = add_elem(line, "textarea", ["param_text_area","panel_param_text_area", "param_editbox"])
+            const elem = add_div(line, "panel_param_text_area")
+            const ed = new Editor(elem, show_v, change_func, {lang:"glsl"});
+
+            /*const elem = add_elem(line, "textarea", ["param_text_area","panel_param_text_area", "param_editbox"])
             elem.spellcheck = false
             elem.rows = 6
             elem.value = show_v
             myAddEventListener(elem, "input", function() { 
                 change_func(elem.value); 
-            })
-            return elem
+            })*/
+            return ed
         }
         this.code_item.parse_opt = PARSE_CODE
         this.populate_code_ctx_menu(this.code_item.ctx_menu)
@@ -2175,80 +2196,101 @@ function add_grip_handlers(grip, cell) {
 
 const AceRange = ace.require('ace/range').Range;
 
-function createCodeDlg(parent, dlg_rect, lang, title, start_v, change_func, visible_changed_func)
+function create_code_dlg(parent, dlg_rect, title, start_v, change_func, visible_changed_func, opt)
 {
-    const dlg = create_dialog(parent, title, true, dlg_rect, visible_changed_func)
+    let obj = null
+    const dlg = create_dialog(parent, title, true, dlg_rect, visible_changed_func, ()=>{
+        if (obj) // first call inside create_dialog, before editor was created
+            obj.editor.resize()
+    })
     dlg.elem.classList.add("dlg_size_shader_edit")
     const ed_elem = add_div(dlg.client, ["dlg_param_text_area","param_text_area"])
+    const editor = new Editor(ed_elem, start_v, change_func, opt)
+    editor.dlg = dlg
+    return editor
+}
 
-    const editor = ace.edit(ed_elem);
-    editor.setShowPrintMargin(false)
-    if (lang == "glsl") {
-        const GlslMode = ace.require("ace/mode/glsl").Mode;
-        editor.session.setMode(new GlslMode());
+class Editor
+{
+    constructor(ed_elem, start_v, change_func, opt)
+    {
+        this.editor = ace.edit(ed_elem);
+        this.editor.setShowPrintMargin(false)
+        if (opt.lang == "glsl") {
+            const GlslMode = ace.require("ace/mode/glsl").Mode;
+            this.editor.session.setMode(new GlslMode());
+        }
+        this.editor.setTheme("ace/theme/tomorrow_night_bright");
+        this.editor.setBehavioursEnabled(false) // no auto-pairing of brackets
+        this.editor.setValue(start_v, 1) // 1: cursorPos end
+        //editor.setHighlightGutterLine(true)
+
+        this.editor.on("change", eventWrapper(()=>{ 
+            change_func(this.editor.getValue())
+        }))
+
+        this.err_elem = add_div(ed_elem, "prm_text_err")
+        this.err_elem.style.display = "none"
+        this.err_elem_visible = false
+        this.errors = null
+
+        this.editor.getSelection().on("changeCursor", eventWrapper(()=>{this.update_err_elem()}))
+        this.marker_ids = []
+        this.show_errors()
     }
-    editor.setTheme("ace/theme/tomorrow_night_bright");
-    editor.setBehavioursEnabled(false) // no auto-pairing of brackets
-    editor.setValue(start_v, 1) // 1: cursorPos end
 
-    editor.on("change", eventWrapper(()=>{ 
-        change_func(editor.getValue())
-    }))
-
-    const err_elem = add_div(dlg.client, "prm_text_err")
-    err_elem.style.display = "none"
-    let err_elem_visible = false
-    let state = null
-    const update_err_elem = ()=>{
-        const line = editor.getSelection().getCursor().row + 1
-        if (state.errors !== null) {
-            const e = state.errors[line]
+    update_err_elem()
+    {
+        const line = this.editor.getSelection().getCursor().row + 1
+        if (this.errors !== null) {
+            const e = this.errors[line]
             if (e !== undefined) {
-                err_elem.innerText = e.text
-                err_elem.style.display = ""
-                err_elem_visible = true
+                this.err_elem.innerText = e.text
+                this.err_elem.style.display = ""
+                this.err_elem_visible = true
                 return
             }
         }
-        if (err_elem_visible) {
-            err_elem.innerText = ""
-            err_elem.style.display = "none"
-            err_elem_visible = false
+        if (this.err_elem_visible) {
+            this.err_elem.innerText = ""
+            this.err_elem.style.display = "none"
+            this.err_elem_visible = false
         }
     }
 
-    editor.getSelection().on("changeCursor", eventWrapper(update_err_elem))
-    const marker_ids = []
-    const show_errors = ()=>{        
-        for(let marker_id of marker_ids)
-            editor.session.removeMarker(marker_id)
-        if (state.errors === null || state.errors.length == 0) {
-            editor.session.setAnnotations([])
+    show_errors() { // from glsl
+        for(let marker_id of this.marker_ids)
+            this.editor.session.removeMarker(marker_id)
+        if (this.errors === null || this.errors.length == 0) {
+            //editor.session.setAnnotations([])
         }
         else {
-            for(let eline in state.errors) {
-                const e = state.errors[eline]
+            for(let eline in this.errors) {
+                const e = this.errors[eline]
                 e.row = eline-1 // line is 1 based
                 e.type = "error"
-                marker_ids.push(editor.session.addMarker( new AceRange(e.row, 0, e.row, 1), "editor_error_marker", "fullLine"))
+                this.marker_ids.push(this.editor.session.addMarker( new AceRange(e.row, 0, e.row, 1), "editor_error_marker", "fullLine"))
             }
-            editor.session.setAnnotations(Object.values(state.errors))
+            //editor.session.setAnnotations(Object.values(this.errors))
         }
-        update_err_elem()
+        this.update_err_elem()
     }
         
-    const set_errors = (err_lst)=>{ // list of {line:, text:}
-        state.errors = err_lst
-        show_errors()
+    set_errors(err_lst) { // list of {line:, text:}
+        this.errors = err_lst
+        this.show_errors()
     }
 
-    const set_value = (v)=>{
-        editor.setValue(v, 1)
+    set_value(v) {
+        this.editor.setValue(v, 1)
     }
 
-    state = {errors: null, dlg:dlg, set_errors:set_errors, set_value:set_value }
-    show_errors()
-    return state
+    show_err(err) { // from expr
+        this.set_errors({1:{text:err}})
+    }
+    clear_err() { // from expr
+        this.set_errors({})
+    }
 }
 
 // used for glsl
@@ -2265,7 +2307,6 @@ class ParamTextBlock extends Parameter
         node.register_rename_observer((name)=>{
             this.code_dlg.dlg.set_title(this.title())
         })
-        this.set_errors = (err_lst)=>{}
         this.code_dlg = null
     }
     save() { return { dlg_rect: this.dlg_rect, text:this.v } }
@@ -2287,12 +2328,11 @@ class ParamTextBlock extends Parameter
         this.line_elem = add_param_line(parent, this)
         this.label_elem = add_param_label(this.line_elem, this.label)
 
-        this.code_dlg = createCodeDlg(this.line_elem, this.dlg_rect, "glsl", this.title(), this.v, (v)=>{
+        this.code_dlg = create_code_dlg(this.line_elem, this.dlg_rect, this.title(), this.v, (v)=>{
             this.v = v
             this.pset_dirty(); 
             this.call_change() 
-        }, (visible)=>{ edit_btn.checked = visible })
-        this.set_errors = this.code_dlg.set_errors
+        }, (visible)=>{ edit_btn.checked = visible }, {lang:"glsl"})
         this.dlg_rect = this.code_dlg.dlg.rect
 
         const [edit_btn, edit_disp] = add_checkbox_btn(this.line_elem, "Edit...", this.dlg_rect.visible, this.code_dlg.dlg.set_visible)
@@ -2307,7 +2347,9 @@ class ParamTextBlock extends Parameter
         //this.text_input.value = this.v        
     }
 
-
+    set_errors(errors) {
+        this.code_dlg.set_errors(errors)
+    }
 
     
 }

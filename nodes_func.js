@@ -245,13 +245,13 @@ class NodeFuncFill extends BaseNodeShaderWrap
         else {  // it's a constant
             if (this.type.sel_idx === 0) {
                 emit_ctx.inline_str = this.active_param.get_value()
-                if (Number.isInteger(str))
-                emit_ctx.inline_str += ".0"
+                if (Number.isInteger(emit_ctx.inline_str))
+                    emit_ctx.inline_str += ".0"
             }
             else {
                 // expects the numbers from expr to be [0,1] range
                 let c = this.active_param.get_value()
-                emit_ctx.inline_str = "vec4(" + c.r + "," + c.g + "," + c.b + "," + c.alpha + ")"
+                emit_ctx.inline_str = "vec4(" + (c.r/255) + "," + (c.g/255) + "," + (c.b/255) + "," + c.alpha + ")"
             }
         }
         this.glsl_emit_ctx = emit_ctx

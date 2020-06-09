@@ -564,13 +564,16 @@ input {
     width: calc( 100% - 10px );
   /*  background-color: #5a5a5a;*/
     flex-grow: 1;
+    overflow: visible; /* override ace editor setting to hidden so that the error line would be visible */
 }
 .panel_param_text_area {
     flex-grow: 1;
     margin: 0 10px 0 5px;
-    background-color: #555;
     border-radius: 3px;
     font-size: 14px;
+    height: 120px;
+    border: 1px solid #888;
+    overflow: visible;  /* override ace editor setting to hidden so that the error line would be visible */
 }
 .param_text_area {
     box-sizing: border-box;
@@ -580,6 +583,22 @@ input {
     resize: none;
     outline: none; /* don't show focus border */
     border: solid 1px #888;
+}
+.prm_text_err {
+    position: absolute;
+    bottom: -2px;
+    /*background-color: #6d0b0b;*/
+    background-color: #a22;
+    border: 1px solid #9e0202;
+    border-radius: 4px;
+    padding: 4px;
+    transform: translate(0, 100%);
+    /* for breaking the lines
+    max-width: 100%;
+    white-space: normal;
+    */
+    z-index: 101;  /* go over ace gutter */
+    font-family: Verdana; /* override the editor */
 }
 
 .dlg_close_btn {
@@ -675,16 +694,3 @@ input {
     z-index:20
 }
 
-.prm_text_err {
-    position: absolute;
-    bottom: 4px;
-    background-color: #6d0b0b;
-    border: 1px solid #9e0202;
-    border-radius: 4px;
-    padding: 4px;
-    transform: translate(0, 100%);
-    /* for breaking the lines
-    max-width: 100%;
-    white-space: normal;
-    */
-}

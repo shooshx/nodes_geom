@@ -52,8 +52,11 @@ EXPRESSIONS
 - optiomize, load Yaml
     dialog for delete from state
 - code editor
-    errors in editor
+    expression error by line
+    glsl link errors
+    pop-out of param code
     disable Ctrl+F
+    check CodeMirror
 - default(var, 1)
 - mesh merge
 - swizzle

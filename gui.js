@@ -520,7 +520,7 @@ function setup_key_bindings()
 }
 
 
-function create_dialog(parent, title, resizable, rect, visible_changed)
+function create_dialog(parent, title, resizable, rect, visible_changed, size_changed=null)
 {
     let dlg = add_div(parent, "dlg")
     if (!rect)
@@ -583,12 +583,16 @@ function create_dialog(parent, title, resizable, rect, visible_changed)
             rect.width = parseInt(curstyle.width) + dx
             rect.height = parseInt(curstyle.height) + dy            
             repos()
+            if (size_changed !== null)
+                size_changed()            
         }
         add_move_handlers(rb_resize, resize_func)
         add_move_handlers(lb_resize, (dx, dy)=>{resize_func(-dx,dy); move_func(dx,0)})
         add_move_handlers(r_resize, (dx, dy)=>{resize_func(dx, 0)})
         add_move_handlers(l_resize, (dx, dy)=>{resize_func(-dx, 0); move_func(dx, 0)})
         add_move_handlers(b_resize, (dx, dy)=>{resize_func(0, dy)})
+        if (size_changed !== null)
+            size_changed()        
     }
 
     return {elem:dlg, client:client, rect:rect, set_visible:set_visible, set_title:set_title}
