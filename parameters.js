@@ -821,17 +821,21 @@ class ExpressionItem {
         //console.assert(this.e !== null && this.e !== undefined, "missing e, should not happen, you need to peval() after ctor") 
 
         const str_change_callback = (se)=>{this.peval(se)}
-        if (this.override_create_elem === null)
+        if (this.override_create_elem === null) {
             this.editor = new EditBoxEditor(add_param_edit(line, this.se, ED_STR, str_change_callback))
-        else
+            if (this.slider_conf.allowed)
+                this.display_slider(line, true)
+        }
+        else {
             this.editor = this.override_create_elem(line, this.se, str_change_callback)
+            const [ein,btn] = add_checkbox_btn(this.editor.get_elem(), "[]", false, (v)=>{ this.editor.pop_out(v) })
+            btn.classList.add("prm_code_popout_btn")
+        }
 
         if (this.last_error !== null) {
             this.editor.show_err(this.last_error)
         }
 
-        if (this.slider_conf.allowed)
-            this.display_slider(line, true)
         this.ctx_menu.add_context_menu(line)
 
         return this.editor
@@ -954,6 +958,8 @@ class EditBoxEditor {
     set_value(v) {
         this.elem.value = v
     }
+
+    get_elem() { return this.elem }
 }
 
 // used by all params that have code option
@@ -970,7 +976,7 @@ let CodeItemMixin = (superclass) => class extends superclass {
             const elem = add_div(line, "panel_param_text_area")
             const ed = new Editor(elem, show_v, change_func, {lang:"glsl"});
 
-            /*const elem = add_elem(line, "textarea", ["param_text_area","panel_param_text_area", "param_editbox"])
+            /*const elem = add_elem(line, "textarea", ["panel_param_text_area", "param_editbox"])
             elem.spellcheck = false
             elem.rows = 6
             elem.value = show_v
@@ -993,7 +999,7 @@ let CodeItemMixin = (superclass) => class extends superclass {
         this.code_line = add_param_line(this.line_elem, this)
         elem_set_visible(this.code_line, this.show_code)
         add_param_label(this.code_line, this.label)
-        const code_elem = this.code_item.add_editbox(this.code_line, true)        
+        const code_elem = this.code_item.add_editbox(this.code_line, true)
     }
 
     save_code(r) {
@@ -2198,14 +2204,14 @@ const AceRange = ace.require('ace/range').Range;
 
 function create_code_dlg(parent, dlg_rect, title, start_v, change_func, visible_changed_func, opt)
 {
-    let obj = null
+    let editor = null
     const dlg = create_dialog(parent, title, true, dlg_rect, visible_changed_func, ()=>{
-        if (obj) // first call inside create_dialog, before editor was created
-            obj.editor.resize()
+        if (editor) // first call inside create_dialog, before editor was created
+            editor.resize()
     })
     dlg.elem.classList.add("dlg_size_shader_edit")
-    const ed_elem = add_div(dlg.client, ["dlg_param_text_area","param_text_area"])
-    const editor = new Editor(ed_elem, start_v, change_func, opt)
+    const ed_elem = add_div(dlg.client, ["dlg_param_text_area"])
+    editor = new Editor(ed_elem, start_v, change_func, opt)
     editor.dlg = dlg
     return editor
 }
@@ -2214,6 +2220,8 @@ class Editor
 {
     constructor(ed_elem, start_v, change_func, opt)
     {
+        this.elem = ed_elem
+        this.parentElem = ed_elem.parentElement
         this.editor = ace.edit(ed_elem);
         this.editor.setShowPrintMargin(false)
         if (opt.lang == "glsl") {
@@ -2237,6 +2245,28 @@ class Editor
         this.editor.getSelection().on("changeCursor", eventWrapper(()=>{this.update_err_elem()}))
         this.marker_ids = []
         this.show_errors()
+
+        this.dlg = null
+        this.dlg_rect = null // TBD: save?
+    }
+
+    pop_out(out_v) {
+        if (this.dlg === null) {
+            this.dlg = create_dialog(this.parentElem, 'TITLE', true, this.dlg_rect, ()=>{}, ()=>{ this.resize() })
+            this.dlg.elem.classList.add("dlg_size_shader_edit")
+            //this.dlg.ed_elem = add_div(this.dlg.client, ["dlg_param_text_area"])
+        }
+        if (out_v) {
+            this.dlg.set_visible(true)
+            this.dlg.client.appendChild(this.elem)
+        }
+        else {
+            this.dlg.set_visible(false)
+            this.parentElem.appendChild(this.elem)
+        }
+        this.elem.classList.toggle("dlg_param_text_area", out_v)
+        this.elem.classList.toggle("panel_param_text_area", !out_v)
+
     }
 
     update_err_elem()
@@ -2291,6 +2321,9 @@ class Editor
     clear_err() { // from expr
         this.set_errors({})
     }
+
+    get_elem() { return this.elem }
+    resize() { this.editor.resize() }
 }
 
 // used for glsl
@@ -2308,6 +2341,7 @@ class ParamTextBlock extends Parameter
             this.code_dlg.dlg.set_title(this.title())
         })
         this.code_dlg = null
+        this.last_errors = null
     }
     save() { return { dlg_rect: this.dlg_rect, text:this.v } }
     load(v) { this.v = v.text; this.dlg_rect = v.dlg_rect;  } // dlg_rect saved only if text is saved
@@ -2334,6 +2368,7 @@ class ParamTextBlock extends Parameter
             this.call_change() 
         }, (visible)=>{ edit_btn.checked = visible }, {lang:"glsl"})
         this.dlg_rect = this.code_dlg.dlg.rect
+        this.code_dlg.set_errors(this.last_errors)
 
         const [edit_btn, edit_disp] = add_checkbox_btn(this.line_elem, "Edit...", this.dlg_rect.visible, this.code_dlg.dlg.set_visible)
 
@@ -2348,7 +2383,9 @@ class ParamTextBlock extends Parameter
     }
 
     set_errors(errors) {
-        this.code_dlg.set_errors(errors)
+        this.last_errors = errors
+        if (this.code_dlg !== null)
+            this.code_dlg.set_errors(errors)
     }
 
     

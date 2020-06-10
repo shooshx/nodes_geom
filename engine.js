@@ -577,7 +577,7 @@ async function do_frame_draw(do_run, clear_all)
     if (run_root_nodes.length == 0)
         return
 
-    if (do_run || disp_obj === null) { // not sure when the last term is needed...
+    if (do_run || disp_obj === null) { // last-term: do_run will be false on select but if we don't have anything to display, we still need to run, do this only for the main display object and not for select or template
         if (clear_all)
             do_clear_all(program)
         clear_inputs_errors(program)

@@ -252,9 +252,14 @@ function setTexParams(smooth, spread_x, spread_y) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrap_y);
 }
 
-function analyzeInfoLog(text) {
+function strip_null_term(text) {
     if (text[text.length-1] == '\0') // happens in chrome
-        text = text.substr(0,text.length-1)
+        return text.substr(0,text.length-1)
+    return text
+}
+
+function analyzeInfoLog(text) {
+    text = strip_null_term(text)
     const lines = text.split('\n')
     const messages = {}
     for(let line of lines) {
@@ -318,7 +323,8 @@ function createProgram(gl, vtxSource, fragSource, attr_names, defines) {
         const errlog = gl.getProgramInfoLog(program)
         console.log(errlog);  // eslint-disable-line
         gl.deleteProgram(program);
-        return null
+        const err = {1:{text:strip_null_term(errlog)}}
+        return [null, err, err]
     }
     program.attrs = {}
     for(let attr_name of attr_names)
@@ -392,16 +398,16 @@ class NodeShader extends NodeCls
         this.in_fb = new InTerminal(node, "in_fb") // don't want to change the name to avoid breakage
         this.out_tex = new OutTerminal(node, "out_texture")
         this.vtx_text = new ParamTextBlock(node, "Vertex Shader", (text)=>{
-            this.update_uniforms(text, this.uniforms_vert, this.vert_group)
+            this.try_update_uniforms(this.vtx_text, text, this.uniforms_vert, this.vert_group)
         })
         this.frag_text = new ParamTextBlock(node, "Fragment Shader", (text)=>{
-            this.update_uniforms(text, this.uniforms_frag, this.frag_group)
+            this.try_update_uniforms(this.frag_text, text, this.uniforms_frag, this.frag_group)
         })
         // used so that the uniforms would get mixed up and rearranged each time they are parsed
         this.vert_group = new ParamGroup(node, "Vertex Shader Uniforms")
         this.frag_group = new ParamGroup(node, "Fragment Shader Uniforms")
 
-        this.attr_names = null // will be set by caller
+        this.attr_names = ["vtx_pos"] //null // will be set by caller
         this.program = null
         this.uniforms_frag = [] // list of {name:,type:} (also defines)
         this.uniforms_vert = [] 
@@ -522,10 +528,7 @@ class NodeShader extends NodeCls
         const check_redef_and_add = (from_cont)=>{
             for(let u of from_cont) {
                 if (new_unified[u.name] !== undefined) {
-                    if (new_unified[u.name].type !== u.type) {
-                        this.last_uniforms_err = "Mismatch type " + u.name
-                        return
-                    }
+                    // this is checked better in createProgram. better since it runs every run and not just on change
                 }
                 else
                     new_unified[u.name] = u
@@ -577,6 +580,16 @@ class NodeShader extends NodeCls
         this.frag_group.update_elems()
         // TBD - save,load
 
+    }
+
+    try_update_uniforms(prm, a, b, c) {
+        prm._last_err = null
+        try{ 
+            this.update_uniforms(a, b, c)
+        }
+        catch(e) {
+            this.last_uniforms_err = e.message
+        }
     }
 
     make_tex_aligned_mesh(tex, sz_x, sz_y) {
