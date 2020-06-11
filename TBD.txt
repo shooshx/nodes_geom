@@ -53,8 +53,6 @@ EXPRESSIONS
     dialog for delete from state
 - code editor
     expression error by line
-    glsl link errors
-    pop-out of param code
     disable Ctrl+F
     check CodeMirror
 - default(var, 1)

@@ -583,6 +583,13 @@ input {
     border: 1px solid #888;
     overflow: visible;  /* override ace editor setting to hidden so that the error line would be visible */
 }
+.panel_param_editor_wrap {
+    flex-grow: 1;
+    display: flex;
+    position: relative;
+    min-height: 35px;
+}
+
 
 .prm_text_err {
     position: absolute;
@@ -603,8 +610,16 @@ input {
 .prm_code_popout_btn {
     position: absolute;
     min-width: 30px;
-    left: -42px;
+    left: -35px;
     padding: 0;
+}
+.prm_code_popin_btn {
+    position: absolute;
+    min-width: 30px;
+    padding: 0;
+    width: 35px;
+    height: 35px;
+    line-height: 32px;
 }
 
 .dlg_close_btn {

@@ -827,9 +827,8 @@ class ExpressionItem {
                 this.display_slider(line, true)
         }
         else {
-            this.editor = this.override_create_elem(line, this.se, str_change_callback)
-            const [ein,btn] = add_checkbox_btn(this.editor.get_elem(), "[]", false, (v)=>{ this.editor.pop_out(v) })
-            btn.classList.add("prm_code_popout_btn")
+            const elem_wrapper = add_div(line, "panel_param_editor_wrap") // needed so that the popout btn would have a parent
+            this.editor = this.override_create_elem(elem_wrapper, this.se, str_change_callback, this.in_param.label.replace('\n', ' '))
         }
 
         if (this.last_error !== null) {
@@ -967,22 +966,25 @@ let CodeItemMixin = (superclass) => class extends superclass {
     constructor(node, label, conf) {
         super(node, label)
         this.show_code = (conf !== null && conf.show_code === true) ? true : false  // show code or show line
+        this.dlg_rect_wrap = {dlg_rect: null} // needs extra indirection so that Editor set into into on popout (saves pos and size of dialog)
     }
 
     make_code_item(code_expr, start_v) {
         this.code_item = code_expr
         this.code_item.prop_name_ser = "cv"
-        this.code_item.override_create_elem = (line, show_v, change_func)=>{
-            const elem = add_div(line, "panel_param_text_area")
-            const ed = new Editor(elem, show_v, change_func, {lang:"glsl"});
-
-            /*const elem = add_elem(line, "textarea", ["panel_param_text_area", "param_editbox"])
-            elem.spellcheck = false
-            elem.rows = 6
-            elem.value = show_v
-            myAddEventListener(elem, "input", function() { 
-                change_func(elem.value); 
-            })*/
+        this.code_item.override_create_elem = (elem_wrapper, show_v, change_func, prop_name)=>{
+            const elem = add_div(elem_wrapper, "panel_param_text_area")
+            let ed = null
+            const popout_callback = (v)=>{ // needed since popout can be called also from pressing X on the dialog
+                popout_btn.classList.toggle('prm_code_popout_btn', !v)
+                popout_btn.classList.toggle('prm_code_popin_btn', v)
+                ein.checked = v
+            }
+            const [ein,popout_btn] = add_checkbox_btn(elem_wrapper, "[]", false, (v)=>{ 
+                ed.pop_out(v)
+            })
+            popout_btn.classList.add("prm_code_popout_btn")
+            ed = new Editor(elem, show_v, change_func, {lang:"glsl", dlg_title:prop_name, dlg_rect_wrap:this.dlg_rect_wrap, popout_callback:popout_callback});
             return ed
         }
         this.code_item.parse_opt = PARSE_CODE
@@ -1003,13 +1005,16 @@ let CodeItemMixin = (superclass) => class extends superclass {
     }
 
     save_code(r) {
-        delete r.show_code
+        delete r.show_code // remove old
         if (this.show_code)
             r.show_code = true // default false, don't add to save space
+        if (this.dlg_rect_wrap.dlg_rect !== null)
+            r.dlg_rect = this.dlg_rect_wrap.dlg_rect
         this.code_item.save_to(r); 
     }
     load_code(v) {
         this.show_code = v.show_code || false; 
+        this.dlg_rect_wrap.dlg_rect = v.dlg_rect || null
         this.code_item.load(v) 
     }
 
@@ -2221,6 +2226,7 @@ class Editor
     constructor(ed_elem, start_v, change_func, opt)
     {
         this.elem = ed_elem
+        this.opt = opt
         this.parentElem = ed_elem.parentElement
         this.editor = ace.edit(ed_elem);
         this.editor.setShowPrintMargin(false)
@@ -2247,13 +2253,16 @@ class Editor
         this.show_errors()
 
         this.dlg = null
-        this.dlg_rect = null // TBD: save?
+        this.popout_callback = opt.popout_callback
+        if (this.opt.dlg_rect_wrap.dlg_rect !== null && this.opt.dlg_rect_wrap.dlg_rect.visible == true)
+            this.pop_out(true)
     }
 
     pop_out(out_v) {
         if (this.dlg === null) {
-            this.dlg = create_dialog(this.parentElem, 'TITLE', true, this.dlg_rect, ()=>{}, ()=>{ this.resize() })
+            this.dlg = create_dialog(this.parentElem, this.opt.dlg_title, true, this.opt.dlg_rect_wrap.dlg_rect, ()=>{ this.pop_out(false) }, ()=>{ this.resize() })
             this.dlg.elem.classList.add("dlg_size_shader_edit")
+            this.opt.dlg_rect_wrap.dlg_rect = this.dlg.rect
             //this.dlg.ed_elem = add_div(this.dlg.client, ["dlg_param_text_area"])
         }
         if (out_v) {
@@ -2266,7 +2275,8 @@ class Editor
         }
         this.elem.classList.toggle("dlg_param_text_area", out_v)
         this.elem.classList.toggle("panel_param_text_area", !out_v)
-
+        if (this.popout_callback)
+            this.popout_callback(out_v)
     }
 
     update_err_elem()
