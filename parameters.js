@@ -609,7 +609,7 @@ class ExpressionItem {
         this.editor = null
         this.e = null  // expression AST, can call eval() on this or null of the value is just a number
         this.se = "" + this.get_prop() // expression string
-        this.last_error = null // string of the error if there was one or null
+        this.elast_error = null // {line: msg:} of the error if there was one or null
         this.need_inputs = null // map string names of the inputs needed, already verified that they exist to the ObjRef that needs filling
         this.err_elem = null
 
@@ -689,17 +689,17 @@ class ExpressionItem {
     }
 
     eset_error(ex) {
-        if (this.last_error !== null)
+        if (this.elast_error !== null)
             return
-        this.last_error = ex.message
+        this.elast_error = {line:ex.line, msg:ex.message}
         if (this.editor) {
-            this.editor.show_err(this.last_error)
+            this.editor.show_err(this.elast_error)
         }
     }
     eclear_error() {
-        if (this.last_error === null) 
+        if (this.elast_error === null) 
             return
-        this.last_error = null
+        this.elast_error = null
         if (this.editor)
             this.editor.clear_err()
     }
@@ -831,8 +831,8 @@ class ExpressionItem {
             this.editor = this.override_create_elem(elem_wrapper, this.se, str_change_callback, this.in_param.label.replace('\n', ' '))
         }
 
-        if (this.last_error !== null) {
-            this.editor.show_err(this.last_error)
+        if (this.elast_error !== null) {
+            this.editor.show_err(this.elast_error)
         }
 
         this.ctx_menu.add_context_menu(line)
@@ -879,7 +879,7 @@ class ExpressionItem {
         return ev
     }
     get_last_error() {
-        return this.last_error
+        return this.elast_error.msg
     }
 
     eresolve_variables(in_vars_box) {
@@ -2236,6 +2236,7 @@ class Editor
         }
         this.editor.setTheme("ace/theme/tomorrow_night_bright");
         this.editor.setBehavioursEnabled(false) // no auto-pairing of brackets
+        this.editor.commands.removeCommand('find');
         this.editor.setValue(start_v, 1) // 1: cursorPos end
         //editor.setHighlightGutterLine(true)
 
@@ -2326,7 +2327,7 @@ class Editor
     }
 
     show_err(err) { // from expr
-        this.set_errors({1:{text:err}})
+        this.set_errors({[err.line]:{text:err.msg}})
     }
     clear_err() { // from expr
         this.set_errors({})
@@ -2563,19 +2564,19 @@ class ParamImageUpload extends ParamFileUpload
     constructor(node, label) {
         super(node, label)
         this.image = null  
-        this.last_error = null
+        this.ilast_error = null
     }
     load_url(url) {
-        this.last_error = null
+        this.ilast_error = null
         this.image = null
         let newimage = new Image()
         myAddEventListener(newimage, "load", (e)=>{
             this.image = newimage
-            this.last_error = null
+            this.ilast_error = null
             this.pset_dirty()
         })
         myAddEventListener(newimage, "error", (e)=>{
-            this.last_error = "Failed download image from URL"
+            this.ilast_error = "Failed download image from URL"
             console.error("Failed to download image", e)
             this.image = null
             this.pset_dirty() // trigger a draw that will show this error
@@ -2589,7 +2590,7 @@ class ParamImageUpload extends ParamFileUpload
     }
 
     get_image() {
-        assert(this.image !== null, this.owner.cls, (this.last_error !== null) ? this.last_error : "Image not loaded yet")
+        assert(this.image !== null, this.owner.cls, (this.ilast_error !== null) ? this.ilast_error : "Image not loaded yet")
         return this.image
     }
     try_get_image() {  // may return null

@@ -46,7 +46,11 @@ Node: Set Attribute
     - Color from the source input (in_src to get the color vec4, in_src.r for just red)
     - computed attributes: 
         in_obj.face_center: geomtric center of face (vec3)
-- Set fill - makes the input geometry a clipping path for the source
-    - name needs to be "fill", works only for faces
+- special attribute names:
+    - pos (vertex) - vertex position
+    - color (vertex and face) - fill color
+    - radius (vertex) - of the vertex circle
+    - fill (face, with type:image-fill) - makes the input geometry a clipping path for the source
+    - transform (vertex and face) - change position/rotation per vertex or per face
 
 Node: Group Objects

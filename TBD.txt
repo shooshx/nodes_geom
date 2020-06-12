@@ -44,23 +44,20 @@ EXPRESSIONS
 - remove exponent opertor instead do it on number parsing
 - *** Vec2Int (resolution image)
 - default() to give value to non-existing variable - not so easy...
-- line in errors
-
+- if
+- check CodeMirror
 
 ****** CURRENT AGENDA ******
 - terminal dirty in Variables?
 - optiomize, load Yaml
     dialog for delete from state
 - code editor
-    expression error by line
-    disable Ctrl+F
-    check CodeMirror
+    
 - default(var, 1)
 - mesh merge
 - swizzle
 - gradient
     sampler transform only x
-- glsl compilation error not visible
 - render any geometry to texture
     extend point-gradient
 - Manual geom move -  maybe manual with multiple targets?
@@ -97,6 +94,7 @@ NODES:
     - unifies vertices?
     - divide line to sub lines, curves
     -  unify sublines into a single line? = different node
+- delete geom by expr
 - polyline fill
     UI for closing and starting a new poly, bugs with this
     triangulation

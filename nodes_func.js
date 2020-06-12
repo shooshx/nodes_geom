@@ -226,7 +226,7 @@ class NodeFuncFill extends BaseNodeShaderWrap
     {
         let emit_ctx = new GlslEmitContext()
         if (this.active_param.show_code && this.active_item.e !== null) {
-            if (this.active_item.last_error !== null) {
+            if (this.active_item.elast_error !== null) {
                 assert(false, this, "Expression error")
             }
             try {

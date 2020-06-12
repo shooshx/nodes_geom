@@ -18,9 +18,13 @@ const TYPE_DEPEND_ON_VAR = 11;
 
 const PARSE_EXPR = 1;
 const PARSE_CODE = 2;
+var g_lineNum = 0
 
 class ExprErr extends Error {
-    constructor(msg) { super(msg) }
+    constructor(msg) { 
+        super(msg)
+        this.line = g_lineNum
+    }
 }
 class TypeErr extends ExprErr {
     constructor(msg) { super(msg) }
@@ -407,6 +411,8 @@ function unexpected() {
 function eatSpaces() {
     while (true) {
         const c = getCharacter()
+        if (c === '\n')
+            g_lineNum++
         if (c !== ' ' && c !== '\n')
             break
         index_++
@@ -1343,8 +1349,10 @@ function skip_to_next_line() {
         if (c === null)
             break;
         ++index_
-        if (c == '\n')
+        if (c == '\n') {
+            g_lineNum++
             break
+        }
     }
 }
 
@@ -1355,7 +1363,7 @@ function parseCode() {
     while(!isEnd()) {
         let e = parseStmt()
         if (e === null) {
-            skip_to_next_line()
+            skip_to_next_line() // comment
             continue
         }
         if (e.isReturn())
@@ -1382,6 +1390,7 @@ function eparse(expr, state_access, opt) {
         throw new ExprErr("empty expression")
     index_ = 0;
     expr_ = expr;
+    g_lineNum = 1
     if (state_access) {
         g_state_access = state_access
     }
