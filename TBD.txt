@@ -51,11 +51,14 @@ EXPRESSIONS
 - terminal dirty in Variables?
 - optiomize, load Yaml
     dialog for delete from state
-- code editor
-    
 - default(var, 1)
 - mesh merge
-- swizzle
+- editor - resize when in panel
+- line errors for ExprErr outside main parsing (line in node)
+- Mandelbrot
+- func node
+    - with glsl
+    - uniforms?
 - gradient
     sampler transform only x
 - render any geometry to texture

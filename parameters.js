@@ -826,9 +826,8 @@ class ExpressionItem {
             if (this.slider_conf.allowed)
                 this.display_slider(line, true)
         }
-        else {
-            const elem_wrapper = add_div(line, "panel_param_editor_wrap") // needed so that the popout btn would have a parent
-            this.editor = this.override_create_elem(elem_wrapper, this.se, str_change_callback, this.in_param.label.replace('\n', ' '))
+        else {            
+            this.editor = this.override_create_elem(line, this.se, str_change_callback, this.in_param.label.replace('\n', ' '))
         }
 
         if (this.elast_error !== null) {
@@ -972,19 +971,8 @@ let CodeItemMixin = (superclass) => class extends superclass {
     make_code_item(code_expr, start_v) {
         this.code_item = code_expr
         this.code_item.prop_name_ser = "cv"
-        this.code_item.override_create_elem = (elem_wrapper, show_v, change_func, prop_name)=>{
-            const elem = add_div(elem_wrapper, "panel_param_text_area")
-            let ed = null
-            const popout_callback = (v)=>{ // needed since popout can be called also from pressing X on the dialog
-                popout_btn.classList.toggle('prm_code_popout_btn', !v)
-                popout_btn.classList.toggle('prm_code_popin_btn', v)
-                ein.checked = v
-            }
-            const [ein,popout_btn] = add_checkbox_btn(elem_wrapper, "[]", false, (v)=>{ 
-                ed.pop_out(v)
-            })
-            popout_btn.classList.add("prm_code_popout_btn")
-            ed = new Editor(elem, show_v, change_func, {lang:"glsl", dlg_title:prop_name, dlg_rect_wrap:this.dlg_rect_wrap, popout_callback:popout_callback});
+        this.code_item.override_create_elem = (line, show_v, change_func, prop_name)=>{          
+            const ed = new Editor(line, show_v, change_func, {lang:"glsl", dlg_title:prop_name, dlg_rect_wrap:this.dlg_rect_wrap, with_popout:true});
             return ed
         }
         this.code_item.parse_opt = PARSE_CODE
@@ -2223,9 +2211,11 @@ function create_code_dlg(parent, dlg_rect, title, start_v, change_func, visible_
 
 class Editor
 {
-    constructor(ed_elem, start_v, change_func, opt)
+    constructor(line, start_v, change_func, opt)
     {
-        this.elem = ed_elem
+        const elem_wrapper = add_div(line, "panel_param_editor_wrap") // needed so that the popout btn would have a parent
+        const ed_elem = add_div(elem_wrapper, "panel_param_text_area")
+        this.elem = ed_elem  // moves from panel to dialog
         this.opt = opt
         this.parentElem = ed_elem.parentElement
         this.editor = ace.edit(ed_elem);
@@ -2254,9 +2244,18 @@ class Editor
         this.show_errors()
 
         this.dlg = null
-        this.popout_callback = opt.popout_callback
-        if (this.opt.dlg_rect_wrap.dlg_rect !== null && this.opt.dlg_rect_wrap.dlg_rect.visible == true)
-            this.pop_out(true)
+        this.popout_elems = null
+
+        if (opt.with_popout) {
+            const [ein,btn] = add_checkbox_btn(elem_wrapper, "[]", false, (v)=>{ 
+                this.pop_out(v)
+            })
+            btn.classList.add("prm_code_popout_btn")
+            this.popout_elems = {ein:ein, btn:btn}
+
+            if (this.opt.dlg_rect_wrap !== undefined && this.opt.dlg_rect_wrap.dlg_rect !== null && this.opt.dlg_rect_wrap.dlg_rect.visible == true)
+                this.pop_out(true)
+        }
     }
 
     pop_out(out_v) {
@@ -2274,10 +2273,20 @@ class Editor
             this.dlg.set_visible(false)
             this.parentElem.appendChild(this.elem)
         }
+        this.editor.resize(true)
+
         this.elem.classList.toggle("dlg_param_text_area", out_v)
         this.elem.classList.toggle("panel_param_text_area", !out_v)
-        if (this.popout_callback)
-            this.popout_callback(out_v)
+        
+        this.popout_elems.btn.classList.toggle('prm_code_popout_btn', !out_v)
+        this.popout_elems.btn.classList.toggle('prm_code_popin_btn', out_v)
+        this.popout_elems.ein.checked = out_v
+    }
+
+    set_title(v) {
+        if (this.dlg !== null)
+            this.dlg.set_title(v)
+        this.opt.dlg_title = v
     }
 
     update_err_elem()
@@ -2340,24 +2349,24 @@ class Editor
 // used for glsl
 class ParamTextBlock extends Parameter 
 {
-    constructor(node, label, change_func) {
+    constructor(node, label, start_v, change_func) {
         super(node, label)
         this.dlg = null
 
         this.text_input = null
         this.dlg_rect = null  // state of the dialog display
-        this.v = ""
+        this.v = start_v
         this.change_func = change_func
         node.register_rename_observer((name)=>{
-            this.code_dlg.dlg.set_title(this.title())
+            this.editor.set_title(this.title())
         })
-        this.code_dlg = null
+        this.editor = null
         this.last_errors = null
     }
     save() { return { dlg_rect: this.dlg_rect, text:this.v } }
     load(v) { this.v = v.text; this.dlg_rect = v.dlg_rect;  } // dlg_rect saved only if text is saved
     
-    title() { return this.owner.name + " - " + this.label }
+    title() { return this.owner.name + " - " + this.label.replace('\n', ' ') }
     set_text(v, do_draw=true) { // when calling this from run(), set to false to avoid endless loop of draws
         if (this.v === v)
             return
@@ -2365,40 +2374,30 @@ class ParamTextBlock extends Parameter
         this.pset_dirty(do_draw); 
         this.call_change()
 
-        if (this.code_dlg !== null)
-            this.code_dlg.set_value(this.v)
+        if (this.editor !== null)
+            this.editor.set_value(this.v)
     }
 
     add_elems(parent) {
         this.line_elem = add_param_line(parent, this)
         this.label_elem = add_param_label(this.line_elem, this.label)
 
-        this.code_dlg = create_code_dlg(this.line_elem, this.dlg_rect, this.title(), this.v, (v)=>{
+        this.editor = new Editor(this.line_elem, this.v, (v)=>{
             this.v = v
             this.pset_dirty(); 
             this.call_change() 
-        }, (visible)=>{ edit_btn.checked = visible }, {lang:"glsl"})
-        this.dlg_rect = this.code_dlg.dlg.rect
-        this.code_dlg.set_errors(this.last_errors)
-
-        const [edit_btn, edit_disp] = add_checkbox_btn(this.line_elem, "Edit...", this.dlg_rect.visible, this.code_dlg.dlg.set_visible)
-
-
-        //ace.showErrorMarker(this.editor, 10)
-
-        //this.text_input = add_elem(this.dlg.client, "textarea", ["dlg_param_text_area","param_text_area"])
-        //this.text_input.spellcheck = false
-        //this.text_input.value = this.v
-        //myAddEventListener(this.text_input, "input", ()=>{ this.v = this.text_input.value; this.pset_dirty(); this.call_change() }) // TBD save and trigger draw after timeout
-        //this.text_input.value = this.v        
+        }, {lang:"glsl", dlg_title:this.title(), dlg_rect_wrap:this, with_popout:true});
+        this.editor.set_errors(this.last_errors) 
     }
 
     set_errors(errors) {
         this.last_errors = errors
-        if (this.code_dlg !== null)
-            this.code_dlg.set_errors(errors)
+        if (this.editor !== null)
+            this.editor.set_errors(errors)
     }
-
+    get_errors() {
+        return this.last_errors
+    }
     
 }
 

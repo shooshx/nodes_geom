@@ -268,13 +268,17 @@ function analyzeInfoLog(text) {
             continue
         if (!line.startsWith('ERROR:')) 
             throw Error("unknown line")
-        const tl = trl.substr(6)    
+        const prefix_len = 6
+        const tl = trl.substr(prefix_len)    
+        let numcol = 0, numline = 1, nxcolon = prefix_len
         const colon = tl.indexOf(":")
-        const nxcolon = tl.indexOf(":",colon+1)
-        if (colon == -1 || nxcolon == -1)
-            throw Error("Failed parsing line " + line)
-        const numcol = parseInt(tl.substr(0,colon))
-        const numline = parseInt(tl.substr(colon+1, nxcolon))
+        if (colon !== -1) {
+            nxcolon = tl.indexOf(":",colon+1) 
+            if (nxcolon !== -1) {  // "ERROR: Missing main" doesn't have a line
+                numcol = parseInt(tl.substr(0,colon))
+                numline = parseInt(tl.substr(colon+1, nxcolon))            
+            }
+        }
         const msg = tl.substr(nxcolon+1).trim()
         //messages.push({line:numline, col:numcol, text:trl})
         if (messages[numline] === undefined)
@@ -397,10 +401,10 @@ class NodeShader extends NodeCls
         this.in_mesh = new InTerminal(node, "in_mesh")
         this.in_fb = new InTerminal(node, "in_fb") // don't want to change the name to avoid breakage
         this.out_tex = new OutTerminal(node, "out_texture")
-        this.vtx_text = new ParamTextBlock(node, "Vertex Shader", (text)=>{
+        this.vtx_text = new ParamTextBlock(node, "Vertex Shader", "", (text)=>{
             this.try_update_uniforms(this.vtx_text, text, this.uniforms_vert, this.vert_group)
         })
-        this.frag_text = new ParamTextBlock(node, "Fragment Shader", (text)=>{
+        this.frag_text = new ParamTextBlock(node, "Fragment Shader", "", (text)=>{
             this.try_update_uniforms(this.frag_text, text, this.uniforms_frag, this.frag_group)
         })
         // used so that the uniforms would get mixed up and rearranged each time they are parsed

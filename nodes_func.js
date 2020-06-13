@@ -45,6 +45,11 @@ vec4 in_tex(vec2 v) { return in_tex(v.x, v.y); }
 vec4 in_texi(float i, vec2 v) { return in_texi(i, v.x, v.y); }
 #endif
 
+#ifdef IS_GLSL_CODE
+#line 1
+$GLSL_CODE$
+#else // expr code
+
 $UNIFORM_DEFS$
 
 $FUNCS$
@@ -61,6 +66,13 @@ void main() {
 #else     
     outColor = $EXPR$;
 #endif     
+}
+
+#endif // expr code
+`
+
+const GLSL_START_V_CODE = `void main() {
+    outColor = vec4(1.0, v_coord.x, 0.0, 1.0);    
 }
 `
 
@@ -143,6 +155,7 @@ class GlslEmitContext {
         this.uniform_decls = []  // set of strings of the uniform declarations
         this.inline_str = null  // the final expression
         this.uniform_evaluators = {} // map name of uniform to UniformVarRef
+        this.glsl_code = ""
     }
     add_uniform(type, name, evaluator) {
         if (this.uniform_evaluators[name] !== undefined)
@@ -156,6 +169,7 @@ class GlslEmitContext {
                    .replace('$BEFORE_EXPR$', this.before_expr.join('\n'))
                    .replace('$UNIFORM_DEFS$', this.uniform_decls.join('\n'))
                    .replace(/\$EXPR\$/g, this.inline_str)
+                   .replace('$GLSL_CODE$', this.glsl_code)
     }
     
     set_uniform_vars(shader_cls) {
@@ -191,22 +205,29 @@ class NodeFuncFill extends BaseNodeShaderWrap
                                   } ) 
 
         //this.time = new ParamProxy(node, this.shader_node.cls.uniform_by_name('time').param)
-        this.type = new ParamSelect(node, "Type", 0, ["Float to Gradient", "Direct Color"], (sel_idx)=>{
+        this.type = new ParamSelect(node, "Type", 0, ["Float to Gradient", "Direct Color", "GLSL Program"], (sel_idx)=>{
             this.float_expr.set_visible(sel_idx === 0)
             this.color_expr.set_visible(sel_idx === 1)
+            this.glsl_text.set_visible(sel_idx === 2)
             if (sel_idx === 0) {
                 this.active_param = this.float_expr
                 this.active_item = this.float_expr.get_active_item()
             }
-            else {
+            else if (sel_idx === 1) {
                 this.active_param = this.color_expr
                 this.active_item = this.color_expr.code_item  // color doesn't have non-code expr yet
+            }
+            else {
+                this.active_param = this.glsl_text
+                this.active_item = null
             }
            // this.make_frag_text() // changes where we take the expr from
         })
         this.float_expr = new ParamFloat(node, "Float\nExpression", "coord.x", {show_code:true})
         // color_expr is expected to return a vec4 or vec3 with values in range [0,1]
         this.color_expr = new ParamColor(node, "Color\nExpression", ["#cccccc", "rgb(coord.x, coord.y, 1.0)"], {show_code:true})
+
+        this.glsl_text = new ParamTextBlock(node, "GLSL\nCode", GLSL_START_V_CODE)
 
         this.sorted_order = []
         mixin_multi_reorder_control(node, this, this.sorted_order, this.in_texs)
@@ -225,6 +246,11 @@ class NodeFuncFill extends BaseNodeShaderWrap
     make_frag_text() 
     {
         let emit_ctx = new GlslEmitContext()
+        this.glsl_emit_ctx = emit_ctx
+        if (this.type.sel_idx === 2) { // glsl
+            emit_ctx.glsl_code = this.glsl_text.v
+            return;
+        }
         if (this.active_param.show_code && this.active_item.e !== null) {
             if (this.active_item.elast_error !== null) {
                 assert(false, this, "Expression error")
@@ -254,7 +280,6 @@ class NodeFuncFill extends BaseNodeShaderWrap
                 emit_ctx.inline_str = "vec4(" + (c.r/255) + "," + (c.g/255) + "," + (c.b/255) + "," + c.alpha + ")"
             }
         }
-        this.glsl_emit_ctx = emit_ctx
     }
 
     async run() {
@@ -281,14 +306,17 @@ class NodeFuncFill extends BaseNodeShaderWrap
         this.glsl_emit_ctx.set_uniform_vars(this.shader_node.cls)
         this.shader_node.cls.param_of_define("EXPR_IS_COLOR").modify( this.type.sel_idx === 1, false)
         this.shader_node.cls.param_of_define("HAS_TEXTURE").modify(texs.length >= 1, false)
+        this.shader_node.cls.param_of_define("IS_GLSL_CODE").modify( this.type.sel_idx === 2, false)
 
         // don't need to actually give anything to the evaluator since it's not doing eval, it's doing to_glsl
-        const need_tex = (this.active_param.need_input_evaler('in_tex') !== null || 
+        const need_tex = (this.type.sel_idx === 2 ||  // if we're editing glsl, assume we need the textures (no easy way to find out)
+                          this.active_param.need_input_evaler('in_tex') !== null || 
                           this.active_param.need_input_evaler('in_texi') !== null || 
                           (this.type.sel_idx === 0 && texs.length >= 1))  // with value, we always need texutre if we have it for gradient 
 
         if (need_tex) {
-            assert(texs.length >= 1, this, "Code expect texture but none is connected")
+            if (this.type.sel_idx !== 2) // with glsl, we don't know if this is a must
+                assert(texs.length >= 1, this, "Code expect texture but none is connected")
             assert(texs.length == this.sorted_order.length, this, "unexpected sorted_order size")
 
             for(let ti = 0; ti < texs.length; ++ti)
@@ -343,7 +371,14 @@ class NodeFuncFill extends BaseNodeShaderWrap
             gl.activeTexture(gl.TEXTURE0); // restore default state
         }
 
-        this.shader_node.cls.run()
+        try {
+            this.shader_node.cls.run()
+        }
+        finally {
+            if (this.type.sel_idx === 2) { // transfer glsl errors back to editor
+                this.glsl_text.set_errors( this.shader_node.cls.frag_text.get_errors() )
+            }
+        }
 
         if (need_tex) {
             // restore stull to default state to avoid texture leak and easier bug finding
