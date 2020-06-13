@@ -20,32 +20,32 @@ precision mediump float;
 in vec2 v_coord;
 out vec4 outColor;
 
-#ifdef HAS_TEXTURE
-uniform sampler2D u_in_tex_0;
-uniform sampler2D u_in_tex_1;
-uniform sampler2D u_in_tex_2;
-uniform sampler2D u_in_tex_3;
-uniform mat3 u_tex_tmat_0;
-uniform mat3 u_tex_tmat_1;
-uniform mat3 u_tex_tmat_2;
-uniform mat3 u_tex_tmat_3;
+#ifdef _D_HAS_TEXTURE
+uniform sampler2D _u_in_tex_0;
+uniform sampler2D _u_in_tex_1;
+uniform sampler2D _u_in_tex_2;
+uniform sampler2D _u_in_tex_3;
+uniform mat3 _u_tex_tmat_0;
+uniform mat3 _u_tex_tmat_1;
+uniform mat3 _u_tex_tmat_2;
+uniform mat3 _u_tex_tmat_3;
 
 vec4 in_tex(float x, float y) { 
-    return texture(u_in_tex_0, (u_tex_tmat_0 * vec3(x, y, 1.0)).xy); 
+    return texture(_u_in_tex_0, (_u_tex_tmat_0 * vec3(x, y, 1.0)).xy); 
 }
 vec4 in_texi(float i, float x, float y) { 
     switch(int(i)) {
-    case 0: return texture(u_in_tex_0, (u_tex_tmat_0 * vec3(x, y, 1.0)).xy);
-    case 1: return texture(u_in_tex_1, (u_tex_tmat_1 * vec3(x, y, 1.0)).xy);
-    case 2: return texture(u_in_tex_2, (u_tex_tmat_2 * vec3(x, y, 1.0)).xy);
-    case 3: return texture(u_in_tex_3, (u_tex_tmat_3 * vec3(x, y, 1.0)).xy);
+    case 0: return texture(_u_in_tex_0, (_u_tex_tmat_0 * vec3(x, y, 1.0)).xy);
+    case 1: return texture(_u_in_tex_1, (_u_tex_tmat_1 * vec3(x, y, 1.0)).xy);
+    case 2: return texture(_u_in_tex_2, (_u_tex_tmat_2 * vec3(x, y, 1.0)).xy);
+    case 3: return texture(_u_in_tex_3, (_u_tex_tmat_3 * vec3(x, y, 1.0)).xy);
     }
 }
 vec4 in_tex(vec2 v) { return in_tex(v.x, v.y); }
 vec4 in_texi(float i, vec2 v) { return in_texi(i, v.x, v.y); }
 #endif
 
-#ifdef IS_GLSL_CODE
+#ifdef _D_IS_GLSL_CODE
 #line 1
 $GLSL_CODE$
 #else // expr code
@@ -56,9 +56,9 @@ $FUNCS$
 
 void main() {
     $BEFORE_EXPR$
-#ifndef EXPR_IS_COLOR
+#ifndef _D_EXPR_IS_COLOR
     float v = $EXPR$;
- #ifdef HAS_TEXTURE
+ #ifdef _D_HAS_TEXTURE
     outColor = texture(u_in_tex_0, vec2(v,0));
  #else
     outColor = vec4(vec3(1.0, 0.5, 0.0) + vec3(v*2.0-1.0, v*2.0-1.0, v*2.0-1.0), 1.0);
@@ -88,14 +88,19 @@ class ParamProxy extends Parameter {
     constructor(node, wrap, label=undefined) {
         super(node, (label === undefined) ? wrap.label : label)
         this.wrap = wrap
+        this.my_expr_items = this.wrap.my_expr_items // make resolve_variables work
     }
     save() { return this.wrap.save() }
     load(v) { this.wrap.load(v) }
     add_elems(parent) {
+        // the proxy group overrides that of the wrapped param
+        if (this.group_param !== null && this.group_param.line_elem !== null)
+            parent = this.group_param.line_elem        
         this.wrap.add_elems(parent)
     }
     pis_dirty() { return this.wrap.pis_dirty() }
     pclear_dirty() { this.wrap.pclear_dirty() }
+    // don't forward set_group() since the proxy can be in a different group
 }
 
 // evaluator for the v_coord variable in glsl
@@ -157,7 +162,7 @@ class GlslEmitContext {
         this.uniform_evaluators = {} // map name of uniform to UniformVarRef
         this.glsl_code = ""
     }
-    add_uniform(type, name, evaluator) {
+    add_uniform(type, name, evaluator) { // expression getting uniforms from variables
         if (this.uniform_evaluators[name] !== undefined)
             return  // happens if the same variable appears more than once in the expression
         this.uniform_decls.push("uniform " + glsl_type_name(type) + " " + name + ";")
@@ -212,14 +217,17 @@ class NodeFuncFill extends BaseNodeShaderWrap
             if (sel_idx === 0) {
                 this.active_param = this.float_expr
                 this.active_item = this.float_expr.get_active_item()
+                this.remove_param_proxies()
             }
             else if (sel_idx === 1) {
                 this.active_param = this.color_expr
                 this.active_item = this.color_expr.code_item  // color doesn't have non-code expr yet
+                this.remove_param_proxies()
             }
             else {
-                this.active_param = this.glsl_text
+                this.active_param = null
                 this.active_item = null
+                this.process_glsl_text(this.glsl_text.v)
             }
            // this.make_frag_text() // changes where we take the expr from
         })
@@ -227,7 +235,11 @@ class NodeFuncFill extends BaseNodeShaderWrap
         // color_expr is expected to return a vec4 or vec3 with values in range [0,1]
         this.color_expr = new ParamColor(node, "Color\nExpression", ["#cccccc", "rgb(coord.x, coord.y, 1.0)"], {show_code:true})
 
-        this.glsl_text = new ParamTextBlock(node, "GLSL\nCode", GLSL_START_V_CODE)
+        // with GLSL input we want go generate the text and get the uniforms before run so that panel parameters can be populated
+        this.glsl_text = new ParamTextBlock(node, "GLSL\nCode", GLSL_START_V_CODE, (v)=>{
+            this.process_glsl_text(v)
+        })
+        this.proxies_group = new ParamGroup(node, "Uniforms")
 
         this.sorted_order = []
         mixin_multi_reorder_control(node, this, this.sorted_order, this.in_texs)
@@ -238,18 +250,40 @@ class NodeFuncFill extends BaseNodeShaderWrap
 
         // the expression is parsed when it's edited and glsl code is saved to this
         // the final text with $$ replaced depends on the input so it's made only in run
-        this.glsl_emit_ctx = null
         this.active_param = null // points to either float_expr or color_expr
         this.active_item = null // points tot the ExpressionItem inside the active param
+        this.glsl_emit_ctx = null
+        this.param_proxies = []
+    }
+
+    remove_param_proxies() {
+        for(let p of this.param_proxies)
+            this.node.remove_param(p)
+    }
+
+    process_glsl_text(v) {
+        this.glsl_emit_ctx = this.make_frag_text()
+        let frag_text = this.glsl_emit_ctx.do_replace(EXPR_FRAG_SRC)
+        this.shader_node.cls.frag_text.set_text(frag_text, false)
+    
+        this.remove_param_proxies()
+        this.param_proxies = []
+        for(let p of this.shader_node.parameters) {
+            if (p.label.startsWith('_u_') || p.label.startsWith('_D_') || (p.is_shader_iternal && p.is_shader_iternal()))
+                continue; // internal stuff
+            const prox = new ParamProxy(this.node, p)
+            prox.set_group(this.proxies_group)
+            this.param_proxies.push(prox)
+        }
+        this.proxies_group.update_elems()
     }
 
     make_frag_text() 
     {
         let emit_ctx = new GlslEmitContext()
-        this.glsl_emit_ctx = emit_ctx
         if (this.type.sel_idx === 2) { // glsl
             emit_ctx.glsl_code = this.glsl_text.v
-            return;
+            return emit_ctx;
         }
         if (this.active_param.show_code && this.active_item.e !== null) {
             if (this.active_item.elast_error !== null) {
@@ -280,16 +314,12 @@ class NodeFuncFill extends BaseNodeShaderWrap
                 emit_ctx.inline_str = "vec4(" + (c.r/255) + "," + (c.g/255) + "," + (c.b/255) + "," + c.alpha + ")"
             }
         }
+        return emit_ctx;
     }
 
     async run() {
         let in_fb = this.in_fb.get_const() // TBD wrong
         assert(in_fb !== null, this, "missing input texture")
-
-        // need to remake text due to expression change
-        if (this.active_param.pis_dirty() || this.type.pis_dirty()) {
-            this.make_frag_text()
-        }
 
         let texs = this.in_texs.get_input_consts()
         assert(texs.length < IN_TEX_COUNT, this, "Too many input textures")
@@ -297,16 +327,21 @@ class NodeFuncFill extends BaseNodeShaderWrap
             assert(tex.make_gl_texture !== undefined, this, "Input should be able to convert to textute")
         }
 
-        let frag_text = this.glsl_emit_ctx.do_replace(EXPR_FRAG_SRC)
+        if (this.type.sel_idx !== 2) { // was already done for GLSL during change
+            // need to remake text due to expression change
+            if (this.active_param.pis_dirty() || this.type.pis_dirty()) {
+                this.glsl_emit_ctx = this.make_frag_text()
+            }
+            let frag_text = this.glsl_emit_ctx.do_replace(EXPR_FRAG_SRC)
+            //console.log("TEXT: ", frag_text)
+            this.shader_node.cls.frag_text.set_text(frag_text, false)
+        }
 
-        //console.log("TEXT: ", frag_text)
-
-        this.shader_node.cls.frag_text.set_text(frag_text, false)
         // set_text creates parameters for the uniforms in the text, which are then read in run and transfered to gl
         this.glsl_emit_ctx.set_uniform_vars(this.shader_node.cls)
-        this.shader_node.cls.param_of_define("EXPR_IS_COLOR").modify( this.type.sel_idx === 1, false)
-        this.shader_node.cls.param_of_define("HAS_TEXTURE").modify(texs.length >= 1, false)
-        this.shader_node.cls.param_of_define("IS_GLSL_CODE").modify( this.type.sel_idx === 2, false)
+        this.shader_node.cls.param_of_define("_D_EXPR_IS_COLOR").modify( this.type.sel_idx === 1, false)
+        this.shader_node.cls.param_of_define("_D_HAS_TEXTURE").modify(texs.length >= 1, false)
+        this.shader_node.cls.param_of_define("_D_IS_GLSL_CODE").modify( this.type.sel_idx === 2, false)
 
         // don't need to actually give anything to the evaluator since it's not doing eval, it's doing to_glsl
         const need_tex = (this.type.sel_idx === 2 ||  // if we're editing glsl, assume we need the textures (no easy way to find out)
@@ -322,8 +357,8 @@ class NodeFuncFill extends BaseNodeShaderWrap
             for(let ti = 0; ti < texs.length; ++ti)
             {
                 const tex = texs[this.sorted_order[ti]]
-                const texParam = this.shader_node.cls.param_of_uniform('u_in_tex_' + ti)
-                assert(texParam !== null , this, "can't find uniform u_in_tex_" + ti) // was supposed to be there from uniform parsing
+                const texParam = this.shader_node.cls.param_of_uniform('_u_in_tex_' + ti)
+                assert(texParam !== null , this, "can't find uniform _u_in_tex_" + ti) // was supposed to be there from uniform parsing
                 
                 // if we're creating the texutre, create it in the right unit so that it won't overwrite other stuff
                 gl.activeTexture(gl.TEXTURE0 + ti)
@@ -341,8 +376,8 @@ class NodeFuncFill extends BaseNodeShaderWrap
                 gl.bindTexture(gl.TEXTURE_2D, tex_obj);
                 if (tex_obj.t_mat !== undefined) { // coming from PImage
                     // the texture has an associated transform with it, need to make the glsl code move it accordingly
-                    const tex_tmat = this.shader_node.cls.param_of_uniform('u_tex_tmat_' + ti)
-                    assert(tex_tmat !== null, this, "can't find uniform u_tex_tmat_" + ti)
+                    const tex_tmat = this.shader_node.cls.param_of_uniform('_u_tex_tmat_' + ti)
+                    assert(tex_tmat !== null, this, "can't find uniform _u_tex_tmat_" + ti)
 
                     let adj_m = mat3.create()
                     mat3.translate(adj_m, adj_m, vec2.fromValues(0.5,0.5))
@@ -364,7 +399,7 @@ class NodeFuncFill extends BaseNodeShaderWrap
             for(let ti = texs.length; ti < IN_TEX_COUNT; ++ti) {
                 gl.activeTexture(gl.TEXTURE0 + ti)
                 gl.bindTexture(gl.TEXTURE_2D, g_dummy_texture);
-                const texParam = this.shader_node.cls.param_of_uniform('u_in_tex_' + ti)
+                const texParam = this.shader_node.cls.param_of_uniform('_u_in_tex_' + ti)
                 if (texParam !== null)
                     texParam.modify(ti, false)
             }

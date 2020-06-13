@@ -14,7 +14,7 @@ GUI:
 - !!!!! input nodes are only active if they are in a current display tree
 - !! ability to resize code editor and pop it out
 - global input indicator that can be quickly turned off
-
+- log slider (mandelbrot)
 
 ENGINE:
 - before running - do type checking to nodes in/out terminals
@@ -47,20 +47,27 @@ EXPRESSIONS
 - if
 - check CodeMirror
 
+
 ****** CURRENT AGENDA ******
 - terminal dirty in Variables?
 - optiomize, load Yaml
     dialog for delete from state
 - default(var, 1)
 - mesh merge
-- editor - resize when in panel
+- editor 
+    - resize when in panel
+
 - line errors for ExprErr outside main parsing (line in node)
 - Mandelbrot
+    change power
+    anim gradient
 - func node
     - with glsl
     - uniforms?
 - gradient
+    ~EASY: more presets
     sampler transform only x
+- Shader - BUG: auto transform param for mat3 uniform
 - render any geometry to texture
     extend point-gradient
 - Manual geom move -  maybe manual with multiple targets?
@@ -196,7 +203,9 @@ NODES:
 - nodes the produce transform, invert it
 
 - Variable with global memory - initialization (when?) and change trigger
-- Variable from geometry of previous frame?
+    - use case - maintaining position using dx,dy drag from mouse, mouse wheel, for mandelbrot
+
+- Variable from geometry of previous frame? - like number of vertices, derived from nodes
 
 
 PAPER.JS

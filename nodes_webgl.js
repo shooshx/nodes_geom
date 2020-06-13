@@ -411,6 +411,11 @@ class NodeShader extends NodeCls
         this.vert_group = new ParamGroup(node, "Vertex Shader Uniforms")
         this.frag_group = new ParamGroup(node, "Fragment Shader Uniforms")
 
+        this.vtx_text.set_shader_internal(true)
+        this.frag_text.set_shader_internal(true)
+        this.vert_group.set_shader_internal(true)
+        this.frag_group.set_shader_internal(true)
+
         this.attr_names = ["vtx_pos"] //null // will be set by caller
         this.program = null
         this.uniforms_frag = [] // list of {name:,type:} (also defines)

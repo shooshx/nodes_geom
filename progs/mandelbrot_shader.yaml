@@ -1,0 +1,211 @@
+nodes:
+  '1':
+    params:
+      Type:
+        sel_str: Sample
+      Method:
+        sel_str: Stops
+      Point 1:
+        se_x: '-0.5'
+        e_y: 0
+        se_cv: 'return vec2(-0.5, 0)'
+      Radius 1:
+        e_v: 0.1
+        se_cv: return 0.1
+      Point 2:
+        e_x: 0.5
+        e_y: 0
+        se_cv: 'return vec2(0.5, 0)'
+      Radius 2:
+        e_v: 0.7
+        se_cv: return 0.7
+      Spread:
+        sel_str: Repeat
+      f(t)=:
+        hex: '#CCCCCC'
+        show_code: true
+        se_cv: 'return rgb(255, 128, 0.0) + rgb(t, t, t)*255'
+      Sample Num:
+        e_v: 10
+        se_cv: return 10
+      Add stops:
+        v: true
+      Value:
+        lst: [0, 0.5, 1]
+      Color:
+        lst: [255, 0, 0, 255, 255, 255, 0, 255, 0, 255, 0, 255]
+      Resolution:
+        e_v: 128
+        se_cv: return 128
+      Smooth:
+        v: false
+    name: gradient_1
+    cls_name: Gradient
+    x: 294
+    y: 181
+    disp_param:
+      show_fill: true
+  '7':
+    params:
+      Type:
+        sel_str: GLSL Program
+      "Float\nExpression":
+        e_v: 0.19100000000000003
+        show_code: true
+        dlg_rect:
+          left: 234
+          top: 155
+          width: 565
+          height: 411
+          visible: true
+        se_cv: |+
+          return coord.x*0.5+0.5
+
+
+      "Color\nExpression":
+        hex: '#F14A4A'
+        show_code: true
+        dlg_rect:
+          left: 645
+          top: 281
+          width: 410
+          height: 549
+          visible: true
+        se_cv: |+
+          g1 =  in_texi(0, coord*0.5+0.5)
+          g2 =  in_texi(1, coord*0.5+0.5)
+          f = coord.y*0.5+0.5
+          c = f*g1 + (1-f)*g2
+          c2 = sqrt(f*sqr(g1) + (1-f)*sqr(g2))
+          return c2
+
+
+
+
+
+
+
+
+
+
+
+      "GLSL\nCode":
+        dlg_rect:
+          left: 845
+          top: 184
+          width: 642
+          height: 655
+          visible: true
+        text: "\nuniform vec2 offset;\nuniform float zoom;\n\nvoid main ()\n{\n\tvec2 c = v_coord.xy;\n\tc.x -= 0.5;\n\tc *= zoom;\n\tc += offset;\n\t//c = (c - 0.5) * 2.0;\n\n\tvec2 z = c;\n\toutColor = vec4(0.2, 0.2, 0.4, 1.0);\n\n\tfor (float i = 0.0; i < 150.0; i += 1.0)\n\t{\n\t\tz = vec2(z.x*z.x - z.y*z.y, 2.0*z.x*z.y) + c;\n\t\tif (dot(z, z) > 4.0)\n\t\t{\n\t\t    float f = i / 15.0;\n\t\t    outColor = in_tex(f, 0.5);\n\t\t\tbreak;\n\t\t}\n\t}\n\t\n}"
+      OrderInputs:
+        sorted_order: [0]
+      offset:
+        se_x: '-mouse.x'
+        se_y: '-mouse.y'
+        se_cv: 'return vec2(0, 0)'
+      zoom:
+        e_v: 1
+        sldcfg_v:
+          min: 0.01
+          max: 1
+          visible: true
+          allowed: true
+        se_cv: return 0
+    name: function_fill_1
+    cls_name: Function Fill
+    x: 361
+    y: 290
+    disp_param: {}
+  '14':
+    params:
+      Resolution:
+        x: 1015
+        y: 931
+      Size:
+        e_x: 2.2749731471535983
+        e_y: 2
+        se_cv: 'return vec2(2, 2)'
+      Smooth Scaling:
+        v: true
+      Texture Edge:
+        sel_str: Pad
+      Transform:
+        e_tx: -0.0010741138560688146
+        e_ty: -0.0010741138560688146
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: create_pixel_buffer_1
+    cls_name: Create Pixel-Buffer
+    x: 504
+    y: 179
+    disp_param: {}
+  '97':
+    params:
+      Type:
+        sel_str: Float2-Mouse
+      Name:
+        v: mouse
+      Float:
+        e_v: 1
+        se_cv: return 1
+      Integer:
+        e_v: 1
+        se_cv: return 1
+      Float2:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      Color:
+        hex: '#CCCCCC'
+        se_cv: 'return rgb(204, 204, 204)'
+      Mouse Coord:
+        e_x: 0.16326530612244894
+        e_y: -0.0064446831364125545
+        se_cv: 'return vec2(0, 0)'
+      Sample At:
+        sel_str: Mouse left down
+    name: mouse
+    cls_name: Variable
+    x: 213
+    y: 345
+    disp_param: {}
+lines:
+  - from_name: out_tex
+    from_id: 14
+    to_name: in_fb
+    to_id: 7
+    uid: 17
+  - from_name: out_gradient
+    from_id: 1
+    to_name: in_texs
+    to_id: 7
+    uid: 96
+  - from_name: variable_out
+    from_id: 97
+    to_name: vars_in
+    to_id: 7
+    uid: 100
+next_node_id: 101
+names_idx_s:
+  Gradient: 6
+  Function Fill: 1
+  Create Pixel-Buffer: 2
+  Shader: 3
+  Geom Primitive: 5
+  Manual Geometry: 1
+  Divide: 2
+  Set Attribute: 1
+  Load Image: 1
+  Group Objects: 1
+  Variable: 1
+display_node_id: 7
+tdisp_node_ids:
+  - 14
+input_node_ids:
+  - 97
+nodes_view:
+  pan_x: -105
+  pan_y: -1

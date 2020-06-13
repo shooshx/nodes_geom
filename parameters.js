@@ -21,6 +21,7 @@ class Parameter
         this.shares_line_from = null  // to have more than one param in the same line
         this.group_param = null  // member of a group? used for param aggregation
         this.my_expr_items = []  // ExpressionItem objects in me
+        this.shader_internal = false  // for knowing not to create proxies
     }
     set_label(text) {
         this.label = text
@@ -100,6 +101,9 @@ class Parameter
             if (expr.eis_active())
                 expr.peval_self()
     }
+
+    set_shader_internal(v) { this.shader_internal = v }
+    is_shader_iternal() { return this.shader_internal }
 }
 
 // if the text of one of the labels is too long, fix the length of all of them
@@ -938,7 +942,7 @@ class EditBoxEditor {
     show_err(err_text) {
         //let edit_rect = this.elem.getBoundingClientRect(), line_rect = this.this.elem.parentElement.getBoundingClientRect()
         this.err_elem = create_div("param_edit_err_box")
-        this.err_elem.innerText = err_text
+        this.err_elem.innerText = err_text.msg
         this.err_elem.style.left = Math.round(this.elem.offsetLeft) + "px"
         this.err_elem.style.top = Math.round(this.elem.offsetHeight) + "px"
         this.elem.parentElement.insertBefore(this.err_elem, this.elem.nextSibling)
@@ -2273,7 +2277,6 @@ class Editor
             this.dlg.set_visible(false)
             this.parentElem.appendChild(this.elem)
         }
-        this.editor.resize(true)
 
         this.elem.classList.toggle("dlg_param_text_area", out_v)
         this.elem.classList.toggle("panel_param_text_area", !out_v)
@@ -2281,6 +2284,8 @@ class Editor
         this.popout_elems.btn.classList.toggle('prm_code_popout_btn', !out_v)
         this.popout_elems.btn.classList.toggle('prm_code_popin_btn', out_v)
         this.popout_elems.ein.checked = out_v
+
+        this.editor.resize(true) // needs to be after all DOM changes
     }
 
     set_title(v) {
@@ -2367,6 +2372,7 @@ class ParamTextBlock extends Parameter
     load(v) { this.v = v.text; this.dlg_rect = v.dlg_rect;  } // dlg_rect saved only if text is saved
     
     title() { return this.owner.name + " - " + this.label.replace('\n', ' ') }
+
     set_text(v, do_draw=true) { // when calling this from run(), set to false to avoid endless loop of draws
         if (this.v === v)
             return
