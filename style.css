@@ -715,3 +715,15 @@ input {
     z-index:20
 }
 
+.color_dropper_back {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 101; /* above color picker */
+    cursor: crosshair;
+
+    opacity: 0%;
+    background-color: #ff0000;
+}

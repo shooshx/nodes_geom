@@ -203,6 +203,7 @@ function draw_chart(ctx, cfg, sel_col, sel_pos, presets, options) {
     }
 
     if (options.with_alpha) {
+        // alpha bar fill
         cfg.alpha_bar_x = MARGIN+sq_sz+BAR_SPACE+BAR_SZ+BAR_SPACE
         for(var y = 0; y < sq_sz; ++y) {
             let alpha = 1 - y/(sq_sz-1)
@@ -242,6 +243,7 @@ function draw_chart(ctx, cfg, sel_col, sel_pos, presets, options) {
     ctx.fill();
 
     if (options.with_alpha) {
+        // alpha arrow
         let alpha_mid_y = sel_pos.alpha_y * sq_sz + MARGIN
         ctx.beginPath()
         ctx.moveTo(cfg.alpha_bar_x + ARROW_SZ, alpha_mid_y) // center
@@ -268,6 +270,18 @@ function draw_chart(ctx, cfg, sel_col, sel_pos, presets, options) {
     // border of square of selected color
     ctx.strokeRect(cfg.bar_x + 0.5, cfg.bar_y + 0.5, BAR_SZ - 1, BAR_SZ-1)
 
+    // icon for capture (droper)
+    if (options.with_alpha) { // otherwise there's no place for it
+        const icon_x = cfg.alpha_bar_x + BAR_SZ/2, icon_y = cfg.bar_y + BAR_SZ/2
+        const crosshair_hlen = BAR_SZ*0.5
+        ctx.beginPath()
+        ctx.arc(icon_x+0.5, icon_y+0.5, BAR_SZ*0.35, 0, Math.PI*2)
+        ctx.moveTo(icon_x+0.5, icon_y-crosshair_hlen)
+        ctx.lineTo(icon_x+0.5, icon_y+crosshair_hlen+1)
+        ctx.moveTo(icon_x-crosshair_hlen, icon_y+0.5)
+        ctx.lineTo(icon_x+crosshair_hlen+1, icon_y+0.5)
+        ctx.stroke()
+    }
 }
 
 function clamp(x) {
@@ -502,24 +516,28 @@ function create_at(elem, add_func, sz, visible, onchange, options, start_color)
         var x = e.clientX - rect.left;
         var y = e.clientY - rect.top;
         var changed = false
+        // square
         if (!bar_capture && !alpha_capture && (square_capture || (x > MARGIN && y > MARGIN && x < cfg.sq_sz+MARGIN && y < cfg.sq_sz+MARGIN))) {
             if (isondown)
                 square_capture = true
             sel_pos.sq_x = clamp((x - MARGIN)/cfg.sq_sz)
             sel_pos.sq_y = clamp((y - MARGIN)/cfg.sq_sz)
             changed = true
-        }
+        } // hue
         else if (bar_capture || (x > cfg.bar_x && y > MARGIN && x < cfg.bar_x + BAR_SZ && y < cfg.sq_sz+MARGIN)) {
             if (isondown)
                 bar_capture = true
             sel_pos.bar_y = clamp((y - MARGIN)/cfg.sq_sz)
             changed = true
-        }
+        } // alpha
         else if (alpha_capture || (options.with_alpha && x > cfg.alpha_bar_x && y > MARGIN && x < cfg.alpha_bar_x + BAR_SZ && y < cfg.sq_sz+MARGIN)) {
             if (isondown)
                 alpha_capture = true
             sel_pos.alpha_y = clamp((y - MARGIN)/cfg.sq_sz)
             changed = true
+        } // droper icon 
+        else if (options.with_alpha && options.dropper && x > cfg.alpha_bar_x && x < cfg.alpha_bar_x + BAR_SZ && y > cfg.bar_y && y < cfg.bar_y + BAR_SZ) {
+            options.dropper(set_color)
         }
 
         if (changed) {

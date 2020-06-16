@@ -362,7 +362,7 @@ function add_param_color(line, value, cls, set_func) {
     let e = document.createElement('input')
     e.className = cls
     line.appendChild(e) // must have parent
-    let ce = ColorEditBox.create_at(e, 200, function(c) { set_func(c) }, {with_alpha:true, myAddEventListener:myAddEventListener}, value)
+    let ce = ColorEditBox.create_at(e, 200, function(c) { set_func(c) }, {with_alpha:true, myAddEventListener:myAddEventListener, dropper:start_color_dropper}, value)
     return [ce.get_color().copy(), e, ce]
 }
 let g_input_ids = 1
@@ -405,6 +405,25 @@ function add_combobox(parent, opts, sel_idx, onchange) {
     se.selectedIndex = sel_idx
     myAddEventListener(se, 'change', function() { onchange(se.selectedIndex); })
     return se
+}
+
+function start_color_dropper(set_color)
+{
+    const id = ctx_img.getImageData(0, 0, canvas_image.width, canvas_image.height)
+    const back_elem = add_div(main_view, "color_dropper_back");
+    myAddEventListener(back_elem, "mousemove", (e)=>{
+        const rect = image_view.rect
+        if (e.pageX > rect.left && e.pageX < rect.right && e.pageY > rect.top && e.pageY < rect.bottom) {
+            const relX = e.pageX - rect.left, relY = e.pageY - rect.top // this is actually the same since rect is in 0,0 but just for good measure
+            const idx = (relX + relY * id.width) * 4
+            const col = { r: id.data[idx], g: id.data[idx+1], b: id.data[idx+2], alpha: id.data[idx+3]/255 }
+            set_color(col)
+        }
+    })
+    myAddEventListener(back_elem, "mouseup", (e)=>{
+        main_view.removeChild(back_elem)
+    })
+
 }
 
 class ParamSeparator extends Parameter {

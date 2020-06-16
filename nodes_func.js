@@ -59,7 +59,7 @@ void main() {
 #ifndef _D_EXPR_IS_COLOR
     float v = $EXPR$;
  #ifdef _D_HAS_TEXTURE
-    outColor = texture(u_in_tex_0, vec2(v,0));
+    outColor = texture(_u_in_tex_0, vec2(v,0));
  #else
     outColor = vec4(vec3(1.0, 0.5, 0.0) + vec3(v*2.0-1.0, v*2.0-1.0, v*2.0-1.0), 1.0);
  #endif
@@ -256,9 +256,12 @@ class NodeFuncFill extends BaseNodeShaderWrap
         this.param_proxies = []
     }
 
-    remove_param_proxies() {
+    remove_param_proxies(do_update=true) {
         for(let p of this.param_proxies)
             this.node.remove_param(p)
+        this.param_proxies = []
+        if (do_update)
+            this.proxies_group.update_elems()
     }
 
     process_glsl_text(v) {
@@ -266,8 +269,7 @@ class NodeFuncFill extends BaseNodeShaderWrap
         let frag_text = this.glsl_emit_ctx.do_replace(EXPR_FRAG_SRC)
         this.shader_node.cls.frag_text.set_text(frag_text, false)
     
-        this.remove_param_proxies()
-        this.param_proxies = []
+        this.remove_param_proxies(false)
         for(let p of this.shader_node.parameters) {
             if (p.label.startsWith('_u_') || p.label.startsWith('_D_') || (p.is_shader_iternal && p.is_shader_iternal()))
                 continue; // internal stuff

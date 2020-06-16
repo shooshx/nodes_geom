@@ -258,7 +258,7 @@ function panel_mouse_control(view, canvas)
     
     myAddEventListener(canvas, 'mousedown', function(e) {
         if (view.nodes_inputevent('mousedown', e) && e.target === canvas_image) {
-            node_capture = true
+            node_capture = true // variable-node mouse move
             return
         }
         if (e.buttons == 1) {

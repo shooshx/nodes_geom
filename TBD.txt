@@ -53,20 +53,17 @@ EXPRESSIONS
 - optiomize, load Yaml
     dialog for delete from state
 - default(var, 1)
-- mesh merge
 - editor 
     - resize when in panel
-
 - line errors for ExprErr outside main parsing (line in node)
 - Mandelbrot
     change power
     anim gradient
-- func node
-    - with glsl
-    - uniforms?
+- mesh merge
 - gradient
     ~EASY: more presets
     sampler transform only x
+    - test SVG gradients with hsl colors
 - Shader - BUG: auto transform param for mat3 uniform
 - render any geometry to texture
     extend point-gradient
@@ -158,6 +155,7 @@ NODES:
     for loop?
 - Gradient
     in stroke (line),
+    - Coon patch (not supported in chrome) http://tavmjong.free.fr/SVG/MESH/Mesh.html
 - Boolean operation
     faster with C++ clipper?
 
@@ -255,6 +253,14 @@ VEX random attr video: https://www.youtube.com/watch?v=0qfBj15IoQM
 2D graphs: https://www.desmos.com/
 
 beziers stuff? https://pomax.github.io/bezierjs/
+
+line voronoi? 
+    for min distance to poly
+    http://www.cosy.sbg.ac.at/~held/projects/vroni/vroni.html
+    https://github.com/aewallin/openvoronoi
+
+LLyod relaxation?
+    http://www.raymondhill.net/voronoi/rhill-voronoi-demo5.html
 
 Name?
 - 2dini?
