@@ -428,6 +428,9 @@ input {
 .param_file_choose_btn {
     width: 130px;
 }
+.solid_flex {
+    flex-grow: 1;
+}
 .param_file_show_parent {
     position: relative;
     display: inline-block;

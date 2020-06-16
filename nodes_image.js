@@ -60,7 +60,7 @@ class NodeLoadImage extends NodeCls
                 return null
             return [oimg.width(), oimg.height()]
         })
-
+        this.pimg_cache = null
     }
 
     // setting the image size is only manual since there's currently no way to differentiate between dirty image param
@@ -76,12 +76,15 @@ class NodeLoadImage extends NodeCls
 
     run() {
         ensure_webgl()
-        let image = this.file_upload.get_image()
+        if (this.file_upload.pis_dirty() || this.size.pis_dirty() || this.pimg_cache === null) {
+            const image = this.file_upload.get_image()
+            const sz = this.size.get_value()
+            this.pimg_cache = new PImage(image, this.smooth_image.v, this.tex_edge.get_sel_name(), sz[0], sz[1])
+        }
+
         assert(this.transform.is_valid(), this, "invalid transform")
-        let sz = this.size.get_value()
-        let pimg = new PImage(image, this.smooth_image.v, this.tex_edge.get_sel_name(), sz[0], sz[1])
-        pimg.transform(this.transform.v)
-        this.out_img.set(pimg)
+        this.pimg_cache.set_transform(this.transform.v)
+        this.out_img.set(this.pimg_cache)
     }
 
     // duplicated in NodeCreateFrameBuffer

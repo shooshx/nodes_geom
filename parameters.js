@@ -379,8 +379,12 @@ function add_param_checkbox(line, label, value, set_func) {
     etext.innerText = label
     return [ein, etext]
 }
-function add_push_btn(parent, label, onclick) {
-    let btn = add_div(parent, "param_btn")
+function add_push_btn(parent, label, onclick, cls=null) {
+    if (cls === null)
+        cls = "param_btn"
+    else
+        cls = cls.concat(["param_btn"])
+    let btn = add_div(parent, cls)
     btn.innerText = label
     myAddEventListener(btn, "click", onclick)
     return btn

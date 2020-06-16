@@ -17,6 +17,7 @@ class ImageBase extends PObject
         this.bottom_right = vec2.fromValues(hw,hh)
     }
 
+    set_transform(m) { mat3.copy(this.t_mat, m) }
     transform(m) { mat3.multiply(this.t_mat, m, this.t_mat) } 
 
     draw_image(img_impl, m) {
@@ -119,7 +120,9 @@ class FrameBuffer extends ImageBase
     async pre_draw(m, disp_values) {
         if (this.tex_obj.width === 0 || this.tex_obj.height === 0)
             return // happens when an file image was not loaded yet
-        this.imgBitmap = await renderTexToImgBitmap(this.tex_obj, this.sz_x, this.sz_y)
+        // cached for the same of PImage which needs to only generate this once and reuses the output object
+        if (this.imgBitmap === null)
+            this.imgBitmap = await renderTexToImgBitmap(this.tex_obj, this.sz_x, this.sz_y)
     }
 
     draw(m, disp_values) {

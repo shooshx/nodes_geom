@@ -187,6 +187,10 @@ class GlslEmitContext {
     }
 }
 
+// glsl example: 
+// void main () {
+//    outColor = in_tex(v_coord);
+// }
 
 class NodeFuncFill extends BaseNodeShaderWrap
 {
