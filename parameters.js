@@ -905,6 +905,8 @@ class ExpressionItem {
         return ev
     }
     get_last_error() {
+        if (this.elast_error === null)
+            return null
         return this.elast_error.msg
     }
 

@@ -99,18 +99,18 @@ class Gradient extends PObject
         return this.make_rect_points(vec2.fromValues(0,0), vec2.fromValues(canvas_image.width, canvas_image.height), true)
     }
 
-    async draw_fill_rect(ctx, rect, allow_async) {        
-        this.ensure_grd()
-        // if we're coming from draw(), this would not await since the svg was generated in pre_draw with the same rect
+    async pre_draw_rect(rect) {
         // if we're coming from SetAttr, this would generate a new svg so we'll need to really await
         if (this.need_svg()) {
             if (this.need_ensure_svg(rect)) {
-                if (allow_async)
-                    await this.ensure_svg(rect)
-                // if not allows to do async ensure_svg (since we're in draw), use the svg from pre_draw()
-                // it should be close enough (only might have changed if there as a small move/resize event since then)
+                await this.ensure_svg(rect)
             }
         }
+    }
+
+    draw_fill_rect(ctx, rect) {        
+        this.ensure_grd()
+        // if we're coming from draw(), this would not await since the svg was generated in pre_draw with the same rect
 
 
         if (this.need_svg()) {
@@ -138,7 +138,7 @@ class Gradient extends PObject
         // rect that fills all the viewport
         const rp = this.make_viewport_rect_points()
         //console.log("DRAW ", canvas_image.width)
-        this.draw_fill_rect(ctx_img, rp, false)
+        this.draw_fill_rect(ctx_img, rp)
         // we can't do async stuff in draw (since that would cause flicker) so we make sure we didn't make any promise just now
         
     }
@@ -363,7 +363,8 @@ class GradientPixelsAdapter {
         }
 
         const rp = this.obj.make_rect_points(vec2.fromValues(this.bbox.min_x,this.bbox.min_y), vec2.fromValues(this.bbox.max_x, this.bbox.max_y), false)
-        await this.obj.draw_fill_rect(ctx_img_shadow, rp, true)
+        await this.obj.pre_draw_rect(rp)
+        this.obj.draw_fill_rect(ctx_img_shadow, rp)
 
         ctx_img_shadow.restore()
         if (doImageData)
@@ -605,6 +606,19 @@ class GradPointsAdapterParam {
     reprint_all_lines() { // mark yellow
         this.range_lstprm.reprint_all_lines()
     }
+    translate_idx_to_obj(sel_indices) {
+        const inv_sorder_order = []
+        for(let i in this.nodecls.sorted_order)
+            inv_sorder_order[this.nodecls.sorted_order[i]] = parseInt(i)
+        const ret = []
+        for(let sidx of sel_indices) {
+            if (sidx < this.move_prm.length)
+                ret.push(sidx) // special points
+            else
+                ret.push(inv_sorder_order[sidx - this.move_prm.length] + this.move_prm.length) 
+        }
+        return ret
+    }
 }
 
 class Linear_GradPointsAdapterParam extends GradPointsAdapterParam {
@@ -745,6 +759,7 @@ const GRADIENT_PRESETS = [
     [ {v:0, c:'#C2EAF4'}, {v:0.25, c:'#8C6DE2'}, {v:0.5, c:'#E21BD8'}, {v:0.75, c:'#F3F94D'}, {v:1, c:"#14EDE2"} ],
     [ {v:0, c:'#25E6ED'}, {v:1, c:"#FEFB00"} ],
     [ {v:0, c:'#BCD537'}, {v:0.265, c:"#9DD224"}, {v:0.62, c:"#E2FFA1"}, {v:1, c:"#FED242"} ],
+    [ {v:0, c:'#E74079'}, {v:0.33, c:"#FEC0A0"}, {v:0.66, c:"#FFE45B"}, {v:1, c:"#ED9B20"} ],
 
   //  [ {v:0, c:'#f00'}, {v:1, c:"#fff"} ],
   //  [ {v:0, c:'#0f0'}, {v:1, c:"#fff"} ],
@@ -939,7 +954,9 @@ class NodeGradient extends NodeCls
         for(let i = 0; i < this.values.lst.length; ++i) {
             const sorted_i = this.sorted_order[i]
             const ci = sorted_i*4
-            obj.add_stop(this.values.lst[sorted_i], this.colors.lst.slice(ci, ci+4))
+            const v = this.values.lst[sorted_i]
+            assert(v >= 0 && v <= 1, this, "stop " + i + " out of range")
+            obj.add_stop(v, this.colors.lst.slice(ci, ci+4))
         }
         const [spreadName, via_svg] = this.spread.get_sel_val()
         obj.spread = spreadName

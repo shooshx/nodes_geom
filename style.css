@@ -165,6 +165,9 @@ input {
     font-family: Verdana;
     font-size: 14px;        
 }
+.param_input:focus {
+    outline: none;
+}
 .param_input_long {
     /*width: calc( 100% - 160px )*/
     flex-grow: 1;
@@ -434,6 +437,8 @@ input {
 .param_file_show_parent {
     position: relative;
     display: inline-block;
+    max-width: calc(100% - 400px);
+    overflow: visible;
 }
 .param_file_show {
     display: inline-block;

@@ -220,7 +220,11 @@ function add_point_select_mixin(node_cls, selected_indices, points_param) {
         let obj = this.out.get_const()
         if (obj === null) 
             return
-        obj.draw_selection(m, selected_indices)
+        let s = selected_indices
+        // this is needed since in Gradient the order of the points in the object is different (sorted) than in the Node
+        if (points_param.translate_idx_to_obj !== undefined)
+            s = points_param.translate_idx_to_obj(s)
+        obj.draw_selection(m, s)
     }    
 }
 

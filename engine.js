@@ -277,8 +277,9 @@ function assert(cond, node_cls, msg) {
 
 // thrown in draw (and anywhere alse that's not directly in a node or expression)
 function dassert(cond, msg) {
-    if (!cond)
+    if (!cond) {
         throw new Error(msg)
+    }
 }
 
 // throw in expressions
