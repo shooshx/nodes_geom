@@ -54,12 +54,7 @@ class NodeLoadImage extends NodeCls
        // size_fit_func() // fit to the viewport at the time the node is created
         this.tex_edge = new ParamSelect(node, "Texture Edge", 0, ["Pad", "Reflect", "Repeat"])
 
-        this.size_dial = new ScaleDial(this.transform, ()=>{
-            const oimg = this.out_img.get_const()
-            if (oimg === null)
-                return null
-            return [oimg.width(), oimg.height()]
-        })
+        this.size_dial = new SizeDial(this.size)
         this.pimg_cache = null
     }
 
@@ -95,7 +90,7 @@ class NodeLoadImage extends NodeCls
         this.transform.draw_dial_at_obj(outimg, m)
         outimg.draw_border(m)
 
-        this.size_dial.draw(m)
+        this.size_dial.draw(this.transform.v, m)
 
     }    
     image_find_obj(vx, vy, ex, ey) {

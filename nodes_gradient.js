@@ -753,14 +753,21 @@ const GRADIENT_PRESETS = [
     [ {v:0, c:'#000'}, {v:0.25, c:'#800000'}, {v:0.5, c:'#ff8000'}, {v:0.75, c:'#ffff80'}, {v:1, c:'#fff'}],  // fire
     [ {v:0, c:'hsl(0,100%,50%)'},{v:60/300, c:'hsl(60,100%,50%)'},{v:120/300, c:'hsl(120,100%,50%)'},
       {v:180/300, c:'hsl(180,100%,50%)'},{v:240/300, c:'hsl(240,100%,50%)'},{v:1, c:'hsl(300,100%,50%)'} ],
-    [ {v:0, c:'#6727E0'}, {v:0.5, c:'#E739BF'}, {v:1, c:"#F8F45F"} ],
+    [ {v:0, c:'#6727E0'}, {v:0.35, c:'#D418CC'}, {v:0.63, c:"#FB63B1"}, {v:1, c:"#F8F45F"} ],
     [ {v:0, c:'#000'}, {v:1, c:"#fff"} ],
     [ {v:0, c:'#000'}, {v:1, c:"rgba(0,0,0,0)"} ],
-    [ {v:0, c:'#C2EAF4'}, {v:0.25, c:'#8C6DE2'}, {v:0.5, c:'#E21BD8'}, {v:0.75, c:'#F3F94D'}, {v:1, c:"#14EDE2"} ],
-    [ {v:0, c:'#25E6ED'}, {v:1, c:"#FEFB00"} ],
-    [ {v:0, c:'#BCD537'}, {v:0.265, c:"#9DD224"}, {v:0.62, c:"#E2FFA1"}, {v:1, c:"#FED242"} ],
+    [ {v:0, c:'#C2EAF4'}, {v:0.174, c:'#8C6DE2'}, {v:0.32, c:'#E21BD8'}, {v:0.57, c:'#D2CA4A'}, {v:0.68, c:'#F3F94D'}, {v:1, c:"#14EDE2"} ],
+    [ {v:0, c:'#0EE0F4'}, {v:0.31, c:"#4FE2BB"}, {v:0.59, c:"#A4E57E"}, {v:1, c:"#FEE835"} ],
+    [ {v:0, c:'#72B743'}, {v:0.3, c:"#9DD224"}, {v:0.57, c:"#D9F98D"}, {v:0.662, c:"#E2FFA1"}, {v:1, c:"#FED242"} ],
     [ {v:0, c:'#E74079'}, {v:0.33, c:"#FEC0A0"}, {v:0.66, c:"#FFE45B"}, {v:1, c:"#ED9B20"} ],
-
+    [ {v:0, c:'#1CFECF'}, {v:0.39, c:'#536FDE'}, {v:1, c:"#FE73E6"} ],
+    [ {v:0, c:'#E8FF85'}, {v:0.212, c:'#CAFAD6'}, {v:0.5, c:'#C6EEF9'}, {v:0.761, c:'#DBCBFA'}, {v:1, c:"#F89ADD"} ],
+    [ {v:0, c:'#FF21AB'}, {v:0.313, c:'#EB1F6F'}, {v:0.4, c:'#EA2869'}, {v:0.711, c:'#FF7C73'}, {v:1, c:"#FF9C36"} ],
+    [ {v:0, c:"#582A20"}, {v:0.056, c:"#E9D7D1"}, {v:0.308, c:"#B64D49"}, {v:0.417, c:"#82322F"}, {v:0.438, c:"#9C6563"}, 
+       {v:0.460, c:"#D2B9B8"}, {v:0.479, c:"#FEFEFE"}, {v:0.742, c:"#95B4CB"}, {v:0.871, c:"#7690B9"}, {v:0.919, c:"#83A7C3"}, {v:1, c:"#D9E8F3"} ], // MS Word 2003 "Horizon"
+    [ {v:0, c:"#A703AA"}, {v:0.130, c:"#E91A5F"}, {v:0.278, c:"#EF4716"}, {v:0.480, c:"#FFFD00"}, {v:0.648, c:"#209046"}, {v:0.791, c:"#081BF9"}, {v:1, c:"#A203AD"} ], // MS Word 2003 "Rainbow"
+    [ {v:0, c:"#3366FE"}, {v:0.230, c:"#05A298"}, {v:0.363, c:"#74CF4E"}, {v:0.498, c:"#FFFE00"}, {v:0.735, c:"#FF6F30"}, {v:1, c:"#FF3497"} ] // MS Word 2003 "Rainbow II"
+    
   //  [ {v:0, c:'#f00'}, {v:1, c:"#fff"} ],
   //  [ {v:0, c:'#0f0'}, {v:1, c:"#fff"} ],
   //  [ {v:0, c:'#00f'}, {v:1, c:"#fff"} ],
@@ -883,7 +890,9 @@ class NodeGradient extends NodeCls
         this.func = new ParamColor(node, "f(t)=", ["#cccccc", "rgb(255, 128, 0.0) + rgb(t, t, t)*255"], {show_code:true}) // just a way to generate points example: rgb(255,128,0)+rgb(t,t,t)*255
         this.func_samples = new ParamInt(node, "Sample Num", 10, {min:1, max:30, visible:false})
         const presets_btn = new ParamImageSelectBtn(node, "Presets", GRADIENT_PRESETS, make_preset_img, (pr)=>{this.load_preset(pr)})
-        this.add_stops_btn = new ParamBool(node, "Add stops", true, null)
+        this.add_stops_btn = new ParamBool(node, "Add stops", true, (v)=>{
+            this.print_stops()
+        })
         this.add_stops_btn.display_as_btn(true)
         this.add_stops_btn.share_line_elem_from(presets_btn)
         this.table = new ParamTable(node, "Stops", this.sorted_order)
@@ -897,6 +906,15 @@ class NodeGradient extends NodeCls
         this.load_preset(GRADIENT_PRESETS[0])
         
         // TBD points as expressions
+    }
+    print_stops() {
+        var s = ""
+        for(let i = 0; i < this.sorted_order.length; ++i) {
+            const ci = this.sorted_order[i]*4
+            const c = ColorPicker.make_hex({r:this.colors.lst[ci], g:this.colors.lst[ci+1], b:this.colors.lst[ci+2], alpha:this.colors.lst[ci+3]/255})
+            s += "{v:" + this.values.lst[this.sorted_order[i]].toFixed(3) + ', c:"' + c + '"}, '
+        }
+        console.log(s)
     }
     is_radial() { return this.type.sel_idx == 1 }
     post_load_hook() { this.redo_sort() } // sort loaded values for the table

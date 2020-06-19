@@ -2552,7 +2552,7 @@ class ParamFileUpload extends Parameter
         var req = new XMLHttpRequest();
         
         req.onload = ()=>{
-            console.log(req.responseText)
+            //console.log(req.responseText)
             var re = JSON.parse(req.responseText)
             if (re.success != true || re.status != 200) {
                 console.error("Failed upload, " + re.status)

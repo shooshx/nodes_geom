@@ -473,7 +473,7 @@ input {
     padding: 7px 0;
     border-radius: 4px;
     border: solid 2px #7d7d7d;
-    width: 229px;
+    width: calc(55px * 5 + 8px);
     z-index: 4;  /* above the display params panel */
     white-space: normal;
     padding-left: 7px;

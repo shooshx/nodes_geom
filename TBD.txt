@@ -64,6 +64,7 @@ EXPRESSIONS
     ~EASY: more presets
     sampler transform only x
     - test SVG gradients with hsl colors
+- image upload - hide in png
 - Shader - BUG: auto transform param for mat3 uniform
 - render any geometry to texture
     extend point-gradient
