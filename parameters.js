@@ -2485,6 +2485,91 @@ class ParamSelect extends Parameter
 }
 
 
+const MAGIC_HDR = 0x616263ff
+const MIME_TYPE_LEN = 30
+const MIME_TYPE_LEN_PX = 40
+
+// imgur doesn't support anything not PNG or JPG so I hide the data ina png by simply concatenating it to its end
+function encodeIntoPng(data_bin, mime_type)
+{
+    const len = data_bin.byteLength + 8 + MIME_TYPE_LEN_PX
+    if (mime_type.length > MIME_TYPE_LEN)
+        return null
+    const width = 128
+    const height = Math.round((len / width) / 3) + 2  // 3 bytes per pixel
+    canvas_img_shadow.width = width
+    canvas_img_shadow.height = height 
+    const id = ctx_img_shadow.getImageData(0, 0, width, height)
+    const dst = id.data
+    const dv = new DataView(dst.buffer)
+    dv.setUint32(0, MAGIC_HDR)
+    dv.setUint32(4, (data_bin.byteLength << 8) | 0xff)
+    let dst_i = 8, src_i = 0
+    while(src_i < MIME_TYPE_LEN) {
+        dst[dst_i++] = mime_type.charCodeAt(src_i++)
+        if ((dst_i % 4) == 3)
+            dst[dst_i++] = 0xff
+    }
+    const bin_len = data_bin.byteLength
+    const src = new Uint8Array(data_bin)
+    src_i = 0;
+    while(src_i < bin_len) {
+        dst[dst_i++] = src[src_i++]
+        dst[dst_i++] = src[src_i++]
+        dst[dst_i++] = src[src_i++]
+        dst[dst_i++] = 0xff // don't mess with alpha, that messes the colors for some reason
+    }
+    ctx_img_shadow.putImageData(id, 0, 0)
+    // to PNG
+    const durl = canvas_img_shadow.toDataURL('image/png') // TBD toBlob?
+    const comma = durl.indexOf(',')
+    const dbase = durl.substr(comma+1)
+    const dbin = atob(dbase)
+
+    const dlen = dbin.length;
+    const bytes = new Uint8Array(dlen);
+    for (let i = 0; i < dlen; i++) {
+        bytes[i] = dbin.charCodeAt(i);
+    }
+    console.log("data-len=", len, " encodede-len=", dlen)
+    return bytes
+}
+
+function tryDecodeFromPng(image)
+{
+    canvas_img_shadow.width = image.width
+    canvas_img_shadow.height = image.height
+    ctx_img_shadow.drawImage(image, 0, 0)
+    const id = ctx_img_shadow.getImageData(0, 0, image.width, image.height)
+    const dv = new DataView(id.data.buffer)
+    const magic = dv.getUint32(0)
+    if (magic !== MAGIC_HDR)
+        return null
+    const dlen = (dv.getUint32(4) >> 8) + MIME_TYPE_LEN
+    //const dst = new Uint8Array(dlen)
+    var dst = '';
+    const src = id.data
+    const src_len = src.byteLength
+    let src_i = 8, dst_i = 0;
+    let debug = ''
+    while(dst_i < dlen) {
+        //debug += src[src_i].toString(16) + ' ' + src[src_i+1].toString(16) + ' ' + src[src_i+2].toString(16) + ' '
+        dst += String.fromCharCode(src[src_i++]); 
+        dst += String.fromCharCode(src[src_i++]); 
+        dst += String.fromCharCode(src[src_i++]); 
+        ++src_i  // skip alpha
+        dst_i += 3
+    }
+    let mime_type = dst.substr(0, MIME_TYPE_LEN)
+    while (mime_type.charCodeAt(mime_type.length-1) == 0)
+        mime_type = mime_type.substr(0, mime_type.length-1)
+    dst = dst.substr(MIME_TYPE_LEN, dlen-MIME_TYPE_LEN) // might have added a 1 or 2 extra bytes
+    const png_url = "data:" + mime_type + ";base64," + btoa(dst)
+
+    return png_url
+}
+    
+
 class ParamFileUpload extends Parameter
 {
     constructor(node, label) {
@@ -2511,7 +2596,7 @@ class ParamFileUpload extends Parameter
             // pset_dirty() done only when everything is loaded
         })
         let upload_btn = add_push_btn(this.line_elem, "Upload", ()=>{ // onclick 
-            this.read_file(this.file, false, (file, data)=> { this.upload_to_imgur(file, data)} ) 
+            this.read_file(this.file, false, (file, data)=> { this.upload_to_imgur(file.type, data)} ) 
         })
         let show_div = add_div(this.line_elem, "param_file_show_parent")
         let filename_show = add_div(show_div, "param_file_show")
@@ -2548,19 +2633,23 @@ class ParamFileUpload extends Parameter
             reader.readAsArrayBuffer(file)
     }
 
-    upload_to_imgur(file, data) {
-        var req = new XMLHttpRequest();
+    upload_to_imgur(file_type, data, is_second_try=false) {
+        const req = new XMLHttpRequest();
         
         req.onload = ()=>{
-            //console.log(req.responseText)
+            console.log(req.responseText)
+            this.upload_progress_elem.style.display = "none"
             var re = JSON.parse(req.responseText)
             if (re.success != true || re.status != 200) {
+                if (re.status === 400 && !is_second_try) { // can try to encode it as PNG
+                    const encoded = encodeIntoPng(data, file_type)
+                    this.upload_to_imgur("image/png", encoded, true)
+                }
                 console.error("Failed upload, " + re.status)
                 return
             }
             this.remote_url = re.data.link
             this.remote_url_elem.value = this.remote_url
-            this.upload_progress_elem.style.display = "none"
             save_state()
         }
         req.onprogress = (e)=>{
@@ -2572,7 +2661,7 @@ class ParamFileUpload extends Parameter
         if (req.upload) // in chrome there's a different progress listener
             req.upload.onprogress = req.onprogress
         req.onerror = (e)=>{
-            console.error(e)
+            console.error("Failed req ", e)
             this.upload_progress_elem.style.display = "none"
         }
     
@@ -2582,7 +2671,8 @@ class ParamFileUpload extends Parameter
         req.open("POST", 'https://api.imgur.com/3/image', true)
         req.setRequestHeader("Authorization", "Client-ID 559401233d3e1e6")
         req.setRequestHeader("Accept", 'application/json')
-        req.setRequestHeader("Content-Type", file.type)
+        req.setRequestHeader("Content-Type", file_type)
+        console.log("Uploading ", file_type, " len:", data.byteLength)
         req.send(data)
     }
     
@@ -2601,8 +2691,13 @@ class ParamImageUpload extends ParamFileUpload
         this.image = null
         let newimage = new Image()
         myAddEventListener(newimage, "load", (e)=>{
-            this.image = newimage
             this.ilast_error = null
+            const decoded_url = tryDecodeFromPng(newimage)
+            if (decoded_url !== null) {
+                newimage.src = decoded_url
+                return
+            }
+            this.image = newimage
             this.pset_dirty()
         })
         myAddEventListener(newimage, "error", (e)=>{

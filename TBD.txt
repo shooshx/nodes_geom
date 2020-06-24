@@ -56,12 +56,12 @@ EXPRESSIONS
 - editor 
     - resize when in panel
 - line errors for ExprErr outside main parsing (line in node)
+- random points according to function (staricase image)
 - Mandelbrot
     change power
     anim gradient
 - mesh merge
 - gradient
-    ~EASY: more presets
     sampler transform only x
     - test SVG gradients with hsl colors
 - image upload - hide in png
@@ -238,7 +238,7 @@ demo idea
 - http://paperjs.org/examples/
 - image effects http://iquilezles.org/www/articles/deform/deform.htm
 - plasma https://stuff.brm.sk/plasma/
-- filters from Krita G'MIC
+- filters from Krita 
 - Moving Voronoi disagram with stars in a random walk in it
 - fade from image to image?
 
@@ -246,6 +246,7 @@ https://two.js.org/examples/
 
 nice visualizations: https://bost.ocks.org/mike/algorithms/
 d3: https://github.com/d3/d3/wiki/Gallery
+webflow?
 
 nice reference images:
 https://society6.com/product/gray-polygon-background_stretched-canvas
