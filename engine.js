@@ -510,7 +510,9 @@ function eventWrapper(func) {
 }
 
 function myAddEventListener(obj, event_name, func) {
-    obj.addEventListener(event_name, eventWrapper(func))
+    const w = eventWrapper(func)
+    obj.addEventListener(event_name, w)
+    return w
 }
 
 function stop_propogation_on(event_name, ...elems) {

@@ -50,11 +50,7 @@ EXPRESSIONS
 
 ****** CURRENT AGENDA ******
 - terminal dirty in Variables?
-- optiomize, load Yaml
-    dialog for delete from state
 - default(var, 1)
-- editor 
-    - resize when in panel
 - line errors for ExprErr outside main parsing (line in node)
 - random points according to function (staricase image)
 - Mandelbrot
@@ -241,6 +237,7 @@ demo idea
 - filters from Krita 
 - Moving Voronoi disagram with stars in a random walk in it
 - fade from image to image?
+- boids https://eater.net/boids
 
 https://two.js.org/examples/
 

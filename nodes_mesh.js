@@ -956,6 +956,7 @@ class ParamInputOrderList extends ListParam
         let elem = add_div(wrap, "param_lst_order_item")
         elem.innerText = start_val.name
         elem.p_lst_index = index // index of the item in the lst, before sorting
+        let doc_mousemove = null, doc_mouseup = null
 
         elem.addEventListener('mousedown', (ev)=>{
             if (ev.buttons !== 1)
@@ -973,6 +974,9 @@ class ParamInputOrderList extends ListParam
 
             this.dragged = {lst_index: ev.target.p_lst_index, elem: e, mouse_offset: offset }
             toggle_dragged_style(true)
+           
+            document.addEventListener('mousemove', doc_mousemove)
+            document.addEventListener('mouseup', doc_mouseup)
         })
 
         let toggle_dragged_style = (v)=>{
@@ -1001,19 +1005,23 @@ class ParamInputOrderList extends ListParam
             do_drop(to)
         })
 
-        document.addEventListener('mousemove', (ev)=>{
+        doc_mousemove = (ev)=>{
             if (this.dragged === null)
                 return
             this.dragged.elem.style.top = ev.pageY + this.dragged.mouse_offset[1] + "px"
             this.dragged.elem.style.left = ev.pageX + this.dragged.mouse_offset[0] + "px"
-        })
-        document.addEventListener('mouseup', (ev)=>{
+        }
+
+        doc_mouseup = (ev)=>{
             if (this.dragged === null)
                 return            
             edit_params.removeChild(this.dragged.elem)
             toggle_dragged_style(false)
             this.dragged = null
-        })
+
+            document.removeEventListener('mousemove', doc_mousemove)
+            document.removeEventListener('mouseup', doc_mouseup)
+        }
 
         return elem
     }

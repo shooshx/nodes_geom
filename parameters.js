@@ -327,28 +327,19 @@ function add_param_slider(line, min_val, max_val, start_value, type, set_func) {
         set_len(norm_v * crect.width)
     }    
     update(start_value)
-    let dragging = false
-    thumb.addEventListener("mousedown", (ev)=>{
-        if (ev.buttons != 1)
-            return
-        dragging = true
-    });
-    myAddEventListener(document, "mousemove", (ev)=>{
-        if (!dragging)
-            return
+
+    add_move_handlers(thumb, (dx, dy, pageX, pageY)=>{
         const crect = center.getBoundingClientRect()
-        let norm_v = (ev.pageX - crect.left)/crect.width
+        let norm_v = (pageX - crect.left)/crect.width
         norm_v = clamp(0, norm_v, 1) // don't let drag outside the visible range
         const new_v = r01_to_range(norm_v)
         if (new_v == cfg.v)
             return
         cfg.v = new_v
         set_len(norm_v * crect.width)
-        set_func(cfg.v)
+        set_func(cfg.v)        
     })
-    document.addEventListener("mouseup", (ev)=>{
-        dragging = false
-    })
+
 
     const update_range = (min,max)=>{
         cfg.min_val = min; cfg.max_val = max        
@@ -2202,24 +2193,15 @@ class ParamTable extends Parameter {
 
 
 function add_grip_handlers(grip, cell) {
-    var moving = false;
-    var startOffset;
-    var column_width;
+    let startOffset = null;
+    let column_width = null;
 
-    myAddEventListener(grip, 'mousedown', function(e) {
-        moving = true;
-        startOffset = parseFloat(window.getComputedStyle(cell)["width"]) - e.pageX;
-    });
-    myAddEventListener(document, 'mousemove', function(e) {
-      if (moving) {
-            column_width = startOffset + e.pageX
-            cell.style.width = column_width + "px"
-            e.preventDefault(); // prevent selection action from messing it up
-      }
-    });
-    myAddEventListener(document, 'mouseup', function() {
-        moving = false;
-    });
+    add_move_handlers(grip, (dx, dy, pageX, pageY)=>{
+        column_width = startOffset + pageX
+        cell.style.width = column_width + "px"
+    }, (pageX, pageY)=>{
+        startOffset = parseFloat(window.getComputedStyle(cell)["width"]) - pageX;
+    })
 }
 
 const AceRange = ace.require('ace/range').Range;
@@ -2238,12 +2220,15 @@ function create_code_dlg(parent, dlg_rect, title, start_v, change_func, visible_
     return editor
 }
 
+const EDITOR_MIN_HEIGHT = 35
+
 class Editor
 {
     constructor(line, start_v, change_func, opt)
     {
-        const elem_wrapper = add_div(line, "panel_param_editor_wrap") // needed so that the popout btn would have a parent
-        const ed_elem = add_div(elem_wrapper, "panel_param_text_area")
+        this.elem_wrapper = add_div(line, "panel_param_editor_wrap") // needed so that the popout btn would have a parent        
+        const ed_elem = add_div(this.elem_wrapper, "panel_param_text_area")
+
         this.elem = ed_elem  // moves from panel to dialog
         this.opt = opt
         this.parentElem = ed_elem.parentElement
@@ -2268,6 +2253,7 @@ class Editor
         this.err_elem_visible = false
         this.errors = null
 
+        // show error only when on the line
         this.editor.getSelection().on("changeCursor", eventWrapper(()=>{this.update_err_elem()}))
         this.marker_ids = []
         this.show_errors()
@@ -2275,8 +2261,17 @@ class Editor
         this.dlg = null
         this.popout_elems = null
 
+        // panel resize
+        this.ppgrip = add_div(this.elem_wrapper, "panel_param_editor_resize_grip")
+        add_move_handlers(this.ppgrip, (dx, dy, pageX, pageY)=>{
+            const curstyle = window.getComputedStyle(this.elem_wrapper)
+            const newh = Math.max(parseInt(curstyle.height) + dy, EDITOR_MIN_HEIGHT)
+            this.elem_wrapper.style.height = newh + "px"
+            // not saved, not really important
+        })
+
         if (opt.with_popout) {
-            const [ein,btn] = add_checkbox_btn(elem_wrapper, "[]", false, (v)=>{ 
+            const [ein,btn] = add_checkbox_btn(this.elem_wrapper, "[]", false, (v)=>{ 
                 this.pop_out(v)
             })
             btn.classList.add("prm_code_popout_btn")
@@ -2285,6 +2280,8 @@ class Editor
             if (this.opt.dlg_rect_wrap !== undefined && this.opt.dlg_rect_wrap.dlg_rect !== null && this.opt.dlg_rect_wrap.dlg_rect.visible == true)
                 this.pop_out(true)
         }
+        
+
     }
 
     pop_out(out_v) {
@@ -2305,6 +2302,9 @@ class Editor
 
         this.elem.classList.toggle("dlg_param_text_area", out_v)
         this.elem.classList.toggle("panel_param_text_area", !out_v)
+
+        this.elem_wrapper.classList.toggle("panel_param_ed_minimized", out_v)
+        this.ppgrip.classList.toggle("panel_param_editor_resize_grip_hidden", out_v)
         
         this.popout_elems.btn.classList.toggle('prm_code_popout_btn', !out_v)
         this.popout_elems.btn.classList.toggle('prm_code_popin_btn', out_v)
@@ -2521,7 +2521,7 @@ function encodeIntoPng(data_bin, mime_type)
     }
     ctx_img_shadow.putImageData(id, 0, 0)
     // to PNG
-    const durl = canvas_img_shadow.toDataURL('image/png') // TBD toBlob?
+    const durl = canvas_img_shadow.toDataURL('image/png') // don't use toBlob since it's asyncronous
     const comma = durl.indexOf(',')
     const dbase = durl.substr(comma+1)
     const dbin = atob(dbase)

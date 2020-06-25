@@ -591,8 +591,8 @@ input {
     flex-grow: 1;
     margin: 0 10px 0 5px;
     border-radius: 3px;
-    font-size: 14px;
-    height: 120px;
+    font-size: 15px;
+    /*height: 120px;*/
     border: 1px solid #888;
     overflow: visible;  /* override ace editor setting to hidden so that the error line would be visible */
 }
@@ -601,8 +601,27 @@ input {
     display: flex;
     position: relative;
     min-height: 35px;
+    height: 120px
 }
 
+.panel_param_ed_minimized{
+    height: initial !important; /* override the element inline height */
+}
+
+.panel_param_editor_resize_grip {
+    position: absolute;
+    bottom: -3px;
+    z-index: 10;
+    /*background: #ff0000;*/
+    height: 6px;
+    width: 100%;
+    opacity: 40%;
+    cursor: n-resize;
+}
+
+.panel_param_editor_resize_grip_hidden {
+    display: none;
+}
 
 .prm_text_err {
     position: absolute;

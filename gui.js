@@ -22,8 +22,8 @@ var main_view_state = {
 
 function setup_horz_splitter(container, grip, resize1, resize2) //p1, , p2, c2)
 {    
-    var p1_height = Math.trunc(container.offsetHeight * main_view_state.split_2_v) - GRIP_WIDTH
-    var resize = function() {
+    let p1_height = Math.trunc(container.offsetHeight * main_view_state.split_2_v) - GRIP_WIDTH
+    const resize = function() {
         resize1(null, p1_height)
         var p2_height = container.offsetHeight - p1_height - GRIP_WIDTH
         resize2(null, p2_height)
@@ -32,38 +32,25 @@ function setup_horz_splitter(container, grip, resize1, resize2) //p1, , p2, c2)
     resize()
     myAddEventListener(window, 'resize', resize);
  
-    var moving = false;
-    var lastY;
-    
-    myAddEventListener(grip, 'mousedown', function(e) {
-        moving = true;
-        lastY = e.pageY;
-    });
-    myAddEventListener(document, 'mouseup', function() {
-        moving = false;
-    });
-
-    myAddEventListener(document, 'mousemove', function(e) {
-      if (moving && e.pageY > MIN_PANEL_SIZE && e.pageY < container.offsetHeight - MIN_PANEL_SIZE) {
-          p1_height += e.pageY - lastY
-          lastY = e.pageY
-          resize1(null, p1_height)
-          var p2_height = container.offsetHeight - p1_height - GRIP_WIDTH
-          resize2(null, p2_height)
-          main_view_state.split_2_v = (p1_height + GRIP_WIDTH) / container.offsetHeight
-          e.preventDefault(); // prevent selection action from messing it up
-          recalc_canvases_rects()
-      }
-    });
+    add_move_handlers(grip, (dx, dy, pageX, pageY)=>{
+        if (pageY > MIN_PANEL_SIZE && pageY < container.offsetHeight - MIN_PANEL_SIZE) {
+            p1_height += dy
+            resize1(null, p1_height)
+            var p2_height = container.offsetHeight - p1_height - GRIP_WIDTH
+            resize2(null, p2_height)
+            main_view_state.split_2_v = (p1_height + GRIP_WIDTH) / container.offsetHeight
+            recalc_canvases_rects()
+        }
+    })
 
 }
 
 
 function setup_vert_splitter(container, grip, resize1, resize2) //p1, c1, grip, p2, c2)
 {
-    var p1sz = Math.trunc(container.offsetWidth * main_view_state.split_1_h) - GRIP_WIDTH
+    let p1sz = Math.trunc(container.offsetWidth * main_view_state.split_1_h) - GRIP_WIDTH
     
-    var resize = function() {
+    const resize = function() {
         resize1(p1sz, container.offsetHeight, 0, 0)
 
         var p2sz = container.offsetWidth - p1sz - GRIP_WIDTH
@@ -74,29 +61,17 @@ function setup_vert_splitter(container, grip, resize1, resize2) //p1, c1, grip, 
     resize()
     myAddEventListener(window, 'resize', resize);
 
-    var moving = false;
-    var lastX;
+    add_move_handlers(grip, (dx, dy, pageX, pageY)=>{
+        if (pageX > MIN_PANEL_SIZE && pageX < container.offsetWidth - MIN_PANEL_SIZE) {
+            p1sz += dx
+            resize1(p1sz, null, 0, 0)
+            var p2sz = container.offsetWidth - p1sz - GRIP_WIDTH
+            resize2(p2sz, null, 0, p1sz + GRIP_WIDTH)
+            main_view_state.split_1_h = (p1sz + GRIP_WIDTH) / container.offsetWidth
+            recalc_canvases_rects()
+        }
+    })
     
-    myAddEventListener(grip, 'mousedown', function(e) {
-        moving = true;
-        lastX = e.pageX;
-    });
-    myAddEventListener(document, 'mouseup', function() {
-        moving = false;
-    });
-
-    myAddEventListener(document, 'mousemove', function(e) {
-      if (moving && e.pageX > MIN_PANEL_SIZE && e.pageX < container.offsetWidth - MIN_PANEL_SIZE) {
-          p1sz += e.pageX - lastX
-          lastX = e.pageX
-          resize1(p1sz, null, 0, 0)
-          var p2sz = container.offsetWidth - p1sz - GRIP_WIDTH
-          resize2(p2sz, null, 0, p1sz + GRIP_WIDTH)
-          main_view_state.split_1_h = (p1sz + GRIP_WIDTH) / container.offsetWidth
-          e.preventDefault(); // prevent selection action from messing it up
-          recalc_canvases_rects()
-      }
-    });
 }
 
 class ViewBase 
@@ -598,26 +573,38 @@ function create_dialog(parent, title, resizable, rect, visible_changed, size_cha
     return {elem:dlg, client:client, rect:rect, set_visible:set_visible, set_title:set_title}
 }
 
-function add_move_handlers(grip, func) {
+// generic function to handle all cases of dragging some UI element
+function add_move_handlers(grip, movefunc, downfunc=null) {
     var moving = false;
     var prevx, prevy;
 
-    myAddEventListener(grip, 'mousedown', function(e) {
-        moving = true;
-        prevx = e.pageX; prevy = e.pageY
-    });
-    myAddEventListener(document, 'mousemove', function(e) {
+    const moveHandler = function(e) {
         if (!moving) 
             return
         e.preventDefault(); // prevent selection action from messing it up
         let dx = e.pageX - prevx, dy = e.pageY - prevy
         if (dx == 0 && dy == 0)
             return
-        func(dx, dy)
+        movefunc(dx, dy, e.pageX, e.pageY)
         prevx = e.pageX; prevy = e.pageY
-    });
-    myAddEventListener(document, 'mouseup', function() {
+    }
+    const ev = {move:null, up:null}
+    const upHandler = function() {
         moving = false;
+        document.removeEventListener('mousemove', ev.move)
+        document.removeEventListener('mouseup', ev.up)
+        ev.move = null
+        ev.up = null
+    }
+    myAddEventListener(grip, 'mousedown', function(e) {
+        if (e.buttons != 1)
+            return
+        moving = true;
+        if (downfunc)
+            downfunc(e.pageX, e.pageY)
+        prevx = e.pageX; prevy = e.pageY
+        ev.move = myAddEventListener(document, 'mousemove', moveHandler);
+        ev.up = myAddEventListener(document, 'mouseup', upHandler);
     });
 }
 
@@ -712,16 +699,17 @@ function create_top_menu(parent) {
     let cs = window.getComputedStyle(menu_btn)
 
     myAddEventListener(menu_btn, 'click', ()=> {
-        let opt = [{text:"Save As...", func:function() { save_as(parent) }},
+        let opt = [//{text:"Save As...", func:function() { save_as(parent) }},
                    {text:"Export Program...", func:export_prog },
                    {text:"Import Program...", func:import_prog, type:"file-in" },
                    //{text:"Export State...", func: ()=>{ export_entire_state(parent) }},
                    //{text:"Export SVG...", func: ()=>{ export_svg(parent) }},
-                   {text:'-'}]
-        for(let up_name in user_saved_programs) {
+                   //{text:'-'}
+                   ]
+       /* for(let up_name in user_saved_programs) {
             let up = user_saved_programs[up_name]
             opt.push({text:up_name, func:function() { load_prog_json(up) }})
-        }
+        }*/
         let menu = open_context_menu(opt, parseInt(cs.left), menu_btn.offsetHeight, parent, ()=>{ dismiss_top_menus() } )
         open_top_menus.push(menu)     
     })
