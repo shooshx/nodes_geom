@@ -4,23 +4,23 @@
 var ColorPicker = (function(){
 
 function addTextChild(elem, txt) {
-    var dummy = document.createElement("DIV")
+    let dummy = document.createElement("DIV")
     dummy.innerHTML = txt
-    var ne = dummy.firstChild
+    let ne = dummy.firstChild
     elem.appendChild(ne)
     return ne
 }
 
 function addSiblingAfter(elem, txt) {
-    var dummy = document.createElement("DIV")
+    let dummy = document.createElement("DIV")
     dummy.innerHTML = txt
-    var ne = dummy.firstChild
+    let ne = dummy.firstChild
     elem.parentNode.insertBefore(ne, elem.nextSibling)
     return ne
 }
 
 function HSVtoRGB(h, s, v, into) {
-    var r, g, b, i, f, p, q, t;
+    let r, g, b, i, f, p, q, t;
 
     i = Math.floor(h * 6);
     f = h * 6 - i;
@@ -49,10 +49,10 @@ function RGBtoHSV(r, g, b, into) {
     g = g / 255;
     b = b / 255;
 
-    var max = Math.max(r, g, b), min = Math.min(r, g, b);
-    var h, s, v = max, is_gray = false;
+    let max = Math.max(r, g, b), min = Math.min(r, g, b);
+    let h, s, v = max, is_gray = false;
 
-    var d = max - min;
+    let d = max - min;
     s = max === 0 ? 0 : d / max;
 
     if(max == min) {
@@ -148,11 +148,11 @@ function RGBtoHSL(r0, g0, b0, into) {
 }
 
 
-var MARGIN = 10
-var BAR_SZ = 18
-var BAR_SPACE = 3 // space between bar and square
-var ARROW_SZ = 5
-var ALPHA_BAR_WIDTH = BAR_SZ + BAR_SPACE
+const MARGIN = 10
+const BAR_SZ = 18
+const BAR_SPACE = 3 // space between bar and square
+const ARROW_SZ = 5
+const ALPHA_BAR_WIDTH = BAR_SZ + BAR_SPACE
 const CHECKERS = { width:9, light:255, dark: 150 }
 
 function draw_chart(ctx, cfg, sel_col, sel_pos, presets, options) {
@@ -162,17 +162,17 @@ function draw_chart(ctx, cfg, sel_col, sel_pos, presets, options) {
         width += ALPHA_BAR_WIDTH
     ctx.fillRect(0, 0, width, height);
     
-    var id = ctx.getImageData(0, 0, width, height)
-    var d = id.data;
+    let id = ctx.getImageData(0, 0, width, height)
+    let d = id.data;
     
-    var sq_sz = height - MARGIN - MARGIN - BAR_SZ - BAR_SPACE
+    let sq_sz = height - MARGIN - MARGIN - BAR_SZ - BAR_SPACE
     cfg.sq_sz = sq_sz
     
     // square
-    for(var x = 0; x < sq_sz; ++x) {
-        for(var y = 0; y < sq_sz; ++y) {
-            var rgb = HSVtoRGB(sel_col.h, x/sq_sz, (sq_sz-y)/sq_sz)
-            var i = ((x+MARGIN) + (y+MARGIN)*width)*4
+    for(let x = 0; x < sq_sz; ++x) {
+        for(let y = 0; y < sq_sz; ++y) {
+            let rgb = HSVtoRGB(sel_col.h, x/sq_sz, (sq_sz-y)/sq_sz)
+            let i = ((x+MARGIN) + (y+MARGIN)*width)*4
             d[i] = rgb.r
             d[i+1] = rgb.g
             d[i+2] = rgb.b
@@ -182,10 +182,10 @@ function draw_chart(ctx, cfg, sel_col, sel_pos, presets, options) {
     // hue bar
     cfg.bar_x = MARGIN+sq_sz+BAR_SPACE
     cfg.bar_y = MARGIN+sq_sz+BAR_SPACE
-    for(var y = 0; y < sq_sz; ++y) {
-        var rgb = HSVtoRGB(y/sq_sz, 1, 1)
-        for(var x = 0; x < BAR_SZ; ++x) {
-            var i = ((x+cfg.bar_x) + (y+MARGIN)*width)*4
+    for(let y = 0; y < sq_sz; ++y) {
+        let rgb = HSVtoRGB(y/sq_sz, 1, 1)
+        for(let x = 0; x < BAR_SZ; ++x) {
+            let i = ((x+cfg.bar_x) + (y+MARGIN)*width)*4
             d[i] = rgb.r
             d[i+1] = rgb.g
             d[i+2] = rgb.b        
@@ -193,9 +193,9 @@ function draw_chart(ctx, cfg, sel_col, sel_pos, presets, options) {
     }
     
     // square of selected color
-    for(var x = 0; x < BAR_SZ; ++x) {
-        for(var y = 0; y < BAR_SZ; ++y) {
-            var i = ((x+cfg.bar_x) + (y+cfg.bar_y)*width)*4
+    for(let x = 0; x < BAR_SZ; ++x) {
+        for(let y = 0; y < BAR_SZ; ++y) {
+            let i = ((x+cfg.bar_x) + (y+cfg.bar_y)*width)*4
             d[i] = sel_col.r
             d[i+1] = sel_col.g
             d[i+2] = sel_col.b      
@@ -205,13 +205,13 @@ function draw_chart(ctx, cfg, sel_col, sel_pos, presets, options) {
     if (options.with_alpha) {
         // alpha bar fill
         cfg.alpha_bar_x = MARGIN+sq_sz+BAR_SPACE+BAR_SZ+BAR_SPACE
-        for(var y = 0; y < sq_sz; ++y) {
+        for(let y = 0; y < sq_sz; ++y) {
             let alpha = 1 - y/(sq_sz-1)
             let ch_y = Math.trunc(y / CHECKERS.width) % 2
-            for(var x = 0; x < BAR_SZ; ++x) {
+            for(let x = 0; x < BAR_SZ; ++x) {
                 let ch_x = Math.trunc(x / CHECKERS.width) % 2
                 let checkers = (ch_y == ch_x) ? CHECKERS.light : CHECKERS.dark
-                var i = ((x+cfg.alpha_bar_x) + (y+MARGIN)*width)*4
+                let i = ((x+cfg.alpha_bar_x) + (y+MARGIN)*width)*4
                 d[i] = sel_col.r*alpha + checkers*(1-alpha)
                 d[i+1] = sel_col.g*alpha + checkers*(1-alpha)
                 d[i+2] = sel_col.b*alpha + checkers*(1-alpha)
@@ -233,10 +233,10 @@ function draw_chart(ctx, cfg, sel_col, sel_pos, presets, options) {
     ctx.stroke();
     
     // arrow selector in bar
-    var saturated_rgb = HSVtoRGB(sel_col.h, 1, 1)
+    let saturated_rgb = HSVtoRGB(sel_col.h, 1, 1)
     ctx.fillStyle = is_dark(saturated_rgb) ? "#ffffff" : "#000000"
     ctx.beginPath()
-    var mid_y = sel_pos.bar_y * sq_sz + MARGIN
+    let mid_y = sel_pos.bar_y * sq_sz + MARGIN
     ctx.moveTo(cfg.bar_x + ARROW_SZ, mid_y) // center
     ctx.lineTo(cfg.bar_x, mid_y - ARROW_SZ) // up
     ctx.lineTo(cfg.bar_x, mid_y + ARROW_SZ) // down
@@ -257,9 +257,9 @@ function draw_chart(ctx, cfg, sel_col, sel_pos, presets, options) {
     ctx.strokeStyle = '#000'
 
     cfg.preset_count = Math.trunc(sq_sz/BAR_SZ)
-    for(var i = 0; i < cfg.preset_count; ++i) {
-        var x = MARGIN + i*BAR_SZ + 1
-        var y = cfg.bar_y
+    for(let i = 0; i < cfg.preset_count; ++i) {
+        let x = MARGIN + i*BAR_SZ + 1
+        let y = cfg.bar_y
         if (presets[i] !== undefined) {
             ctx.fillStyle = presets[i].hex
             ctx.fillRect(x, y, BAR_SZ, BAR_SZ-1)
@@ -294,12 +294,12 @@ function clamp(x) {
 
 // from https://github.com/antimatter15/rgb-lab/blob/master/color.js
 function lab_L(c) {
-    var r = c.r / 255, g = c.g / 255, b = c.b / 255,
+    let r = c.r / 255, g = c.g / 255, b = c.b / 255
     r = (r > 0.04045) ? Math.pow((r + 0.055) / 1.055, 2.4) : r / 12.92;
     g = (g > 0.04045) ? Math.pow((g + 0.055) / 1.055, 2.4) : g / 12.92;
     b = (b > 0.04045) ? Math.pow((b + 0.055) / 1.055, 2.4) : b / 12.92;
   
-    var y = (r * 0.2126 + g * 0.7152 + b * 0.0722) / 1.00000;
+    let y = (r * 0.2126 + g * 0.7152 + b * 0.0722) / 1.00000;
     y = (y > 0.008856) ? Math.pow(y, 1/3) : (7.787 * y) + 16/116;
     y = (116 * y) - 16
 
@@ -414,30 +414,30 @@ function create_at(elem, add_func, sz, visible, onchange, options, start_color)
     if (!options.myAddEventListener)
         options.myAddEventListener = function(elem, name, func) { elem.addEventListener(name, func) }
     
-    var txt = '<canvas width="WIDTH" height="HEIGHT" STYLE></canvas>'.replace(/WIDTH/g, width).replace(/HEIGHT/g, height)
+    let txt = '<canvas width="WIDTH" height="HEIGHT" STYLE></canvas>'.replace(/WIDTH/g, width).replace(/HEIGHT/g, height)
                 .replace(/STYLE/g, visible ? '' : 'style="display:none;"')
-    var canvas = add_func(elem, txt)
+    let canvas = add_func(elem, txt)
     canvas.style.borderRadius = "7px"
     canvas.tabIndex = 0  // make it focusable
     canvas.style.outline = "none"  // but don't put a focus border on it
     canvas.style.zIndex = 100  // don't allow other stuff from around to change the cursor
-    var ctx = canvas.getContext("2d")
+    let ctx = canvas.getContext("2d")
 
     //if (options.with_alpha && CHECKERS_IMAGE === null) 
     //    create_checkers_image(canvas, ctx) // for use in the html input element
     
-    var cfg = { sz:sz }
-    var sel_col = { h:0, s:0, v:0, r:null, g:null, b:null, alpha:1, alphai:255, hex:"", copy: function() {
+    let cfg = { sz:sz }
+    let sel_col = { h:0, s:0, v:0, r:null, g:null, b:null, alpha:1, alphai:255, hex:"", copy: function() {
         return { r:this.r, g:this.g, b:this.b, hex:this.hex, alpha:this.alpha, alphai:this.alphai }
     }}
-    var sel_pos = { sq_x: 0, sq_y: 0, bar_y: 0, alpha_y: 0 } // range:0-1
-    var presets = options.global_presets ? GLOBAL_PRESETS : {}
+    let sel_pos = { sq_x: 0, sq_y: 0, bar_y: 0, alpha_y: 0 } // range:0-1
+    let presets = options.global_presets ? GLOBAL_PRESETS : {}
 
     let do_draw_chart = function() {
         draw_chart(ctx, cfg, sel_col, sel_pos, presets, options)
     }
     
-    var col_from_pos = function() {
+    let col_from_pos = function() {
         sel_col.h = sel_pos.bar_y
         sel_col.s = sel_pos.sq_x
         sel_col.v = 1-sel_pos.sq_y
@@ -451,11 +451,11 @@ function create_at(elem, add_func, sz, visible, onchange, options, start_color)
             onchange(sel_col)
     }
 
-    var get_color = function() {
+    let get_color = function() {
         return sel_col
     }
     
-    var set_color = function(c, trigger_level1=true, trigger_level2=true) {
+    let set_color = function(c, trigger_level1=true, trigger_level2=true) {
         if (c === sel_col)
             return  // avoid infinite recursion though user code
         if (typeof c == "string")
@@ -503,19 +503,19 @@ function create_at(elem, add_func, sz, visible, onchange, options, start_color)
     is_first_change = false
 
     // handle color change by draggin gand clicking
-    var square_capture = false;
-    var bar_capture = false;
-    var alpha_capture = false;
-    var mouse_act = function(e, isondown) {
+    let square_capture = false;
+    let bar_capture = false;
+    let alpha_capture = false;
+    let mouse_act = function(e, isondown) {
         // if pressed, make sure it's pressed in us. If moving, make sure we're capturing it
         //console.log(canvas.id + "  capt=" + square_capture)
         if (!( (e.buttons == 1 && e.target === canvas) || square_capture || bar_capture))
             return false
         //console.log(canvas.id + " INNNN")
-        var rect = canvas.getBoundingClientRect();
-        var x = e.clientX - rect.left;
-        var y = e.clientY - rect.top;
-        var changed = false
+        let rect = canvas.getBoundingClientRect();
+        let x = e.clientX - rect.left;
+        let y = e.clientY - rect.top;
+        let changed = false
         // square
         if (!bar_capture && !alpha_capture && (square_capture || (x > MARGIN && y > MARGIN && x < cfg.sq_sz+MARGIN && y < cfg.sq_sz+MARGIN))) {
             if (isondown)
@@ -547,7 +547,7 @@ function create_at(elem, add_func, sz, visible, onchange, options, start_color)
         return changed
     }
     
-    var mouse_move = function(e) {
+    let mouse_move = function(e) {
         mouse_act(e)
     }
     options.myAddEventListener(document, "mouseup", function(e) {
@@ -559,7 +559,7 @@ function create_at(elem, add_func, sz, visible, onchange, options, start_color)
     })
     
     options.myAddEventListener(canvas, "mousedown", function(e) {
-        var do_capture = mouse_act(e, true)
+        let do_capture = mouse_act(e, true)
         if (do_capture) {
             options.myAddEventListener(document, "mousemove", mouse_move)
         }                
@@ -569,9 +569,9 @@ function create_at(elem, add_func, sz, visible, onchange, options, start_color)
     options.myAddEventListener(canvas, "mouseup", function(e) {
         if (e.which != 1)
             return
-        var rect = e.target.getBoundingClientRect();
-        var x = e.clientX - rect.left;
-        var y = e.clientY - rect.top;
+        let rect = e.target.getBoundingClientRect();
+        let x = e.clientX - rect.left;
+        let y = e.clientY - rect.top;
     
         // on selected color
         if (x > cfg.bar_x && y > cfg.bar_y && x < cfg.bar_x + BAR_SZ && y < cfg.bar_y + BAR_SZ) {
@@ -583,12 +583,12 @@ function create_at(elem, add_func, sz, visible, onchange, options, start_color)
         }
         // presets bar
         if (x > MARGIN && y > cfg.bar_y && x < cfg.sq_sz && y < cfg.bar_y + BAR_SZ) {
-            var xi = Math.trunc((x - MARGIN)/BAR_SZ)
+            let xi = Math.trunc((x - MARGIN)/BAR_SZ)
             set_color(presets[xi], true)
         }
     })
     
-    var set_visible = function(v) {
+    let set_visible = function(v) {
         canvas.style.display = v ? 'initial':'none'
         if (v && !visible)
             do_draw_chart()
@@ -614,7 +614,7 @@ var ColorEditBox = (function(){
 var DEBUG_NO_BLUR = false
 function create_at(edit_elem, sz, onchange, options, start_value) 
 {
-    var picker = ColorPicker.create_after(edit_elem, sz, false, function(c, trigger_level2=true) { 
+    let picker = ColorPicker.create_after(edit_elem, sz, false, function(c, trigger_level2=true) { 
         if (document.activeElement != edit_elem)
             edit_elem.value = c.hex  // change the text only if we're not editing
         edit_elem.style.backgroundColor = c.hex_no_alpha
@@ -625,7 +625,7 @@ function create_at(edit_elem, sz, onchange, options, start_value)
     picker.elem.style.position = "fixed"
     edit_elem.spellcheck = false
     function position_to_edit_elem() {
-        var ed_rect = edit_elem.getBoundingClientRect()
+        let ed_rect = edit_elem.getBoundingClientRect()
         picker.elem.style.top = ed_rect.bottom + window.scrollY + 2 + "px"
         picker.elem.style.left = ed_rect.left + window.scrollX + "px"
     }

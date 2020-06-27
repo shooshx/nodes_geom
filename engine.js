@@ -152,7 +152,7 @@ class Program {
         else {
             console.assert(this.obj_map[id] === undefined, "node-id already exists")
         }
-        var node = new Node(x, y, name, cls, id)
+        let node = new Node(x, y, name, cls, id)
         this.obj_map[node.id] = node
         this.nodes.push(node)
 
@@ -179,7 +179,7 @@ class Program {
             program.set_input_node(node, false)
         if (node.destructor)
             node.destructor()
-        var index = this.nodes.indexOf(node);
+        let index = this.nodes.indexOf(node);
         this.nodes.splice(index, 1);        
         delete this.obj_map[node.id];
         for(let t of node.terminals) {
@@ -293,14 +293,14 @@ function eassert(cond, msg) {
 function calc_img_viewport() {
     let t_viewport = mat3.create()
     image_view.t_viewport = t_viewport
-
+    let f
     if (canvas_image.width > canvas_image.height) {
-        var f = canvas_image.height*0.5  // half since I want the viewport to be size 2x2
+        f = canvas_image.height*0.5  // half since I want the viewport to be size 2x2
         image_view.margin_x = (canvas_image.width - canvas_image.height) / (canvas_image.height )
         image_view.margin_y = 0
     }
     else {
-        var f = canvas_image.width*0.5
+        f = canvas_image.width*0.5
         image_view.margin_y = (canvas_image.height - canvas_image.width) / (canvas_image.width )
         image_view.margin_x = 0
     }
@@ -668,7 +668,7 @@ async function do_frame_draw(do_run, clear_all)
 
 
 
-var nodes_classes = [
+const nodes_classes = [
     //NodeTestDummy, 
     NodeGeomPrimitive, 
     NodeManualGeom,

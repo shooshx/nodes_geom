@@ -25,7 +25,7 @@ function setup_horz_splitter(container, grip, resize1, resize2) //p1, , p2, c2)
     let p1_height = Math.trunc(container.offsetHeight * main_view_state.split_2_v) - GRIP_WIDTH
     const resize = function() {
         resize1(null, p1_height)
-        var p2_height = container.offsetHeight - p1_height - GRIP_WIDTH
+        let p2_height = container.offsetHeight - p1_height - GRIP_WIDTH
         resize2(null, p2_height)
         recalc_canvases_rects()
     }
@@ -36,7 +36,7 @@ function setup_horz_splitter(container, grip, resize1, resize2) //p1, , p2, c2)
         if (pageY > MIN_PANEL_SIZE && pageY < container.offsetHeight - MIN_PANEL_SIZE) {
             p1_height += dy
             resize1(null, p1_height)
-            var p2_height = container.offsetHeight - p1_height - GRIP_WIDTH
+            let p2_height = container.offsetHeight - p1_height - GRIP_WIDTH
             resize2(null, p2_height)
             main_view_state.split_2_v = (p1_height + GRIP_WIDTH) / container.offsetHeight
             recalc_canvases_rects()
@@ -53,7 +53,7 @@ function setup_vert_splitter(container, grip, resize1, resize2) //p1, c1, grip, 
     const resize = function() {
         resize1(p1sz, container.offsetHeight, 0, 0)
 
-        var p2sz = container.offsetWidth - p1sz - GRIP_WIDTH
+        let p2sz = container.offsetWidth - p1sz - GRIP_WIDTH
         resize2(p2sz, null, 0, p1sz + GRIP_WIDTH)
 
         recalc_canvases_rects()
@@ -65,7 +65,7 @@ function setup_vert_splitter(container, grip, resize1, resize2) //p1, c1, grip, 
         if (pageX > MIN_PANEL_SIZE && pageX < container.offsetWidth - MIN_PANEL_SIZE) {
             p1sz += dx
             resize1(p1sz, null, 0, 0)
-            var p2sz = container.offsetWidth - p1sz - GRIP_WIDTH
+            let p2sz = container.offsetWidth - p1sz - GRIP_WIDTH
             resize2(p2sz, null, 0, p1sz + GRIP_WIDTH)
             main_view_state.split_1_h = (p1sz + GRIP_WIDTH) / container.offsetWidth
             recalc_canvases_rects()
@@ -206,7 +206,7 @@ class ImageView extends ViewBase
 
     nodes_inputevent(name, e) {
         let capture = false
-        for(var node of program.input_nodes) {
+        for(let node of program.input_nodes) {
             console.assert(node.cls.inputevent !== undefined, "Node does not declare inputevent func")
             if (node.cls.inputevent(name, e))
                 capture = true
@@ -224,11 +224,11 @@ let image_view = null
 
 function panel_mouse_control(view, canvas) 
 {    
-    var panning = false
-    var prev_x, prev_y, down_x, down_y
-    var hit = null
-    var did_move = false  // used for detecting unselect
-    var active_rect = null
+    let panning = false
+    let prev_x, prev_y, down_x, down_y
+    let hit = null
+    let did_move = false  // used for detecting unselect
+    let active_rect = null
     let node_capture = false
     
     myAddEventListener(canvas, 'mousedown', function(e) {
@@ -257,8 +257,8 @@ function panel_mouse_control(view, canvas)
     });
     myAddEventListener(canvas, 'mouseup', function(e) {
         if (panning) { // means there was no hit
-            var dx = Math.abs(e.pageX - down_x)
-            var dy = Math.abs(e.pageY - down_y)
+            let dx = Math.abs(e.pageX - down_x)
+            let dy = Math.abs(e.pageY - down_y)
             if (dx + dy < 5) { // moved only a little
                 if (view.click) {
                     // don't use view_x,view_y since the panning is already take into consideration in t_inv_viewport
@@ -284,8 +284,8 @@ function panel_mouse_control(view, canvas)
         }
     });
     myAddEventListener(document, 'mousemove', function(e) {
-        var dx = e.pageX - prev_x
-        var dy = e.pageY - prev_y
+        let dx = e.pageX - prev_x
+        let dy = e.pageY - prev_y
         prev_x = e.pageX, prev_y = e.pageY
         if (dx == 0 && dy == 0) 
             return
@@ -344,23 +344,23 @@ function panel_mouse_wheel(view, canvas)
         let bgPosY = view.pan_y * view.zoom
 
         e.preventDefault();
-        var deltaY = 0;
+        let deltaY = 0;
         if (e.deltaY) { // FireFox 17+ (IE9+, Chrome 31+?)
             deltaY = e.deltaY;
         } else if (e.wheelDelta) {
             deltaY = -e.wheelDelta;
         }
 
-        var rect = canvas.getBoundingClientRect();
-        var offsetX = e.pageX - rect.left - window.pageXOffset;
-        var offsetY = e.pageY - rect.top - window.pageYOffset;
+        let rect = canvas.getBoundingClientRect();
+        let offsetX = e.pageX - rect.left - window.pageXOffset;
+        let offsetY = e.pageY - rect.top - window.pageYOffset;
         // Record the offset between the bg edge and cursor:
         //  from corner to cursor
-        var bgCursorX = offsetX - bgPosX;
-        var bgCursorY = offsetY - bgPosY;
+        let bgCursorX = offsetX - bgPosX;
+        let bgCursorY = offsetY - bgPosY;
         // Use the previous offset to get the percent offset between the bg edge and cursor:
-        var bgRatioX = bgCursorX/view.zoom;
-        var bgRatioY = bgCursorY/view.zoom;
+        let bgRatioX = bgCursorX/view.zoom;
+        let bgRatioY = bgCursorY/view.zoom;
         // Update the bg size:
         if (deltaY < 0) {
             view.zoom *= zoom_factor;
@@ -384,9 +384,9 @@ function panel_mouse_wheel(view, canvas)
 
 
 function addTextChild(elem, txt) {
-    var dummy = document.createElement("DIV")
+    let dummy = document.createElement("DIV")
     dummy.innerHTML = txt
-    var ne = dummy.firstChild
+    let ne = dummy.firstChild
     elem.appendChild(ne)
     return ne
 }
@@ -428,7 +428,7 @@ function open_context_menu(options, wx, wy, parent_elem, dismiss_func)
 
     let parent_width = parent_elem.offsetWidth, parent_height = parent_elem.offsetHeight
     let menu_width = menu_elem.offsetWidth, menu_height = menu_elem.offsetHeight
-    var rx = wx, ry = wy
+    let rx = wx, ry = wy
     
     if (wx + menu_width > parent_width) {  // x overflow
         rx = parent_width - menu_width
@@ -575,8 +575,8 @@ function create_dialog(parent, title, resizable, rect, visible_changed, size_cha
 
 // generic function to handle all cases of dragging some UI element
 function add_move_handlers(grip, movefunc, downfunc=null) {
-    var moving = false;
-    var prevx, prevy;
+    let moving = false;
+    let prevx, prevy;
 
     const moveHandler = function(e) {
         if (!moving) 
@@ -674,7 +674,7 @@ function export_prog() {
 
 function import_prog(file) {
     console.log("import!", file)
-    var reader = new FileReader();
+    let reader = new FileReader();
     reader.onload = function(e) {
         try {
             const obj = jsyaml.safeLoad(e.target.result)

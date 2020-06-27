@@ -1237,7 +1237,7 @@ class NodeRandomPoints extends NodeCls
         }
 
         function withinExtent(p) {
-            var x = p[0], y = p[1];
+            const x = p[0], y = p[1];
             return bbox.min_x <= x && x <= bbox.max_x && bbox.min_y <= y && y <= bbox.max_y;
         }
         function near(of_px, of_py) {  // TBD can make this better by using a grid 
@@ -1616,21 +1616,21 @@ function skip_short_knots(intersections)
 
 function get_line_intersection(l0, l1, allow_overshoot) 
 {
-    var p0_x = l0[0][0], p0_y = l0[0][1]
-    var p1_x = l0[1][0], p1_y = l0[1][1]
-    var p2_x = l1[0][0], p2_y = l1[0][1]
-    var p3_x = l1[1][0], p3_y = l1[1][1]
-    var s1_x = p1_x - p0_x;
-    var s1_y = p1_y - p0_y;
-    var s2_x = p3_x - p2_x;
-    var s2_y = p3_y - p2_y;
-    var s = (-s1_y * (p0_x - p2_x) + s1_x * (p0_y - p2_y)) / (-s2_x * s1_y + s1_x * s2_y);
-    var t = ( s2_x * (p0_y - p2_y) - s2_y * (p0_x - p2_x)) / (-s2_x * s1_y + s1_x * s2_y);
+    const p0_x = l0[0][0], p0_y = l0[0][1]
+    const p1_x = l0[1][0], p1_y = l0[1][1]
+    const p2_x = l1[0][0], p2_y = l1[0][1]
+    const p3_x = l1[1][0], p3_y = l1[1][1]
+    const s1_x = p1_x - p0_x;
+    const s1_y = p1_y - p0_y;
+    const s2_x = p3_x - p2_x;
+    const s2_y = p3_y - p2_y;
+    const s = (-s1_y * (p0_x - p2_x) + s1_x * (p0_y - p2_y)) / (-s2_x * s1_y + s1_x * s2_y);
+    const t = ( s2_x * (p0_y - p2_y) - s2_y * (p0_x - p2_x)) / (-s2_x * s1_y + s1_x * s2_y);
     if (allow_overshoot || (s >= 0 && s <= 1 && t >= 0 && t <= 1))
     {
         // intersect detected
-        var i_x = p0_x + (t * s1_x);
-        var i_y = p0_y + (t * s1_y);
+        const i_x = p0_x + (t * s1_x);
+        const i_y = p0_y + (t * s1_y);
         return vec2.fromValues(i_x, i_y);
     }
     return null; // No collision
@@ -1675,7 +1675,7 @@ function fast_miter_run(mesh, offset, allow_overshoot, nodecls)
 
         let got_null = false, intersections = []
         for(let j = 0; j < cur_face_size; ++j) {
-            var p = get_line_intersection(lines[i+j], lines[i+((j+1) % cur_face_size)], allow_overshoot)
+            let p = get_line_intersection(lines[i+j], lines[i+((j+1) % cur_face_size)], allow_overshoot)
             if (p === null) {
                 got_null = true
                 break

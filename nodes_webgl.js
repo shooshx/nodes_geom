@@ -293,10 +293,10 @@ function analyzeInfoLog(text) {
 }
 
 function createShader(gl, type, source) {
-    var shader = gl.createShader(type);
+    let shader = gl.createShader(type);
     gl.shaderSource(shader, source);
     gl.compileShader(shader);
-    var success = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
+    let success = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
     if (success) {
         return [shader, null];
     }
@@ -319,13 +319,13 @@ function createProgram(gl, vtxSource, fragSource, attr_names, defines) {
     if (!vtxShader || !fragShader || !attr_names)
         return [null, vtxerr, fragerr] // TBD integrate error message
 
-    var program = gl.createProgram();
+    let program = gl.createProgram();
     gl.attachShader(program, vtxShader);
     gl.attachShader(program, fragShader);
     gl.linkProgram(program);
     gl.deleteShader(vtxShader)  // mark for deletion once the program is deleted
     gl.deleteShader(fragShader) 
-    var success = gl.getProgramParameter(program, gl.LINK_STATUS);
+    let success = gl.getProgramParameter(program, gl.LINK_STATUS);
     if (!success) {
         const errlog = gl.getProgramInfoLog(program)
         console.log(errlog);  // eslint-disable-line

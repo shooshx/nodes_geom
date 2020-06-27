@@ -137,7 +137,7 @@ function clear_elem_byid(id) {
     return clear_elem(e)
 }
 function clear_elem(e) {
-    var cNode = e.cloneNode(false);
+    let cNode = e.cloneNode(false);
     e.parentNode.replaceChild(cNode, e);
     return cNode    
 }
@@ -1631,7 +1631,7 @@ class PointDial {
     }
     draw(x, y, obj_t_mat, m) {
         this.obj_t_mat = obj_t_mat
-        var p = vec2.fromValues(x, y)
+        let p = vec2.fromValues(x, y)
         vec2.transformMat3(p, p, obj_t_mat)
         vec2.transformMat3(p, p, m)
 
@@ -1648,7 +1648,7 @@ class PointDial {
         const start_ctx = this.on_start_drag()
         return new DialMoveHandle(null, true, true, (dx, dy, e)=>{
             // dx,dy is not oriented with the object
-            var iv = mat3.clone(this.obj_t_mat)
+            let iv = mat3.clone(this.obj_t_mat)
             iv[6] = 0; iv[7] = 0  // make a normals matrix to get the dv vector in the proper orientation. TBD good for shear?
             mat3.invert(iv, iv)
             let dv = vec2.fromValues(dx, dy)
@@ -2547,7 +2547,7 @@ function tryDecodeFromPng(image)
         return null
     const dlen = (dv.getUint32(4) >> 8) + MIME_TYPE_LEN
     //const dst = new Uint8Array(dlen)
-    var dst = '';
+    let dst = '';
     const src = id.data
     const src_len = src.byteLength
     let src_i = 8, dst_i = 0;
@@ -2639,7 +2639,7 @@ class ParamFileUpload extends Parameter
         req.onload = ()=>{
             console.log(req.responseText)
             this.upload_progress_elem.style.display = "none"
-            var re = JSON.parse(req.responseText)
+            let re = JSON.parse(req.responseText)
             if (re.success != true || re.status != 200) {
                 if (re.status === 400 && !is_second_try) { // can try to encode it as PNG
                     const encoded = encodeIntoPng(data, file_type)
@@ -2655,7 +2655,7 @@ class ParamFileUpload extends Parameter
         req.onprogress = (e)=>{
             if (e.total == 0)
                 return
-            var percentComplete = (e.loaded / e.total)*100; 
+            let percentComplete = (e.loaded / e.total)*100; 
             this.upload_progress_elem.value = percentComplete
         }
         if (req.upload) // in chrome there's a different progress listener

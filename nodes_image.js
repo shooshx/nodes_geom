@@ -10,7 +10,7 @@ class PImage extends FrameBuffer
             tex = gl.createTexture();
             gl.bindTexture(gl.TEXTURE_2D, tex);
             // if the input image is empty (not loaded), init with an empty texture
-            var init_img =  (js_img.width > 0 && js_img.height > 0) ? js_img : null
+            const init_img =  (js_img.width > 0 && js_img.height > 0) ? js_img : null
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, js_img.width, js_img.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, init_img);
             tex.width = js_img.width
             tex.height = js_img.height

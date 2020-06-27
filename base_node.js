@@ -584,14 +584,14 @@ const NODE_FLAG_INPUT = { width: 15, color: "#8AE600" }
 
 
 function wrapText(context, text, x, center_y, maxWidth, lineHeight) {
-    var words = text.split(' ');
-    var line = '';
+    let words = text.split(' ');
+    let line = '';
     let lines = []
     let y = 0
-    for(var n = 0; n < words.length; n++) {
-      var testLine = line + words[n] + ' ';
-      var metrics = context.measureText(testLine);
-      var testWidth = metrics.width;
+    for(let n = 0; n < words.length; n++) {
+      let testLine = line + words[n] + ' ';
+      let metrics = context.measureText(testLine);
+      let testWidth = metrics.width;
       if (testWidth > maxWidth && n > 0) {
         lines.push({y:y,l:line})  
         line = words[n] + ' ';
