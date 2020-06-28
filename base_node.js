@@ -632,7 +632,7 @@ class StateAccess {
         this.need_inputs = {} // map name of input to its ObjRef, gets taken away right after parsing is done
         this.need_variables = {} // list of VariableEvaluator in the currently parsing expr
     }
-    get_evaluator(name) { // called from parser
+    get_evaluator(name, line_num) { // called from parser
         let sp = name.split('.')
         let varname = sp[0]
         // did we already create it?
@@ -646,7 +646,7 @@ class StateAccess {
                 // create only 1 evaluator for any variable in an expression
                 let ve = this.need_variables[varname]
                 if (ve === undefined) {
-                    ve = new VariableEvaluator(varname) // a VarBox will be set to it in resolve_variables
+                    ve = new VariableEvaluator(varname, line_num) // a VarBox will be set to it in resolve_variables
                     this.need_variables[varname] = ve
                 }
                 return ve

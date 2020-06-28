@@ -909,11 +909,11 @@ class ExpressionItem {
             // go over the variables in the expr and set values to them
             for(let vename in this.variable_evaluators) {
                 const ve = this.variable_evaluators[vename]
-                const from_in = in_vars_box.vb[ve.varname]
+                const from_in = in_vars_box.vb[ve.varname]  // VariablesBox
                 if (from_in === undefined) {
                     // resolve can be allowed to fail if this is not a active expression
                     if (this.eis_active()) // maybe don't need to do anything for it if it's not active?
-                        throw new ExprErr("Unknown variable " + ve.varname) // TBD add what line
+                        throw new ExprErr("Unknown variable " + ve.varname, ve.line_num) // TBD add what line
                     else
                         return
                 }
@@ -985,7 +985,9 @@ let CodeItemMixin = (superclass) => class extends superclass {
     constructor(node, label, conf) {
         super(node, label)
         this.show_code = (conf !== null && conf.show_code === true) ? true : false  // show code or show line
-        this.dlg_rect_wrap = {dlg_rect: null} // needs extra indirection so that Editor set into into on popout (saves pos and size of dialog)
+        // dlg_rect - position and size of dialog, panel_rect - size of editor in panel
+        // needs extra indirection so that Editor set into into on popout (saves pos and size of dialog)
+        this.dlg_rect_wrap = {dlg_rect: null, panel_rect: null} 
     }
 
     make_code_item(code_expr, start_v) {
@@ -1018,11 +1020,14 @@ let CodeItemMixin = (superclass) => class extends superclass {
             r.show_code = true // default false, don't add to save space
         if (this.dlg_rect_wrap.dlg_rect !== null)
             r.dlg_rect = this.dlg_rect_wrap.dlg_rect
+        if (this.dlg_rect_wrap.panel_rect !== null)
+            r.panel_rect = this.dlg_rect_wrap.panel_rect
         this.code_item.save_to(r); 
     }
     load_code(v) {
         this.show_code = v.show_code || false; 
         this.dlg_rect_wrap.dlg_rect = v.dlg_rect || null
+        this.dlg_rect_wrap.panel_rect = v.panel_rect || null
         this.code_item.load(v) 
     }
 
@@ -2267,8 +2272,15 @@ class Editor
             const curstyle = window.getComputedStyle(this.elem_wrapper)
             const newh = Math.max(parseInt(curstyle.height) + dy, EDITOR_MIN_HEIGHT)
             this.elem_wrapper.style.height = newh + "px"
-            // not saved, not really important
+            if (this.opt.dlg_rect_wrap !== undefined) {
+                if (this.opt.dlg_rect_wrap.panel_rect === null)
+                    this.opt.dlg_rect_wrap.panel_rect = { height: null }
+                this.opt.dlg_rect_wrap.panel_rect.height = newh
+            }
+            this.editor.resize()
         })
+        if (this.opt.dlg_rect_wrap !== undefined && this.opt.dlg_rect_wrap.panel_rect !== null)
+            this.elem_wrapper.style.height = this.opt.dlg_rect_wrap.panel_rect.height + "px"
 
         if (opt.with_popout) {
             const [ein,btn] = add_checkbox_btn(this.elem_wrapper, "[]", false, (v)=>{ 
@@ -2384,7 +2396,7 @@ class ParamTextBlock extends Parameter
         this.dlg = null
 
         this.text_input = null
-        this.dlg_rect = null  // state of the dialog display
+        this.wrap_dlg_rect = {dlg_rect:null, panel_rect:null} // state of the dialog display
         this.v = start_v
         this.change_func = change_func
         node.register_rename_observer((name)=>{
@@ -2417,7 +2429,7 @@ class ParamTextBlock extends Parameter
             this.v = v
             this.pset_dirty(); 
             this.call_change() 
-        }, {lang:"glsl", dlg_title:this.title(), dlg_rect_wrap:this, with_popout:true});
+        }, {lang:"glsl", dlg_title:this.title(), dlg_rect_wrap:this.wrap_dlg_rect, with_popout:true});
         this.editor.set_errors(this.last_errors) 
     }
 

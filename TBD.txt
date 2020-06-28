@@ -46,13 +46,14 @@ EXPRESSIONS
 - default() to give value to non-existing variable - not so easy...
 - if
 - check CodeMirror
+- line errors for ExprErr outside main parsing (line in node)
+    for mesh stuff eassert
 
 
 ****** CURRENT AGENDA ******
 - terminal dirty in Variables?
 - default(var, 1)
-- line errors for ExprErr outside main parsing (line in node)
-- random points according to function (staricase image)
+- Scatter with rendering
 - Mandelbrot
     change power
     anim gradient
@@ -61,7 +62,7 @@ EXPRESSIONS
 - gradient
     sampler transform only x
     - test SVG gradients with hsl colors
-- image upload - hide in png
+- noise, plasma as basic func
 - Shader - BUG: auto transform param for mat3 uniform
 - render any geometry to texture
     extend point-gradient
@@ -163,6 +164,7 @@ NODES:
     on a surface
     on a line
     interpolate property from input geometry
+    sample density from image
 - Graph (4) coloring - for selecting some vertices at seemingly random
 - 3D model and render
     sample models - sphere, torus, cylinder, pyramid-cylinder, cube, sphere from triangles

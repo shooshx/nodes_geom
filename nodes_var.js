@@ -107,10 +107,11 @@ class VariablesBox extends PObject
 // added into expression
 class VariableEvaluator extends NodeBase
 {
-    constructor(varname) {
+    constructor(varname, line_num) {
         super()
         this.varname = varname
         this.var_box = null
+        this.line_num = line_num // line of the first apperance of this variable name
     }
     consumes_subscript() { return false }
     eval() {

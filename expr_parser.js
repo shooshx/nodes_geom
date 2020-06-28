@@ -21,9 +21,12 @@ const PARSE_CODE = 2;
 var g_lineNum = 0
 
 class ExprErr extends Error {
-    constructor(msg) { 
+    constructor(msg, line_num=null) { 
         super(msg)
-        this.line = g_lineNum
+        if (line_num !== null)
+            this.line = line_num
+        else
+            this.line = g_lineNum
     }
 }
 class TypeErr extends ExprErr {
@@ -413,13 +416,13 @@ function eatSpaces() {
         const c = getCharacter()
         if (c === '\n')
             g_lineNum++
-        if (c !== ' ' && c !== '\n')
+        if (c !== ' ' && c !== '\n' && c !== '\r' && c !== '\t')
             break
         index_++
     }
 }
 function isSpace(c) {
-    return (c === ' ' || c === '\n')
+    return (c === ' ' || c === '\n' || c === '\r' || c === '\t')
 }
 
 /// Parse a binary operator at the current expression index.
@@ -605,7 +608,7 @@ function hsla(h, s, v, a) {
 const func_defs = {
     'cos': new FuncDef(Math.cos, 1), 'sin': new FuncDef(Math.sin, 1), 'tan': new FuncDef(Math.tan, 1),
     'acos': new FuncDef(Math.acos, 1), 'asin': new FuncDef(Math.acos, 1), 'atan': new FuncDef(Math.atan, 1), 'atan2': new FuncDef(Math.atan2, 2),
-    'sqrt': new FuncDef(Math.sqrt, 1), 'sqr': new FuncDef(sqr, 1), 
+    'sqrt': new FuncDef(Math.sqrt, 1), 'sqr': new FuncDef(sqr, 1), 'pow': new FuncDef(Math.pow, 2),
     'distance': new FuncDef(distance_lookup, 2, FUNC_TYPE_LOOKUP, TYPE_NUM), 'length': new FuncDef(length_lookup, 1, FUNC_TYPE_LOOKUP, TYPE_NUM),
     'log': new FuncDef(Math.log, 1), 'log10': new FuncDef(Math.log10, 1), 'log2': new FuncDef(Math.log2, 1),
     'round': new FuncDef(Math.round, 1), 'ceil': new FuncDef(Math.ceil, 1), 'floor': new FuncDef(Math.floor, 1), 'trunc': new FuncDef(Math.trunc, 1),
@@ -860,7 +863,7 @@ function lookupIdentifier(sb)
         }    
     }
 
-    let e = g_state_access.get_evaluator(sb)
+    let e = g_state_access.get_evaluator(sb, g_lineNum)
     if (e === null) 
         throw new ExprErr("Unknown identifier " + sb + " at " + index_)
     

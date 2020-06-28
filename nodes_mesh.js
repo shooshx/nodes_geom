@@ -1268,7 +1268,7 @@ class NodeRandomPoints extends NodeCls
             cand.x = p[0]; cand.y = p[1]
 
             r = (value_need_src === null)?this.min_dist.v : this.min_dist.dyn_eval()
-            if (r < 0.02 && ++got_zeros > 100) { // TBD this would be better with grid
+            if (r < 0.01 && ++got_zeros > 100) { // TBD this would be better with grid
                 too_many_zeros = true
                 break
             }

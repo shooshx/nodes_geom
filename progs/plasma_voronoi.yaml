@@ -1,0 +1,167 @@
+nodes:
+  '5':
+    params:
+      Type:
+        sel_str: Float to Gradient
+      "Float\nExpression":
+        se_v: coord.x
+        show_code: true
+        dlg_rect:
+          left: 963
+          top: 74
+          width: null
+          height: null
+          visible: false
+        se_cv: "x = coord.x*10  # can be in_obj.face_center.x in SetAttr\r\ny = coord.y*10\r\nt = 20000 \r\nuMouse = vec2(0,0)\r\nda = distance(vec2(x+cos(t/1110)*4,y), vec2(1.0,2.1))\r\ndb = distance(vec2(x,y), vec2(8.0 + 16.0*uMouse.x, 6.1 + 8.0*(1.0 - uMouse.y) ))\r\ndc = distance(vec2(x,y + cos(t / 998.0)*2.0), vec2(10.0, 3.1))\r\nc1 = sin(da) + sin(x) * sin(t/1000.0)\r\nc2 = sin(db - t / 500.0)*1.0\r\nc3 = cos(dc / 2.0) + sin(t/1000.0)\r\nc = (c1 + c2 + c3) / 3.0\r\n\r\nreturn clamp(abs(c*0.6-0.1)+0.2, 0.1, 1)"
+      "Color\nExpression":
+        hex: '#CCCCCC'
+        show_code: true
+        se_cv: 'return rgb(coord.x, coord.y, 1.0)'
+      "GLSL\nCode":
+        dlg_rect: null
+        text: |
+          void main() {
+              outColor = vec4(1.0, v_coord.x, 0.0, 1.0);    
+          }
+      OrderInputs:
+        sorted_order: []
+    name: function_fill_1
+    cls_name: Function Fill
+    x: 382
+    y: 177
+    disp_param: {}
+  '10':
+    params:
+      Resolution:
+        x: 901
+        y: 901
+      Size:
+        e_x: 2
+        e_y: 2
+        se_cv: 'return vec2(2, 2)'
+      Smooth Scaling:
+        v: true
+      Texture Edge:
+        sel_str: Pad
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: create_pixel_buffer_1
+    cls_name: Create Pixel-Buffer
+    x: 426
+    y: 72
+    disp_param: {}
+  '14':
+    params:
+      Seed:
+        e_v: 1
+        se_cv: return 1
+      Min Distance:
+        e_v: 0.04800000000000001
+        show_code: true
+        se_cv: "x = vtx_pos.x*10  # can be in_obj.face_center.x in SetAttr\r\ny = vtx_pos.y*10\r\nt = 20000 \r\nuMouse = vec2(0,0)\r\nda = distance(vec2(x+cos(t/1110)*4,y), vec2(1.0,2.1))\r\ndb = distance(vec2(x,y), vec2(8.0 + 16.0*uMouse.x, 6.1 + 8.0*(1.0 - uMouse.y) ))\r\ndc = distance(vec2(x,y + cos(t / 998.0)*2.0), vec2(10.0, 3.1))\r\nc1 = sin(da) + sin(x) * sin(t/1000.0)\r\nc2 = sin(db - t / 500.0)*1.0\r\nc3 = cos(dc / 2.0) + sin(t/1000.0)\r\nc = (c1 + c2 + c3) / 3.0\r\n\r\nd = clamp(abs(c*0.6-0.1)+0.2, 0.1, 1)\r\nreturn d * 0.07\r\n\r\n"
+    name: scatter_1
+    cls_name: Scatter
+    x: 309
+    y: 268
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+  '18':
+    params:
+      Shape:
+        sel_str: Rectangle
+      Size:
+        e_x: 3.0653318091009996
+        e_y: 2.7936364483906773
+        se_cv: 'return vec2(0.5, 0.5)'
+      Num Points:
+        e_v: 5
+        se_cv: return 5
+      Inner Point:
+        e_x: 0.22600000000000003
+        se_y: '-0.311'
+        se_cv: 'return vec2(0.226, -0.311)'
+      Transform:
+        e_tx: 0.017564865704772486
+        e_ty: 0.07198649278579361
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: geom_primitive_1
+    cls_name: Geom Primitive
+    x: 192
+    y: 141
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+  '22':
+    params: {}
+    name: triangulate_1
+    cls_name: Triangulate
+    x: 305
+    y: 364
+    disp_param:
+      show_vtx: false
+      show_lines: true
+      show_faces: true
+  '27':
+    params:
+      Margin:
+        e_x: 0.2
+        e_y: 0.2
+        se_cv: 'return vec2(0.2, 0.2)'
+    name: voronoi_1
+    cls_name: Voronoi
+    x: 336
+    y: 457
+    disp_param:
+      show_vtx: false
+      show_ctrls: true
+      show_lines: true
+      show_faces: true
+lines:
+  - from_name: out_tex
+    from_id: 10
+    to_name: in_fb
+    to_id: 5
+    uid: 13
+  - from_name: out_mesh
+    from_id: 18
+    to_name: in_obj
+    to_id: 14
+    uid: 21
+  - from_name: out_mesh
+    from_id: 14
+    to_name: in_obj
+    to_id: 22
+    uid: 26
+  - from_name: out_mesh
+    from_id: 22
+    to_name: in_mesh
+    to_id: 27
+    uid: 31
+next_node_id: 32
+names_idx_s:
+  Offset Path: 1
+  Function Fill: 1
+  Create Pixel-Buffer: 1
+  Scatter: 1
+  Geom Primitive: 1
+  Triangulate: 1
+  Voronoi: 1
+display_node_id: 27
+tdisp_node_ids: []
+input_node_ids: []
+nodes_view:
+  pan_x: -170
+  pan_y: -122
