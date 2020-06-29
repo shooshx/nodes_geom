@@ -2,6 +2,29 @@
 
 var gl = null
 
+
+function draw_rect(top_left, bottom_right, m, tmat, line_color)
+{
+    // we don't want to draw this under the canvas transform since that would also transform the line width
+    // need 4 points for the rect to make it rotate
+    let tl = vec2.clone(top_left), br = vec2.clone(bottom_right)
+    let tr = vec2.fromValues(br[0], tl[1]), bl = vec2.fromValues(tl[0], br[1])
+
+    let w_mat = mat3.create()
+    mat3.multiply(w_mat, w_mat, m)
+    mat3.multiply(w_mat, w_mat, tmat)
+    vec2.transformMat3(tl, tl, w_mat)
+    vec2.transformMat3(tr, tr, w_mat)
+    vec2.transformMat3(bl, bl, w_mat)
+    vec2.transformMat3(br, br, w_mat)
+
+    ctx_img.beginPath()
+    closed_line(ctx_img, [tl[0],tl[1], tr[0],tr[1], br[0],br[1], bl[0],bl[1]])
+    ctx_img.strokeStyle = line_color
+    ctx_img.lineWidth = MESH_DISP.line_width
+    ctx_img.stroke()
+}
+
 class ImageBase extends PObject
 {
     constructor(sz_x, sz_y, smooth) {
@@ -20,7 +43,7 @@ class ImageBase extends PObject
     set_transform(m) { mat3.copy(this.t_mat, m) }
     transform(m) { mat3.multiply(this.t_mat, m, this.t_mat) } 
 
-    draw_image(img_impl, m) {
+    draw_image(img_impl, m) { // called from derived draw()
         let tl = this.top_left, br = this.bottom_right
 
         // there's a half pixel mistake here when drawing a image with odd width on a texture of even width but I can't find how to fix it
@@ -51,24 +74,7 @@ class ImageBase extends PObject
     }
 
     draw_border(m, line_color="#000") {
-        // we don't want to draw this under the canvas transform since that would also transform the line width
-        // need 4 points for the rect to make it rotate
-        let tl = vec2.clone(this.top_left), br = vec2.clone(this.bottom_right)
-        let tr = vec2.fromValues(br[0], tl[1]), bl = vec2.fromValues(tl[0], br[1])
-
-        let w_mat = mat3.create()
-        mat3.multiply(w_mat, w_mat, m)
-        mat3.multiply(w_mat, w_mat, this.t_mat)
-        vec2.transformMat3(tl, tl, w_mat)
-        vec2.transformMat3(tr, tr, w_mat)
-        vec2.transformMat3(bl, bl, w_mat)
-        vec2.transformMat3(br, br, w_mat)
-
-        ctx_img.beginPath()
-        closed_line(ctx_img, [tl[0],tl[1], tr[0],tr[1], br[0],br[1], bl[0],bl[1]])
-        ctx_img.strokeStyle = line_color
-        ctx_img.lineWidth = MESH_DISP.line_width
-        ctx_img.stroke()
+        draw_rect(this.top_left, this.bottom_right, m, this.t_mat, line_color)
     } 
 
     draw_template(m) {
@@ -152,7 +158,42 @@ class FrameBuffer extends ImageBase
         mat3.copy(this.tex_obj.t_mat, this.t_mat)
         return this.tex_obj
     }
-} 
+}
+
+// tells whoever gets it how to create the initial plain texture to draw on
+class FrameBufferFactory extends ImageBase
+{
+    static name() { return "FrameBufferParams" }
+    constructor(resolution_x, resolution_y, sz_x, sz_y, smooth, edge) {
+        super(sz_x, sz_y, smooth)
+        this.t_mat = mat3.create() 
+        this.resolution_x = resolution_x
+        this.resolution_y = resolution_y
+        this.edge = edge  // str
+    }
+
+    draw(m) {
+        this.draw_border(m)
+    }
+    
+    width() { return this.resolution_x }
+    height() { return this.resolution_y }
+
+    create_tex() {
+        const tex = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.resolution_x, this.resolution_y, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        tex.width = this.resolution_x
+        tex.height = this.resolution_y
+        
+        setTexParams(this.smooth, this.edge, this.edge)
+
+        const fb = new FrameBuffer(tex, this.sz_x, this.sz_y, this.smooth)
+        fb.transform(this.t_mat)
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        return fb
+    }
+}
 
 class NodeCreateFrameBuffer extends NodeCls
 {
@@ -190,21 +231,13 @@ class NodeCreateFrameBuffer extends NodeCls
     }
     run() {
         assert(this.transform.is_valid(), this, "invalid transform")
-        ensure_webgl()
-        let cw = this.resolution.x, ch = this.resolution.y
-        let tex = gl.createTexture();
-        gl.bindTexture(gl.TEXTURE_2D, tex);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, cw, ch, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-        tex.width = cw
-        tex.height = ch
         
-        setTexParams(this.smoothImage.get_value(), this.tex_edge.get_sel_name(), this.tex_edge.get_sel_name())
-
         const sz = this.size.get_value()
-        let fb = new FrameBuffer(tex, sz[0], sz[1], this.smoothImage.get_value())
-        fb.transform(this.transform.v)
-        gl.bindTexture(gl.TEXTURE_2D, null);
-        this.out_tex.set(fb)
+        const res = this.resolution.get_value()
+        const ret = new FrameBufferFactory(res[0], res[0], sz[0], sz[1], this.smoothImage.get_value(), this.tex_edge.get_sel_name());
+        ret.transform(this.transform.v)
+
+        this.out_tex.set(ret)
     }
 
     draw_selection(m) {
@@ -620,7 +653,10 @@ class NodeShader extends NodeCls
     run() {
         ensure_webgl()
         assert(this.last_uniforms_err === null, this, this.last_uniforms_err)
-        let tex = this.in_fb.get_const() // TBD wrong
+        const fb_factory = this.in_fb.get_const() 
+        assert(fb_factory !== null, this, "missing input FrameBuffer factory")
+        assert(fb_factory.create_tex !== undefined, this, "Expected FrameBuffer factory object")
+        let tex = fb_factory.create_tex()
         assert(tex !== null, this, "missing input texture")
 
         let mesh = this.in_mesh.get_const()

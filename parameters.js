@@ -1284,6 +1284,9 @@ class ParamVec2Int extends Parameter {
         this.elem_x.value = this.x
         this.elem_y.value = this.y
     }
+    get_value() {
+        return [this.x, this.y]
+    }
 }
 
 function color_comp_clamp(v) {

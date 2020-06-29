@@ -325,7 +325,7 @@ class NodeFuncFill extends BaseNodeShaderWrap
 
     async run() {
         let in_fb = this.in_fb.get_const() // TBD wrong
-        assert(in_fb !== null, this, "missing input texture")
+        assert(in_fb !== null, this, "missing input texture-params")
 
         let texs = this.in_texs.get_input_consts()
         assert(texs.length < IN_TEX_COUNT, this, "Too many input textures")

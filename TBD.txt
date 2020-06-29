@@ -61,7 +61,6 @@ EXPRESSIONS
 - mesh merge
 - gradient
     sampler transform only x
-    - test SVG gradients with hsl colors
 - noise, plasma as basic func
 - Shader - BUG: auto transform param for mat3 uniform
 - render any geometry to texture

@@ -464,8 +464,8 @@ function mark_dirty_tree(n) {
 
 // happens when calling run(), clears every iteration
 function set_error(node_cls, msg) {
-    if (node_cls.error === null)
-        node_cls.error = {message:msg}
+    if (node_cls.get_error() === null)
+        node_cls.nset_error({message:msg})
     draw_nodes()
 }
 
