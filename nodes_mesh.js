@@ -1074,10 +1074,10 @@ class ParamInputOrderList extends ListParam
 
 function mixin_multi_reorder_control(node, cls, sorted_order, in_m) 
 {
-    cls.table = new ParamTable(node, "Order", sorted_order)
-    cls.order = new ParamInputOrderList(node, "OrderInputs", cls.table, sorted_order)
-    cls.table.with_index_column = true
-    cls.table.with_column_sep = false
+    cls.order_table = new ParamTable(node, "Order", sorted_order)
+    cls.order = new ParamInputOrderList(node, "OrderInputs", cls.order_table, sorted_order)
+    cls.order_table.with_index_column = true
+    cls.order_table.with_column_sep = false
     cls.did_connect = function(to_term, line) {
         if (to_term !== in_m)
             return
@@ -1086,7 +1086,7 @@ function mixin_multi_reorder_control(node, cls, sorted_order, in_m)
             return // already there
         const d = { name:node.name, 
                     id:node.id  } 
-        d.rename_func = (new_name)=>{d.name = new_name; cls.table.remake_table()}
+        d.rename_func = (new_name)=>{d.name = new_name; cls.order_table.remake_table()}
         node.register_rename_observer(d.rename_func)
 
         cls.order.add(d)

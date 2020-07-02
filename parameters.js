@@ -21,7 +21,7 @@ class Parameter
         this.shares_line_from = null  // to have more than one param in the same line
         this.group_param = null  // member of a group? used for param aggregation
         this.my_expr_items = []  // ExpressionItem objects in me
-        this.shader_internal = false  // for knowing not to create proxies
+        this.shader_generated = false  // for knowing if to create proxies 
     }
     set_label(text) {
         this.label = text
@@ -102,8 +102,8 @@ class Parameter
                 expr.peval_self()
     }
 
-    set_shader_internal(v) { this.shader_internal = v }
-    is_shader_iternal() { return this.shader_internal }
+    set_shader_generated(v) { this.shader_generated = v }  // mark param automatically generated from shader code
+    is_shader_generated() { return this.shader_generated }
 }
 
 // if the text of one of the labels is too long, fix the length of all of them

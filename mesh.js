@@ -571,6 +571,8 @@ class Mesh extends PObject
 
     make_buffers() {
         for(let name in this.arrs) {
+            if (this.arrs[name] === null)
+                continue // happens for idx array when rendering just points
             if (!this.glbufs[name]) {
                 this.glbufs[name] = gl.createBuffer()
                 //this.glbufs[name].buf_id = g_buf_id++
@@ -591,7 +593,7 @@ class Mesh extends PObject
     // program_attr maps attribute name to index (location)
     gl_draw(m, program_attr) 
     { 
-        console.assert(this.type == MESH_TRI, "can't gl_draw non triangle mesh")
+        dassert(this.type === MESH_TRI || this.type === MESH_NOT_SET, "can't gl_draw non triangle mesh")
         this.ensure_tcache(m)  // TBD another cache?
         this.make_buffers()
 
@@ -618,8 +620,14 @@ class Mesh extends PObject
             }
         }
 
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.glbufs.idx);
-        gl.drawElements(gl.TRIANGLES, this.arrs.idx.length, arr_gl_type(this.arrs.idx), 0);
+        if (this.type === MESH_TRI) {
+            dassert(this.glbufs.idx !== null, "Tri mesh without indices")
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.glbufs.idx);
+            gl.drawElements(gl.TRIANGLES, this.arrs.idx.length, arr_gl_type(this.arrs.idx), 0);
+        }
+        else {  // just points
+            gl.drawArrays(gl.POINTS, 0, this.arrs.vtx_pos.length / this.meta.vtx_pos.num_elems )
+        }
 
         // disable everything we just enabled for the future other programs running
         for(let attr_name in program_attr) {

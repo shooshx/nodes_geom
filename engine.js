@@ -202,7 +202,7 @@ class Program {
         this.obj_map[uid] = line
         line.from_term.lines.push(line)
         line.to_term.lines.push(line)
-        line.to_term.get_attachee().owner.cls.did_connect(line.to_term.get_attachee(), line) 
+        line.to_term.get_attachee().tdid_connect(line)  // telling the node into what terminal line was connected
         line.to_term.tset_dirty(true) // need function so that it will work for multi in as well
         trigger_frame_draw(true)
     }
@@ -210,7 +210,7 @@ class Program {
 
     delete_line(line, redraw) {
         try {
-            line.to_term.get_attachee().owner.cls.doing_disconnect(line.to_term.get_attachee(), line)
+            line.to_term.get_attachee().tdoing_disconnect(line)
         } catch(e) {}
         line.from_term.lines.splice(line.from_term.lines.indexOf(line), 1)
         line.to_term.lines.splice(line.to_term.lines.indexOf(line), 1)
@@ -679,6 +679,7 @@ const nodes_classes = [
     NodeGroupObjects,
     NodeTransform,
     NodeRandomPoints,
+    Scatter2,
     NodeTriangulate,
     NodeVoronoi,
     NodeShader,

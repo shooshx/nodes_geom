@@ -48,17 +48,22 @@ EXPRESSIONS
 - check CodeMirror
 - line errors for ExprErr outside main parsing (line in node)
     for mesh stuff eassert
+- colors [0-1] everywhere (set attr)
 
 
 ****** CURRENT AGENDA ******
-- terminal dirty in Variables?
-- default(var, 1)
 - Scatter with rendering
+    shader node with textures
+    attr_names auto? still support arbitrary attributes
+    input points or internal random N points
+    divide node without faces
+- mesh merge
 - Mandelbrot
     change power
     anim gradient
     Julia
-- mesh merge
+- terminal dirty in Variables?
+- default(var, 1)
 - gradient
     sampler transform only x
 - noise, plasma as basic func
@@ -87,6 +92,7 @@ NODES:
     - 2d function of t, sampled at intervals
     - free-hand path, min step distance
 - manual geom
+    - !!! complete table
     - delete point from list control gui
     - ??? move them even after transform?
     - primitive quad, triangle, path - between the points? by selection?
@@ -151,6 +157,7 @@ NODES:
 - Copy - copy something onto vertices positions
     how to control parameters of the copies?
     for loop?
+    webgl point sprites
 - Gradient
     in stroke (line),
     - Coon patch (not supported in chrome) http://tavmjong.free.fr/SVG/MESH/Mesh.html
@@ -240,6 +247,7 @@ demo idea
 - Moving Voronoi disagram with stars in a random walk in it
 - fade from image to image?
 - boids https://eater.net/boids
+- stars https://codepen.io/AzazelN28/pen/zvXZQw
 
 https://two.js.org/examples/
 

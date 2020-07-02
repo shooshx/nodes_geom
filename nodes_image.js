@@ -71,7 +71,7 @@ class NodeLoadImage extends NodeCls
 
     run() {
         ensure_webgl()
-        if (this.file_upload.pis_dirty() || this.size.pis_dirty() || this.smooth_image.pis_dirty() || this.pimg_cache === null) {
+        if (this.file_upload.pis_dirty() || this.size.pis_dirty() || this.smooth_image.pis_dirty() || this.tex_edge.pis_dirty() || this.pimg_cache === null) {
             const image = this.file_upload.get_image()
             const sz = this.size.get_value()
             this.pimg_cache = new PImage(image, this.smooth_image.v, this.tex_edge.get_sel_name(), sz[0], sz[1])

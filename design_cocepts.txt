@@ -14,6 +14,9 @@ Node becomes dirty by
     This is needed for A->B, when the user displays A, changes it, then displays B - B needs to be invalidated and not hold on to old object
 
 Terminals
+- Out terminals hold a real reference to objects, input terminals hold a weak reference
+- if a node needs a mutable copy of an object coming in an input, calls get_mutable and the object is cloned
+- The node keeps its output object as cache for future frames
 - bad idea: having enabled/disabled terminals. Disabled terminal still has an invisible connection to it
 
 Colors

@@ -159,7 +159,7 @@ class TerminalBase {
     constructor(name, in_node, is_input) {
         this.name = name
         console.assert(is_input !== undefined, "don't instantiate TerminalBase")
-        this.owner = in_node //null  // set in Node
+        this.owner = in_node // Node object
         this.line_pending = null
         this.lines = []
       //  this.node = in_node
@@ -198,7 +198,15 @@ class TerminalBase {
     }
     
     get_attachment() { return this }// useful in multi
-    get_attachee() { return this }    
+    get_attachee() { return this }
+    connect_events_dest() { return owner.cls }
+
+    tdid_connect(line) {
+        this.owner.cls.did_connect(this, line)
+    }
+    tdoing_disconnect(line) {
+        this.owner.cls.doing_disconnect(this, line)
+    }
 
     draw(force=false) {
         ctx_nodes.beginPath();
@@ -515,15 +523,19 @@ class InAttachMulti {
     }
     set(v) {
         if (v.constructor === PHandle || v.constructor === PWeakHandle)
-            this.h = new PHandle(v.p) // copy ctor
+            this.h = new PWeakHandle(v.p) // copy ctor
         else            
-            this.h = new PHandle(v)
+            this.h = new PWeakHandle(v)
         this.tset_dirty(true)
     }    
     get_const() {
         return this.h.get_const()
     }
     get_mutable() {
+        if (this.h === null)
+            return null        
+        if (this.h.constructor === PWeakHandle) // need upgrade
+            this.h = new PHandle(this.h.p)
         return this.h.get_mutable()
     }
     clear() {
@@ -910,7 +922,7 @@ class Node {
         return this.outputs[0].get_const() !== null
     }
     has_anything_dirty() {
-        if (this.self_dirty)
+        if (this.self_dirty || this.cls.is_internal_dirty())
             return true
         for(let p of this.parameters)
             if (p.pis_dirty())
@@ -981,7 +993,9 @@ class NodeCls {
     nset_error(e) { this.error = e }
     did_connect(to_term, line) {}
     doing_disconnect(to_term, line) {}
-    cclear_dirty() {} // clear the dirty things in a NodeCls that are not exposed to the outside via proxies
+    cclear_dirty() {} // clear the dirty things in a NodeCls that are not exposed to the outside via proxies (used in variable)
+
+    is_internal_dirty() { return false } // for nodes with internal nodes
 
     nresolve_variables() {
         try {

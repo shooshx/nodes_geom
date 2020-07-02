@@ -341,10 +341,40 @@ function createShader(gl, type, source) {
     return [null, errlst];
 }
 
-function createProgram(gl, vtxSource, fragSource, attr_names, defines) {
-    let prefixSrc = "#version 300 es\n"
+const TEXTURES_ACCESS_CODE = `
+uniform sampler2D _u_in_tex_0;
+uniform sampler2D _u_in_tex_1;
+uniform sampler2D _u_in_tex_2;
+uniform sampler2D _u_in_tex_3;
+uniform mat3 _u_tex_tmat_0;
+uniform mat3 _u_tex_tmat_1;
+uniform mat3 _u_tex_tmat_2;
+uniform mat3 _u_tex_tmat_3;
+
+vec4 in_tex(float x, float y) { 
+    return texture(_u_in_tex_0, (_u_tex_tmat_0 * vec3(x, y, 1.0)).xy); 
+}
+vec4 in_texi(float i, float x, float y) { 
+    switch(int(i)) {
+    case 0: return texture(_u_in_tex_0, (_u_tex_tmat_0 * vec3(x, y, 1.0)).xy);
+    case 1: return texture(_u_in_tex_1, (_u_tex_tmat_1 * vec3(x, y, 1.0)).xy);
+    case 2: return texture(_u_in_tex_2, (_u_tex_tmat_2 * vec3(x, y, 1.0)).xy);
+    case 3: return texture(_u_in_tex_3, (_u_tex_tmat_3 * vec3(x, y, 1.0)).xy);
+    }
+}
+vec4 in_tex(vec2 v) { return in_tex(v.x, v.y); }
+vec4 in_texi(float i, vec2 v) { return in_texi(i, v.x, v.y); }
+`
+
+const IN_TEX_COUNT = 4
+const FLAG_WITH_TEXTURE_ACCESS = 1
+
+function createProgram(gl, vtxSource, fragSource, attr_names, defines, flags=0) {
+    let prefixSrc = "#version 300 es\nprecision mediump float;\n"
     for(let name in defines)
         prefixSrc += "#define " + name + " (" + defines[name] + ")\n"
+    if ((flags & FLAG_WITH_TEXTURE_ACCESS) != 0)
+        prefixSrc += TEXTURES_ACCESS_CODE
     prefixSrc += "#line 1\n"
 
     const [vtxShader, vtxerr] = createShader(gl, gl.VERTEX_SHADER, prefixSrc + vtxSource);
@@ -435,8 +465,13 @@ class NodeShader extends NodeCls
     constructor(node) {
         super(node)
         this.in_mesh = new InTerminal(node, "in_mesh")
+        this.in_texs = new InTerminalMulti(node, "in_texs")
+        this.in_texs.xoffset = 60 // fix the position of the terminal on the node
+
         this.in_fb = new InTerminal(node, "in_fb") // don't want to change the name to avoid breakage
         this.out_tex = new OutTerminal(node, "out_texture")
+
+
         this.vtx_text = new ParamTextBlock(node, "Vertex Shader", "", (text)=>{
             this.try_update_uniforms(this.vtx_text, text, this.uniforms_vert, this.vert_group)
         })
@@ -447,14 +482,12 @@ class NodeShader extends NodeCls
         this.vert_group = new ParamGroup(node, "Vertex Shader Uniforms")
         this.frag_group = new ParamGroup(node, "Fragment Shader Uniforms")
 
-        this.vtx_text.set_shader_internal(true)
-        this.frag_text.set_shader_internal(true)
-        this.vert_group.set_shader_internal(true)
-        this.frag_group.set_shader_internal(true)
+        this.sorted_order = []
+        mixin_multi_reorder_control(node, this, this.sorted_order, this.in_texs)
 
-        this.attr_names = ["vtx_pos"] //null // will be set by caller
+        this.attr_names = ["vtx_pos"] //null // will be set by caller TODO just figure it out with errors
         this.program = null
-        this.uniforms_frag = [] // list of {name:,type:} (also defines)
+        this.uniforms_frag = [] // list of {name:,type:} (also defines). need two groups to know if anything changed in the specific text
         this.uniforms_vert = [] 
         this.uniforms = {} // (unified) map name to Param object
         this.defines = {} // map name to Param object, #defines that the source depends on
@@ -552,17 +585,19 @@ class NodeShader extends NodeCls
     update_uniforms(text, into, in_group) 
     {
         this.last_uniforms_err = null
-        let new_uniforms = this.parse_glsl_uniform_and_defines(text)
+        let new_uniforms = this.parse_glsl_uniform_and_defines(TEXTURES_ACCESS_CODE + text)
         let changed = into.length !== new_uniforms.length
 
-        // need to do this the iteration anyway to do the type check
-        for(let nu of new_uniforms) {
-            const eu = this.uniform_by_name_in(into, nu.name)
-            if (eu === null || eu.type !== nu.type) {
-                changed = true // new name not found in old or it changed type in the same source
-                continue
-            }
-        } 
+        if (!changed) {
+            // check if someone changed type. type sameness is made by the compilation
+            for(let nu of new_uniforms) {
+                const eu = this.uniform_by_name_in(into, nu.name)
+                if (eu === null || eu.type !== nu.type) {
+                    changed = true // new name not found in old or it changed type in the same source
+                    break
+                }
+            } 
+        }
         if (!changed)
             return
         // check type matches between vert and frag
@@ -572,11 +607,10 @@ class NodeShader extends NodeCls
         let new_unified = {}
         const check_redef_and_add = (from_cont)=>{
             for(let u of from_cont) {
-                if (new_unified[u.name] !== undefined) {
-                    // this is checked better in createProgram. better since it runs every run and not just on change
-                }
-                else
+                if (new_unified[u.name] === undefined) {
+                    // type sameness is checked better in createProgram. better since it runs every run and not just on change (shows the error)
                     new_unified[u.name] = u
+                }                    
             }
         }
         check_redef_and_add(this.uniforms_frag)
@@ -614,6 +648,8 @@ class NodeShader extends NodeCls
                 p.param = new ParamTransform(this.node, nu.name)
             else
                 assert(false, this, "unexpected uniform type")
+            if (!nu.name.startsWith('_u_'))
+                p.param.set_shader_generated(true)
             if (nu.type == 'define')
                 this.defines[new_name] = p
             else                
@@ -650,20 +686,96 @@ class NodeShader extends NodeCls
         return false
     }
 
-    run() {
+    async bind_textures(texs, in_fb) 
+    {
+        assert(texs.length == this.sorted_order.length, this, "unexpected sorted_order size") // sanity
+
+        for(let ti = 0; ti < texs.length; ++ti)
+        {
+            const tex = texs[this.sorted_order[ti]]
+            const texParam = this.param_of_uniform('_u_in_tex_' + ti)
+            assert(texParam !== null , this, "can't find uniform _u_in_tex_" + ti) // was supposed to be there from uniform parsing
+            
+            // if we're creating the texutre, create it in the right unit so that it won't overwrite other stuff
+            gl.activeTexture(gl.TEXTURE0 + ti)
+            let tex_obj;
+            try {                    
+                tex_obj = tex.make_gl_texture(in_fb)  // in_fb needed for gradient
+                if (isPromise(tex_obj))
+                    tex_obj = await tex_obj
+            }
+            catch(e) {
+                assert(false, this, e.message)
+            }
+
+            texParam.modify(ti, false)   // don't dirtify since we're in run() and that would cause a loop
+            gl.bindTexture(gl.TEXTURE_2D, tex_obj);
+            if (tex_obj.t_mat !== undefined) { // coming from PImage
+                // the texture has an associated transform with it, need to make the glsl code move it accordingly
+                const tex_tmat = this.param_of_uniform('_u_tex_tmat_' + ti)
+                assert(tex_tmat !== null, this, "can't find uniform _u_tex_tmat_" + ti)
+
+                let adj_m = mat3.create()
+                mat3.translate(adj_m, adj_m, vec2.fromValues(0.5,0.5))
+
+                const tr_from = (tex instanceof Gradient) ? in_fb : tex
+
+                // scale 0-1 range of a texture to -1:1 of the framebuffer (with the translation above)
+                mat3.scale(adj_m, adj_m, vec2.fromValues(1 / tr_from.sz_x, 1 / tr_from.sz_y))
+            
+                let inv_tex_tmat = mat3.create()
+                mat3.invert(inv_tex_tmat, tr_from.t_mat)
+                mat3.mul(adj_m, adj_m, inv_tex_tmat)
+
+                tex_tmat.modify(adj_m, false)
+                
+            }
+        }
+        // make sure textures uniform that don't have connected inputs to fill it are not set to something unknown
+        const ident = mat3.create()
+        for(let ti = texs.length; ti < IN_TEX_COUNT; ++ti) {
+            gl.activeTexture(gl.TEXTURE0 + ti)
+            gl.bindTexture(gl.TEXTURE_2D, g_dummy_texture);
+            const texParam = this.param_of_uniform('_u_in_tex_' + ti)
+            if (texParam !== null)
+                texParam.modify(ti, false)
+            const texMat = this.param_of_uniform('_u_tex_tmat_' + ti)
+            if (texMat !== null)
+                texMat.modify(ident, false)
+        }
+        gl.activeTexture(gl.TEXTURE0); // restore default state
+    }
+
+    unbind_textures(texs) {
+        // restore state to default state to avoid texture leak and easier bug finding
+        for(let ti = 0; ti < texs.length; ++ti) {
+            gl.activeTexture(gl.TEXTURE0 + ti)
+            gl.bindTexture(gl.TEXTURE_2D, g_dummy_texture);
+        }
+        gl.activeTexture(gl.TEXTURE0);
+    }
+
+    async run() {
         ensure_webgl()
         assert(this.last_uniforms_err === null, this, this.last_uniforms_err)
         const fb_factory = this.in_fb.get_const() 
         assert(fb_factory !== null, this, "missing input FrameBuffer factory")
         assert(fb_factory.create_tex !== undefined, this, "Expected FrameBuffer factory object")
-        let tex = fb_factory.create_tex()
-        assert(tex !== null, this, "missing input texture")
+        const fb = fb_factory.create_tex()
+        assert(fb !== null, this, "missing input texture")
+
+        const texs = this.in_texs.get_input_consts()
+        assert(texs.length < IN_TEX_COUNT, this, "Too many input textures")
+        for(let tex of texs) {
+            assert(tex.make_gl_texture !== undefined, this, "Input should be able to convert to textute")
+        }
 
         let mesh = this.in_mesh.get_const()
         if (mesh === null)
-            mesh = this.make_tex_aligned_mesh(tex, tex.sz_x, tex.sz_y)
-        //assert(mesh !== null, this, "missing input mesh") 
-        assert(mesh.type == MESH_TRI, this, "No triangle faces in input mesh")
+            mesh = this.make_tex_aligned_mesh(fb, fb.sz_x, fb.sz_y)            
+        
+        // triangles or just vertices
+        assert(mesh.type === MESH_TRI || mesh.type === MESH_NOT_SET, this, "No triangle faces in input mesh")
 //        assert(this.attr_names !== null, this, "Missing attr_names") // TBD parse this from the shaders
 
         if (this.vtx_text.pis_dirty() || this.frag_text.pis_dirty() || this.is_defines_dirty()) 
@@ -677,7 +789,7 @@ class NodeShader extends NodeCls
                     defines[def_name] = 1 // it's either defined or not defines
             }
 
-            const [_prog, vtxerr, fragerr] = createProgram(gl, this.vtx_text.v, this.frag_text.v, this.attr_names, defines);
+            const [_prog, vtxerr, fragerr] = createProgram(gl, this.vtx_text.v, this.frag_text.v, this.attr_names, defines, FLAG_WITH_TEXTURE_ACCESS);
             this.program = _prog
             this.vtx_text.set_errors(vtxerr)
             this.frag_text.set_errors(fragerr)
@@ -691,26 +803,28 @@ class NodeShader extends NodeCls
 
         // draw
         gl.bindFramebuffer(gl.FRAMEBUFFER, gl.my_fb);
-        if (canvas_webgl.width !== tex.width() || canvas_webgl.height !== tex.height()) {
+        if (canvas_webgl.width !== fb.width() || canvas_webgl.height !== fb.height()) {
             // this takes time 
-            canvas_webgl.width = tex.width()
-            canvas_webgl.height = tex.height()
+            canvas_webgl.width = fb.width()
+            canvas_webgl.height = fb.height()
         }
         gl.viewport(0, 0, canvas_webgl.width, canvas_webgl.height);
 
         gl.useProgram(this.program);
 
+        await this.bind_textures(texs, fb) // before uniforms are sent
+
         // transform for the geometry
         let transform = mat3.create()
-        mat3.invert(transform, tex.t_mat)  // frame-buffer movement, rotation
+        mat3.invert(transform, fb.t_mat)  // frame-buffer movement, rotation
         const szsc = mat3.create()
-        mat3.fromScaling(szsc, vec2.fromValues(2/tex.sz_x, 2/tex.sz_y)) // account for the size of the frame-buffer, normalize it to the [2,2] of the normalized coordinate system
+        mat3.fromScaling(szsc, vec2.fromValues(2/fb.sz_x, 2/fb.sz_y)) // account for the size of the frame-buffer, normalize it to the [2,2] of the normalized coordinate system
         mat3.mul(transform, szsc, transform)
 
         // transform to pass to the shader 
         let t_shader = mat3.create()
-        mat3.copy(t_shader, tex.t_mat)
-        mat3.scale(t_shader, t_shader, vec2.fromValues(tex.sz_x/2, tex.sz_y/2))
+        mat3.copy(t_shader, fb.t_mat)
+        mat3.scale(t_shader, t_shader, vec2.fromValues(fb.sz_x/2, fb.sz_y/2))
 
         if (this.program.uniforms['t_mat'] !== null)
             gl.uniformMatrix3fv(this.program.uniforms['t_mat'], false, t_shader)
@@ -720,7 +834,7 @@ class NodeShader extends NodeCls
                 this.uniforms[uniform_name].param.gl_set_value(this.program.uniforms[uniform_name])
         }
 
-        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex.tex_obj, 0);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, fb.tex_obj, 0);
 
         gl.clearColor(0, 0, 0, 0);
         gl.clear(gl.COLOR_BUFFER_BIT);
@@ -732,12 +846,15 @@ class NodeShader extends NodeCls
             assert(false, this, "Failed webgl draw")
         }
 
-        tex.invalidate_img()
+        this.unbind_textures(texs)
 
-        // draw the texture on the actual canvas so we'll have a imgBitmap instead of doing readPixels from the texture
+        fb.invalidate_img()
+
+        // Don't draw the texture on the canvas. draw on a frame buffer so we'll have a texture we can do stuff with later
+        // the texture goes then to the canvas and turns to imgBitmap
 
 
-        this.out_tex.set(tex)
+        this.out_tex.set(fb)
     }
 }
 
@@ -773,7 +890,7 @@ async function renderTexToImgBitmap(tex_obj, sz_x, sz_y)
     gl.viewport(0, 0, canvas_webgl.width, canvas_webgl.height); // we just set this to the size from the texture
 
     if (render_teximg.mesh === null) {
-        const [_prog, vtxerr, fragerr] = createProgram(gl, render_teximg.vtx_src, render_teximg.frag_src, ['vtx_pos'], [])
+        const [_prog, vtxerr, fragerr] = createProgram(gl, render_teximg.vtx_src, render_teximg.frag_src, ['vtx_pos'], [], 0)
         render_teximg.program = _prog
         dassert(render_teximg.program !== null, "failed compile teximg")
 
@@ -798,16 +915,39 @@ async function renderTexToImgBitmap(tex_obj, sz_x, sz_y)
 }
 
 
-function copy_members(from, to, names) {
+function copy_members(from, to, with_that, names) {
     for(let name of names)
-        to[name] = function(){ return from[name].apply(from, arguments) }
+        if (from[name] !== undefined)
+            to[name] = function(){ return from[name].apply(with_that, arguments) }
 }
 
 class TerminalProxy extends Terminal
 {
     constructor(node, wterm) {
         super(wterm.name, node, wterm.is_input)
-        copy_members(wterm, this, ["set", "get_const", "get_mutable", "clear", "tset_dirty", "is_dirty"])
+        this.wrap_term = wterm
+        this.width = wterm.width
+        this.lines = wterm.lines // not sure if needed...
+        this.is_input = wterm.is_input
+        copy_members(wterm, this, wterm, ["set", "get_const", "get_mutable", "clear", "tset_dirty", "is_dirty", 
+                                          "get_input_consts"])
+
+        copy_members(wterm, this, this, ["draw_path"])
+            
+        if (wterm.constructor === InTerminalMulti) {
+            this.get_attachment = ()=> {
+                // goes through the proxy
+                return new InAttachMulti(this)
+            }
+        }
+    }
+    
+    // connect events need to go to the owner of what we're wrapping, not the owner of the proxy (order mixin)
+    tdid_connect(line) {
+        this.wrap_term.owner.cls.did_connect(this.wrap_term, line)
+    }
+    tdoing_disconnect(line) {
+        this.wrap_term.owner.cls.doing_disconnect(this.wrap_term, line)
     }
 }
 
@@ -835,6 +975,10 @@ class BaseNodeShaderWrap extends NodeCls
     cclear_dirty() {
         // without this the shader_node texts are never cleaned
         this.shader_node.clear_dirty()
+    }
+
+    is_internal_dirty() {
+        return this.shader_node.has_anything_dirty()
     }
 }
 
@@ -876,8 +1020,72 @@ void main() {
 `)
     }
 
-    run() {
-        this.shader_node.cls.run()
+    async run() {
+        await this.shader_node.cls.run()
+    }
+
+
+}
+
+
+class Scatter2 extends BaseNodeShaderWrap
+{
+    static name() { return "Scatter2" }
+    constructor(node) {
+        super(node)
+        this.shader_node.cls.attr_names = ["vtx_pos", "vtx_color"]
+        this.in_mesh = new TerminalProxy(node, this.shader_node.cls.in_mesh)
+        this.in_fb = new TerminalProxy(node, this.shader_node.cls.in_fb)
+        this.out_tex = new TerminalProxy(node, this.shader_node.cls.out_tex)
+
+        this.shader_node.cls.vtx_text.set_text(`
+in vec4 vtx_pos;
+in vec4 vtx_color;
+
+//out vec2 v_coord;
+out vec4 v_color;
+flat out float v_size;
+
+void main() {
+    vec2 res = vec2(899.0, 899.0);
+    //v_coord = floor(vtx_pos.xy * res) / res;
+    v_color = vtx_color;
+    
+    gl_Position = vec4( (floor(vtx_pos.xy * res) + vec2(0.5,0.5)) / res, 0.0, 1.0) ;
+    float f = abs(vtx_pos.x * 100.0);
+    v_size = f;
+    gl_PointSize = f;
+}   
+    
+`)
+        this.shader_node.cls.frag_text.set_text( `
+precision mediump float;
+
+//in vec2 v_coord;
+in vec4 v_color;
+flat in float v_size;
+out vec4 outColor;
+
+void main() {
+    vec2 pc = (gl_PointCoord - vec2(0.5));
+
+    float dist = length(pc);
+    if (dist > 0.5)
+        discard;
+
+    if (dist * v_size <= 0.7)
+        outColor = vec4(0.0, 0.0, 0.0, 1.0);
+    else
+        outColor = v_color;
+    //outColor = vec4(v_coord.xy, 1.0, 1.0);
+
+    //outColor = vec4(1.0, 0.0, 0.0, 1.0);
+}
+`)
+    }
+
+    async run() {
+        await this.shader_node.cls.run()
     }
 
 

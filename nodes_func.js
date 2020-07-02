@@ -15,35 +15,10 @@ void main(void)
 `
 
 const EXPR_FRAG_SRC = `
-precision mediump float;
 
 in vec2 v_coord;
 out vec4 outColor;
 
-#ifdef _D_HAS_TEXTURE
-uniform sampler2D _u_in_tex_0;
-uniform sampler2D _u_in_tex_1;
-uniform sampler2D _u_in_tex_2;
-uniform sampler2D _u_in_tex_3;
-uniform mat3 _u_tex_tmat_0;
-uniform mat3 _u_tex_tmat_1;
-uniform mat3 _u_tex_tmat_2;
-uniform mat3 _u_tex_tmat_3;
-
-vec4 in_tex(float x, float y) { 
-    return texture(_u_in_tex_0, (_u_tex_tmat_0 * vec3(x, y, 1.0)).xy); 
-}
-vec4 in_texi(float i, float x, float y) { 
-    switch(int(i)) {
-    case 0: return texture(_u_in_tex_0, (_u_tex_tmat_0 * vec3(x, y, 1.0)).xy);
-    case 1: return texture(_u_in_tex_1, (_u_tex_tmat_1 * vec3(x, y, 1.0)).xy);
-    case 2: return texture(_u_in_tex_2, (_u_tex_tmat_2 * vec3(x, y, 1.0)).xy);
-    case 3: return texture(_u_in_tex_3, (_u_tex_tmat_3 * vec3(x, y, 1.0)).xy);
-    }
-}
-vec4 in_tex(vec2 v) { return in_tex(v.x, v.y); }
-vec4 in_texi(float i, vec2 v) { return in_texi(i, v.x, v.y); }
-#endif
 
 #ifdef _D_IS_GLSL_CODE
 #line 1
@@ -81,14 +56,14 @@ const GLSL_START_V_CODE = `void main() {
 
 const in_tex_types = {[type_tuple(TYPE_VEC2)]: TYPE_VEC4, [type_tuple(TYPE_NUM, TYPE_NUM)]: TYPE_VEC4}
 const in_texi_types = {[type_tuple(TYPE_NUM, TYPE_VEC2)]: TYPE_VEC4, [type_tuple(TYPE_NUM, TYPE_NUM, TYPE_NUM)]: TYPE_VEC4}
-const IN_TEX_COUNT = 4
 
 
 class ParamProxy extends Parameter {
     constructor(node, wrap, label=undefined) {
         super(node, (label === undefined) ? wrap.label : label)
         this.wrap = wrap
-        this.my_expr_items = this.wrap.my_expr_items // make resolve_variables work
+        if (this.wrap.my_expr_items !== undefined)
+            this.my_expr_items = this.wrap.my_expr_items // make resolve_variables work
     }
     save() { return this.wrap.save() }
     load(v) { this.wrap.load(v) }
@@ -201,9 +176,9 @@ class NodeFuncFill extends BaseNodeShaderWrap
         this.shader_node.cls.attr_names = ["vtx_pos"]
 
         //this.in_mesh = new TerminalProxy(node, this.shader_node.cls.in_mesh)
+        this.in_texs = new TerminalProxy(node, this.shader_node.cls.in_texs)  
+        this.in_texs.xoffset = 30
 
-        this.in_texs = new InTerminalMulti(node, "in_texs")
-        this.in_texs.xoffset = 30 // fix the position of the terminal on the node
         this.in_fb = new TerminalProxy(node, this.shader_node.cls.in_fb)  
         this.out_tex = new TerminalProxy(node, this.shader_node.cls.out_tex)
 
@@ -245,8 +220,8 @@ class NodeFuncFill extends BaseNodeShaderWrap
         })
         this.proxies_group = new ParamGroup(node, "Uniforms")
 
-        this.sorted_order = []
-        mixin_multi_reorder_control(node, this, this.sorted_order, this.in_texs)
+        this.order_table = new ParamProxy(node, this.shader_node.cls.order_table, "Tex Order")
+
 
         this.shader_node.cls.vtx_text.set_text(FUNC_VERT_SRC)
         //this.shader_node.cls.frag_text.set_text(NOISE_FRAG_SRC)
@@ -275,7 +250,7 @@ class NodeFuncFill extends BaseNodeShaderWrap
     
         this.remove_param_proxies(false)
         for(let p of this.shader_node.parameters) {
-            if (p.label.startsWith('_u_') || p.label.startsWith('_D_') || (p.is_shader_iternal && p.is_shader_iternal()))
+            if (p.label.startsWith('_u_') || p.label.startsWith('_D_') || (p.is_shader_generated && !p.is_shader_generated()))
                 continue; // internal stuff
             const prox = new ParamProxy(this.node, p)
             prox.set_group(this.proxies_group)
@@ -327,11 +302,7 @@ class NodeFuncFill extends BaseNodeShaderWrap
         let in_fb = this.in_fb.get_const() // TBD wrong
         assert(in_fb !== null, this, "missing input texture-params")
 
-        let texs = this.in_texs.get_input_consts()
-        assert(texs.length < IN_TEX_COUNT, this, "Too many input textures")
-        for(let tex of texs) {
-            assert(tex.make_gl_texture !== undefined, this, "Input should be able to convert to textute")
-        }
+        const texs = this.in_texs.get_input_consts()
 
         if (this.type.sel_idx !== 2) { // was already done for GLSL during change
             // need to remake text due to expression change
@@ -350,84 +321,14 @@ class NodeFuncFill extends BaseNodeShaderWrap
         this.shader_node.cls.param_of_define("_D_IS_GLSL_CODE").modify( this.type.sel_idx === 2, false)
 
         // don't need to actually give anything to the evaluator since it's not doing eval, it's doing to_glsl
-        const need_tex = (this.type.sel_idx === 2 ||  // if we're editing glsl, assume we need the textures (no easy way to find out)
-                          this.active_param.need_input_evaler('in_tex') !== null || 
-                          this.active_param.need_input_evaler('in_texi') !== null || 
-                          (this.type.sel_idx === 0 && texs.length >= 1))  // with value, we always need texutre if we have it for gradient 
-
-        if (need_tex) {
-            if (this.type.sel_idx !== 2) // with glsl, we don't know if this is a must
-                assert(texs.length >= 1, this, "Code expect texture but none is connected")
-            assert(texs.length == this.sorted_order.length, this, "unexpected sorted_order size")
-
-            for(let ti = 0; ti < texs.length; ++ti)
-            {
-                const tex = texs[this.sorted_order[ti]]
-                const texParam = this.shader_node.cls.param_of_uniform('_u_in_tex_' + ti)
-                assert(texParam !== null , this, "can't find uniform _u_in_tex_" + ti) // was supposed to be there from uniform parsing
-                
-                // if we're creating the texutre, create it in the right unit so that it won't overwrite other stuff
-                gl.activeTexture(gl.TEXTURE0 + ti)
-                let tex_obj;
-                try {                    
-                    tex_obj = tex.make_gl_texture(in_fb)  // in_fb needed for gradient
-                    if (isPromise(tex_obj))
-                        tex_obj = await tex_obj
-                }
-                catch(e) {
-                    assert(false, this, e.message)
-                }
-
-                texParam.modify(ti, false)   // don't dirtify since we're in run() and that would cause a loop
-                gl.bindTexture(gl.TEXTURE_2D, tex_obj);
-                if (tex_obj.t_mat !== undefined) { // coming from PImage
-                    // the texture has an associated transform with it, need to make the glsl code move it accordingly
-                    const tex_tmat = this.shader_node.cls.param_of_uniform('_u_tex_tmat_' + ti)
-                    assert(tex_tmat !== null, this, "can't find uniform _u_tex_tmat_" + ti)
-
-                    let adj_m = mat3.create()
-                    mat3.translate(adj_m, adj_m, vec2.fromValues(0.5,0.5))
-
-                    const tr_from = (tex instanceof Gradient) ? in_fb : tex
-
-                    // scale 0-1 range of a texture to -1:1 of the framebuffer (with the translation above)
-                    mat3.scale(adj_m, adj_m, vec2.fromValues(1 / tr_from.sz_x, 1 / tr_from.sz_y))
-                
-                    let inv_tex_tmat = mat3.create()
-                    mat3.invert(inv_tex_tmat, tr_from.t_mat)
-                    mat3.mul(adj_m, adj_m, inv_tex_tmat)
-
-                    tex_tmat.modify(adj_m, false)
-                    
-                }
-            }
-            // make sure textures uniform that don't have connected inputs to fill it are not set to something unknown
-            for(let ti = texs.length; ti < IN_TEX_COUNT; ++ti) {
-                gl.activeTexture(gl.TEXTURE0 + ti)
-                gl.bindTexture(gl.TEXTURE_2D, g_dummy_texture);
-                const texParam = this.shader_node.cls.param_of_uniform('_u_in_tex_' + ti)
-                if (texParam !== null)
-                    texParam.modify(ti, false)
-            }
-            gl.activeTexture(gl.TEXTURE0); // restore default state
-        }
 
         try {
-            this.shader_node.cls.run()
+            await this.shader_node.cls.run()
         }
         finally {
             if (this.type.sel_idx === 2) { // transfer glsl errors back to editor
                 this.glsl_text.set_errors( this.shader_node.cls.frag_text.get_errors() )
             }
-        }
-
-        if (need_tex) {
-            // restore stull to default state to avoid texture leak and easier bug finding
-            for(let ti = 0; ti < texs.length; ++ti) {
-                gl.activeTexture(gl.TEXTURE0 + ti)
-                gl.bindTexture(gl.TEXTURE_2D, g_dummy_texture);
-            }
-            gl.activeTexture(gl.TEXTURE0);
         }
 
     }
