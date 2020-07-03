@@ -529,6 +529,8 @@ class InAttachMulti {
         this.tset_dirty(true)
     }    
     get_const() {
+        if (this.h === null)
+            return null     
         return this.h.get_const()
     }
     get_mutable() {

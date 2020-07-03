@@ -15,6 +15,7 @@ GUI:
 - !! ability to resize code editor and pop it out
 - global input indicator that can be quickly turned off
 - log slider (mandelbrot)
+- Display param control default vertex size
 
 ENGINE:
 - before running - do type checking to nodes in/out terminals
@@ -211,6 +212,7 @@ NODES:
 
 - Variable from geometry of previous frame? - like number of vertices, derived from nodes
 
+- 3D boolean ops - http://gts.sourceforge.net/
 
 PAPER.JS
 - smooth, simplify

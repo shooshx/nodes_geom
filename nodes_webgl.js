@@ -767,6 +767,7 @@ class NodeShader extends NodeCls
         const texs = this.in_texs.get_input_consts()
         assert(texs.length < IN_TEX_COUNT, this, "Too many input textures")
         for(let tex of texs) {
+            assert(tex !== null, this, "Connected texture input has null object") // if it's connected, there should be something on it
             assert(tex.make_gl_texture !== undefined, this, "Input should be able to convert to textute")
         }
 
@@ -1028,29 +1029,82 @@ void main() {
 }
 
 
+// just passes the input to the output.
+// used for changing a multi-terminal in the internal node to a single-terminal outside
+class NodePassThrough extends NodeCls 
+{
+    static name() { return "Pass Through" }
+    constructor(node) {
+        super(node)
+        this.in = new InTerminal(node, "in") // don't want to change the name to avoid breakage
+        this.out = new OutTerminal(node, "out")
+        this.line = null
+    }
+    prepare_connection(prog, to_term) {
+        this.prog = prog
+        this.to_term = to_term
+    }
+    run() {
+        const obj = this.in.get_const()
+        this.out.set(obj)
+    }
+    did_connect(term, line) {
+        if (term !== this.in)
+            return
+        // adding the line to the desitnation only when I'm connected since I don't want the destination
+        // to think it has input when it doesn't
+        this.line = new Line(this.out.get_attachment(), this.to_term.get_attachment())
+        this.prog.add_line(this.line)
+    }
+    doing_disconnect(term, line) {
+        if (term !== this.in)
+            return
+        this.prog.delete_line(this.line, false)
+    }
+}
+
+function link_pass_through(prog, to_term) {
+    const ptnode = prog.add_node(0, 0, null, NodePassThrough, null)
+    ptnode.cls.prepare_connection(prog, to_term)
+    return [ptnode, ptnode.cls.in]
+}
+
+
 class Scatter2 extends BaseNodeShaderWrap
 {
     static name() { return "Scatter2" }
     constructor(node) {
         super(node)
-        this.shader_node.cls.attr_names = ["vtx_pos", "vtx_color"]
+        this.shader_node.cls.attr_names = ["vtx_pos"] //, "vtx_color"]
         this.in_mesh = new TerminalProxy(node, this.shader_node.cls.in_mesh)
+        const [ptnode, ptin] = link_pass_through(this.prog, this.shader_node.cls.in_texs)
+        this.tex_ptnode = ptnode
+        this.in_src = new TerminalProxy(node, ptin)
         this.in_fb = new TerminalProxy(node, this.shader_node.cls.in_fb)
         this.out_tex = new TerminalProxy(node, this.shader_node.cls.out_tex)
 
+
+
         this.shader_node.cls.vtx_text.set_text(`
 in vec4 vtx_pos;
-in vec4 vtx_color;
+//in vec4 vtx_color;
 
-//out vec2 v_coord;
+out vec2 v_coord; // test
+uniform mat3 t_mat;
+
 out vec4 v_color;
 flat out float v_size;
 
 void main() {
+    vec3 tmp = t_mat * vec3(vtx_pos.xy, 1.0);
+    v_coord = tmp.xy;
+    vec4 in_col = in_tex(v_coord);
+
     vec2 res = vec2(899.0, 899.0);
-    //v_coord = floor(vtx_pos.xy * res) / res;
-    v_color = vtx_color;
-    
+
+    v_color = in_col; //vtx_color;
+
+    // discretisize the pixel position to whole pixels
     gl_Position = vec4( (floor(vtx_pos.xy * res) + vec2(0.5,0.5)) / res, 0.0, 1.0) ;
     float f = abs(vtx_pos.x * 100.0);
     v_size = f;
@@ -1061,7 +1115,8 @@ void main() {
         this.shader_node.cls.frag_text.set_text( `
 precision mediump float;
 
-//in vec2 v_coord;
+in vec2 v_coord;
+
 in vec4 v_color;
 flat in float v_size;
 out vec4 outColor;
@@ -1075,8 +1130,10 @@ void main() {
 
     if (dist * v_size <= 0.7)
         outColor = vec4(0.0, 0.0, 0.0, 1.0);
-    else
+    else {
         outColor = v_color;
+        //outColor = in_tex(v_coord);
+    }
     //outColor = vec4(v_coord.xy, 1.0, 1.0);
 
     //outColor = vec4(1.0, 0.0, 0.0, 1.0);
@@ -1085,6 +1142,13 @@ void main() {
     }
 
     async run() {
+        const in_src = this.in_src.get_const()
+        if (in_src !== null)
+            this.shader_node.cls.in_texs.get_attachment().set(in_src)
+
+        this.tex_ptnode.cls.run()
+        progress_io(this.tex_ptnode)
+
         await this.shader_node.cls.run()
     }
 
