@@ -123,18 +123,26 @@ function page_onload()
 class Program {
     constructor() {
         this.nodes = [] // nodes in an array for iteration
-        this.obj_map = {}  // node-id to node 
+        this.obj_map = {}  // node-id (obj-id) to node 
         this.lines = []
         this.display_node = null
         // map node cls name to the next index a node of this class is going to get
         this.names_indices = {}
         this.next_obj_id = 1
+        this.next_eph_obj_id = 1
         this.tdisp_nodes = [] // template display
         this.input_nodes = []
     }
 
+    // for objects who's id is serialized (node, line)
+    // counter is also saved with the program
     alloc_graphic_obj_id() {
         return this.next_obj_id++ 
+    }
+    // for objects who's id is not serialized (terminals)
+    // counter not saved, different namespace but all go into the same obj_map
+    alloc_ephemeral_obj_id() {
+        return "e" + this.next_eph_obj_id++
     }
 
     add_node(x, y, name, cls, id) 
@@ -157,7 +165,7 @@ class Program {
         this.nodes.push(node)
 
         for(let t of node.terminals) {
-            t.tuid = this.alloc_graphic_obj_id() // not saving these ids anywhere because they're only for display of hover, not referenced by something else
+            t.tuid = this.alloc_ephemeral_obj_id() // not saving these ids anywhere because they're only for display of hover, not referenced by something else
             this.obj_map[t.tuid] = t
         }
         if (this.nodes.length === 1) // first node, display it (also happens in internal programs)

@@ -632,12 +632,13 @@ input {
     border-radius: 4px;
     padding: 4px;
     transform: translate(0, 100%);
-    /* for breaking the lines
+    /* for breaking the lines */
     max-width: 100%;
     white-space: normal;
-    */
+
     z-index: 101;  /* go over ace gutter */
     font-family: Verdana; /* override the editor */
+    
 }
 .prm_code_popout_btn {
     position: absolute;

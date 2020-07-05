@@ -147,7 +147,7 @@ class GlslEmitContext {
     do_replace(text) {
         return text.replace('$FUNCS$', this.add_funcs.join('\n'))
                    .replace('$BEFORE_EXPR$', this.before_expr.join('\n'))
-                   .replace('$UNIFORM_DEFS$', this.uniform_decls.join('\n'))
+                   .replace('$UNIFORM_DEFS$', this.uniform_decls.join('\n')) // from variables
                    .replace(/\$EXPR\$/g, this.inline_str)
                    .replace('$GLSL_CODE$', this.glsl_code)
     }
@@ -184,9 +184,7 @@ class NodeFuncFill extends BaseNodeShaderWrap
 
         // this is the coordinates of the pixel to be referenced by the code as `coord`
         node.set_state_evaluators({"coord":  (m,s)=>{ return new GlslTextEvaluator(s, "v_coord", ['x','y'], TYPE_VEC2) },
-                                   "in_tex":  (m,s)=>{ return new GlslTextEvaluator(s, "in_tex", [], TYPE_FUNCTION, in_tex_types ) },
-                                   "in_texi":  (m,s)=>{ return new GlslTextEvaluator(s, "in_texi", [], TYPE_FUNCTION, in_texi_types ) }  // also takes index of texture
-                                  } ) 
+                                   ...TEX_STATE_EVALUATORS} ) 
 
         //this.time = new ParamProxy(node, this.shader_node.cls.uniform_by_name('time').param)
         this.type = new ParamSelect(node, "Type", 0, ["Float to Gradient", "Direct Color", "GLSL Program"], (sel_idx)=>{

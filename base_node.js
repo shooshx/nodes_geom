@@ -101,13 +101,22 @@ function zero_pad_hex2(n) {
     return n.toString(16)
 }
 function color_from_uid(uid) {
+    if (typeof uid != 'number') {
+        console.assert(uid[0] == 'e') // ephemeral id
+        uid = parseInt(uid.substr(1)) | 0x80000;
+    }
     console.assert(uid < 0xfffff)
     return "#" + zero_pad_hex2(uid & 0xff) + zero_pad_hex2((uid >> 8) & 0xff) + 'f' + ((uid >> 16) & 0xf)
 }
+// lines are antialiased and that can't be changed. this method works fine with with a single line antialiased with the background
+// but breaks for multiple lines converging in the same point
 function uid_from_color(c) {
-    if ((c & 0xf00000) != 0xf00000)
+    if ((c & 0xf00000) !== 0xf00000)
         return null // result of antialiasing, not a real color
-    return c & 0xfffff
+    const id = c & 0xfffff
+    if ((c & 0x80000) !== 0)
+        return "e" + (id & 0x7ffff)
+    return id
 }
 
 function round_to(x, v) {
@@ -460,6 +469,10 @@ class InTerminal extends Terminal {
     clear() {
         if (this.h !== null)
             this.h.clear()
+    }
+    force_set(v) { // generated object into internal nodes
+        this.clear()
+        this.set(v)
     }
     tset_dirty(v) {
         this.dirty = v

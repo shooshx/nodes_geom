@@ -604,6 +604,25 @@ function hsla(h, s, v, a) {
     return [obj.r, obj.g, obj.b, a]
 }
 
+function plasma(coord, time=null, move=null) {
+    x = coord[0]*10  
+    y = coord[1]*10 
+    if (time === null)
+        t = 20000
+    if (move === null)
+        move = vec2.create(0,0)
+
+    da = vec2.distance(vec2.fromValues(x+Math.cos(time/1110.0)*4.0,y), vec2.fromValues(1.0,2.1))
+    db = vec2.distance(vec2.fromValues(x,y), vec2.fromValues(8.0 + 16.0*move[0], 6.1 + 8.0*(1.0 - move[1]) ))
+    dc = vec2.distance(vec2.fromValues(x,y + Math.cos(time / 998.0)*2.0), vec2.fromValues(10.0, 3.1))
+    c1 = Math.sin(da) + Math.sin(x) * Math.sin(time/1000.0)
+    c2 = Math.sin(db - time / 500.0)*1.0
+    c3 = Math.cos(dc / 2.0) + Math.sin(time/1000.0)
+    c = (c1 + c2 + c3) / 3.0
+    
+    return c*0.5+0.5  // return range [0,1]
+}
+
 
 const func_defs = {
     'cos': new FuncDef(Math.cos, 1), 'sin': new FuncDef(Math.sin, 1), 'tan': new FuncDef(Math.tan, 1),
@@ -613,15 +632,17 @@ const func_defs = {
     'log': new FuncDef(Math.log, 1), 'log10': new FuncDef(Math.log10, 1), 'log2': new FuncDef(Math.log2, 1),
     'round': new FuncDef(Math.round, 1), 'ceil': new FuncDef(Math.ceil, 1), 'floor': new FuncDef(Math.floor, 1), 'trunc': new FuncDef(Math.trunc, 1),
     'abs': new FuncDef(Math.abs, 1), 'sign': new FuncDef(Math.sign, 1),
-    'min': new FuncDef(Math.min, -2), 'max': new FuncDef(Math.min, -2), 'clamp': new FuncDef(glsl_clamp, 3), // negative means atleast
+    'min': new FuncDef(Math.min, -2), 'max': new FuncDef(Math.max, -2), 'clamp': new FuncDef(glsl_clamp, 3), // negative means atleast
     'smoothstep' : new FuncDef(smoothstep, 3),
     'rand': new FuncDef(myrand, 1),
     'fit': new FuncDef(fit, 5), 'fit01': new FuncDef(fit01, 3), 'fit11': new FuncDef(fit11, 3),
     'degrees': new FuncDef(degrees, 1), 'radians': new FuncDef(radians, 1),
-    'if': new FuncDef(ifelse, 3),
-    'vec2': new FuncDef(make_vec2, 2, TYPE_VEC2), 'vec3': new FuncDef(make_vec3, -1, FUNC_TYPE_LOOKUP, TYPE_VEC3), 'vec4': new FuncDef(make_vec4, -1, FUNC_TYPE_LOOKUP, TYPE_VEC4),
+    'ifelse': new FuncDef(ifelse, 3),
+    'vec2': new FuncDef(make_vec2, 2, [TYPE_NUM, TYPE_NUM], TYPE_VEC2), 'vec3': new FuncDef(make_vec3, [1,3], FUNC_TYPE_LOOKUP, TYPE_VEC3), 'vec4': new FuncDef(make_vec4, [1,4], FUNC_TYPE_LOOKUP, TYPE_VEC4),
     'normalize': new FuncDef(normalize_lookup, 1, FUNC_TYPE_LOOKUP, null),
-    'hsl' : new FuncDef(hsl, 3, TYPE_VEC3), 'hsla' : new FuncDef(hsla, 4, TYPE_VEC4)
+    'hsl' : new FuncDef(hsl, 3, [TYPE_NUM, TYPE_NUM, TYPE_NUM], TYPE_VEC3), 
+    'hsla' : new FuncDef(hsla, 4, [TYPE_NUM, TYPE_NUM, TYPE_NUM, TYPE_NUM],TYPE_VEC4),
+    'plasma' : new FuncDef(plasma, [1,3], [TYPE_VEC2, TYPE_NUM, TYPE_VEC2] , TYPE_NUM)
 }
 // aliases
 func_defs['rgb'] = func_defs['vec3']
@@ -645,7 +666,24 @@ const glsl_translate = {
     'atan2': 'atan',
     'sqr': new AddGlslFunc("$T sqr($T v) { return v*v; }"),
     'log10': new AddGlslFunc("$T log10($T v) { return log(v)/log(10) }"),
-    'rand': null, 'fit': null, 'fit01': null, 'fit11': null, 'if': null
+    'rand': null, 'fit': null, 'fit01': null, 'fit11': null, 
+    'ifelse': new AddGlslFunc("$T ifelse(bool c, $T a, $T b) { return c?a:b; }"),
+    'plasma': new AddGlslFunc(`
+float plasma(vec2 coord, float time, vec2 move) {    
+    float x = coord.x * 10.0;
+    float y = coord.y * 10.0;
+    float da = distance(vec2(x+cos(time / 1110.0) * 4.0, y), vec2(1.0,2.1));
+    float db = distance(vec2(x,y), vec2(8.0 + 16.0 * move.x, 6.1 + 8.0*(1.0 - move.y) ));
+    float dc = distance(vec2(x,y + cos(time / 998.0)*2.0), vec2(10.0, 3.1));
+    float c1 = sin(da) + sin(x) * sin(time / 1000.0);
+    float c2 = sin(db - time / 500.0)*1.0;
+    float c3 = cos(dc / 2.0) + sin(time / 1000.0);
+    float c = (c1 + c2 + c3) / 3.0;
+    return c * 0.5 + 0.5;
+}
+float plasma(vec2 coord, float time) { return plasma(coord, time, vec2(0.0, 0.0)); }
+float plasma(vec2 coord) { return plasma(coord, 20000.0, vec2(0.0, 0.0)); }
+    `)
 }
 
 // given a function f that takes num and a list of vecs, apply f individually on the components of f
@@ -662,6 +700,20 @@ function apply_by_component(argvals, f) {
     return ret
 }
 
+function args_check_type_tuple(args) {
+    const atypes = []
+    for(let arg of args)
+        atypes.push(arg.check_type())
+    return type_tuple_l(atypes)    
+}
+
+function args_check_type_lst(args) {
+    const atypes = []
+    for(let arg of args)
+        atypes.push(arg.check_type())
+    return atypes    
+}
+
 class InternalFuncCallNode extends NodeBase {
     constructor(def, funcname, args) {
         super()
@@ -670,7 +722,6 @@ class InternalFuncCallNode extends NodeBase {
         this.args = args // input nodes
         this.type = null
         this.funcname = funcname
-        this.args_type = null
         this.lookedup_f = null
     }
     eval() {
@@ -680,7 +731,7 @@ class InternalFuncCallNode extends NodeBase {
         if (this.def.dtype == FUNC_TYPE_LOOKUP)
             return this.lookedup_f.apply(null, argvals)       
         if (this.def.dtype != FUNC_TYPE_BY_COMPONENT || this.type == TYPE_NUM)
-            return this.f.apply(null, argvals)
+            return this.f.apply(null, argvals) 
         return apply_by_component(argvals, this.f)
     }
     clear_types_cache() {
@@ -693,22 +744,19 @@ class InternalFuncCallNode extends NodeBase {
             return this.type
         }
         let def_t = this.def.dtype
-        let ret_t = def_t
+        let ret_t = null
         if (def_t == FUNC_TYPE_BY_COMPONENT) { // all arguments need to be the same type
-            this.args_type = this.args[0].check_type()
+            const args_type = this.args[0].check_type()
             for(let arg of this.args) {
                 const t = arg.check_type()
-                if (t !== this.args_type)
+                if (t !== args_type)
                     throw new TypeErr("function needs all arguments of the same type, got " + typename(t))
             }
-            ret_t = this.args_type
+            ret_t = args_type
         }
-        else if (def_t == FUNC_TYPE_LOOKUP) {
-            const atypes = []
-            for(let arg of this.args)
-                atypes.push(arg.check_type())
-            this.args_type = type_tuple_l(atypes)
-            this.lookedup_f = this.f[this.args_type]
+        else if (def_t == FUNC_TYPE_LOOKUP) {          
+            const args_type = args_check_type_tuple(this.args)
+            this.lookedup_f = this.f[args_type]
             eassert(this.lookedup_f !== undefined, "Can't find function overload for argument types") // TBD better error
             // return type
             if (this.def.ret_type === null) {
@@ -720,12 +768,14 @@ class InternalFuncCallNode extends NodeBase {
             else
                 ret_t = this.def.ret_type
         }
-        else { // return value has a specific given type
-            for(let arg of this.args) {
-                const t = arg.check_type()
-                if (t !== TYPE_NUM) // assume this right now since it's only rgb,rgba
-                    throw new TypeErr("function needs all arguments to be numbers, got " + typename(t))
-            }
+        else { // args value has a specific given type
+            eassert(Array.isArray(def_t))
+            const args_type = args_check_type_lst(this.args)
+            for(let i = 0; i < args_type.length; ++i) // check only upto how many area given
+                if (args_type[i] !== def_t[i])  
+                    throw new TypeErr("Unexpected argument types expected " + type_tuple_str(def_t) + " got " + type_tuple_str(args_type))
+
+            ret_t = this.def.ret_type
         }
         this.type = ret_t
         return this.type        
@@ -808,15 +858,19 @@ function parseFuncCall(func_node, func_name) {
     if (func_node.constructor === InternalFuncDefDummyNode) { // dummy is discarded
         // internal func can have the argument number check during parsing
         const expect_num_arg = func_node.num_args()
+        if (Array.isArray(expect_num_arg)) { // range was given
+            if (args.length < expect_num_arg[0] || args.length > expect_num_arg[1])
+                throw new ExprErr("Wrong number of arguments to function " + func_name + " expected in range [" + expect_num_arg[0] + ", " + expect_num_arg[1] + "] got " + args.length)
+        }
         if (expect_num_arg === 0)
             throw new ExprErr("internal func can't have 0 arguments")
         if (expect_num_arg > 0) {
             if (args.length != expect_num_arg)
-                throw new ExprErr("Wrong number of argument to function " + func_name + " at " + index_ + " expected " + expect_num_arg + " got " + args.length)
+                throw new ExprErr("Wrong number of argument to function " + func_name + " expected " + expect_num_arg + " got " + args.length)
         }
         else {
             if (args.length < -expect_num_arg)
-                throw new ExprErr("Not enough arguments to function " + func_name + " at " + index_ + " expected at least " + expect_num_arg + " got " + args.length)
+                throw new ExprErr("Not enough arguments to function " + func_name + " expected at least " + expect_num_arg + " got " + args.length)
         }
         return new InternalFuncCallNode(func_node.def, func_name, args)
     }

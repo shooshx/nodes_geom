@@ -369,6 +369,12 @@ vec4 in_texi(float i, vec2 v) { return in_texi(i, v.x, v.y); }
 const IN_TEX_COUNT = 4
 const FLAG_WITH_TEXTURE_ACCESS = 1
 
+const TEX_STATE_EVALUATORS = { "in_tex":  (m,s)=>{ return new GlslTextEvaluator(s, "in_tex", [], TYPE_FUNCTION, in_tex_types ) },
+                               "in_texi":  (m,s)=>{ return new GlslTextEvaluator(s, "in_texi", [], TYPE_FUNCTION, in_texi_types ) }
+                             }  // also takes index of texture
+
+
+
 function createProgram(gl, vtxSource, fragSource, attr_names, defines, flags=0) {
     let prefixSrc = "#version 300 es\nprecision mediump float;\n"
     for(let name in defines)
@@ -924,8 +930,8 @@ function copy_members(from, to, with_that, names) {
 
 class TerminalProxy extends Terminal
 {
-    constructor(node, wterm) {
-        super(wterm.name, node, wterm.is_input)
+    constructor(node, wterm, name_override=null) {
+        super((name_override !== null)?name_override:wterm.name, node, wterm.is_input)
         this.wrap_term = wterm
         this.width = wterm.width
         this.lines = wterm.lines // not sure if needed...
@@ -1046,7 +1052,8 @@ class NodePassThrough extends NodeCls
     }
     run() {
         const obj = this.in.get_const()
-        this.out.set(obj)
+        if (obj !== null)
+            this.out.set(obj)
     }
     did_connect(term, line) {
         if (term !== this.in)
@@ -1069,50 +1076,45 @@ function link_pass_through(prog, to_term) {
     return [ptnode, ptnode.cls.in]
 }
 
+const SCATTER_VTX_TEXT = `
+in vec2 vtx_pos;
 
-class Scatter2 extends BaseNodeShaderWrap
-{
-    static name() { return "Scatter2" }
-    constructor(node) {
-        super(node)
-        this.shader_node.cls.attr_names = ["vtx_pos"] //, "vtx_color"]
-        this.in_mesh = new TerminalProxy(node, this.shader_node.cls.in_mesh)
-        const [ptnode, ptin] = link_pass_through(this.prog, this.shader_node.cls.in_texs)
-        this.tex_ptnode = ptnode
-        this.in_src = new TerminalProxy(node, ptin)
-        this.in_fb = new TerminalProxy(node, this.shader_node.cls.in_fb)
-        this.out_tex = new TerminalProxy(node, this.shader_node.cls.out_tex)
-
-
-
-        this.shader_node.cls.vtx_text.set_text(`
-in vec4 vtx_pos;
-//in vec4 vtx_color;
-
-out vec2 v_coord; // test
 uniform mat3 t_mat;
+uniform vec2 res;
+uniform float rel_res; // in screen units
 
+out vec2 v_coord; 
 out vec4 v_color;
 flat out float v_size;
+
+$UNIFORM_DEFS$
+
+$FUNCS$
 
 void main() {
     vec3 tmp = t_mat * vec3(vtx_pos.xy, 1.0);
     v_coord = tmp.xy;
+
+    $BEFORE_EXPR$
+    float f = $EXPR$;
+ 
     vec4 in_col = in_tex(v_coord);
-
-    vec2 res = vec2(899.0, 899.0);
-
-    v_color = in_col; //vtx_color;
+    v_color = in_col; 
 
     // discretisize the pixel position to whole pixels
     gl_Position = vec4( (floor(vtx_pos.xy * res) + vec2(0.5,0.5)) / res, 0.0, 1.0) ;
-    float f = abs(vtx_pos.x * 100.0);
+
+    //float f = abs(vtx_pos.x * 100.0);
+    //float f = in_col.r*rel_res/5.0;
+
+    f = f * rel_res ;
     v_size = f;
     gl_PointSize = f;
 }   
     
-`)
-        this.shader_node.cls.frag_text.set_text( `
+`
+
+const SCATTER_FRAG_TEXT =  `
 precision mediump float;
 
 in vec2 v_coord;
@@ -1122,32 +1124,126 @@ flat in float v_size;
 out vec4 outColor;
 
 void main() {
+    // center on vertex
     vec2 pc = (gl_PointCoord - vec2(0.5));
 
     float dist = length(pc);
     if (dist > 0.5)
         discard;
 
-    if (dist * v_size <= 0.7)
+    if (dist * v_size <= 0.7) // black dot
         outColor = vec4(0.0, 0.0, 0.0, 1.0);
     else {
-        outColor = v_color;
+        outColor = vec4(0.7, 0.7, 0.7, 1.0);
+        //outColor = v_color;
         //outColor = in_tex(v_coord);
     }
     //outColor = vec4(v_coord.xy, 1.0, 1.0);
 
     //outColor = vec4(1.0, 0.0, 0.0, 1.0);
 }
-`)
+`
+
+class Scatter2 extends BaseNodeShaderWrap
+{
+    static name() { return "Scatter2" }
+    constructor(node) {
+        super(node)
+        this.shader_node.cls.attr_names = ["vtx_pos"] //, "vtx_color"]
+        this.in_points = new TerminalProxy(node, this.shader_node.cls.in_mesh, "in_points")
+        const [ptnode, ptin] = link_pass_through(this.prog, this.shader_node.cls.in_texs)
+        this.tex_ptnode = ptnode
+        this.in_src = new TerminalProxy(node, ptin, "in_src")
+        //this.in_fb = new TerminalProxy(node, this.shader_node.cls.in_fb)
+        this.in_clip_shape = new InTerminal(node, "clip_shape")
+        this.out_tex = new TerminalProxy(node, this.shader_node.cls.out_tex)
+
+        //this.sz = new ParamVec2(node, "Size", 2, 2);
+        this.rel_res = new ParamFloat(node, "Pixels Per Unit", 500)
+        this.start_point_count = new ParamInt(node, "Start Count", 10000)
+        this.seed = new ParamInt(node, "Seed", 1)
+        this.density = new ParamFloat(node, "Density", 0.1, {show_code:true})
+
+        node.set_state_evaluators({"vtx_pos":  (m,s)=>{ return new GlslTextEvaluator(s, "vtx_pos", ['x','y'], TYPE_VEC2) },
+                                   ...TEX_STATE_EVALUATORS} ) 
+
+        this.shader_node.cls.frag_text.set_text(SCATTER_FRAG_TEXT)
     }
 
-    async run() {
-        const in_src = this.in_src.get_const()
-        if (in_src !== null)
-            this.shader_node.cls.in_texs.get_attachment().set(in_src)
+    make_vtx_text(expr_param, template_text, to_shader_prm)  // TBD refactor with func
+    {
+        let emit_ctx = new GlslEmitContext()
 
+        const item = expr_param.get_active_item()
+        if (item.e !== null) {
+            if (item.elast_error !== null) {
+                assert(false, this, "Expression error")
+            }
+            try {
+                emit_ctx.inline_str = item.e.to_glsl(emit_ctx)
+            }
+            catch(ex) {
+                assert(false, this, ex.message)
+            }
+        }
+        else {
+            emit_ctx.inline_str = expr_param.get_value()
+            if (Number.isInteger(emit_ctx.inline_str))
+                emit_ctx.inline_str += ".0"
+        }
+
+        const vtx_text = emit_ctx.do_replace(template_text)
+        to_shader_prm.set_text(vtx_text)
+
+        emit_ctx.set_uniform_vars(this.shader_node.cls)
+    }
+
+    random_points_mesh(bbox)
+    {
+        const prng = new RandNumGen(this.seed.v)
+        const len = this.start_point_count.v
+        const vtx_pos = new TVtxArr(len * 2)
+        const bminx = bbox.min_x, bminy = bbox.min_y, bw = bbox.width(), bh = bbox.height()
+        for(let i = 0, vi = 0; i < len; ++i, vi += 2) {
+            vtx_pos[vi] =   bminx + bw* prng.next() 
+            vtx_pos[vi+1] = bminy + bh* prng.next()
+        }
+        const mesh = new Mesh()
+        mesh.set("vtx_pos", vtx_pos, 2, false)
+        return mesh
+    }
+
+    async run() 
+    {
+        // inputs check
+        const clip_shape = this.in_clip_shape.get_const()
+        assert(clip_shape !== null, this, "missing input clip shape") // TBD this or the vertices bbox
+        assert(clip_shape.get_bbox !== undefined, this, "clip_shape input needs to be a shape")
+        const clip_bbox = clip_shape.get_bbox();
+
+        let points = this.in_points.get_const()
+        if (points === null) {
+            points = this.random_points_mesh(clip_bbox)
+            this.in_points.set(points)
+        }
+
+        this.make_vtx_text(this.density, SCATTER_VTX_TEXT, this.shader_node.cls.vtx_text) // TBD check dirty
+
+        // move tex input to shader node       
         this.tex_ptnode.cls.run()
         progress_io(this.tex_ptnode)
+
+        // make framebuffer factory
+        const sz_x = clip_bbox.width(), sz_y = clip_bbox.height()
+        const res_x = Math.round(this.rel_res.v * sz_x)
+        const res_y = Math.round(this.rel_res.v * sz_y)
+        //console.log("resolution: ", res_x, ", ", res_y)
+        const fb = new FrameBufferFactory(res_x, res_y, sz_x, sz_y, false, "pad") // 
+        this.shader_node.cls.in_fb.force_set(fb) // TBD check if dirty
+        // TBD translate to bbox center
+
+        this.shader_node.cls.param_of_uniform('res').modify([fb.resolution_x, fb.resolution_y])
+        this.shader_node.cls.param_of_uniform('rel_res').modify(this.rel_res.v)
 
         await this.shader_node.cls.run()
     }

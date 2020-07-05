@@ -112,7 +112,8 @@ function _load_program(sprog)
     
     const newprog = new Program()
 
-    newprog.next_obj_id = parseInt(sprog.next_node_id) // needs to be first since creating nodes adds to this
+    // creating nodes below doesn't add to this, adds only ephmeral ids
+    newprog.next_obj_id = parseInt(sprog.next_node_id) 
     for(let n in sprog.names_idx_s)
         newprog.names_indices[n] = parseInt(sprog.names_idx_s[n])
 
@@ -175,8 +176,6 @@ function _load_program(sprog)
                 p.post_load_hook()
     }
 
-    newprog.next_obj_id = parseInt(sprog.next_node_id) // reload it since all the nodes and lines just created inflated it unnecessarily
-
     if (sprog.display_node_id == null || newprog.obj_map[sprog.display_node_id] === undefined)
         newprog.set_display_node(null)
     else
@@ -202,6 +201,8 @@ function _load_program(sprog)
 
     if (sprog.nodes_view !== undefined) // old progs don't have it
         nodes_view.load(sprog.nodes_view)
+
+    console.assert(newprog.next_obj_id === parseInt(sprog.next_node_id), "Unexpected ids created")
 
     program = newprog // commit to it
 }

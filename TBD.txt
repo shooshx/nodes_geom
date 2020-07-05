@@ -53,17 +53,31 @@ EXPRESSIONS
 
 
 ****** CURRENT AGENDA ******
+- webgl getActiveAttrib, getActiveUniform
+    type checking for attributes
+- BUG - Yaml programs with multiline string
+- BUG expr - when editing the code, variable not recognized
 - Scatter with rendering
-    shader node with textures
+    default gradient gray instead of gold
+    sample size from color
+    density with variables, 
+    canvas owned by shader node
     attr_names auto? still support arbitrary attributes
     input points or internal random N points
     divide node without faces
+    float texture?
 - mesh merge
+- BUG: func without show_code?
+- balls the know their end color
+    - box2d
+    - flow control
+    - Animation
+    - anim - some frames are not displayed?
+- terminal dirty in Variables?
 - Mandelbrot
     change power
     anim gradient
     Julia
-- terminal dirty in Variables?
 - default(var, 1)
 - gradient
     sampler transform only x

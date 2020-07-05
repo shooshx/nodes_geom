@@ -1161,15 +1161,15 @@ class NodeTransform extends NodeCls
     }
 }
 
-
+// need this since Math.random can't be seeded
 class RandNumGen
 {
     constructor(seed) {
         this.state = seed
     }
     next() {
-        this.state = (this.state * 1103515245 + 12345) % 2147483648
-        return this.state / 2147483648
+        this.state = (this.state * 1664525 + 1013904223) % 4294967296
+        return this.state / 4294967296
     }
 }
 
@@ -1212,7 +1212,7 @@ class NodeRandomPoints extends NodeCls
     run() {
         let in_obj = this.in_obj.get_const()
         assert(in_obj !== null, this, "No mesh input")
-        assert(in_obj["get_bbox"] !== undefined, this, "Input does not define a bounding box")
+        assert(in_obj.get_bbox !== undefined, this, "Input does not define a bounding box")
         let bbox = in_obj.get_bbox()  // TBD cut into shape if shape allows that
         assert(bbox !== null, this, "Object doesn't have content for a bounding box")
 
