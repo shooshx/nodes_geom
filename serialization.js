@@ -165,6 +165,10 @@ function _load_program(sprog)
             console.log("Can't find terminal ", sl.to_name, " for node ", to_node.name)
             continue // happens when terminal names change
         }
+        if (from_term === null || to_term === null) { // term changed name?
+            console.warn("did not find terminal of node ", from_node.name)
+            continue
+        }
         newprog.add_line(new Line(from_term.get_attachment(), to_term.get_attachment()), sl.uid)
     }
 

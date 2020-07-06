@@ -2714,13 +2714,13 @@ class ParamImageUpload extends ParamFileUpload
             }
             this.image = newimage
             this.pset_dirty()
-        })
+        }, FLAG_DONT_SAVE)
         myAddEventListener(newimage, "error", (e)=>{
             this.ilast_error = "Failed download image from URL"
             console.error("Failed to download image", e)
             this.image = null
             this.pset_dirty() // trigger a draw that will show this error
-        })
+        }, FLAG_DONT_SAVE)
         newimage.crossOrigin = ''
         newimage.src = url
         // first time after load will be an empty image but then the load even is going to refresh the display   

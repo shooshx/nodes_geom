@@ -31,7 +31,7 @@ class ImageBase extends PObject
         super()
         this.t_mat = mat3.create() 
         this.smooth = smooth
-        this.sz_x = sz_x
+        this.sz_x = sz_x // logical size in world coords
         this.sz_y = sz_y
 
         let hw = sz_x * 0.5
@@ -39,6 +39,8 @@ class ImageBase extends PObject
         this.top_left = vec2.fromValues(-hw,-hh)
         this.bottom_right = vec2.fromValues(hw,hh)
     }
+
+    logical_size() { return [this.sz_x, this.sz_y] }
 
     set_transform(m) { mat3.copy(this.t_mat, m) }
     transform(m) { mat3.multiply(this.t_mat, m, this.t_mat) } 
@@ -1083,8 +1085,6 @@ uniform mat3 t_mat;
 uniform vec2 res;
 uniform float rel_res; // in screen units
 
-out vec2 v_coord; 
-out vec4 v_color;
 flat out float v_size;
 
 $UNIFORM_DEFS$
@@ -1093,19 +1093,14 @@ $FUNCS$
 
 void main() {
     vec3 tmp = t_mat * vec3(vtx_pos.xy, 1.0);
-    v_coord = tmp.xy;
+    vec2 v_coord = tmp.xy;
+    //vec2 v_coord = vtx_pos.xy;
 
     $BEFORE_EXPR$
     float f = $EXPR$;
- 
-    vec4 in_col = in_tex(v_coord);
-    v_color = in_col; 
 
     // discretisize the pixel position to whole pixels
     gl_Position = vec4( (floor(vtx_pos.xy * res) + vec2(0.5,0.5)) / res, 0.0, 1.0) ;
-
-    //float f = abs(vtx_pos.x * 100.0);
-    //float f = in_col.r*rel_res/5.0;
 
     f = f * rel_res ;
     v_size = f;
@@ -1117,9 +1112,6 @@ void main() {
 const SCATTER_FRAG_TEXT =  `
 precision mediump float;
 
-in vec2 v_coord;
-
-in vec4 v_color;
 flat in float v_size;
 out vec4 outColor;
 
@@ -1132,15 +1124,11 @@ void main() {
         discard;
 
     if (dist * v_size <= 0.7) // black dot
-        outColor = vec4(0.0, 0.0, 0.0, 1.0);
+        outColor = vec4(1.0, 0.0, 0.0, 1.0);
     else {
         outColor = vec4(0.7, 0.7, 0.7, 1.0);
-        //outColor = v_color;
-        //outColor = in_tex(v_coord);
     }
-    //outColor = vec4(v_coord.xy, 1.0, 1.0);
 
-    //outColor = vec4(1.0, 0.0, 0.0, 1.0);
 }
 `
 
@@ -1157,14 +1145,15 @@ class Scatter2 extends BaseNodeShaderWrap
         //this.in_fb = new TerminalProxy(node, this.shader_node.cls.in_fb)
         this.in_clip_shape = new InTerminal(node, "clip_shape")
         this.out_tex = new TerminalProxy(node, this.shader_node.cls.out_tex)
+        //this.out_pnt = new OutTerminal(node, "out_png")
 
         //this.sz = new ParamVec2(node, "Size", 2, 2);
-        this.rel_res = new ParamFloat(node, "Pixels Per Unit", 500)
+        this.rel_res = new ParamFloat(node, "Pixels Per Unit", 200)
         this.start_point_count = new ParamInt(node, "Start Count", 10000)
         this.seed = new ParamInt(node, "Seed", 1)
         this.density = new ParamFloat(node, "Density", 0.1, {show_code:true})
 
-        node.set_state_evaluators({"vtx_pos":  (m,s)=>{ return new GlslTextEvaluator(s, "vtx_pos", ['x','y'], TYPE_VEC2) },
+        node.set_state_evaluators({"coord":  (m,s)=>{ return new GlslTextEvaluator(s, "v_coord", ['x','y'], TYPE_VEC2) },
                                    ...TEX_STATE_EVALUATORS} ) 
 
         this.shader_node.cls.frag_text.set_text(SCATTER_FRAG_TEXT)
@@ -1239,8 +1228,10 @@ class Scatter2 extends BaseNodeShaderWrap
         const res_y = Math.round(this.rel_res.v * sz_y)
         //console.log("resolution: ", res_x, ", ", res_y)
         const fb = new FrameBufferFactory(res_x, res_y, sz_x, sz_y, false, "pad") // 
+        const tr = mat3.create()
+        mat3.fromTranslation(tr, clip_bbox.center())
+        fb.transform(tr)
         this.shader_node.cls.in_fb.force_set(fb) // TBD check if dirty
-        // TBD translate to bbox center
 
         this.shader_node.cls.param_of_uniform('res').modify([fb.resolution_x, fb.resolution_y])
         this.shader_node.cls.param_of_uniform('rel_res').modify(this.rel_res.v)
@@ -1248,6 +1239,51 @@ class Scatter2 extends BaseNodeShaderWrap
         await this.shader_node.cls.run()
     }
 
-
 }
 
+
+class PixelsToVertices extends BaseNodeShaderWrap
+{
+    static name() { return "Pixels to Vertices" }
+    constructor(node) {
+        super(node)
+        this.in_tex = new InTerminal(node, "in_tex")
+        this.out_pnt = new OutTerminal(node, "out_pnt")
+    }
+
+    extract_points(tex) 
+    {
+        const vtx_pos = []
+        const pixels = tex.get_pixels() // Uint8Array
+        const w = tex.width(), h = tex.height()
+        const [sz_x, sz_y] = tex.logical_size()
+        const f_x = sz_x/w, f_y = sz_y/h, hsz_x = sz_x*0.5, hsz_y = sz_y * 0.5
+        const t_mat = tex.t_mat
+        let i = 0
+        const v1 = vec2.create(), v2 = vec2.create()
+
+        for(let iy = 0; iy < h; ++iy) {
+            for(let ix = 0; ix < w; ++ix) {
+                const c = pixels[i]
+                i += 4
+                if (c == 255) {
+                    v1[0] = ix*f_x-hsz_x
+                    v1[1] = iy*f_y-hsz_y
+                    vec2.transformMat3(v2, v1, t_mat)
+                    vtx_pos.push(v2[0], v2[1])
+                }
+            }
+        }
+        const mesh = new Mesh()
+        mesh.set("vtx_pos", new TVtxArr(vtx_pos), 2, false)
+        return mesh       
+    }
+
+    run() {
+        // extract vertices from image
+        const in_tex = this.in_tex.get_const()
+        assert(in_tex !== null, this, "Missing image input")
+        const mesh = this.extract_points(in_tex)
+        this.out_pnt.set(mesh)
+    }
+}

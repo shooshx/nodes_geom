@@ -58,16 +58,16 @@ EXPRESSIONS
 - BUG - Yaml programs with multiline string
 - BUG expr - when editing the code, variable not recognized
 - Scatter with rendering
+    clip by shape
+    single channel texture
     default gradient gray instead of gold
-    sample size from color
-    density with variables, 
     canvas owned by shader node
     attr_names auto? still support arbitrary attributes
     input points or internal random N points
     divide node without faces
     float texture?
 - mesh merge
-- BUG: func without show_code?
+- BUG: func node without show_code?
 - balls the know their end color
     - box2d
     - flow control

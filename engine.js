@@ -486,10 +486,10 @@ function trigger_frame_draw(do_run, clear_all=false)  {
 function clear_draw_req() {
     draw_request.draw = false
     draw_request.do_run = false
-    draw_request.clear_all = false    
+    draw_request.clear_all = false
 }
 
-function eventWrapper(func) {
+function eventWrapper(func, do_save=true) {
     return function() {
         //console.log("Added event ", event_name, " ", obj)
         //clear_draw_req()
@@ -508,6 +508,9 @@ function eventWrapper(func) {
         }
         
         if (draw_request.draw) {
+            if (do_save)  // automatic events like onload shouldn't save since they are not user interaction
+                save_state()
+
             let do_run = draw_request.do_run, clear_all = draw_request.clear_all
             clear_draw_req()
             call_frame_draw(do_run, clear_all)
@@ -517,8 +520,10 @@ function eventWrapper(func) {
     }
 }
 
-function myAddEventListener(obj, event_name, func) {
-    const w = eventWrapper(func)
+const FLAG_DONT_SAVE = 1
+
+function myAddEventListener(obj, event_name, func, flags=0) {
+    const w = eventWrapper(func, flags != FLAG_DONT_SAVE)
     obj.addEventListener(event_name, w)
     return w
 }
@@ -531,14 +536,6 @@ function stop_propogation_on(event_name, ...elems) {
     }
 }
 
-// just redraw the same output
-const RUN_DRAW_SAME = 0
-// the viewport change, re-run anything that is viewport dependent
-//const RUN_VIEW_CHANGED = 1
-// something in the nodes changed, run with output cacheing
-const RUN_NODE_CHANGED = 2
-// re-run everything
-const RUN_ALL = 3
 
 var in_draw = false
 
@@ -566,8 +563,6 @@ function handle_node_exception(e) {
 // called whenever the display needs to be updated to reflect a change
 async function do_frame_draw(do_run, clear_all) 
 {
-    save_state()
-
     let run_root_nodes = new Set()
     let disp_obj = null
 
@@ -699,6 +694,7 @@ const nodes_classes = [
     NodeFuncFill,
     NodeBoolOp,
     NodeVariable,
+    PixelsToVertices,
 ]
 var nodes_classes_by_name = {}
 for(let c of nodes_classes)
