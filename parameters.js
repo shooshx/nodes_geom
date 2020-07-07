@@ -2407,6 +2407,7 @@ class ParamTextBlock extends Parameter
         })
         this.editor = null
         this.last_errors = null
+        this.dlg_rect = null
     }
     save() { return { dlg_rect: this.dlg_rect, text:this.v } }
     load(v) { this.v = v.text; this.dlg_rect = v.dlg_rect;  } // dlg_rect saved only if text is saved

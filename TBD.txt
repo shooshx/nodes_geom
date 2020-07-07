@@ -53,20 +53,21 @@ EXPRESSIONS
 
 
 ****** CURRENT AGENDA ******
-- webgl getActiveAttrib, getActiveUniform
-    type checking for attributes
 - BUG - Yaml programs with multiline string
 - BUG expr - when editing the code, variable not recognized
 - Scatter with rendering
+    param disable according to points input
+    from image
     clip by shape
-    single channel texture
     default gradient gray instead of gold
     canvas owned by shader node
     attr_names auto? still support arbitrary attributes
-    input points or internal random N points
+        getActiveAttrib, also type check with what's coming from mesh
     divide node without faces
-    float texture?
+    old scatter with just constant
 - mesh merge
+- BoolParam from code (from variable)
+- Small: notes in nodes view
 - BUG: func node without show_code?
 - balls the know their end color
     - box2d

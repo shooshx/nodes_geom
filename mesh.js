@@ -97,6 +97,7 @@ class Mesh extends PObject
         this.paper_obj = null
         this.clipper_obj = null
         this.effective_vtx_pos = null // if there is vtx_transform/face_transform, this is already transformed vertices, otherwise just equal to vtx_pos
+        this.points_idx_cache = null // if not null: {idx_buf: index array, seed: seed used to generate }
     }
     destructor() {
         for(let bi in this.glbufs) {
@@ -123,6 +124,7 @@ class Mesh extends PObject
         this.paths = null
         this.paper_obj = null
         this.clipper_obj = null
+        this.points_idx_cache = null
         this.make_effective_vtx_pos()
         this.invalidate_fill()
     }
@@ -593,10 +595,38 @@ class Mesh extends PObject
         }     
     }
 
+    make_point_suffle(seed, len) 
+    {
+        // it makes sense to generate the shuffle and cache it in the mesh since that's when we can create the gl buffer as well
+        if (this.points_idx_cache !== null && this.points_idx_cache.seed === seed && this.points_idx_cache.len === len)
+            return this.points_idx_cache.idx_buf
+        const idx = (len < 65536) ? new Uint16Array(len) : new Uint32Array(len)
+        for(let i = 0; i < len; ++i)
+            idx[i] = i;
+        // Fisher–Yates shuffle
+        const prng = new RandNumGen(seed)
+        for (let i = len - 1; i > 0; i--) {
+            const j = Math.floor(prng.next() * (i + 1));
+            [idx[i], idx[j]] = [idx[j], idx[i]];
+        }
+
+        let idx_buf = null
+        if (this.points_idx_cache !== null) // if it's not null, it has idx_buf
+            idx_buf = this.points_idx_cache.idx_buf 
+        else
+            idx_buf = gl.createBuffer()
+                    
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, idx_buf);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx, gl.STATIC_DRAW);
+        this.points_idx_cache = { idx_buf:idx_buf, seed:seed, len:len } 
+
+        return idx_buf 
+    }
+
     // program_attr maps attribute name to index (location)
-    gl_draw(m, program_attr) 
+    gl_draw(m, program_attr, opt={}) 
     { 
-        dassert(this.type === MESH_TRI || this.type === MESH_NOT_SET, "can't gl_draw non triangle mesh")
+        dassert(this.type === MESH_TRI || this.type === MESH_NOT_SET || opt.override_just_points, "can't gl_draw non triangle mesh")
         this.ensure_tcache(m)  // TBD another cache?
         this.make_buffers()
 
@@ -623,13 +653,21 @@ class Mesh extends PObject
             }
         }
 
-        if (this.type === MESH_TRI) {
+        if (this.type === MESH_TRI && !opt.override_just_points) {
             dassert(this.glbufs.idx !== null, "Tri mesh without indices")
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.glbufs.idx);
             gl.drawElements(gl.TRIANGLES, this.arrs.idx.length, arr_gl_type(this.arrs.idx), 0);
         }
         else {  // just points
-            gl.drawArrays(gl.POINTS, 0, this.arrs.vtx_pos.length / this.meta.vtx_pos.num_elems )
+            const count = this.arrs.vtx_pos.length / this.meta.vtx_pos.num_elems
+            if (opt.shuffle_points_seed !== null) {
+                const idx_buf = this.make_point_suffle(opt.shuffle_points_seed, count)
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, idx_buf)
+                gl.drawElements(gl.POINTS, count, arr_gl_type(this.arrs.idx), 0);
+            }
+            else {
+                gl.drawArrays(gl.POINTS, 0, count)
+            }
         }
 
         // disable everything we just enabled for the future other programs running

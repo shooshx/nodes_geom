@@ -500,6 +500,8 @@ class NodeShader extends NodeCls
         this.uniforms = {} // (unified) map name to Param object
         this.defines = {} // map name to Param object, #defines that the source depends on
         this.last_uniforms_err = null
+        this.opt = { override_just_points: false, // override the mesh type and display just the points
+                     shuffle_points_seed: null }  // if not null, seed of the shuffling of points when drawing just vertices
 
         // it's ok for the texture to belong to this node since texture is const only so it won't be modified
         //this.render_to_tex = null 
@@ -784,7 +786,7 @@ class NodeShader extends NodeCls
             mesh = this.make_tex_aligned_mesh(fb, fb.sz_x, fb.sz_y)            
         
         // triangles or just vertices
-        assert(mesh.type === MESH_TRI || mesh.type === MESH_NOT_SET, this, "No triangle faces in input mesh")
+        assert(mesh.type === MESH_TRI || mesh.type === MESH_NOT_SET || this.opt.override_just_points, this, "No triangle faces in input mesh")
 //        assert(this.attr_names !== null, this, "Missing attr_names") // TBD parse this from the shaders
 
         if (this.vtx_text.pis_dirty() || this.frag_text.pis_dirty() || this.is_defines_dirty()) 
@@ -848,7 +850,7 @@ class NodeShader extends NodeCls
         gl.clearColor(0, 0, 0, 0);
         gl.clear(gl.COLOR_BUFFER_BIT);
         try {
-            mesh.gl_draw(transform, this.program.attrs)
+            mesh.gl_draw(transform, this.program.attrs, this.opt)
         }
         catch(ex) {
             console.warn(ex.message)
@@ -1149,7 +1151,9 @@ class Scatter2 extends BaseNodeShaderWrap
 
         //this.sz = new ParamVec2(node, "Size", 2, 2);
         this.rel_res = new ParamFloat(node, "Pixels Per Unit", 200)
-        this.start_point_count = new ParamInt(node, "Start Count", 10000)
+        this.start_point_count = new ParamInt(node, "Start Count", 10000) // assuming there's no in_points
+        this.shuffle_in_points = new ParamBool(node, "Shuffle Input", true)
+
         this.seed = new ParamInt(node, "Seed", 1)
         this.density = new ParamFloat(node, "Density", 0.1, {show_code:true})
 
@@ -1157,6 +1161,7 @@ class Scatter2 extends BaseNodeShaderWrap
                                    ...TEX_STATE_EVALUATORS} ) 
 
         this.shader_node.cls.frag_text.set_text(SCATTER_FRAG_TEXT)
+        this.shader_node.cls.opt.override_just_points = true // even if the input mesh has faces, display just the vertices
     }
 
     make_vtx_text(expr_param, template_text, to_shader_prm)  // TBD refactor with func
@@ -1187,10 +1192,9 @@ class Scatter2 extends BaseNodeShaderWrap
         emit_ctx.set_uniform_vars(this.shader_node.cls)
     }
 
-    random_points_mesh(bbox)
+    random_points_mesh(bbox, seed, len)
     {
-        const prng = new RandNumGen(this.seed.v)
-        const len = this.start_point_count.v
+        const prng = new RandNumGen(seed)
         const vtx_pos = new TVtxArr(len * 2)
         const bminx = bbox.min_x, bminy = bbox.min_y, bw = bbox.width(), bh = bbox.height()
         for(let i = 0, vi = 0; i < len; ++i, vi += 2) {
@@ -1212,8 +1216,12 @@ class Scatter2 extends BaseNodeShaderWrap
 
         let points = this.in_points.get_const()
         if (points === null) {
-            points = this.random_points_mesh(clip_bbox)
+            points = this.random_points_mesh(clip_bbox, this.seed.v, this.start_point_count.v)
             this.in_points.set(points)
+            this.shader_node.cls.opt.shuffle_points_seed = null // don't need to shuffle the randomness we just made
+        }
+        else {
+            this.shader_node.cls.opt.shuffle_points_seed = (this.shuffle_in_points.v) ? this.seed.v : null
         }
 
         this.make_vtx_text(this.density, SCATTER_VTX_TEXT, this.shader_node.cls.vtx_text) // TBD check dirty
