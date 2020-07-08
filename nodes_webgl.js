@@ -955,9 +955,11 @@ class TerminalProxy extends Terminal
     
     // connect events need to go to the owner of what we're wrapping, not the owner of the proxy (order mixin)
     tdid_connect(line) {
+        super.tdid_connect(line)
         this.wrap_term.owner.cls.did_connect(this.wrap_term, line)
     }
     tdoing_disconnect(line) {
+        super.tdoing_disconnect(line)
         this.wrap_term.owner.cls.doing_disconnect(this.wrap_term, line)
     }
 }
@@ -1141,6 +1143,10 @@ class Scatter2 extends BaseNodeShaderWrap
         super(node)
         this.shader_node.cls.attr_names = ["vtx_pos"] //, "vtx_color"]
         this.in_points = new TerminalProxy(node, this.shader_node.cls.in_mesh, "in_points")
+        this.in_points.connection_event = (v)=>{
+            this.start_point_count.set_enable(!v) // only relevant for internal geometry
+            this.shuffle_in_points.set_enable(v)  // only relevant for external
+        }
         const [ptnode, ptin] = link_pass_through(this.prog, this.shader_node.cls.in_texs)
         this.tex_ptnode = ptnode
         this.in_src = new TerminalProxy(node, ptin, "in_src")

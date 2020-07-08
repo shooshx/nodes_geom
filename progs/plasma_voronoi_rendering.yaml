@@ -1,0 +1,416 @@
+nodes:
+  '2':
+    params:
+      Type:
+        sel_str: Float to Gradient
+      "Float\nExpression":
+        se_v: coord.x
+        show_code: true
+        dlg_rect:
+          left: null
+          top: null
+          width: null
+          height: null
+          visible: false
+        se_cv: |-
+          # return ifelse(coord.x > 0.1, 0.1, 0.5)*5
+
+          c = plasma(coord, 20000)
+          c = c * 2-1
+          cc = clamp(abs(c*0.6-0.1)+0.2, 0.1, 1)
+          return cc 
+      "Color\nExpression":
+        hex: '#CCCCCC'
+        show_code: true
+        se_cv: 'return rgb(coord.x, coord.y, 1.0)'
+      "GLSL\nCode":
+        dlg_rect: null
+        text: |
+          void main() {
+              outColor = vec4(1.0, v_coord.x, 0.0, 1.0);    
+          }
+    name: function_fill_1
+    cls_name: Function Fill
+    x: 248
+    y: 183
+    disp_param: {}
+  '4':
+    params:
+      Resolution:
+        x: 675
+        y: 675
+      Size:
+        e_x: 3
+        e_y: 3
+        se_cv: 'return vec2(2, 2)'
+      Smooth Scaling:
+        v: true
+      Texture Edge:
+        sel_str: Pad
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: create_pixel_buffer_1
+    cls_name: Create Pixel-Buffer
+    x: 362
+    y: 84
+    disp_param: {}
+  '6':
+    params:
+      Shape:
+        sel_str: Rectangle
+      Size:
+        e_x: 3
+        e_y: 3
+        se_cv: 'return vec2(0.5, 0.5)'
+      Num Points:
+        e_v: 5
+        se_cv: return 5
+      Inner Point:
+        e_x: 0.22600000000000003
+        se_y: '-0.311'
+        se_cv: 'return vec2(0.226, -0.311)'
+      Transform:
+        se_tx: '-0.446'
+        se_ty: '-0.118'
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: geom_primitive_2
+    cls_name: Geom Primitive
+    x: 143
+    y: 78
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+  '7':
+    params:
+      Pixels Per Unit:
+        e_v: 200
+        se_cv: return 200
+      Start Count:
+        e_v: 200000
+        se_cv: return 10000
+      Shuffle Input:
+        v: true
+      Seed:
+        e_v: 1
+        se_cv: return 1
+      Density:
+        e_v: 0.1
+        show_code: true
+        se_cv: |-
+          return in_tex(coord).r * 0.3 + 0.02
+
+          # return ifelse(coord.x > 0.1, 0.1, 0.3)*0.6
+
+          c = plasma(coord, 20000, mouse)
+          c = c * 2-1
+          cc = clamp(abs(c*0.7-0.1)+0.2, 0.1, 10)
+          return cc * 0.12
+    name: scatter2_1
+    cls_name: Scatter2
+    x: 11
+    y: 201
+    disp_param: {}
+  '9':
+    params:
+      OrderInputs:
+        sorted_order: [1, 0]
+    name: group_objects_1
+    cls_name: Group Objects
+    x: 186
+    y: 467
+    disp_param: [&ref_1 {show_fill: true}, &ref_0 {show_vtx: true, show_lines: true, show_faces: true}]
+  '12':
+    params: {}
+    name: pixels_to_vertices_1
+    cls_name: Pixels to Vertices
+    x: 6
+    y: 290
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+  '15':
+    params:
+      npt:
+        v:
+          '0': color
+          '1': radius
+          '2': normal
+          '3': fill
+          '4': transform
+      Bind To:
+        sel_str: Vertices
+      Type:
+        sel_str: Float
+      Edit code:
+        v: false
+      Name:
+        v: radius
+      Color:
+        hex: '#CCCCCC'
+        se_cv: 'return rgb(204, 204, 204)'
+      Float:
+        e_v: 1
+        se_cv: return 0
+      Float2:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      Select:
+        e_v: 1
+        se_cv: return true
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: set_attribute_1
+    cls_name: Set Attribute
+    x: -17
+    y: 376
+    disp_param: *ref_0
+  '18':
+    params: {}
+    name: triangulate_1
+    cls_name: Triangulate
+    x: -41
+    y: 474
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+  '20':
+    params:
+      Margin:
+        e_x: 0.2
+        e_y: 0.2
+        se_cv: 'return vec2(0.2, 0.2)'
+    name: voronoi_1
+    cls_name: Voronoi
+    x: -34
+    y: 579
+    disp_param:
+      show_vtx: false
+      show_ctrls: true
+      show_lines: true
+      show_faces: true
+  '22':
+    params:
+      Type:
+        sel_str: Float2-Mouse
+      Name:
+        v: mouse
+      Float:
+        e_v: 1
+        se_cv: return 1
+      Integer:
+        e_v: 1
+        se_cv: return 1
+      Float2:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      Color:
+        hex: '#CCCCCC'
+        se_cv: 'return rgb(204, 204, 204)'
+      Mouse Coord:
+        e_x: 0.5690000000000001
+        e_y: 0.013000000000000003
+        se_cv: 'return vec2(0, 0)'
+      Sample At:
+        sel_str: Mouse left down
+    name: mouse
+    cls_name: Variable
+    x: -164
+    y: 245
+    disp_param: {}
+  '27':
+    params:
+      Shape:
+        sel_str: Rectangle
+      Size:
+        e_x: 3
+        e_y: 3
+        se_cv: 'return vec2(0.5, 0.5)'
+      Num Points:
+        e_v: 5
+        se_cv: return 5
+      Inner Point:
+        e_x: 0.22600000000000003
+        se_y: '-0.311'
+        se_cv: 'return vec2(0.226, -0.311)'
+      Transform:
+        se_tx: '-0.354'
+        se_ty: '-0.116'
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: geom_primitive_3
+    cls_name: Geom Primitive
+    x: -207
+    y: 0
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+  '28':
+    params:
+      Set approximate distance:
+        v: false
+      Divisions:
+        e_v: 140
+        se_cv: return 4
+      Distance:
+        e_v: 0.1
+        se_cv: return 0.1
+    name: divide_1
+    cls_name: Divide
+    x: -174
+    y: 105
+    disp_param:
+      show_vtx: true
+      show_lines: false
+      show_faces: true
+  '37':
+    params:
+      Type:
+        sel_str: Radial
+      Method:
+        sel_str: Function
+      Point 1:
+        e_x: -0.2769100557413599
+        e_y: 0.16995690078038
+        se_cv: 'return vec2(-0.5, 0)'
+      Radius 1:
+        e_v: 0.1
+        se_cv: return 0.1
+      Point 2:
+        e_x: -0.550135540691193
+        e_y: -0.17440662207357893
+        se_cv: 'return vec2(0.5, 0)'
+      Radius 2:
+        e_v: 1.2289999999999999
+        se_cv: return 0.7
+      Spread:
+        sel_str: Repeat
+      f(t)=:
+        hex: '#CCCCCC'
+        show_code: true
+        se_cv: 'return rgb(255, 0, 0.0) * (1-pow(sin(t*10),2)) * 0.2'
+      Sample Num:
+        e_v: 16
+        sldcfg_v:
+          min: 1
+          max: 30
+          visible: true
+          allowed: true
+        se_cv: return 10
+      Add stops:
+        v: true
+      Value:
+        lst: [0, 0.0625, 0.125, 0.1875, 0.25, 0.3125, 0.375, 0.4375, 0.5, 0.5625, 0.625, 0.6875, 0.75, 0.8125, 0.875, 0.9375, 1]
+      Color:
+        lst: [51, 0, 0, 255, 34, 0, 0, 255, 5, 0, 0, 255, 5, 0, 0, 255, 33, 0, 0, 255, 51, 0, 0, 255, 34, 0, 0, 255, 6, 0, 0, 255, 4, 0, 0, 255, 32, 0, 0, 255, 51, 0, 0, 255, 35, 0, 0, 255, 6, 0, 0, 255, 4, 0, 0, 255, 31, 0, 0, 255, 51, 0, 0, 255, 36, 0, 0, 255]
+      Resolution:
+        e_v: 128
+        se_cv: return 128
+      Smooth:
+        v: false
+    name: gradient_1
+    cls_name: Gradient
+    x: 43
+    y: 35
+    disp_param: *ref_1
+lines:
+  - from_name: out_tex
+    from_id: 4
+    to_name: in_fb
+    to_id: 2
+    uid: 5
+  - from_name: out_mesh
+    from_id: 6
+    to_name: clip_shape
+    to_id: 7
+    uid: 8
+  - from_name: out_mesh
+    from_id: 15
+    to_name: in_multi_mesh
+    to_id: 9
+    uid: 17
+  - from_name: out_mesh
+    from_id: 15
+    to_name: in_obj
+    to_id: 18
+    uid: 19
+  - from_name: out_mesh
+    from_id: 18
+    to_name: in_mesh
+    to_id: 20
+    uid: 21
+  - from_name: variable_out
+    from_id: 22
+    to_name: vars_in
+    to_id: 7
+    uid: 23
+  - from_name: out_texture
+    from_id: 7
+    to_name: in_tex
+    to_id: 12
+    uid: 24
+  - from_name: out_pnt
+    from_id: 12
+    to_name: in_obj
+    to_id: 15
+    uid: 25
+  - from_name: out_mesh
+    from_id: 27
+    to_name: in_mesh
+    to_id: 28
+    uid: 31
+  - from_name: out_gradient
+    from_id: 37
+    to_name: in_src
+    to_id: 7
+    uid: 38
+  - from_name: out_gradient
+    from_id: 37
+    to_name: in_multi_mesh
+    to_id: 9
+    uid: 41
+next_node_id: 45
+names_idx_s:
+  Geom Primitive: 3
+  Function Fill: 1
+  Create Pixel-Buffer: 1
+  Scatter2: 1
+  Group Objects: 1
+  Pixels to Vertices: 1
+  Set Attribute: 1
+  Triangulate: 1
+  Voronoi: 1
+  Variable: 1
+  Manual Geometry: 1
+  Divide: 1
+  Gradient: 1
+display_node_id: 20
+tdisp_node_ids: []
+input_node_ids: []
+nodes_view:
+  pan_x: 199
+  pan_y: 75

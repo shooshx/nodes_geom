@@ -178,6 +178,7 @@ class TerminalBase {
         this.color = "#aaa"
 
         this.xoffset = null // will be set again in Node
+        this.connection_event = null
 
         if (is_input) {
             in_node.inputs.push(this)
@@ -211,9 +212,13 @@ class TerminalBase {
     connect_events_dest() { return owner.cls }
 
     tdid_connect(line) {
+        if (this.connection_event)
+            this.connection_event(true)
         this.owner.cls.did_connect(this, line)
     }
     tdoing_disconnect(line) {
+        if (this.connection_event)
+            this.connection_event(false)
         this.owner.cls.doing_disconnect(this, line)
     }
 

@@ -56,7 +56,7 @@ EXPRESSIONS
 - BUG - Yaml programs with multiline string
 - BUG expr - when editing the code, variable not recognized
 - Scatter with rendering
-    param disable according to points input
+    check alignment of external geom
     from image
     clip by shape
     default gradient gray instead of gold
