@@ -356,7 +356,7 @@ uniform mat3 _u_tex_tmat_3;
 vec4 in_tex(float x, float y) { 
     return texture(_u_in_tex_0, (_u_tex_tmat_0 * vec3(x, y, 1.0)).xy); 
 }
-vec4 in_texi(float i, float x, float y) { 
+vec4 in_texi(float i, float x, float y) {  // float since expr puts out only floats
     switch(int(i)) {
     case 0: return texture(_u_in_tex_0, (_u_tex_tmat_0 * vec3(x, y, 1.0)).xy);
     case 1: return texture(_u_in_tex_1, (_u_tex_tmat_1 * vec3(x, y, 1.0)).xy);
@@ -479,7 +479,6 @@ class NodeShader extends NodeCls
         this.in_fb = new InTerminal(node, "in_fb") // don't want to change the name to avoid breakage
         this.out_tex = new OutTerminal(node, "out_texture")
 
-
         this.vtx_text = new ParamTextBlock(node, "Vertex Shader", "", (text)=>{
             this.try_update_uniforms(this.vtx_text, text, this.uniforms_vert, this.vert_group)
         })
@@ -489,9 +488,12 @@ class NodeShader extends NodeCls
         // used so that the uniforms would get mixed up and rearranged each time they are parsed
         this.vert_group = new ParamGroup(node, "Vertex Shader Uniforms")
         this.frag_group = new ParamGroup(node, "Fragment Shader Uniforms")
+        
+        this.clear_color = [0,0,0,0] // this can be a param but doesn't need to be yet, needed for Scatter2
 
         this.sorted_order = []
         mixin_multi_reorder_control(node, this, this.sorted_order, this.in_texs)
+        this.override_texs = null // the node we're in can override a specific index of a texture with an internal texture
 
         this.attr_names = ["vtx_pos"] //null // will be set by caller TODO just figure it out with errors
         this.program = null
@@ -502,7 +504,6 @@ class NodeShader extends NodeCls
         this.last_uniforms_err = null
         this.opt = { override_just_points: false, // override the mesh type and display just the points
                      shuffle_points_seed: null }  // if not null, seed of the shuffling of points when drawing just vertices
-
         // it's ok for the texture to belong to this node since texture is const only so it won't be modified
         //this.render_to_tex = null 
     }
@@ -522,10 +523,13 @@ class NodeShader extends NodeCls
         return null
     }
 
-    param_of_uniform(name) {
+    param_of_uniform(name, exception_not_found=false) {
         let d = this.uniforms[name]
-        if (d === undefined || d === null)
+        if (d === undefined || d === null) {
+            if (exception_not_found)
+                assert(false, this, "Uniform not found " + name)
             return null
+        }
         return d.param
     }
     param_of_define(name) {
@@ -700,11 +704,20 @@ class NodeShader extends NodeCls
     {
         assert(texs.length == this.sorted_order.length, this, "unexpected sorted_order size") // sanity
 
-        for(let ti = 0; ti < texs.length; ++ti)
+        const empty_indices = []
+        for(let ti = 0; ti < IN_TEX_COUNT; ++ti)
         {
-            const tex = texs[this.sorted_order[ti]]
-            const texParam = this.param_of_uniform('_u_in_tex_' + ti)
-            assert(texParam !== null , this, "can't find uniform _u_in_tex_" + ti) // was supposed to be there from uniform parsing
+            let tex = null // FrameBuffer object
+            if (this.override_texs !== null && this.override_texs[ti] !== undefined && this.override_texs[ti] !== null)
+                tex = this.override_texs[ti]
+            else if (ti < this.sorted_order.length)
+                tex = texs[this.sorted_order[ti]]
+            else {
+                empty_indices.push(ti)
+                continue
+            }
+
+            const texParam = this.param_of_uniform('_u_in_tex_' + ti, true)  // was supposed to be there from uniform parsing
             
             // if we're creating the texutre, create it in the right unit so that it won't overwrite other stuff
             gl.activeTexture(gl.TEXTURE0 + ti)
@@ -720,38 +733,35 @@ class NodeShader extends NodeCls
 
             texParam.modify(ti, false)   // don't dirtify since we're in run() and that would cause a loop
             gl.bindTexture(gl.TEXTURE_2D, tex_obj);
-            if (tex_obj.t_mat !== undefined) { // coming from PImage
-                // the texture has an associated transform with it, need to make the glsl code move it accordingly
-                const tex_tmat = this.param_of_uniform('_u_tex_tmat_' + ti)
-                assert(tex_tmat !== null, this, "can't find uniform _u_tex_tmat_" + ti)
+            assert(tex_obj.t_mat !== undefined, this, "texture has not transform") 
 
-                let adj_m = mat3.create()
-                mat3.translate(adj_m, adj_m, vec2.fromValues(0.5,0.5))
+            // the texture has an associated transform with it, need to make the glsl code move it accordingly
+            const tex_tmat = this.param_of_uniform('_u_tex_tmat_' + ti, true)
 
-                const tr_from = (tex instanceof Gradient) ? in_fb : tex
+            let adj_m = mat3.create()
+            mat3.translate(adj_m, adj_m, vec2.fromValues(0.5,0.5))
 
-                // scale 0-1 range of a texture to -1:1 of the framebuffer (with the translation above)
-                mat3.scale(adj_m, adj_m, vec2.fromValues(1 / tr_from.sz_x, 1 / tr_from.sz_y))
-            
-                let inv_tex_tmat = mat3.create()
-                mat3.invert(inv_tex_tmat, tr_from.t_mat)
-                mat3.mul(adj_m, adj_m, inv_tex_tmat)
+            const tr_from = (tex instanceof Gradient) ? in_fb : tex
 
-                tex_tmat.modify(adj_m, false)
-                
-            }
+            // scale 0-1 range of a texture to -1:1 of the framebuffer (with the translation above)
+            mat3.scale(adj_m, adj_m, vec2.fromValues(1 / tr_from.sz_x, 1 / tr_from.sz_y))
+        
+            let inv_tex_tmat = mat3.create()
+            mat3.invert(inv_tex_tmat, tr_from.t_mat)
+            mat3.mul(adj_m, adj_m, inv_tex_tmat)
+
+            tex_tmat.modify(adj_m, false)
+
         }
         // make sure textures uniform that don't have connected inputs to fill it are not set to something unknown
         const ident = mat3.create()
-        for(let ti = texs.length; ti < IN_TEX_COUNT; ++ti) {
+        for(let ti of empty_indices) {
             gl.activeTexture(gl.TEXTURE0 + ti)
             gl.bindTexture(gl.TEXTURE_2D, g_dummy_texture);
-            const texParam = this.param_of_uniform('_u_in_tex_' + ti)
-            if (texParam !== null)
-                texParam.modify(ti, false)
-            const texMat = this.param_of_uniform('_u_tex_tmat_' + ti)
-            if (texMat !== null)
-                texMat.modify(ident, false)
+            const texParam = this.param_of_uniform('_u_in_tex_' + ti, true)
+            texParam.modify(ti, false)
+            const texMat = this.param_of_uniform('_u_tex_tmat_' + ti, true)
+            texMat.modify(ident, false)
         }
         gl.activeTexture(gl.TEXTURE0); // restore default state
     }
@@ -765,7 +775,8 @@ class NodeShader extends NodeCls
         gl.activeTexture(gl.TEXTURE0);
     }
 
-    async run() {
+    async run() 
+    {
         ensure_webgl()
         assert(this.last_uniforms_err === null, this, this.last_uniforms_err)
         const fb_factory = this.in_fb.get_const() 
@@ -786,11 +797,12 @@ class NodeShader extends NodeCls
             mesh = this.make_tex_aligned_mesh(fb, fb.sz_x, fb.sz_y)            
         
         // triangles or just vertices
+        assert(mesh.type !== undefined, this, "input needs to be a mesh object")
         assert(mesh.type === MESH_TRI || mesh.type === MESH_NOT_SET || this.opt.override_just_points, this, "No triangle faces in input mesh")
 //        assert(this.attr_names !== null, this, "Missing attr_names") // TBD parse this from the shaders
 
-        if (this.vtx_text.pis_dirty() || this.frag_text.pis_dirty() || this.is_defines_dirty()) 
-        {
+        if (this.vtx_text.pis_dirty() || this.frag_text.pis_dirty() || this.is_defines_dirty() || this.program === null) 
+        { // program can be null if we reset dirty (due to internal node) without actually doing run
             if (this.program)
                 gl.deleteProgram(this.program)
             const defines = {}
@@ -847,7 +859,7 @@ class NodeShader extends NodeCls
 
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, fb.tex_obj, 0);
 
-        gl.clearColor(0, 0, 0, 0);
+        gl.clearColor(this.clear_color[0], this.clear_color[1], this.clear_color[2], this.clear_color[3]);
         gl.clear(gl.COLOR_BUFFER_BIT);
         try {
             mesh.gl_draw(transform, this.program.attrs, this.opt)
@@ -934,8 +946,8 @@ function copy_members(from, to, with_that, names) {
 
 class TerminalProxy extends Terminal
 {
-    constructor(node, wterm, name_override=null) {
-        super((name_override !== null)?name_override:wterm.name, node, wterm.is_input)
+    constructor(node, wterm, name_override=null, conn_ev=null) {
+        super((name_override !== null)?name_override:wterm.name, node, wterm.is_input, conn_ev)
         this.wrap_term = wterm
         this.width = wterm.width
         this.lines = wterm.lines // not sure if needed...
@@ -965,38 +977,61 @@ class TerminalProxy extends Terminal
 }
 
 
-// base class for nodes that are running a shader
-class BaseNodeShaderWrap extends NodeCls
+// base class for nodes that have an internal program
+class BaseNodeParcel extends NodeCls
 {
     constructor(node) {
         super(node)
         this.prog = new Program()
-        this.shader_node = this.prog.add_node(0, 0, null, NodeShader, null)
+        this.nodes = []
+    }
+    add_parcel_node(cls) {
+        const n = this.prog.add_node(0, 0, null, cls, null)
+        this.nodes.push(n)
+        return n
     }
     destructtor() {
-        this.shader_node.cls.destructtor()
+        for(let n of this.nodes)
+            n.cls.destructtor()
     }
     get_error() {
         if (this.error !== null)
             return this.error
-        return this.shader_node.cls.get_error()
+        for(let n of this.nodes) {
+            const e = n.cls.get_error()
+            if (e !== null)
+                return e
+        }
+        return null
     }
     clear_error() {
         this.error = null
-        this.shader_node.cls.clear_error()
+        for(let n of this.nodes)
+            n.cls.clear_error()
     }
     cclear_dirty() {
         // without this the shader_node texts are never cleaned
-        this.shader_node.clear_dirty()
+        for(let n of this.nodes)
+            n.clear_dirty()
     }
 
     is_internal_dirty() {
-        return this.shader_node.has_anything_dirty()
+        for(let n of this.nodes)
+            if (n.has_anything_dirty())
+                return true
+        return false
+    }
+}
+
+class BaseNodeShaderParcel extends BaseNodeParcel {
+    constructor(node) {
+        super(node)
+        this.shader_node = this.add_parcel_node(NodeShader)
     }
 }
 
 
-class NodePointGradFill extends BaseNodeShaderWrap
+class NodePointGradFill extends BaseNodeShaderParcel
 {
     static name() { return "Point Gradient Fill" }
     constructor(node) {
@@ -1082,6 +1117,18 @@ function link_pass_through(prog, to_term) {
     return [ptnode, ptnode.cls.in]
 }
 
+// snippet for pass through node (not currently used)
+// in ctor
+        //const [ptnode, ptin] = link_pass_through(this.prog, this.shader_node.cls.in_texs)
+        //this.tex_ptnode = ptnode
+        //this.in_src = new TerminalProxy(node, ptin, "in_src")
+// in run
+        // move tex input to shader node       
+        //this.tex_ptnode.cls.run()
+        //progress_io(this.tex_ptnode)
+
+
+
 const SCATTER_VTX_TEXT = `
 in vec2 vtx_pos;
 
@@ -1098,28 +1145,33 @@ $FUNCS$
 void main() {
     vec3 tmp = t_mat * vec3(vtx_pos.xy, 1.0);
     vec2 v_coord = tmp.xy;
-    //vec2 v_coord = vtx_pos.xy;
+    
+    if (in_texi(3.0, v_coord).r == 0.0) {
+        v_size = -1.0;
+        gl_PointSize = 1.0; // should not be 0
+    }
+    else {
+        $BEFORE_EXPR$
+        float f = $EXPR$;
 
-    $BEFORE_EXPR$
-    float f = $EXPR$;
+        // discretisize the pixel position to whole pixels
+        gl_Position = vec4( (floor(vtx_pos.xy * res) + vec2(0.5,0.5)) / res, 0.0, 1.0) ;
 
-    // discretisize the pixel position to whole pixels
-    gl_Position = vec4( (floor(vtx_pos.xy * res) + vec2(0.5,0.5)) / res, 0.0, 1.0) ;
-
-    f = f * rel_res ;
-    v_size = f;
-    gl_PointSize = f;
+        f = f * rel_res ;
+        v_size = f;
+        gl_PointSize = f;
+    }
 }   
     
 `
 
 const SCATTER_FRAG_TEXT =  `
-precision mediump float;
-
 flat in float v_size;
 out vec4 outColor;
 
 void main() {
+    if (v_size < 0.0)
+        discard;
     // center on vertex
     vec2 pc = (gl_PointCoord - vec2(0.5));
 
@@ -1132,35 +1184,61 @@ void main() {
     else {
         outColor = vec4(0.7, 0.7, 0.7, 1.0);
     }
-
 }
 `
 
-class Scatter2 extends BaseNodeShaderWrap
+const SCATTER_CLIP_VTX_TEXT = `
+in vec4 vtx_pos;
+void main() {
+    gl_Position = vtx_pos;
+}
+`
+const SCATTER_CLIP_FRAG_TEXT = `
+out vec4 outColor;
+void main() {
+    outColor = vec4(1.0, 1.0, 1.0, 1.0);
+}
+`
+
+class Scatter2 extends BaseNodeParcel
 {
     static name() { return "Scatter2" }
-    constructor(node) {
+    constructor(node) 
+    {
         super(node)
+        this.shader_node = this.add_parcel_node(NodeShader) // main rendering
+        this.clip_shader_node = this.add_parcel_node(NodeShader)
+        this.triangulate = this.add_parcel_node(NodeTriangulate)
         this.shader_node.cls.attr_names = ["vtx_pos"] //, "vtx_color"]
-        this.in_points = new TerminalProxy(node, this.shader_node.cls.in_mesh, "in_points")
-        this.in_points.connection_event = (v)=>{
+
+        let seed_set_enable = ()=>{
+            // seed is only relevant if we don't have connection (internal random) of if we have a connection but want to randomize it
+            this.seed.set_enable(this.shuffle_in_points.v || !this.in_points.has_connection())
+        }
+
+        this.in_points = new TerminalProxy(node, this.shader_node.cls.in_mesh, "in_points", (v)=>{
             this.start_point_count.set_enable(!v) // only relevant for internal geometry
             this.shuffle_in_points.set_enable(v)  // only relevant for external
-        }
-        const [ptnode, ptin] = link_pass_through(this.prog, this.shader_node.cls.in_texs)
-        this.tex_ptnode = ptnode
-        this.in_src = new TerminalProxy(node, ptin, "in_src")
-        //this.in_fb = new TerminalProxy(node, this.shader_node.cls.in_fb)
-        this.in_clip_shape = new InTerminal(node, "clip_shape")
+            seed_set_enable()
+        })
+        this.in_texs = new TerminalProxy(node, this.shader_node.cls.in_texs, "in_texs")
+        this.in_texs.width = 16
+
+        this.in_clip_shape = new InTerminal(node, "clip_shape", (v)=>{
+            this.do_clip.set_enable(v)
+        })
         this.out_tex = new TerminalProxy(node, this.shader_node.cls.out_tex)
-        //this.out_pnt = new OutTerminal(node, "out_png")
+        //this.out_tex = new TerminalProxy(node, this.clip_shader_node.cls.out_tex) // for testing clip
 
         //this.sz = new ParamVec2(node, "Size", 2, 2);
         this.rel_res = new ParamFloat(node, "Pixels Per Unit", 200)
         this.start_point_count = new ParamInt(node, "Start Count", 10000) // assuming there's no in_points
-        this.shuffle_in_points = new ParamBool(node, "Shuffle Input", true)
+        this.shuffle_in_points = new ParamBool(node, "Shuffle Input", true, ()=>{
+            seed_set_enable()
+        })
 
         this.seed = new ParamInt(node, "Seed", 1)
+        this.do_clip = new ParamSelect(node, "Clip Object", 0, ["Clips by bounding-box", "Clips by shape"])
         this.density = new ParamFloat(node, "Density", 0.1, {show_code:true})
 
         node.set_state_evaluators({"coord":  (m,s)=>{ return new GlslTextEvaluator(s, "v_coord", ['x','y'], TYPE_VEC2) },
@@ -1168,6 +1246,10 @@ class Scatter2 extends BaseNodeShaderWrap
 
         this.shader_node.cls.frag_text.set_text(SCATTER_FRAG_TEXT)
         this.shader_node.cls.opt.override_just_points = true // even if the input mesh has faces, display just the vertices
+
+        //----- clip_shader ------
+        this.clip_shader_node.cls.vtx_text.set_text(SCATTER_CLIP_VTX_TEXT)
+        this.clip_shader_node.cls.frag_text.set_text(SCATTER_CLIP_FRAG_TEXT)
     }
 
     make_vtx_text(expr_param, template_text, to_shader_prm)  // TBD refactor with func
@@ -1198,31 +1280,70 @@ class Scatter2 extends BaseNodeShaderWrap
         emit_ctx.set_uniform_vars(this.shader_node.cls)
     }
 
+    create_fb(clip_bbox) {
+        const sz_x = clip_bbox.width(), sz_y = clip_bbox.height()
+        const res_x = Math.round(this.rel_res.v * sz_x)
+        const res_y = Math.round(this.rel_res.v * sz_y)
+        //console.log("resolution: ", res_x, ", ", res_y)
+        const fb = new FrameBufferFactory(res_x, res_y, sz_x, sz_y, false, "pad") // 
+        const tr = mat3.create()
+        mat3.fromTranslation(tr, clip_bbox.center())
+        fb.transform(tr)
+        return fb
+    }
+
     random_points_mesh(bbox, seed, len)
     {
         const prng = new RandNumGen(seed)
         const vtx_pos = new TVtxArr(len * 2)
         const bminx = bbox.min_x, bminy = bbox.min_y, bw = bbox.width(), bh = bbox.height()
-        for(let i = 0, vi = 0; i < len; ++i, vi += 2) {
-            vtx_pos[vi] =   bminx + bw* prng.next() 
-            vtx_pos[vi+1] = bminy + bh* prng.next()
+        for(let i = 0, vi = 0; i < len; ++i) {
+            vtx_pos[vi++] = bminx + bw* prng.next() 
+            vtx_pos[vi++] = bminy + bh* prng.next()
         }
         const mesh = new Mesh()
         mesh.set("vtx_pos", vtx_pos, 2, false)
         return mesh
     }
 
+    async render_clip_mask(clip_shape, fb)
+    {
+        if (this.in_clip_shape.is_dirty()) {
+            if (clip_shape.constructor !== Mesh || clip_shape.type != MESH_TRI) {
+                this.triangulate.cls.in_obj.force_set(clip_shape)
+                this.triangulate.cls.run()
+                clip_shape = this.triangulate.cls.out_mesh.get_const()
+            }
+            this.clip_shader_node.cls.in_mesh.force_set(clip_shape) // instead of messing around with lines
+        }
+        this.clip_shader_node.cls.in_fb.force_set(fb)
+        this.clip_shader_node.cls.clear_color = [0,0,0,1]
+        await this.clip_shader_node.cls.run()
+        const out_tex = this.clip_shader_node.cls.out_tex.get_const()  
+        assert(out_tex !== null, this, "failed clip render")
+        return out_tex
+    }
+
     async run() 
     {
         // inputs check
+        let clip_bbox = null
         const clip_shape = this.in_clip_shape.get_const()
-        assert(clip_shape !== null, this, "missing input clip shape") // TBD this or the vertices bbox
-        assert(clip_shape.get_bbox !== undefined, this, "clip_shape input needs to be a shape")
-        const clip_bbox = clip_shape.get_bbox();
+        const in_points = this.in_points.get_const()
+        if (clip_shape !== null) {
+            assert(clip_shape.get_bbox !== undefined, this, "clip_shape input needs to be a shape")
+            clip_bbox = clip_shape.get_bbox();
+        }
+        else {
+            assert(in_points !== null, this, "missing geometry to define area by")
+            assert(in_points.get_bbox !== undefined, this, "in_points input needs to geometry")
+            clip_bbox = in_points.get_bbox()
+        }
 
-        let points = this.in_points.get_const()
-        if (points === null) {
-            points = this.random_points_mesh(clip_bbox, this.seed.v, this.start_point_count.v)
+
+        let points = in_points
+        if (points === null) { // shader checks that it is geometry
+            points = this.random_points_mesh(clip_bbox, this.seed.v, this.start_point_count.v, clip_shape)
             this.in_points.set(points)
             this.shader_node.cls.opt.shuffle_points_seed = null // don't need to shuffle the randomness we just made
         }
@@ -1232,20 +1353,16 @@ class Scatter2 extends BaseNodeShaderWrap
 
         this.make_vtx_text(this.density, SCATTER_VTX_TEXT, this.shader_node.cls.vtx_text) // TBD check dirty
 
-        // move tex input to shader node       
-        this.tex_ptnode.cls.run()
-        progress_io(this.tex_ptnode)
-
         // make framebuffer factory
-        const sz_x = clip_bbox.width(), sz_y = clip_bbox.height()
-        const res_x = Math.round(this.rel_res.v * sz_x)
-        const res_y = Math.round(this.rel_res.v * sz_y)
-        //console.log("resolution: ", res_x, ", ", res_y)
-        const fb = new FrameBufferFactory(res_x, res_y, sz_x, sz_y, false, "pad") // 
-        const tr = mat3.create()
-        mat3.fromTranslation(tr, clip_bbox.center())
-        fb.transform(tr)
+        const fb = this.create_fb(clip_bbox)
         this.shader_node.cls.in_fb.force_set(fb) // TBD check if dirty
+        
+        if (clip_shape !== null && this.do_clip.sel_idx == 1) {
+            const clip_tex = await this.render_clip_mask(clip_shape, fb)
+            this.shader_node.cls.override_texs = {3:clip_tex}
+        }
+        else 
+            this.shader_node.cls.override_texs = null
 
         this.shader_node.cls.param_of_uniform('res').modify([fb.resolution_x, fb.resolution_y])
         this.shader_node.cls.param_of_uniform('rel_res').modify(this.rel_res.v)
@@ -1256,7 +1373,10 @@ class Scatter2 extends BaseNodeShaderWrap
 }
 
 
-class PixelsToVertices extends BaseNodeShaderWrap
+
+
+
+class PixelsToVertices extends NodeCls
 {
     static name() { return "Pixels to Vertices" }
     constructor(node) {

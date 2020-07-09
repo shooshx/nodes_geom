@@ -55,16 +55,17 @@ EXPRESSIONS
 ****** CURRENT AGENDA ******
 - BUG - Yaml programs with multiline string
 - BUG expr - when editing the code, variable not recognized
+- BUG expr to GLSL - mult by bool
 - Scatter with rendering
-    check alignment of external geom
-    from image
     clip by shape
-    default gradient gray instead of gold
+        triangulate
+        back
     canvas owned by shader node
+    check dirty for fb
     attr_names auto? still support arbitrary attributes
-        getActiveAttrib, also type check with what's coming from mesh
-    divide node without faces
+        getActiveAttrib, also type check with what's coming from mesh    
     old scatter with just constant
+- output PNG
 - mesh merge
 - BoolParam from code (from variable)
 - Small: notes in nodes view
@@ -117,6 +118,7 @@ NODES:
     - BUG - yellow line doesn't follow the selected point
     - make several versions of the arrays in the same object and a node to select version - instead of a modify node
 - Divide 
+    - just vertices without faces (better performance)
     - triangles - for better interpolation
     - unifies vertices?
     - divide line to sub lines, curves
@@ -207,6 +209,7 @@ NODES:
     - paths to triangles https://css-tricks.com/rendering-svg-paths-in-webgl/
 - BoolOp
     - do operation on local surroundings of the smaller (or selected) bbox for better performance
+    - with just vertices (include/exclude vertex)
 - Offset-Path
     - bug with oversizing divided square - lighten doesn't get rid of first point of merge
     - discretization of bezier (and back to bezier from paperjs?)

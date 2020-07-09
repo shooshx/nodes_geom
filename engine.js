@@ -210,20 +210,26 @@ class Program {
         this.obj_map[uid] = line
         line.from_term.lines.push(line)
         line.to_term.lines.push(line)
-        line.to_term.get_attachee().tdid_connect(line)  // telling the node into what terminal line was connected
+        try {
+            line.to_term.get_attachee().tdid_connect(line)  // telling the node into what terminal line was connected
+        } catch(e) {}    
         line.to_term.tset_dirty(true) // need function so that it will work for multi in as well
         trigger_frame_draw(true)
     }
 
 
     delete_line(line, redraw) {
-        try {
+        try { // might do console.assert to check stuff, don't want it to mess with us
             line.to_term.get_attachee().tdoing_disconnect(line)
         } catch(e) {}
         line.from_term.lines.splice(line.from_term.lines.indexOf(line), 1)
         line.to_term.lines.splice(line.to_term.lines.indexOf(line), 1)
         line.to_term.tset_dirty(true)
         this.lines.splice(this.lines.indexOf(line), 1)
+        try { // might do console.assert to check stuff, don't want it to mess with us
+            line.to_term.get_attachee().tdid_disconnect(line)
+        } catch(e) {}
+
         if (redraw) {
             draw_nodes()
             trigger_frame_draw(true)

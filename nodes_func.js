@@ -167,7 +167,7 @@ class GlslEmitContext {
 //    outColor = in_tex(v_coord);
 // }
 
-class NodeFuncFill extends BaseNodeShaderWrap
+class NodeFuncFill extends BaseNodeShaderParcel
 {
     static name() { return "Function Fill" }
     constructor(node) 

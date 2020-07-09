@@ -1326,6 +1326,7 @@ class NodeTriangulate extends NodeCls
         assert(obj.arrs !== undefined && obj.arrs.vtx_pos !== undefined, this, "Input doesn't have vertices. type: " + obj.constructor.name())
 
         if (obj.constructor === Mesh) {
+            // do this even if the mesh is already triangle mesh so that we'll get the true triangulation
             let obj = this.in_obj.get_mutable()
             let d = new Delaunator(obj.effective_vtx_pos)
             obj.set('idx', d.triangles)

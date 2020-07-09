@@ -165,7 +165,7 @@ const KIND_VARS = 1  // terminal that passes variable packs
 
 // does just the graphics
 class TerminalBase {
-    constructor(name, in_node, is_input) {
+    constructor(name, in_node, is_input, conn_ev=null) {
         this.name = name
         console.assert(is_input !== undefined, "don't instantiate TerminalBase")
         this.owner = in_node // Node object
@@ -178,7 +178,7 @@ class TerminalBase {
         this.color = "#aaa"
 
         this.xoffset = null // will be set again in Node
-        this.connection_event = null
+        this.connection_event = conn_ev
 
         if (is_input) {
             in_node.inputs.push(this)
@@ -188,6 +188,11 @@ class TerminalBase {
             in_node.outputs.push(this)
             this.yoffset = this.owner.height + TERM_RADIUS + TERM_MARGIN_Y   
         }
+    }
+
+    tpost_init() { // need to happen after the entire ctor of cls is done
+        if (this.connection_event)
+            this.connection_event(false) // initialized disconnected, later load may connect or not
     }
 
     px() { return this.owner.x + this.xoffset + nodes_view.pan_x }
@@ -217,9 +222,15 @@ class TerminalBase {
         this.owner.cls.did_connect(this, line)
     }
     tdoing_disconnect(line) {
-        if (this.connection_event)
-            this.connection_event(false)
         this.owner.cls.doing_disconnect(this, line)
+    }
+    tdid_disconnect(line) {
+        if (this.connection_event)
+            this.connection_event(false) // call this only after the line was removed from lines so that if we check has_connection it will be correct
+        this.owner.cls.did_disconnect(this, line)
+    }
+    has_connection() {
+        return this.lines.length > 0
     }
 
     draw(force=false) {
@@ -441,8 +452,8 @@ class Terminal extends TerminalBase
 // inputs by default have a weak handle that can be upgraded to a counting handle
 // if a mutable object is needed
 class InTerminal extends Terminal {
-    constructor(in_node, name) {
-        super(name, in_node, true)
+    constructor(in_node, name, conn_ev=null) {
+        super(name, in_node, true, conn_ev)
         this.h = null
         // an input terminal gets dirty when it's being set a new value.
         // this may be the only indication that a node is dirty if we changed a upper node when it was not visible
@@ -490,8 +501,8 @@ class InTerminal extends Terminal {
 // outputs are by default owning because they are going to need this object
 // as a cache for the next frame
 class OutTerminal extends Terminal {
-    constructor(in_node, name) {
-        super(name, in_node, false)
+    constructor(in_node, name, conn_ev=null) {
+        super(name, in_node, false, conn_ev)
         this.h = null
     }
     set(v) {
@@ -572,8 +583,8 @@ class InAttachMulti {
 // elongated
 class InTerminalMulti extends TerminalBase
 {
-    constructor(in_node, name) {
-        super(name, in_node, true)
+    constructor(in_node, name, conn_ev=null) {
+        super(name, in_node, true, conn_ev)
         this.dirty = true
         this.width = TERM_MULTI_HWIDTH
     }
@@ -725,6 +736,8 @@ class Node {
         this.make_term_offset(this.inputs)
         this.make_term_offset(this.outputs)
         this.terminals = this.inputs.concat(this.outputs)
+        for(let t of this.terminals)
+            t.tpost_init()  // for calling the initial connected/disconnected that can affect param enable (ScatterFunc)
 
         // controls caching
         // means it needs a call to run() to refresh its output according to updated parameters and inputs
@@ -1013,6 +1026,7 @@ class NodeCls {
     nset_error(e) { this.error = e }
     did_connect(to_term, line) {}
     doing_disconnect(to_term, line) {}
+    did_disconnect(to_term, line) {}
     cclear_dirty() {} // clear the dirty things in a NodeCls that are not exposed to the outside via proxies (used in variable)
 
     is_internal_dirty() { return false } // for nodes with internal nodes
