@@ -643,6 +643,8 @@ class ExpressionItem {
         }
         this.param_line = null
         this.etype = null
+        this.etype_undecided = false // these are flags since the expression can be both, not actually read, for debugging
+        this.etype_depend_var = false
         this.in_param.reg_expr_item(this)
         this.expr_score = null
         this.variable_evaluators = {}
@@ -660,8 +662,10 @@ class ExpressionItem {
     save_to(r) {
         if (this.e !== null && this.e.get_const_value() !== null)
             r["e_" + this.prop_name_ser] = this.e.get_const_value()
-        else
-            r["se_" + this.prop_name_ser] = this.se 
+        else {
+            const s = this.se.replace(/\r\n/g, '\n') // might have been pasted from windows
+            r["se_" + this.prop_name_ser] = s
+        }
         if (!slider_conf_equal(this.slider_conf, this.initial_slider_conf)) // don't need to litter
             r["sldcfg_" + this.prop_name_ser] = this.slider_conf
     }
@@ -722,9 +726,20 @@ class ExpressionItem {
             this.editor.clear_err()
     }
     do_check_type(expect_vars_resolved=false) {
-        this.etype = ExprParser.check_type(this.e, expect_vars_resolved)
-        if (this.etype === TYPE_UNDECIDED || this.etype == TYPE_DEPEND_ON_VAR) 
+        const etype = ExprParser.check_type(this.e, expect_vars_resolved)        
+        if (etype === TYPE_UNDECIDED) {
+            this.etype = null
+            this.etype_undecided = true
+            return
+        }
+        if (etype == TYPE_DEPEND_ON_VAR) {
+            this.etype = null
+            this.etype_depend_var = true
             return // can't do it now, will be called again when we have the mesh
+        }
+        this.etype = etype
+        this.etype_depend_var = false  // we know it's neither of these if we got a real type, it can be both of them added at two invocations of this function
+        this.etype_undecided = false
         if (this.prop_type == ED_COLOR_EXPR)
             eassert(this.etype === TYPE_VEC3 || this.etype === TYPE_VEC4, "Wrong type, expected a vec3/4, got " + typename(this.etype))
         else if (this.prop_type == ED_VEC2)
@@ -754,6 +769,8 @@ class ExpressionItem {
             this.variable_evaluators = state_access.need_variables
             state_access_need_inputs = state_access.need_inputs
             this.expr_score = state_access.score  // score determines if the expression depends on anything
+            this.etype_undecided = false
+            this.etype_depend_var = false
             this.do_check_type()
         }
         catch(ex) { // TBD better show the error somewhere
@@ -867,7 +884,7 @@ class ExpressionItem {
     }
     dyn_eval() {
         this.eclear_error()
-        if (this.etype === TYPE_UNDECIDED) {
+        if (this.etype == null) { // either undecided or depend on var, doesn't matter since we need to run this anyway
             try {
                 this.do_check_type() // in case we need to do it now, after there was a mesh set
             }
@@ -2252,7 +2269,12 @@ class Editor
         this.editor.setValue(start_v, 1) // 1: cursorPos end
         //editor.setHighlightGutterLine(true)
 
-        this.editor.on("change", eventWrapper(()=>{ 
+        this.editor.on("change", eventWrapper((e)=>{ 
+            // added my hack into ace to indicate a change that comes from a remove that is part of an insert
+            // in this case ace fires two event without allowing micro-tasks. this causes the second event draw to not happen since there's 
+            // a draw in progress due to the first change and that causes the variables in the expr that was parsed the second time to not be resolved
+            if (e.add_inf === "remove_in_insert")
+                return
             change_func(this.editor.getValue())
         }))
 

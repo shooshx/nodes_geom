@@ -1225,6 +1225,7 @@ class NodeRandomPoints extends NodeCls
 
         let vtx = [] 
         const r = this.min_dist.v
+        assert(r !== null, this, "varying distance not supported by this node")
         const inner2 = r * r
         const A = 4 * r * r - inner2
         const cellSize = r * Math.SQRT1_2

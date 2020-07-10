@@ -53,15 +53,11 @@ EXPRESSIONS
 
 
 ****** CURRENT AGENDA ******
-- BUG - Yaml programs with multiline string
-- BUG expr - when editing the code, variable not recognized
 - BUG expr to GLSL - mult by bool
 - Scatter with rendering
     canvas owned by shader node
-    check dirty for fb
     attr_names auto? still support arbitrary attributes
         getActiveAttrib, also type check with what's coming from mesh    
-    old scatter with just constant
 - output PNG
 - mesh merge
 - BoolParam from code (from variable)
