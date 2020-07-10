@@ -709,4 +709,6 @@ for(let c of nodes_classes)
 nodes_classes_by_name["Manual_Points"] = NodeManualGeom
 nodes_classes_by_name["Shrink Faces"] = NodeOffsetPath
 nodes_classes_by_name["Geom_Primitive"] = NodeGeomPrimitive
+nodes_classes_by_name["Scatter"] = NodeRandomPoints
+nodes_classes_by_name["Scatter2"] = Scatter2
 

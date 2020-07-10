@@ -1181,6 +1181,12 @@ function m_dist(ax, ay, bx, by) {
     return Math.max(Math.abs(ax - bx), Math.abs(ay - by))
 }
 
+function distance2(a, b) {
+    var dx = b[0] - a[0], dy = b[1] - a[1];
+    return dx * dx + dy * dy;
+  }
+  
+
 class Timer {
     constructor() {
         this.start = new Date().valueOf()
@@ -1191,11 +1197,12 @@ class Timer {
 }
 
 
+
 // https://www.sidefx.com/docs/houdini/nodes/sop/scatter.html
 // https://www.jasondavies.com/poisson-disc/
 class NodeRandomPoints extends NodeCls
 {
-    static name() { return "Scatter" }
+    static name() { return "Scatter Uniform" }
     constructor(node) {
         super(node)
         node.set_state_evaluators({"vtx_pos":  (m,s)=>{ return new ObjSubscriptEvaluator(m,s) }} )        
@@ -1216,78 +1223,86 @@ class NodeRandomPoints extends NodeCls
         let bbox = in_obj.get_bbox()  // TBD cut into shape if shape allows that
         assert(bbox !== null, this, "Object doesn't have content for a bounding box")
 
-        let value_need_src = this.min_dist.need_input_evaler("vtx_pos")
-
         let vtx = [] 
-        let addi = 0 
-        let r, inner2, A
+        const r = this.min_dist.v
+        const inner2 = r * r
+        const A = 4 * r * r - inner2
+        const cellSize = r * Math.SQRT1_2
+        const gridWidth = Math.ceil(bbox.width() / cellSize), gridHeight = Math.ceil(bbox.height() / cellSize)
+        const min_x = bbox.min_x, min_y = bbox.min_y, hw = bbox.width()/2, hh = bbox.height()/2  // for centering the grid
+        const grid = new Array(gridWidth * gridHeight)
+        const tries_k = 20
 
         //let timer = new Timer()
 
         function emitSample(p) {
             queue.push(p)
             vtx.push(p[0], p[1])
-            addi += 2
+            const gx = (p[0] - min_x) / cellSize | 0
+            const gy = (p[1] - min_y) / cellSize | 0
+            if (gx < 0 || gy < 0 || gx >= gridWidth || gy >= gridHeight)
+                return             
+            grid[gridWidth * gy + gx] = p;
         }
 
         function generateAround(p) {
             let phi = prng.next() * 2 * Math.PI
             let r = Math.sqrt(prng.next() * A + inner2); 
-            return [p[0] + r * Math.cos(phi), p[1] + r * Math.sin(phi)];  // TBD use rejection
+            return [p[0] + r * Math.cos(phi), p[1] + r * Math.sin(phi)];  
         }
 
         function withinExtent(p) {
             const x = p[0], y = p[1];
             return bbox.min_x <= x && x <= bbox.max_x && bbox.min_y <= y && y <= bbox.max_y;
         }
-        function near(of_px, of_py) {  // TBD can make this better by using a grid 
-            for(let vi = 0; vi < addi; vi += 2) {
-                let px = vtx[vi], py = vtx[vi+1]
-                let dx = px - of_px, dy = py - of_py
-                let d = dx*dx+dy*dy
-                if (d < inner2)
-                    return true
+        function near(p) {
+            const n = 1
+            const gx = (p[0] - min_x ) / cellSize | 0
+            const gy = (p[1] - min_y ) / cellSize | 0
+            if (gx < 0 || gy < 0 || gx >= gridWidth || gy >= gridHeight)
+                return true // prevent it 
+            const x0 = Math.max(gx - n, 0)
+            const y0 = Math.max(gy - n, 0)
+            const x1 = Math.min(gx + n + 1, gridWidth)
+            const y1 = Math.min(gy + n + 1, gridHeight);
+            for (let y = y0; y < y1; ++y) {
+                let o = y * gridWidth;
+                for (let x = x0; x < x1; ++x) {
+                    let g = grid[o + x];
+                    if (g && distance2(g, p) < inner2) 
+                        return true;
+                }
             }
-            return false
+            return false;
         }
         
-        let prng = new RandNumGen(this.seed.v)
-        let cand = {x:null, y:null }
-        if (value_need_src !== null)
-            value_need_src.dyn_set_obj(cand)
+        const prng = new RandNumGen(this.seed.v)
 
-        cand.x = bbox.min_x + bbox.width()*prng.next() 
-        cand.y = bbox.min_y + bbox.height()*prng.next()
-        let queue = [[cand.x, cand.y]]
-        emitSample(queue[0]);
-        let got_zeros = 0, too_many_zeros = false
-
+        const queue = []
+        emitSample([bbox.min_x + bbox.width()*prng.next(), bbox.min_y + bbox.height()*prng.next()]);
+        
         while (queue.length > 0) {
             let i = prng.next() * queue.length | 0
             let p = queue[i], j
-            cand.x = p[0]; cand.y = p[1]
 
-            r = (value_need_src === null)?this.min_dist.v : this.min_dist.dyn_eval()
-            if (r < 0.01 && ++got_zeros > 100) { // TBD this would be better with grid
-                too_many_zeros = true
-                break
-            }
-            inner2 = r * r
-            A = 4 * inner2 - inner2
-
-            for (j = 0; j < 20; ++j) {
+            
+            for (j = 0; j < tries_k; ++j) {
                 let q = generateAround(p);
-                if (withinExtent(q) && !near(q[0], q[1])) {
-                    emitSample(q);
-                    break;
-                }
+                if (!withinExtent(q))
+                    continue
+                if (near(q)) 
+                    continue
+                emitSample(q);
+                break;
             }
-            if (j === 20) { // exhausted all possibilites with this point in the queue
+            if (j === tries_k) { // exhausted all possibilites with this point in the queue
                 queue[i] = queue[queue.length-1]
                 queue.pop();   
             }
+            //if (vtx.length > 10000)
+            //    break
         }
-        assert(!too_many_zeros, this, "Expression evaluates to zero too much")
+        //assert(!too_many_zeros, this, "Expression evaluates to zero too much")
 
         if (in_obj.is_point_inside) {
             let vtx_in = []
@@ -1299,10 +1314,7 @@ class NodeRandomPoints extends NodeCls
             }
             vtx = vtx_in
         }
-
-        if (value_need_src !== null)
-            value_need_src.dyn_set_obj(null) // don't want it to ref a local object
-        
+      
         let ret = new Mesh()
         ret.set("vtx_pos", new TVtxArr(vtx), 2)
         this.out_mesh.set(ret)

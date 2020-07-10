@@ -57,9 +57,6 @@ EXPRESSIONS
 - BUG expr - when editing the code, variable not recognized
 - BUG expr to GLSL - mult by bool
 - Scatter with rendering
-    clip by shape
-        triangulate
-        back
     canvas owned by shader node
     check dirty for fb
     attr_names auto? still support arbitrary attributes

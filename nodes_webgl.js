@@ -1202,7 +1202,7 @@ void main() {
 
 class Scatter2 extends BaseNodeParcel
 {
-    static name() { return "Scatter2" }
+    static name() { return "Scatter Func" }
     constructor(node) 
     {
         super(node)
