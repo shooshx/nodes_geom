@@ -874,7 +874,7 @@ class ExpressionItem {
         return this.editor
     }
     set_to_const(v) { // return true if value actually changed
-        this.e = ExprParser.make_num_node(this.e, v)
+        this.e = ExprParser.make_num_node(v)
         this.se = formatType(v, this.prop_type)
         this.need_inputs = null
         if (this.editor !== null)

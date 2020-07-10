@@ -6,15 +6,16 @@
 const FUNC_TYPE_BY_COMPONENT = 0; // not a real type, run the function component by component
 const FUNC_TYPE_LOOKUP = -1;  // type for function, given func name is actually a dictionary between type and actual func
 const TYPE_NUM = 1;
-const TYPE_VEC3 = 2; 
-const TYPE_VEC4 = 3;
-const TYPE_VEC2 = 4;
-const TYPE_FUNCTION = 5;  // function 
+const TYPE_BOOL = 2;
+const TYPE_VEC3 = 10; 
+const TYPE_VEC4 = 11;
+const TYPE_VEC2 = 12;
+const TYPE_FUNCTION = 21;  // function 
 // returned from global check_type to mean there's not enough info to know what the type is since it depends on evaulators
 // that will be set by the cls, check_type will try again in dyn_eval
-const TYPE_UNDECIDED = 10; 
+const TYPE_UNDECIDED = 100; 
 // similar to UNDECIDED but only on variables
-const TYPE_DEPEND_ON_VAR = 11;
+const TYPE_DEPEND_ON_VAR = 101;
 
 const PARSE_EXPR = 1;
 const PARSE_CODE = 2;
@@ -38,6 +39,12 @@ class UndecidedTypeErr extends Error {
 }
 class DependOnVarErr extends Error {
     constructor(msg) { super(msg) }
+}
+
+// throw in expressions
+function eassert(cond, msg) {
+    if (!cond)
+        throw new ExprErr(msg)
 }
 
 class NodeBase {
@@ -72,6 +79,7 @@ class NodeBase {
 function typename(t) {
     switch(t) {
     case TYPE_NUM: return "number"
+    case TYPE_BOOL: return "bool"
     case TYPE_VEC2: return "vec2"
     case TYPE_VEC3: return "vec3"
     case TYPE_VEC4: return "vec4"
@@ -81,6 +89,7 @@ function typename(t) {
 function numbersInType(t) {
     switch(t) {
     case TYPE_NUM: return 1
+    case TYPE_BOOL: return 1
     case TYPE_VEC2: return 2
     case TYPE_VEC3: return 3
     case TYPE_VEC4: return 4
@@ -121,7 +130,7 @@ const SUBIDX_TO_GLSL = ['r','g','b','w']
 
 var ExprParser = (function() {
 
-
+// immutable object
 class NumNode  extends NodeBase {  
     constructor(_v, str_was_decimal) {
         super()
@@ -132,7 +141,6 @@ class NumNode  extends NodeBase {
     eval() {
         return this.v;
     }
-    is_decimal_num() { return this.decimal } // used for display
     check_type() {
         return TYPE_NUM
     }
@@ -142,16 +150,35 @@ class NumNode  extends NodeBase {
         return this.v;
     }
     get_const_value() { 
+        if (!this.decimal)
+            return null  // original text was hex or oct, don't want to spoil that
         return this.v
     }
 }
 
-function make_num_node(old_node, v) {
-    if (old_node !== null && old_node.is_decimal_num !== undefined) {
-        old_node.v = v
-        return old_node
-    }
+function make_num_node(v) {
     return new NumNode(v, true)
+}
+
+
+class BoolNode extends NodeBase {
+    constructor(_v, str_was_decimal) {
+        super()
+        eassert(_v !== null && _v !== undefined, "unexpected non-number value")
+        this.v = _v;
+    }
+    eval() {
+        return this.v;
+    }
+    check_type() {
+        return TYPE_BOOL
+    }
+    to_glsl(emit_ctx) {
+        return this.v ? "true":"false";
+    }
+    get_const_value() { 
+        return this.v
+    }
 }
 
 
@@ -193,16 +220,54 @@ function call_operator(v1, v2, op) {
         case OPERATOR_EXPONENT:       ret = v1 * Math.pow(10, v2); break;
         case OPERATOR_SUBSCRIPT:      throw new ExprErr("subscript in binary (bug)");
 
-        case OPERATOR_LESS:           ret = +(v1 < v2); break // + to make it a number
-        case OPERATOR_LESS_EQ:        ret = +(v1 <= v2); break
-        case OPERATOR_GREATER:        ret = +(v1 > v2); break
-        case OPERATOR_GREATER_EQ:     ret = +(v1 >= v2); break
-        case OPERATOR_EQ:             ret = +(v1 == v2); break
-        case OPERATOR_LOGIC_AND:      ret = +(v1 && v2); break // not short-circuting evaluation since that would complicate vector ops
-        case OPERATOR_LOGIC_OR:       ret = +(v1 || v2); break
+        case OPERATOR_LESS:           ret = (v1 < v2); break // + to make it a number
+        case OPERATOR_LESS_EQ:        ret = (v1 <= v2); break
+        case OPERATOR_GREATER:        ret = (v1 > v2); break
+        case OPERATOR_GREATER_EQ:     ret = (v1 >= v2); break
+        case OPERATOR_EQ:             ret = (v1 == v2); break
+        case OPERATOR_NEQ:            ret = (v1 != v2); break
+        case OPERATOR_LOGIC_AND:      ret = (v1 && v2); break // not short-circuting evaluation since that would complicate vector ops
+        case OPERATOR_LOGIC_OR:       ret = (v1 || v2); break
         default:  throw new ExprErr("unexpected operator");
     }
     return ret;
+}
+
+function op_str(op) {
+    switch (op) {
+        case OPERATOR_BITWISE_OR:     return '|'
+        case OPERATOR_BITWISE_XOR:    return '^'
+        case OPERATOR_BITWISE_AND:    return '&'
+        case OPERATOR_BITWISE_SHL:    return '<<'
+        case OPERATOR_BITWISE_SHR:    return '>>'
+        case OPERATOR_ADDITION:       return '+'
+        case OPERATOR_SUBTRACTION:    return '-'
+        case OPERATOR_MULTIPLICATION: return '*'
+        case OPERATOR_DIVISION:       return '/'
+        case OPERATOR_MODULO:         return '%'
+        case OPERATOR_POWER:          return '**'
+        case OPERATOR_EXPONENT:       return 'e'
+        case OPERATOR_SUBSCRIPT:      throw new ExprErr("subscript in binary (bug)");
+
+        case OPERATOR_LESS:           return '<'
+        case OPERATOR_LESS_EQ:        return '<='
+        case OPERATOR_GREATER:        return '>'
+        case OPERATOR_GREATER_EQ:     return '>='
+        case OPERATOR_EQ:             return '=='
+        case OPERATOR_NEQ:            return '!='
+        case OPERATOR_LOGIC_AND:      return '&&'
+        case OPERATOR_LOGIC_OR:       return '||'
+        default:  throw new ExprErr("unexpected operator");
+    }
+}
+
+function is_bool_op(op) {
+    return op == OPERATOR_LESS || op == OPERATOR_LESS_EQ ||  
+           op == OPERATOR_GREATER || op == OPERATOR_GREATER_EQ || 
+           op == OPERATOR_EQ || op == OPERATOR_NEQ
+}
+function is_logic_op(op) {
+    return op == OPERATOR_LOGIC_AND || op == OPERATOR_LOGIC_OR
 }
 
 
@@ -224,13 +289,25 @@ class BinaryOpNode extends NodeBase {
         if (this.type === null) {
             let t1 = this.left.check_type(), t2 = this.right.check_type()
             this.t1 = t1; this.t2 = t2
-            if (t1 > t2) {  let tmp = t1; t1 = t2; t2 = tmp } // t1 is lower
-            if (t1 == TYPE_NUM)
-                this.type = t2 // the vec (or float) type
-            else if (t1 != t2)
-                throw new TypeErr("can't handle different vec types")
-            else 
-                this.type = t1 // both same vec type
+            if (is_bool_op(this.op)) { // only between numbers, not supporting vectors of booleans
+                if (t1 !== TYPE_NUM || t2 !== TYPE_NUM)
+                    throw new TypeErr("boolean operator " + op_str(op) + " expects numbers")
+                this.type = TYPE_BOOL
+            }
+            else if (is_logic_op(this.op)) {
+                if (t1 !== TYPE_BOOL || t2 !== TYPE_BOOL)
+                    throw new TypeErr("logic operator " + op_str(op) + " expected booleans")
+                this.type = TYPE_BOOL
+            }
+            else {
+                if (t1 > t2) {  let tmp = t1; t1 = t2; t2 = tmp } // t1 is lower
+                if (t1 === TYPE_NUM)
+                    this.type = t2 // the vec (or float) type
+                else if (t1 != t2)
+                    throw new TypeErr("can't handle different vec types")
+                else 
+                    this.type = t1 // both same vec type
+            }
         }
         return this.type
     }
@@ -239,13 +316,13 @@ class BinaryOpNode extends NodeBase {
         console.assert(this.type !== null)
         const v1 = this.left.eval();
         const v2 = this.right.eval();
-        if (this.type == TYPE_NUM)
+        if (this.type === TYPE_NUM || this.type === TYPE_BOOL)
             return call_operator(v1, v2, this.op)
         if (this.t1 == this.t2) // save vec type
             return apply_by_component([v1, v2], (v1, v2)=>{ return call_operator(v1, v2, this.op)})
         // vec and num
         let v,n
-        if (this.t1 == TYPE_NUM)
+        if (this.t1 == TYPE_NUM || this.t1 == TYPE_BOOL)
             v = v2, n = v1
         else
             v = v1, n = v2
@@ -280,7 +357,7 @@ class UnaryOpNode extends NodeBase {
     }
     eval() {
         const v = this.child.eval();
-        if (this.type == TYPE_NUM)
+        if (this.type == TYPE_NUM || this.type == TYPE_BOOL)
             return call_unary_op(v, this.op)
         const num_comp = v.length
         const ret = new v.constructor(num_comp)
@@ -330,9 +407,10 @@ const OPERATOR_LESS_EQ = 14 // <=
 const OPERATOR_GREATER = 15 // >
 const OPERATOR_GREATER_EQ = 16 // >=
 const OPERATOR_EQ = 17 // ==
-const OPERATOR_LOGIC_AND = 18 // &&
-const OPERATOR_LOGIC_OR = 19 // ||
-const OPERATOR_SUBSCRIPT = 20 // a.x
+const OPERATOR_NEQ = 18 // ==
+const OPERATOR_LOGIC_AND = 19 // &&
+const OPERATOR_LOGIC_OR = 20 // ||
+const OPERATOR_SUBSCRIPT = 21 // a.x
 
 const OPERATORU_LOGIC_NOT = 100 // !
 const OPERATORU_BITWISE_NOT = 101 // ~
@@ -375,6 +453,7 @@ const ops = [
     new Operator(OPERATOR_GREATER, 30, 'L', '>'),
     new Operator(OPERATOR_GREATER_EQ, 30, 'L', '>='),
     new Operator(OPERATOR_EQ, 30, 'L', '=='),
+    new Operator(OPERATOR_NEQ, 30, 'L', '=='),
 
     new Operator(OPERATOR_LOGIC_AND, 20, 'L', '&&'),
     new Operator(OPERATOR_LOGIC_OR, 10, 'L', '||'),
@@ -401,13 +480,10 @@ function getCharacter() {
 ///
 function expect(str) {
     if (expr_.substr(index_, str.length) !== str)
-        unexpected();
+        new ExprErr("Syntax error: unexpected token, expected " + str)
     index_ += str.length;
 }
 
-function unexpected() {
-    throw new ExprErr("Syntax error: unexpected token at " + index_)
-}
 
 /// Eat all white space characters at the
 /// current expression index.
@@ -479,6 +555,9 @@ function parseOp()
         case '=':
             expect('==')
             return ops[OPERATOR_EQ];
+        case '!':
+            expect('!=')
+            return ops[OPERATOR_NEQ];            
         case '+':
             index_++;
             return ops[OPERATOR_ADDITION];
@@ -557,6 +636,7 @@ function fit01(v, nmin, nmax) { return fit(v, 0, 1, nmin, nmax) }
 function fit11(v, nmin, nmax) { return fit(v, -1, 1, nmin, nmax) }
 function ifelse(v, vt, vf) { return v?vt:vf }
 
+function make_float(v) { return +v }
 function make_vec2(x, y) { return vec2.fromValues(x, y) }
 
 const make_vec3 = {
@@ -637,7 +717,8 @@ const func_defs = {
     'rand': new FuncDef(myrand, 1),
     'fit': new FuncDef(fit, 5), 'fit01': new FuncDef(fit01, 3), 'fit11': new FuncDef(fit11, 3),
     'degrees': new FuncDef(degrees, 1), 'radians': new FuncDef(radians, 1),
-    'ifelse': new FuncDef(ifelse, 3),
+ //   'ifelse': new FuncDef(ifelse, 3),
+    'float':new FuncDef(make_float, 1, [TYPE_BOOL], TYPE_NUM),
     'vec2': new FuncDef(make_vec2, 2, [TYPE_NUM, TYPE_NUM], TYPE_VEC2), 'vec3': new FuncDef(make_vec3, [1,3], FUNC_TYPE_LOOKUP, TYPE_VEC3), 'vec4': new FuncDef(make_vec4, [1,4], FUNC_TYPE_LOOKUP, TYPE_VEC4),
     'normalize': new FuncDef(normalize_lookup, 1, FUNC_TYPE_LOOKUP, null),
     'hsl' : new FuncDef(hsl, 3, [TYPE_NUM, TYPE_NUM, TYPE_NUM], TYPE_VEC3), 
@@ -667,7 +748,7 @@ const glsl_translate = {
     'sqr': new AddGlslFunc("$T sqr($T v) { return v*v; }"),
     'log10': new AddGlslFunc("$T log10($T v) { return log(v)/log(10) }"),
     'rand': null, 'fit': null, 'fit01': null, 'fit11': null, 
-    'ifelse': new AddGlslFunc("$T ifelse(bool c, $T a, $T b) { return c?a:b; }"),
+//    'ifelse': new AddGlslFunc("$T ifelse(bool c, $T a, $T b) { return c?a:b; }"),
     'plasma': new AddGlslFunc(`
 float plasma(vec2 coord, float time, vec2 move) {    
     float x = coord.x * 10.0;
@@ -730,7 +811,7 @@ class InternalFuncCallNode extends NodeBase {
             argvals.push(arg.eval())
         if (this.def.dtype == FUNC_TYPE_LOOKUP)
             return this.lookedup_f.apply(null, argvals)       
-        if (this.def.dtype != FUNC_TYPE_BY_COMPONENT || this.type == TYPE_NUM)
+        if (this.def.dtype != FUNC_TYPE_BY_COMPONENT || this.type == TYPE_NUM || this.type == TYPE_BOOL)
             return this.f.apply(null, argvals) 
         return apply_by_component(argvals, this.f)
     }
@@ -879,7 +960,8 @@ function parseFuncCall(func_node, func_name) {
     }
 }
 
-const constants = {"PI": Math.PI, "true":1, "false":0}
+const constants = {"PI": new NumNode(Math.PI, true), 
+                   "true": new BoolNode(true), "false":new BoolNode(false)}
 
 function parseIdentifier() {
     let sb = ''
@@ -903,7 +985,7 @@ function parseIdentifier() {
 function lookupIdentifier(sb)
 {
     if (constants[sb] !== undefined)
-        return new NumNode(constants[sb])
+        return constants[sb]
     if (func_defs[sb] !== undefined)
         return new InternalFuncDefDummyNode(func_defs[sb])
 
@@ -1025,8 +1107,6 @@ function parseValue() {
             val = parseExpr();
             eatSpaces();
             if (getCharacter() != ')') {
-                if (!isEnd())
-                    unexpected();
                 throw new ExprErr("Syntax error: `)' expected at end of expression");
             }
             index_++;
@@ -1061,8 +1141,6 @@ function parseValue() {
 
                 break;
             }
-            if (!isEnd())
-                unexpected();
             throw new ExprErr("Syntax error: value expected at end of expression");
     }
     return val;
@@ -1305,7 +1383,12 @@ class AssignNameStmt {  // not a proper node (no eval, has side-effects)
             this.symbol.valueNode.v[this.subscriptIdx] = v
         }
         else {
-            const vNode = (this.type == TYPE_NUM) ? (new NumNode(v, false)) : (new VecNode(v, this.type))
+            let vNode
+            switch  (this.type) {
+            case TYPE_NUM: vNode = new NumNode(v, false)
+            case TYPE_BOOL: vNode = new BoolNode(v)
+            default: vNode = new VecNode(v, this.type)
+            }
             // valueNode in symbol is null as long as the symbol doesn't have a value
             this.symbol.valueNode = vNode
         }
@@ -1318,9 +1401,9 @@ class AssignNameStmt {  // not a proper node (no eval, has side-effects)
     scheck_type() {
         this.type = this.expr.check_type()
         if (this.subscriptIdx !== null) {
-            eassert(this.type === TYPE_NUM, "Subscript assign to `" + this.in_name + "` expects a number") // assume we don't assign things bigger than a number (no swizzle yet)
+            eassert(this.type === TYPE_NUM || this.type === TYPE_BOOL, "Subscript assign to `" + this.in_name + "` expects a number") // assume we don't assign things bigger than a number (no swizzle yet)
             eassert(this.symbol.type !== null, "Trying to assign subscipt of an undefined symbol: " + this.name)
-            eassert(this.symbol.type !== TYPE_NUM, "Number type symbol `" + this.name + "` can't have subscript")
+            eassert(this.symbol.type !== TYPE_NUM && this.symbol.type !== TYPE_BOOL, "Number type symbol `" + this.name + "` can't have subscript")
             eassert(this.subscriptIdx < numbersInType(this.symbol.type), "Assigning to non-existing subscript " + this.subscriptName + " of symbol " + this.name)
         }
         else {
@@ -1442,7 +1525,7 @@ var g_state_access = null
 
 function eparse(expr, state_access, opt) {
     if (typeof expr != "string")
-        return new NumNode(expr)
+        return new NumNode(expr, true)
     if (expr == "")
         throw new ExprErr("empty expression")
     index_ = 0;
@@ -1460,7 +1543,7 @@ function eparse(expr, state_access, opt) {
         else 
             throw new ExprErr("unknown opt " + opt)
         if (!isEnd())
-            unexpected();
+            new ExprErr("Syntax error: unexpected token, expected expression end")
     }
     catch(e)
     {

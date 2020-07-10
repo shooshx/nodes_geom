@@ -53,7 +53,6 @@ EXPRESSIONS
 
 
 ****** CURRENT AGENDA ******
-- BUG expr to GLSL - mult by bool
 - Scatter with rendering
     canvas owned by shader node
     attr_names auto? still support arbitrary attributes

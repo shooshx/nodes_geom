@@ -296,12 +296,6 @@ function dassert(cond, msg) {
     }
 }
 
-// throw in expressions
-function eassert(cond, msg) {
-    if (!cond)
-        throw new ExprErr(msg)
-}
-
 
 
 function calc_img_viewport() {
