@@ -53,10 +53,6 @@ EXPRESSIONS
 
 
 ****** CURRENT AGENDA ******
-- Scatter with rendering
-    canvas owned by shader node
-    attr_names auto? still support arbitrary attributes
-        getActiveAttrib, also type check with what's coming from mesh    
 - output PNG
 - mesh merge
 - BoolParam from code (from variable)
@@ -208,7 +204,9 @@ NODES:
     - detect what points are coming from round corner, convert to bezier
 - WebGL
     - FrameBuffer rotate fast to 0 makes it skip frames? 
-
+    - canvas owned by shader node
+    - attr_names auto? still support arbitrary attributes
+        getActiveAttrib, also type check with what's coming from mesh  
 - Anim: Accumulate geometry every N frames
 - Anim: object feedback - from specific frame, every N frame, from N frames in the past (delay line)
 

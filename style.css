@@ -167,7 +167,7 @@ input {
     font-size: 14px;        
 }
 .param_input:focus {
-    outline: none;
+    outline: none; /* remove highlight in chrome */
 }
 .param_input_long {
     /*width: calc( 100% - 160px )*/
@@ -524,7 +524,7 @@ input {
     display: flex;
     flex-direction: row;
     justify-content: center;
-    margin: 5px 0 7px 0;
+    margin: 12px 0 7px 0;
 }
 .dlg_button {
     background-image: linear-gradient(to bottom, #989898, #848484);
@@ -669,9 +669,9 @@ input {
     background-image: url(img/red_ex.png)
 }
 .dlg_label {
-    text-align: center;
+    /*text-align: center;*/
     color: #fff;
-    margin: 0 10px 0 10px;
+    margin: 5px 5px 2px 5px;
 }
 
 .top_menu {
@@ -702,12 +702,42 @@ input {
     height: 600px;
 }
 .dlg_text_input {
-    margin: 5px;
-
+    margin: 0 5px;
+    height: 24px;
+    border-radius: 6px;
+    font-size: 14px;
+    line-height: 24px;
+    background-color: #555;
+    color: #fff;
+    border: solid 1px #888;
+    padding: 0 5px;
+    font-family: Verdana;
+}
+.dlg_text_input::-webkit-outer-spin-button,
+.dlg_text_input::-webkit-inner-spin-button {
+    -webkit-appearance: none;  /* hide arrows */
+}
+.dlg_text_input[type=number] {
+    -moz-appearance: textfield; /* hide arrows */
+}
+.dlg_text_input:focus {
+    outline: none; /* remove highlight in chrome */
 }
 
 .dlg_save_as > .param_btn {
     margin: 5px;
+}
+
+.dl_lnk_hidden {
+    display: none;
+}
+.dlg_input_label {
+    color: #fff;
+    width: 60px;
+    display: inline-block;
+}
+.dlg_input_line {
+    margin: 5px 5px 0 5px;
 }
 
 #div_display_params {

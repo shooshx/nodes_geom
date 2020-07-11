@@ -540,11 +540,16 @@ function stop_propogation_on(event_name, ...elems) {
 var in_draw = false
 
 
-function call_frame_draw(do_run, clear_all) {
+function call_frame_draw(do_run, clear_all, done_callback=null) {  // callback for save PNG
     if (in_draw)
         return // avoid starting a call if the previous async call didn't finish yet (indicated several triggers from the same stack)
     in_draw = true
-    do_frame_draw(do_run, clear_all).then(()=>{}).catch((err)=>{
+    do_frame_draw(do_run, clear_all).then(()=>{
+        if (done_callback)
+            done_callback(true)
+    }).catch((err)=>{
+        if (done_callback)
+            done_callback(false)
         console.error(err)
     }).finally( ()=>{ 
         in_draw = false 

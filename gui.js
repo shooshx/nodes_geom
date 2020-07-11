@@ -608,21 +608,31 @@ function add_move_handlers(grip, movefunc, downfunc=null) {
     });
 }
 
-function input_dlg(parent, caption, text, func) {
+function fields_input_dlg(parent, caption, text, on_save_func)
+{
     let rect = {visible:true}
     let close_action = ()=> { parent.removeChild(dlg.elem)}
     let dlg = create_dialog(parent, caption, false, rect, close_action)
     dlg.elem.classList.add("dlg_size_save_as")
     let label = add_div(dlg.client, "dlg_label")
     label.innerText = text
-    let name_input = add_elem(dlg.client, "input", "dlg_text_input")
-    name_input.type = "text"
-    name_input.spellcheck = false
+    const center_elem = add_div(dlg.client)
+
     let buttons = add_div(dlg.client, "dlg_buttons_group")
-    const sb = add_push_btn(buttons, "Save", ()=>{ func(name_input.value); close_action(); })
+    const sb = add_push_btn(buttons, "Save", ()=>{ on_save_func(); close_action(); })
     sb.classList.add("dlg_button")
     const cb = add_push_btn(buttons, "Cancel", close_action)    
     cb.classList.add("dlg_button")
+    return {dlg:dlg, center_elem:center_elem}
+}
+
+function input_dlg(parent, caption, text, on_save_func) 
+{
+    let name_input = null
+    let [dlg, center_elem] = fields_input_dlg(parent, caption, text, ()=>{on_save_func(name_input.value)})
+    name_input = add_elem(center_elem, "input", "dlg_text_input")
+    name_input.type = "text"
+    name_input.spellcheck = false
 }
 
 function save_as(parent) {
@@ -670,8 +680,6 @@ function export_prog() {
     saveFile("program.yaml", "application/x-yaml", text)
 }
 
-
-
 function import_prog(file) {
     console.log("import!", file)
     let reader = new FileReader();
@@ -691,6 +699,55 @@ function import_prog(file) {
     reader.readAsText(file)
 }
 
+function export_png() {
+    let dl_lnk = null
+    const on_save = ()=>{
+        const make_file = ()=>{
+            dl_lnk.download = "image.png"
+            dl_lnk.href = canvas_image.toDataURL('image/png')
+            dl_lnk.click()            
+        }
+        if (width_input.value != canvas_image.width || height_input.value != canvas_image.height) {
+            const rel_pan_x = image_view.pan_x / image_view.viewport_zoom
+            const rel_pan_y = image_view.pan_y / image_view.viewport_zoom
+            canvas_image.width = width_input.value
+            canvas_image.height = height_input.value
+            calc_img_viewport()
+            image_view.pan_x = rel_pan_x * image_view.viewport_zoom
+            image_view.pan_y = rel_pan_y * image_view.viewport_zoom
+            //image_view.resize_redraw()
+            call_frame_draw(false, false, ()=>{
+                make_file()
+            })
+        }
+        else {
+            make_file()
+        }
+
+    }
+    const ratio = canvas_image.width / canvas_image.height
+    const d = fields_input_dlg(main_view, "Export PNG", "Image size:", on_save)
+
+    const width_div = add_div(d.center_elem, "dlg_input_line")
+    add_elem(width_div, "span", "dlg_input_label").innerText = "Width:"
+    const width_input = add_elem(width_div, "input", "dlg_text_input")
+    width_input.type = "number"
+    width_input.addEventListener('input', ()=>{
+        height_input.value = Math.round(width_input.value / ratio)
+    })
+
+    const height_div = add_div(d.center_elem, "dlg_input_line")    
+    add_elem(height_div, "span", "dlg_input_label").innerText = "Height:"
+    const height_input = add_elem(height_div, "input", "dlg_text_input")
+    height_input.type = "number"
+    height_input.addEventListener('input', ()=>{
+        width_input.value = Math.round(height_input.value * ratio)
+    })
+    dl_lnk = add_elem(d.center_elem, "a", "dl_lnk_hidden")
+    width_input.value = canvas_image.width
+    height_input.value = canvas_image.height
+}
+
 var open_top_menus = []
 
 function create_top_menu(parent) {
@@ -702,6 +759,7 @@ function create_top_menu(parent) {
         let opt = [//{text:"Save As...", func:function() { save_as(parent) }},
                    {text:"Export Program...", func:export_prog },
                    {text:"Import Program...", func:import_prog, type:"file-in" },
+                   {text:"Export PNG...", func:export_png }
                    //{text:"Export State...", func: ()=>{ export_entire_state(parent) }},
                    //{text:"Export SVG...", func: ()=>{ export_svg(parent) }},
                    //{text:'-'}
