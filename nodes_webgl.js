@@ -655,7 +655,7 @@ class NodeShader extends NodeCls
             else if (nu.type == 'vec2')
                 p.param = new ParamVec2(this.node, nu.name, 0, 0, false)
             else if (nu.type == 'vec4')
-                p.param = new ParamColor(this.node, nu.name, "rgba(204,204,204,1.0)")
+                p.param = new ParamColor(this.node, nu.name, DEFAULT_VTX_COLOR.rgba)
             else if (nu.type == 'bool' || nu.type == 'define') 
                 p.param = new ParamBool(this.node, nu.name, false)
             else if (nu.type == 'mat3')
@@ -1302,6 +1302,7 @@ class Scatter2 extends BaseNodeParcel
             vtx_pos[vi++] = bminy + bh* prng.next()
         }
         const mesh = new Mesh()
+        mesh.type = MESH_POINTS
         mesh.set("vtx_pos", vtx_pos, 2, false)
         return mesh
     }

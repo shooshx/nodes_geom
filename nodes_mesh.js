@@ -292,6 +292,7 @@ class NodeManualGeom extends NodeCls
         if (this.geom_type.sel_idx == 0) // mesh
         {
             obj = new Mesh()
+            obj.type = MESH_POINTS
         }
         else if (this.geom_type.sel_idx == 1) // paths
         {
@@ -552,7 +553,7 @@ class NodeSetAttr extends NodeCls
         this.attr_name = new ParamStr(node, "Name", "color", (v)=>{
             this.name_per_type.st_set(this.attr_type.sel_idx, v)
         })
-        this.expr_color = new ParamColor(node, "Color", ["#cccccc", "rgb(204, 204, 204)"])
+        this.expr_color = new ParamColor(node, "Color", [DEFAULT_VTX_COLOR.hex, DEFAULT_VTX_COLOR.rgb])
         this.expr_float = new ParamFloat(node, "Float", 0)
         this.expr_vec2 = new ParamVec2(node, "Float2", 0, 0, true)
         this.expr_bool = new ParamFloat(node, "Select", "true")  
@@ -700,7 +701,7 @@ class NodeSetAttr extends NodeCls
 
         let prop = null, src_param = null
         //let mutate_value = (prevv, newv)=>{return newv} // optional transformation on the value that comes from the expression
-        let mutate_assign = null
+        let mutate_assign = null, need_normalize = false
 
         if (this.attr_type.sel_idx == 0) { // color
             prop = new TColorArr(elem_num * 4)
@@ -710,6 +711,7 @@ class NodeSetAttr extends NodeCls
                 for(let si = 0; si < 4; ++si)
                     prop[pi+si] = vc[si]
             }
+            need_normalize = true
         }
         else if (this.attr_type.sel_idx == 1) { // float
             prop = new Float32Array(elem_num * 1)
@@ -807,7 +809,7 @@ class NodeSetAttr extends NodeCls
                 value_need_src.dyn_set_obj(null)
         }
 
-        out_mesh.set(attr_name, prop, prop.elem_sz, true)
+        out_mesh.set(attr_name, prop, prop.elem_sz, need_normalize) // normalize true has effect only on int which is only color here
         this.out_mesh.set(out_mesh)
     }
 
@@ -841,44 +843,123 @@ class ObjConstProxy {
     }
 }
 
-class NodeMeshMerge extends NodeCls
+
+const DEFAULT_FOR_VTX_ATTRS = {
+    "vtx_radius" : { v:[MESH_DISP.vtx_radius],  num_elems:1 },
+    "vtx_color"  : { v:DEFAULT_VTX_COLOR.arr,   num_elems:4 }
+}
+
+class NodeGeomMerge extends NodeCls
 {
-    static name() { return "Mesh_Merge" }
+    static name() { return "Geom Merge" }
     constructor(node) {
         super(node)
         this.in_m = new InTerminalMulti(node, "in_multi_mesh")
         this.out = new OutTerminal(node, "out_mesh")
     }
-    run() {
-        if (this.in_m.lines.length == 0) {
-            this.out.set(new Mesh())
-            return
-        }
-        if (this.in_m.lines.length == 1) {
-            this.out.set(this.in_m.lines[0].to_term.v)
-            return
-        }
 
-        // first calculate the size of the eventual arrays and check type agreement
-        let szs = this.in_m.lines[0].to_term.v.get_sizes()
-        for(let i = 1; i < this.in_m.lines.length; ++i) {
-            let line = this.in_m.lines[i]
-            let lm = line.to_term.v.get_size()
-            assert(lm.type === szs.type, this, "Input " + i + " has different type from input 0")
-            for(let k in m.arrs) {
-                if (szs[k] === undefined)
-                    szs.arrs[k] = lm.arrs[k]
+    analyze_inputs(meshes) {
+        // figure out the size and type of the unified arrays
+        let obj_ctor = null    // mesh or multipath
+        let mesh_type = null   // if it's a mesh, the type
+
+        const uni_meta = {}
+        for(let m of meshes) {
+            assert(m.constructor === Mesh || m.constructor === MultiPath, this, "input is not a mesh or paths")
+            if (obj_ctor === null) // first
+                obj_ctor = m.constructor 
+            else if (obj_ctor !== m.constructor) // mixing mesh and paths 
+                obj_ctor = MultiPath
+
+            if (obj_ctor == Mesh) { // all of what we've seen so far were meshes
+                if (mesh_type === null) { // first
+                    mesh_type = m.type
+                    assert(m.type !== MESH_NOT_SET, this, "input mesh type not set")
+                    if (m.type !== MESH_POINTS)
+                        assert(m.arrs.idx !== null && m.arrs.idx !== undefined, this, "input mesh with faces but no idx array?")
+                }
+                else if (mesh_type !== m.type) // mixing mesh of different types,
+                    obj_ctor = MultiPath
+            }
+            for(let name in m.arrs) {
+                if (m.arrs[name] === null)
+                    continue
+                if (uni_meta[name] === undefined) {
+                    uni_meta[name] = { num_elems: m.meta[name].num_elems,
+                                       ctor: m.arrs[name].constructor,
+                                       need_normalize: m.meta[name].need_normalize
+                                    }
+                }
                 else {
-                    assert(szs.arrs[k].type === lm.arrs[k].type, "Input " + i + " has wrong data-type of element " + k + " from that of input 0")
-                    szs.arrs[k].sz += lm.arrs[k].sz
+                    assert(m.meta[name].num_elems === uni_meta[name].num_elems, this, "incompatible objects, array " + name + " num_elems different")
+                    assert(m.meta[name].need_normalize === uni_meta[name].need_normalize, this, "incompatible objects, array " + name + " normalization different")
+                    assert(m.meta[name].constructor === uni_meta[name].constructor, this, "incompatible objects, array " + name + " normalization different")
                 }
             }
         }
-        // create the arrays
-        let r = new Mesh()
-        for(let k in szs)
-            r.arrs[k] = new szs.arrs[k].type(szs.arrs[k].sz)
-        // copy the data TBD
+        // count vertices
+        let vtx_count = 0
+        let idx_count = 0
+        const start_idxs = [] // for each mesh in the input, when offset its vertices start in, for fixing its idx
+        for(let m of meshes) {
+            start_idxs.push(vtx_count)
+            vtx_count += m.vtx_count()
+            if (m.arrs.idx != undefined && m.arrs.idx !== null)
+                idx_count += m.arrs.idx.length
+        }
+
+        return {obj_ctor:obj_ctor, mesh_type:mesh_type, uni_meta:uni_meta, vtx_count:vtx_count, idx_count:idx_count, start_idxs:start_idxs}
+    }
+
+    run() {
+        const meshes = this.in_m.get_input_consts()
+        if (meshes.length == 0) {
+            this.out.set(new Mesh())
+            return
+        }
+        if (meshes.length == 1) {
+            this.out.set(meshes[0])
+            return
+        }
+
+        const d = this.analyze_inputs(meshes)
+        if (d.obj_ctor == Mesh) // all inputs are meshes of the same type
+        {
+            const r = new Mesh()
+            r.type = d.mesh_type
+            for(let name in d.uni_meta) { // go array by array
+                const umeta = d.uni_meta[name]
+                const narr = new umeta.ctor(((name === "idx") ? d.idx_count : d.vtx_count) * umeta.num_elems)
+                let at_index = 0
+                for(let mi in meshes)  // then go by all the input meshes
+                {
+                    const m = meshes[mi]
+                    if (name === 'idx') {
+                        for(let i = 0; i < m.arrs.idx.length; ++i)
+                            narr[at_index++] = m.arrs.idx[i] + d.start_idxs[mi]
+                        continue
+                    }                    
+                    if (m.arrs[name] === undefined) { // this mesh doesn't have this name
+                        const def = DEFAULT_FOR_VTX_ATTRS[name] // fill with a default value?
+                        if (def !== undefined && def.num_elems === umeta.num_elems) { // if it's not the same num_elems, don't bother
+                            for(let i = 0; i < m.vtx_count() * umeta.num_elems; ++i)
+                                narr[at_index++] = def.v[i % umeta.num_elems]
+                        }  // otherwise keep it 0
+                        continue 
+                    }
+                    // data attribute that exists in this mesh, just copy it
+                    assert(m.arrs[name].length === m.vtx_count() * m.meta[name].num_elems, this, "unexpected size of array " + name)
+                    narr.set(m.arrs[name], at_index)
+                    at_index += m.arrs[name].length
+                }
+                r.set(name, narr, umeta.num_elems, umeta.need_normalize)
+            }
+            this.out.set(r)
+        }
+        else 
+        {  
+            assert(false, this, "not supported")
+        }
 
     }
 }

@@ -53,9 +53,10 @@ EXPRESSIONS
 
 
 ****** CURRENT AGENDA ******
-- output PNG
 - mesh merge
+    order param
 - BoolParam from code (from variable)
+    fix in SetAttr fill from ParamFloat to ParamBool with code
 - Small: notes in nodes view
 - BUG: func node without show_code?
 - balls the know their end color
@@ -258,6 +259,8 @@ demo idea
 - fade from image to image?
 - boids https://eater.net/boids
 - stars https://codepen.io/AzazelN28/pen/zvXZQw
+- square that explodes to triangles and reassembles to circle
+    - expr create array of all the coords of the triangle and interpolate
 
 https://two.js.org/examples/
 
@@ -287,7 +290,11 @@ free music: https://freepd.com/
 Name?
 - 2dini?
 - picodini
+- flow something
 
+get ideas from
+    https://www.reddit.com/r/InternetIsBeautiful/
+    procedural generation
 
 Write-About
 - difference in radial gradient between canvas and svg (opposite circles), browsers difference

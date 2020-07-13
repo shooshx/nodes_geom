@@ -683,7 +683,7 @@ const nodes_classes = [
     NodeGradient,
     NodeGeomDivide,
     NodeSetAttr, 
-    //NodeGeomMerge, 
+    NodeGeomMerge, 
     NodeGroupObjects,
     NodeTransform,
     NodeRandomPoints,

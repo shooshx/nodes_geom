@@ -4,11 +4,13 @@
 const MESH_NOT_SET = 0
 const MESH_QUAD = 1
 const MESH_TRI = 2
+const MESH_POINTS = 3
 
 const MESH_DISP = { vtx_radius: 5, vtx_sel_radius: 7, sel_color:"#FFBB55", line_width:0.5 }
+const DEFAULT_VTX_COLOR = { hex: "#cccccc", rgb: "rgb(204,204,204)", rgba: "rgba(204,204,204,1.0)", arr:[204,204,204,255] }
 
 let TVtxArr = Float32Array
-let TIdxArr = Uint16Array
+let TIdxArr = Uint32Array  // all indices are 32 bit, too much hassle to keep 16 bit indices around
 let TColorArr = Uint8Array
 
 function normalize_attr_name(s) {
@@ -179,13 +181,6 @@ class Mesh extends PObject
         return null
     }
 
-    get_sizes() {
-        let r = { type: this.type, arrs:{} }       
-        for(let n in this.arrs) {
-            r.arrs[n] = { sz: this.arrs[n].length, type: this.arrs[n].constructor }
-        }
-        return r
-    }
 
     static transform_arr(m, from, to) {
         for(let i = 0; i < from.length; i += 2) {
@@ -600,7 +595,7 @@ class Mesh extends PObject
         // it makes sense to generate the shuffle and cache it in the mesh since that's when we can create the gl buffer as well
         if (this.points_idx_cache !== null && this.points_idx_cache.seed === seed && this.points_idx_cache.len === len)
             return this.points_idx_cache.idx_buf
-        const idx = (len < 65536) ? new Uint16Array(len) : new Uint32Array(len)
+        const idx = new TIdxArr(len)
         for(let i = 0; i < len; ++i)
             idx[i] = i;
         // Fisher–Yates shuffle
@@ -626,7 +621,7 @@ class Mesh extends PObject
     // program_attr maps attribute name to index (location)
     gl_draw(m, program_attr, opt={}) 
     { 
-        dassert(this.type === MESH_TRI || this.type === MESH_NOT_SET || opt.override_just_points, "can't gl_draw non triangle mesh")
+        dassert(this.type === MESH_TRI || this.type === MESH_POINTS || opt.override_just_points, "can't gl_draw non triangle mesh")
         this.ensure_tcache(m)  // TBD another cache?
         this.make_buffers()
 
