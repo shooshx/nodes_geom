@@ -64,7 +64,9 @@ EXPRESSIONS
     - flow control
     - Animation
     - anim - some frames are not displayed?
-- terminal dirty in Variables?
+- hex lattice?
+    copy node
+    merge deduplicate points
 - Mandelbrot
     change power
     anim gradient
@@ -286,6 +288,7 @@ LLyod relaxation?
 
 free music: https://freepd.com/
     https://freepd.com/music/Screen%20Saver.mp3
+    https://www.youtube.com/watch?v=GSmZHaw9cTs
     
 Name?
 - 2dini?
@@ -295,6 +298,9 @@ Name?
 get ideas from
     https://www.reddit.com/r/InternetIsBeautiful/
     procedural generation
+
+Minify:
+    https://github.com/terser/terser
 
 Write-About
 - difference in radial gradient between canvas and svg (opposite circles), browsers difference

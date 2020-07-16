@@ -244,7 +244,7 @@ class MultiPath extends PObject
             prev_x = vx; prev_y = vy
         }
         if (get_flag(this.paths_ranges[pri+2], PATH_CLOSED)) {
-            if (this.is_curve(0)) {
+            if (this.is_curve(start_vidx)) {
                 let vx = vtx[start_vidx], vy = vtx[start_vidx+1]
                 obj.bezierCurveTo(prev_x+cfp[start_vidx], prev_y+cfp[start_vidx+1], vx+ctp[start_vidx], vy+ctp[start_vidx+1], vx, vy) //'C'
             }

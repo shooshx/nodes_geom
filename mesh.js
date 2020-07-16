@@ -22,6 +22,15 @@ function normalize_attr_name(s) {
     return r
 }
 
+function idx_count_from_type(type) {
+    switch(type) {
+    case MESH_QUAD: return 4;
+    case MESH_TRI: return 3;
+    case MESH_POINTS: return 1;
+    default: dassert(false, "type not set")
+    }
+}
+
 class BBox {
     constructor(min_x, min_y, max_x, max_y) {
         this.min_x = min_x
@@ -167,13 +176,16 @@ class Mesh extends PObject
     }
     vtx_count() { return this.arrs.vtx_pos.length / 2 } // 2 for (x,y)
     face_count() {
-        if (this.arrs.idx === null || this.arrs.idx === undefined)
-            return 0
+        if (this.arrs.idx === null || this.arrs.idx === undefined) {
+            if (this.type == MESH_POINTS)
+                return this.vtx_count() // this actually counts how many ranges in a MultiPath this would take, for Merge
+            dassert(false, "expected idx")
+        }
         if (this.type == MESH_TRI)
             return this.arrs.idx.length / 3
         if (this.type == MESH_QUAD)
             return this.arrs.idx.length / 4
-        return 0 // type not set
+        dassert(false, "mesh without type")
     }
     face_size() {
         if (this.type == MESH_TRI) return 3

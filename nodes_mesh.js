@@ -242,11 +242,11 @@ class NodeManualGeom extends NodeCls
         this.add_pnts_btn.display_as_btn(true)
         this.table = new ParamTable(node, "Point List")
         this.points = new ParamCoordList(node, "Coord", this.table, this.selected_indices)
-        this.dummy = new ParamFloatList(node, "Dummy", this.table, this.selected_indices)
+      //  this.dummy = new ParamFloatList(node, "Dummy", this.table, this.selected_indices)
         this.color = new ParamColorList(node, "Point Color", this.table)
         this.paths_ranges = new PathRangesList(node) // not shown
 
-        this.pnt_attrs = [this.dummy, this.color]  // Param objets of additional attributes of each point other than it's coordinate
+        //this.pnt_attrs = {"vtx_color":this.color}  // Param objets of additional attributes of each point other than it's coordinate
 
         add_point_select_mixin(this, this.selected_indices, this.points)
     }
@@ -304,9 +304,8 @@ class NodeManualGeom extends NodeCls
         }
 
         obj.set('vtx_pos', this.points.lst, 2)
-        for (let attr of this.pnt_attrs) {
-            obj.set(attr.label, attr.lst, attr.values_per_entry, attr.need_normalize)
-        }
+        obj.set('vtx_color', this.color.lst, 4, true)
+
         this.out.set(obj)
     }
 
@@ -849,6 +848,17 @@ const DEFAULT_FOR_VTX_ATTRS = {
     "vtx_color"  : { v:DEFAULT_VTX_COLOR.arr,   num_elems:4 }
 }
 
+function fill_default_value(narr, at_index, name, umeta, count) {
+    const def = DEFAULT_FOR_VTX_ATTRS[name] // fill with a default value?
+    if (def !== undefined && def.num_elems === umeta.num_elems) { // if it's not the same num_elems, don't bother
+        for(let i = 0; i < count * umeta.num_elems; ++i)
+            narr[at_index++] = def.v[i % umeta.num_elems]
+    }  // otherwise keep it 0
+    else 
+        at_index += count * umeta.num_elems
+    return at_index
+}
+
 class NodeGeomMerge extends NodeCls
 {
     static name() { return "Geom Merge" }
@@ -884,6 +894,13 @@ class NodeGeomMerge extends NodeCls
             for(let name in m.arrs) {
                 if (m.arrs[name] === null)
                     continue
+                if (name.startsWith("vtx_") || name.startsWith("ctrl_"))
+                    assert(m.arrs[name].length === m.vtx_count() * m.meta[name].num_elems, this, "unexpected size of array " + name)
+                else if (name.startsWith("face_"))
+                    assert(m.arrs[name].length === m.face_count() * m.meta[name].num_elems, this, "unexpected size of array " + name)                                        
+                else if (name != "idx")
+                    assert(false, this, "unexpected array name " + name)
+
                 if (uni_meta[name] === undefined) {
                     uni_meta[name] = { num_elems: m.meta[name].num_elems,
                                        ctor: m.arrs[name].constructor,
@@ -898,17 +915,121 @@ class NodeGeomMerge extends NodeCls
             }
         }
         // count vertices
-        let vtx_count = 0
+        let vtx_count = 0 // for meshes
+        let face_count = 0  // for both
         let idx_count = 0
         const start_idxs = [] // for each mesh in the input, when offset its vertices start in, for fixing its idx
-        for(let m of meshes) {
-            start_idxs.push(vtx_count)
-            vtx_count += m.vtx_count()
-            if (m.arrs.idx != undefined && m.arrs.idx !== null)
-                idx_count += m.arrs.idx.length
+        if (obj_ctor === Mesh) {
+            for(let m of meshes) {
+                start_idxs.push(vtx_count)
+                vtx_count += m.vtx_count()
+                face_count += m.face_count()
+                if (m.arrs.idx != undefined && m.arrs.idx !== null)
+                    idx_count += m.arrs.idx.length
+            }
+        }
+        else { // I'm building paths
+            for(let m of meshes) {
+                // if it's a mesh, I'm going to spread the indices. mesh of just vertices doesn't have idx
+                vtx_count += (m.constructor == Mesh && m.arrs.idx !== null) ? m.arrs.idx.length : m.vtx_count()
+                face_count += m.face_count()
+            }
         }
 
-        return {obj_ctor:obj_ctor, mesh_type:mesh_type, uni_meta:uni_meta, vtx_count:vtx_count, idx_count:idx_count, start_idxs:start_idxs}
+        return {obj_ctor:obj_ctor, mesh_type:mesh_type, uni_meta:uni_meta, 
+                vtx_count:vtx_count, idx_count:idx_count, start_idxs:start_idxs, face_count:face_count}
+    }
+
+    merge_to_mesh(d, meshes) 
+    {
+        const r = new Mesh()
+        r.type = d.mesh_type
+        for(let name in d.uni_meta) { // go array by array
+            const isVtxProp = !name.startsWith("face_")
+            const umeta = d.uni_meta[name]
+            const narr = new umeta.ctor(((name === "idx") ? d.idx_count : d.vtx_count) * umeta.num_elems)
+            let at_index = 0
+            for(let mi in meshes)  // then go by all the input meshes
+            {
+                const m = meshes[mi]
+                if (name === 'idx') {
+                    for(let i = 0; i < m.arrs.idx.length; ++i)
+                        narr[at_index++] = m.arrs.idx[i] + d.start_idxs[mi]
+                    continue
+                }                    
+                if (m.arrs[name] === undefined) { // this mesh doesn't have this name
+                    const count = isVtxProp ? m.vtx_count() : m.face_count()
+                    at_index = fill_default_value(narr, at_index, name, umeta, count)
+                    continue 
+                }
+                // data attribute that exists in this mesh, just copy it
+                narr.set(m.arrs[name], at_index)
+                at_index += m.arrs[name].length
+            }
+            r.set(name, narr, umeta.num_elems, umeta.need_normalize)
+        }
+        return r
+    }
+
+    merge_to_paths(d, meshes)
+    {
+        const r = new MultiPath()
+        const ranges = []
+        let at_index = 0; 
+        for(let m of meshes)  
+        {
+            if (m.constructor === Mesh) {
+                const step = idx_count_from_type(m.type)
+                const count_paths = (m.arrs.idx !== null) ? (m.arrs.idx.length / step) : m.vtx_count()
+                for(let i = 0; i < count_paths; ++i) {
+                    ranges.push(at_index, at_index + step, PATH_CLOSED)
+                    at_index += step
+                }
+            }
+            else {
+                for(let i = 0; i < m.paths_ranges.length; i += 3) {
+                    const start_idx = m.paths_ranges[i*3]
+                    const end_idx = m.paths_ranges[i*3+1]
+                    ranges.push(start_idx + at_index, end_idx + at_index, m.paths_ranges[i*3+2])
+                    at_index += end_idx - start_idx // advanced by this many vertices
+                }
+            }
+        }
+        assert(d.face_count === ranges.length / 3, this, "Unexpected face_count from analyze (BUG)")
+        r.paths_ranges = ranges
+        for(let name in d.uni_meta) { // go array by array
+            if (name === 'idx')
+                continue
+            const isVtxProp = !name.startsWith("face_")
+            const umeta = d.uni_meta[name]
+            const narr = new umeta.ctor(d.vtx_count * umeta.num_elems)
+            let at_index = 0
+            for(let m of meshes)  { // then go by all the input meshes            
+                const marr = m.arrs[name]
+                if (marr === undefined) { // this mesh doesn't have this name
+                    let count;
+                    if (isVtxProp)
+                        count = (m.constructor === Mesh && m.arrs.idx !== null) ? m.arrs.idx.length : m.vtx_count()
+                    else
+                        count = m.face_count()
+                    at_index = fill_default_value(narr, at_index, name, umeta, count)
+                    continue 
+                }
+                
+                if (m.constructor === Mesh && m.arrs.idx !== null && !isVtxProp) {
+                    for(let idx of m.arrs.idx) {  // expand idx
+                        for(let elemi = 0; elemi < umeta.num_elems; ++elemi)
+                            narr[at_index++] = marr[idx * umeta.num_elems + elemi]
+                    }
+                }
+                else { // paths, just copy it
+                    narr.set(m.arrs[name], at_index)
+                    at_index += m.arrs[name].length
+                }
+            }
+            r.set(name, narr, umeta.num_elems, umeta.need_normalize)
+        }
+        return r
     }
 
     run() {
@@ -923,44 +1044,12 @@ class NodeGeomMerge extends NodeCls
         }
 
         const d = this.analyze_inputs(meshes)
+        let r
         if (d.obj_ctor == Mesh) // all inputs are meshes of the same type
-        {
-            const r = new Mesh()
-            r.type = d.mesh_type
-            for(let name in d.uni_meta) { // go array by array
-                const umeta = d.uni_meta[name]
-                const narr = new umeta.ctor(((name === "idx") ? d.idx_count : d.vtx_count) * umeta.num_elems)
-                let at_index = 0
-                for(let mi in meshes)  // then go by all the input meshes
-                {
-                    const m = meshes[mi]
-                    if (name === 'idx') {
-                        for(let i = 0; i < m.arrs.idx.length; ++i)
-                            narr[at_index++] = m.arrs.idx[i] + d.start_idxs[mi]
-                        continue
-                    }                    
-                    if (m.arrs[name] === undefined) { // this mesh doesn't have this name
-                        const def = DEFAULT_FOR_VTX_ATTRS[name] // fill with a default value?
-                        if (def !== undefined && def.num_elems === umeta.num_elems) { // if it's not the same num_elems, don't bother
-                            for(let i = 0; i < m.vtx_count() * umeta.num_elems; ++i)
-                                narr[at_index++] = def.v[i % umeta.num_elems]
-                        }  // otherwise keep it 0
-                        continue 
-                    }
-                    // data attribute that exists in this mesh, just copy it
-                    assert(m.arrs[name].length === m.vtx_count() * m.meta[name].num_elems, this, "unexpected size of array " + name)
-                    narr.set(m.arrs[name], at_index)
-                    at_index += m.arrs[name].length
-                }
-                r.set(name, narr, umeta.num_elems, umeta.need_normalize)
-            }
-            this.out.set(r)
-        }
+            r = this.merge_to_mesh(d, meshes)
         else 
-        {  
-            assert(false, this, "not supported")
-        }
-
+            r = this.merge_to_paths(d, meshes)
+        this.out.set(r)
     }
 }
 
