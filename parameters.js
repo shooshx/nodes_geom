@@ -2090,19 +2090,17 @@ class ParamEditableValueList extends ListParam {
 class ParamCoordList extends ParamEditableValueList {
     constructor(node, label, table, selected_indices) {
         super(node, label, table, TVtxArr, selected_indices, 2)
-        this.need_normalize = false  // not really needed for coordinates but just for remembering    
+        this.pneed_normalize = false  // not really needed for coordinates but just for remembering    
     }
     to_string(v)  { return "(" + v[0].toFixed(3) + "," + v[1].toFixed(3) + ")" }
-    def_value() { return [0,0] }
 }
 
 class ParamFloatList extends ParamEditableValueList {
     constructor(node, label, table, selected_indices, changed_func_to_node=null) {
         super(node, label, table, Float32Array, selected_indices, 1, changed_func_to_node)
-        this.need_normalize = false
+        this.pneed_normalize = false
     }
     to_string(v) { return v.toFixed(3) }
-    def_value() { return 0; }
 }
 
 function uint8arr_to_color(arr) {
@@ -2114,7 +2112,7 @@ function color_to_uint8arr(c) {
 class ParamColorList extends ListParam {
     constructor(node, label, table, arr_type=TColorArr) {
         super(node, label, 4, table, TColorArr)
-        this.need_normalize = true
+        this.pneed_normalize = true
     }
     external_update(elem,value,index) { 
         elem.p_lst_index = index 
@@ -2127,7 +2125,6 @@ class ParamColorList extends ListParam {
         elem.p_lst_index = index
         return elem
     }
-    def_value() { return [0xcc, 0xcc, 0xcc, 0xff] }
 }
 
 

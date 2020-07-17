@@ -241,12 +241,17 @@ class NodeManualGeom extends NodeCls
         this.add_pnts_btn = new ParamBool(node, "Add points", true, null)
         this.add_pnts_btn.display_as_btn(true)
         this.table = new ParamTable(node, "Point List")
-        this.points = new ParamCoordList(node, "Coord", this.table, this.selected_indices)
+        this.points = new ParamCoordList(node, "vtx_pos", this.table, this.selected_indices)
       //  this.dummy = new ParamFloatList(node, "Dummy", this.table, this.selected_indices)
-        this.color = new ParamColorList(node, "Point Color", this.table)
+        this.color = new ParamColorList(node, "vtx_color", this.table)
         this.paths_ranges = new PathRangesList(node) // not shown
 
-        //this.pnt_attrs = {"vtx_color":this.color}  // Param objets of additional attributes of each point other than it's coordinate
+        // backwards compat
+        node.param_alias("Coord", this.points)
+        node.param_alias("Point Color", this.color)
+
+        // TBD user able to add columns
+        this.pnt_attrs = [this.color]  // Param objets of additional attributes of each point other than it's coordinate
 
         add_point_select_mixin(this, this.selected_indices, this.points)
     }
@@ -256,7 +261,7 @@ class NodeManualGeom extends NodeCls
         let ti = image_view.epnt_to_model(ex, ey)
         this.points.add(ti)
         for(let attr_param of this.pnt_attrs) {
-            attr_param.add(attr_param.def_value())
+            attr_param.add(DEFAULT_FOR_VTX_ATTRS[attr_param.label].v)
         }
 
         this.paths_ranges.add_default() // do this anyway just to keep it simple, not much of an overhead
@@ -304,7 +309,10 @@ class NodeManualGeom extends NodeCls
         }
 
         obj.set('vtx_pos', this.points.lst, 2)
-        obj.set('vtx_color', this.color.lst, 4, true)
+        for (let attr of this.pnt_attrs) {
+            obj.set(attr.label, attr.lst, attr.values_per_entry, attr.pneed_normalize)
+        }
+
 
         this.out.set(obj)
     }
@@ -866,6 +874,9 @@ class NodeGeomMerge extends NodeCls
         super(node)
         this.in_m = new InTerminalMulti(node, "in_multi_mesh")
         this.out = new OutTerminal(node, "out_mesh")
+
+        this.sorted_order = []       
+        mixin_multi_reorder_control(node, this, this.sorted_order, this.in_m)        
     }
 
     analyze_inputs(meshes) {
@@ -874,7 +885,10 @@ class NodeGeomMerge extends NodeCls
         let mesh_type = null   // if it's a mesh, the type
 
         const uni_meta = {}
-        for(let m of meshes) {
+        assert(this.sorted_order.length == meshes.length, this, "unexpected meshes size")
+        for(let si of this.sorted_order) 
+        {
+            const m = meshes[si]
             assert(m.constructor === Mesh || m.constructor === MultiPath, this, "input is not a mesh or paths")
             if (obj_ctor === null) // first
                 obj_ctor = m.constructor 
@@ -949,9 +963,9 @@ class NodeGeomMerge extends NodeCls
             const umeta = d.uni_meta[name]
             const narr = new umeta.ctor(((name === "idx") ? d.idx_count : d.vtx_count) * umeta.num_elems)
             let at_index = 0
-            for(let mi in meshes)  // then go by all the input meshes
+            for(let si of this.sorted_order) // then go by all the input meshes
             {
-                const m = meshes[mi]
+                const m = meshes[si]
                 if (name === 'idx') {
                     for(let i = 0; i < m.arrs.idx.length; ++i)
                         narr[at_index++] = m.arrs.idx[i] + d.start_idxs[mi]
@@ -974,10 +988,12 @@ class NodeGeomMerge extends NodeCls
     merge_to_paths(d, meshes)
     {
         const r = new MultiPath()
+        // make ranges
         const ranges = []
         let at_index = 0; 
-        for(let m of meshes)  
+        for(let si of this.sorted_order)
         {
+            const m = meshes[si]
             if (m.constructor === Mesh) {
                 const step = idx_count_from_type(m.type)
                 const count_paths = (m.arrs.idx !== null) ? (m.arrs.idx.length / step) : m.vtx_count()
@@ -995,16 +1011,20 @@ class NodeGeomMerge extends NodeCls
                 }
             }
         }
+        // all other attributes
         assert(d.face_count === ranges.length / 3, this, "Unexpected face_count from analyze (BUG)")
         r.paths_ranges = ranges
-        for(let name in d.uni_meta) { // go array by array
+        for(let name in d.uni_meta)  // go array by array
+        {
             if (name === 'idx')
                 continue
             const isVtxProp = !name.startsWith("face_")
             const umeta = d.uni_meta[name]
             const narr = new umeta.ctor(d.vtx_count * umeta.num_elems)
             let at_index = 0
-            for(let m of meshes)  { // then go by all the input meshes            
+            for(let si of this.sorted_order) // then go by all the input meshes
+            {
+                const m = meshes[si]
                 const marr = m.arrs[name]
                 if (marr === undefined) { // this mesh doesn't have this name
                     let count;
@@ -1625,10 +1645,11 @@ class NodeGeomDivide extends NodeCls
     }
 
     divide_quad(mesh, out_vtx, out_idx, idx0, idx1, idx2, idx3) {
-        let vtx = mesh.effective_vtx_pos
-        let p0_x = vtx[idx0*2], p0_y = vtx[idx0*2+1]
-        let p1_x = vtx[idx1*2], p1_y = vtx[idx1*2+1]
-        let p3_x = vtx[idx3*2], p3_y = vtx[idx3*2+1]
+        // assumes it's a parallelogram
+        const vtx = mesh.effective_vtx_pos
+        const p0_x = vtx[idx0*2], p0_y = vtx[idx0*2+1]
+        const p1_x = vtx[idx1*2], p1_y = vtx[idx1*2+1]
+        const p3_x = vtx[idx3*2], p3_y = vtx[idx3*2+1]
         let da_x = p1_x - p0_x, da_y = p1_y - p0_y // vector a from 0 to 1
         let db_x = p3_x - p0_x, db_y = p3_y - p0_y // vector b from 0 to 3
 
@@ -1636,8 +1657,7 @@ class NodeGeomDivide extends NodeCls
         if (!this.by_dist.v)
             div_a = div_b = this.divisions.v;
         else {
-            let dist = this.distance.v
-            assert(dist != 0, this, "Division by zero")
+            const dist = this.distance.v
             div_a = Math.round(Math.sqrt(da_x*da_x + da_y*da_y)/dist)
             div_b = Math.round(Math.sqrt(db_x*db_x + db_y*db_y)/dist)
         }
@@ -1647,39 +1667,94 @@ class NodeGeomDivide extends NodeCls
 
         for(let bi = 0; bi <= div_b; ++bi) {
             for(let ai = 0; ai <= div_a; ++ai) {
-                let np_x = p0_x + da_x*ai + db_x*bi
-                let np_y = p0_y + da_y*ai + db_y*bi
+                const np_x = p0_x + da_x*ai + db_x*bi
+                const np_y = p0_y + da_y*ai + db_y*bi
                 out_vtx.push(np_x, np_y)
             }
         }
 
         // quads
-        let sz_a = div_a+1
+        const sz_a = div_a+1
         for(let ai = 0; ai < div_a; ++ai) {
             for(let bi = 0; bi < div_b; ++bi) {
-                let idx0 = ai+bi*sz_a
-                let idx1 = idx0+1
-                let idx2 = idx1+sz_a
-                let idx3 = idx0+sz_a
+                const idx0 = ai+bi*sz_a
+                const idx1 = idx0+1
+                const idx2 = idx1+sz_a
+                const idx3 = idx0+sz_a
                 out_idx.push(idx0, idx1, idx2, idx3)
             }
         }
     }
 
+    divide_line(out_vtx, prev_x, prev_y, x, y, add_last)
+    {
+        let da_x = x - prev_x, da_y = y - prev_y
+        let div_a
+        if (!this.by_dist.v)
+            div_a = this.divisions.v;
+        else {
+            const dist = this.distance.v
+            div_a = Math.round(Math.sqrt(da_x*da_x + da_y*da_y)/dist)
+        }
+        da_x /= div_a; da_y /= div_a
+        if (add_last)
+            div_a += 1
+        for(let ai = 0; ai < div_a; ++ai) {
+            const np_x = prev_x + da_x*ai
+            const np_y = prev_y + da_y*ai
+            out_vtx.push(np_x, np_y)
+        }
+    }
+
     run() {
-        let mesh = this.in_mesh.get_const()
-        assert(mesh !== null, this, "Missing input points")
-        let out_vtx = [], out_idx = []
-        let idx = mesh.arrs.idx
-        if (mesh.type == MESH_QUAD) {
+        let obj = this.in_mesh.get_const()
+        assert(obj !== null, this, "Missing input points")
+
+        if (this.by_dist.v)
+            assert(this.distance.v != 0, this, "Division by zero")
+        if (obj.constructor === Mesh && mesh.type == MESH_QUAD) 
+        {
+            // quad divides to little quads
+            // each quad separately, not unifying vertices from different quads
+            const out_vtx = [], out_idx = []
+            const idx = obj.arrs.idx
             for(let i = 0; i < idx.length; i += 4) {
-                this.divide_quad(mesh, out_vtx, out_idx, idx[i], idx[i+1], idx[i+2], idx[i+3])
+                this.divide_quad(obj, out_vtx, out_idx, idx[i], idx[i+1], idx[i+2], idx[i+3])
             }
-            let out_mesh = new Mesh()
+            const out_mesh = new Mesh()
             out_mesh.set('vtx_pos', new TVtxArr(out_vtx), 2, false)
             out_mesh.set('idx', new TIdxArr(out_idx))
             out_mesh.type = MESH_QUAD
             this.out_mesh.set(out_mesh)
+        }
+        if (obj.constructor === MultiPath) {
+            const vtx = obj.effective_vtx_pos
+            const out_vtx = [], out_ranges = []
+            for(let pri = 0; pri < obj.paths_ranges.length; pri += 3) {
+                const start_vidx = obj.paths_ranges[pri]*2
+                const end_vidx = obj.paths_ranges[pri+1]*2
+                const flags = obj.paths_ranges[pri+2]
+                const closed = flags & PATH_CLOSED
+                let prev_x = vtx[end_vidx-2], prev_y = vtx[end_vidx-2+1]
+                const out_start = out_vtx.length
+                let first_line = true
+                for(let vidx = start_vidx; vidx < end_vidx; vidx += 2) {
+                    const x = vtx[vidx], y = vtx[vidx+1]
+                    const is_real_line = (!first_line) || (first_line && closed)
+                    if (is_real_line) {
+                        // in unclosed path, the last line should also include the last point since there's no line coming out of that point to complete it
+                        this.divide_line(out_vtx, prev_x, prev_y, x, y, !closed && (vidx == end_vidx - 2))
+                    }
+                    prev_x = x; prev_y = y
+                    first_line = false
+                }
+                const out_end = out_vtx.length
+                out_ranges.push(out_start, out_end, flags)
+            }
+            const out_paths = new MultiPath()
+            out_paths.paths_ranges = out_ranges
+            out_paths.set('vtx_pos', new TVtxArr(out_vtx), 2, false)
+            this.out_mesh.set(out_paths)
         }
         else {
             assert(false, this, "unexpected geometry")

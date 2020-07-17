@@ -53,20 +53,20 @@ EXPRESSIONS
 
 
 ****** CURRENT AGENDA ******
-- mesh merge
-    order param
+- hex lattice?
+    divide line
+    copy node
+    merge deduplicate points
 - BoolParam from code (from variable)
     fix in SetAttr fill from ParamFloat to ParamBool with code
 - Small: notes in nodes view
+- BUG? rendering with effective_vtx ?
 - BUG: func node without show_code?
 - balls the know their end color
+    - Animation
     - box2d
     - flow control
-    - Animation
     - anim - some frames are not displayed?
-- hex lattice?
-    copy node
-    merge deduplicate points
 - Mandelbrot
     change power
     anim gradient
@@ -124,6 +124,8 @@ NODES:
 - triangulate  
     check why there's jumping when triangulating a primitive pentagon
 - Paths 
+    Node - discretisize Bezier
+    circle/arc as primitive?
     show directionality of polygons
 - SetAttr 
    - sample gradient in code
@@ -170,8 +172,6 @@ NODES:
 - Gradient
     in stroke (line),
     - Coon patch (not supported in chrome) http://tavmjong.free.fr/SVG/MESH/Mesh.html
-- Boolean operation
-    faster with C++ clipper?
 
 - 2d color function
     - time
@@ -186,7 +186,6 @@ NODES:
     with catmul-clark smoothing
 - topograph
 - Text paths  https://opentype.js.org/
-- Mesh merge, path merge
 - Shrink faces 
     - with expression depending on vtx_pos or any other attr
 - Shader distance from path
@@ -201,6 +200,7 @@ NODES:
 - BoolOp
     - do operation on local surroundings of the smaller (or selected) bbox for better performance
     - with just vertices (include/exclude vertex)
+    - faster with C++ clipper?
 - Offset-Path
     - bug with oversizing divided square - lighten doesn't get rid of first point of merge
     - discretization of bezier (and back to bezier from paperjs?)

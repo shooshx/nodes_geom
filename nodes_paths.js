@@ -175,21 +175,15 @@ class MultiPath extends PObject
             if (vtx.length == 0)
                 return null
             let min_x = Number.MAX_VALUE, max_x = -Number.MAX_VALUE, min_y = Number.MAX_VALUE, max_y = -Number.MAX_VALUE
-            for(let pri = 0; pri < this.paths_ranges.length; pri += 3) {
-                let start_vidx = this.paths_ranges[pri]*2
-                let end_vidx = this.paths_ranges[pri+1]*2
-                let prev_x = vtx[end_vidx-2], prev_y = vtx[end_vidx-1]
-                for(let vidx = start_vidx; vidx < end_vidx; vidx += 2) {
-                    let x = vtx[vidx], y = vtx[vidx+1]
-                    let ct_x = x + ctp[vidx], ct_y = y + ctp[vidx+1]
-                    let cf_x = prev_x + cfp[vidx], cf_y = prev_y + cfp[vidx+1]
-                    min_x = Math.min(min_x, x, ct_x, cf_x)
-                    max_x = Math.max(max_x, x, ct_x, cf_x)
-                    min_y = Math.min(min_y, y, ct_y, cf_y)
-                    max_y = Math.max(max_y, y, ct_y, cf_y)
-                    prev_x = x, prev_y = y
-                }
-            }
+            this.foreach_line((vidx, prev_x, prev_y, x, y)=>{
+                let ct_x = x + ctp[vidx], ct_y = y + ctp[vidx+1] 
+                let cf_x = prev_x + cfp[vidx], cf_y = prev_y + cfp[vidx+1]
+                min_x = Math.min(min_x, x, ct_x, cf_x)  // doing this is not accurate but it's good enough for now
+                max_x = Math.max(max_x, x, ct_x, cf_x)
+                min_y = Math.min(min_y, y, ct_y, cf_y)
+                max_y = Math.max(max_y, y, ct_y, cf_y)
+                prev_x = x, prev_y = y
+            })
             return new BBox(min_x, min_y, max_x, max_y)
         }
     }
@@ -301,29 +295,35 @@ class MultiPath extends PObject
         }
     }
 
-
-    draw_control_points() {
+    foreach_line(line_func) {
         let vtx = this.effective_vtx_pos;
-        let ctp = this.eff_ctrl_to_prev, cfp = this.eff_ctrl_from_prev
-        ctx_img.beginPath()
         for(let pri = 0; pri < this.paths_ranges.length; pri += 3) {
-            let start_vidx = this.paths_ranges[pri]*2
-            let end_vidx = this.paths_ranges[pri+1]*2
-            let prev_x = vtx[end_vidx-2], prev_y = vtx[end_vidx-2+1]
+            const start_vidx = this.paths_ranges[pri]*2
+            const end_vidx = this.paths_ranges[pri+1]*2
+            let  prev_x = vtx[end_vidx-2], prev_y = vtx[end_vidx-2+1]
             for(let vidx = start_vidx; vidx < end_vidx; vidx += 2) {
-                let vx = vtx[vidx], vy = vtx[vidx+1]
-                if (this.is_curve(vidx))
-                {
-                    let abs_cfp_x = prev_x+cfp[vidx], abs_cfp_y = prev_y+cfp[vidx+1]
-                    let abs_ctp_x = vx+ctp[vidx], abs_ctp_y = vy+ctp[vidx+1]
-                    ctx_img.moveTo(prev_x, prev_y)
-                    ctx_img.lineTo(abs_cfp_x, abs_cfp_y)
-                    ctx_img.moveTo(vx, vy)
-                    ctx_img.lineTo(abs_ctp_x, abs_ctp_y)
-                }
+                const vx = vtx[vidx], vy = vtx[vidx+1]
+                // first line is the closing line (between last and first point if it's a closed path
+                line_func(vidx, prev_x, prev_y, vx, vy)
                 prev_x = vx; prev_y = vy
             }
         }
+    }
+
+    draw_control_points() {
+        let ctp = this.eff_ctrl_to_prev, cfp = this.eff_ctrl_from_prev
+        ctx_img.beginPath()
+        this.foreach_line((vidx, vx, vy)=>{
+            if (this.is_curve(vidx))
+            {
+                let abs_cfp_x = prev_x+cfp[vidx], abs_cfp_y = prev_y+cfp[vidx+1]
+                let abs_ctp_x = vx+ctp[vidx], abs_ctp_y = vy+ctp[vidx+1]
+                ctx_img.moveTo(prev_x, prev_y)
+                ctx_img.lineTo(abs_cfp_x, abs_cfp_y)
+                ctx_img.moveTo(vx, vy)
+                ctx_img.lineTo(abs_ctp_x, abs_ctp_y)
+            }
+        })
         ctx_img.lineWidth = MESH_DISP.line_width/image_view.viewport_zoom
         ctx_img.stroke()
     }
