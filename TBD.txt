@@ -46,7 +46,7 @@ EXPRESSIONS
 - *** Vec2Int (resolution image)
 - default() to give value to non-existing variable - not so easy...
 - if
-    - variables defined in scope - to avoid glsl errors when doing python style assignment
+
 - check CodeMirror
 - line errors for ExprErr outside main parsing (line in node)
     for mesh stuff eassert

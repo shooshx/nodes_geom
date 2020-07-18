@@ -29,17 +29,28 @@ $UNIFORM_DEFS$
 
 $FUNCS$
 
-void main() {
-    $BEFORE_EXPR$
 #ifndef _D_EXPR_IS_COLOR
-    float v = $EXPR$;
+float flt_expr() {
+    $EXPR$
+}
+#else
+$EXPR_VEC_RET$ vec_expr() {
+    $EXPR$
+}
+vec4 vec_cvt(vec4 v) { return v; }
+vec4 vec_cvt(vec3 v) { return vec4(v, 1.0); }
+#endif
+
+void main() {
+#ifndef _D_EXPR_IS_COLOR
+    float v = flt_expr();
  #ifdef _D_HAS_TEXTURE
     outColor = texture(_u_in_tex_0, vec2(v,0));
  #else
     outColor = vec4(vec3(1.0, 0.5, 0.0) + vec3(v*2.0-1.0, v*2.0-1.0, v*2.0-1.0), 1.0);
  #endif
 #else     
-    outColor = $EXPR$;
+    outColor = vec_cvt(vec_expr());
 #endif     
 }
 
@@ -130,12 +141,13 @@ function glsl_type_name(t) {
 
 class GlslEmitContext {
     constructor() {
-        this.before_expr = []  // lines that go before the final expression
         this.add_funcs = []    // function definitions to go before main
         this.uniform_decls = []  // set of strings of the uniform declarations
         this.inline_str = null  // the final expression
         this.uniform_evaluators = {} // map name of uniform to UniformVarRef
         this.glsl_code = ""
+        this.vec_expr_type = 'vec4'
+        this.locals_defs = {} // map local variable name to type
     }
     add_uniform(type, name, evaluator) { // expression getting uniforms from variables
         if (this.uniform_evaluators[name] !== undefined)
@@ -145,10 +157,13 @@ class GlslEmitContext {
     }
 
     do_replace(text) {
+        let func_body = ""
+        for(let name in this.locals_defs) // define all locals ahead of everything else since a local may be first assigned in an if
+            func_body += glsl_type_name(this.locals_defs[name]) + " " + name + ";\n"
         return text.replace('$FUNCS$', this.add_funcs.join('\n'))
-                   .replace('$BEFORE_EXPR$', this.before_expr.join('\n'))
                    .replace('$UNIFORM_DEFS$', this.uniform_decls.join('\n')) // from variables
-                   .replace(/\$EXPR\$/g, this.inline_str)
+                   .replace(/\$EXPR\$/g, func_body + this.inline_str)
+                   .replace('$EXPR_VEC_RET$', this.vec_expr_type)
                    .replace('$GLSL_CODE$', this.glsl_code)
     }
     
@@ -269,28 +284,26 @@ class NodeFuncFill extends BaseNodeShaderParcel
                 assert(false, this, "Expression error")
             }
             try {
-                // str is just whats returned, other lines are in before_expr
-                emit_ctx.inline_str = this.active_item.e.to_glsl(emit_ctx)
-                if (this.active_item.etype === TYPE_VEC3) {
-                    emit_ctx.inline_str = "vec4(" + emit_ctx.inline_str + ", 1.0)"
-                }
-                // check type if vec3 add alpha
+                // returns the function text
+                emit_ctx.inline_str = ExprParser.do_to_glsl(this.active_item.e, emit_ctx)
                 assert(emit_ctx.inline_str !== null, this, 'unexpected expression null')
+                // check type if vec3 add alpha
+                emit_ctx.vec_expr_type = glsl_type_name(this.active_item.etype)
             }
             catch(ex) {
                 assert(false, this, ex.message)
             }
         }
-        else {  // it's a constant
+        else {  // it's a constant (not expression)
             if (this.type.sel_idx === 0) {
-                emit_ctx.inline_str = this.active_param.get_value()
+                emit_ctx.inline_str = "return " + this.active_param.get_value()
                 if (Number.isInteger(emit_ctx.inline_str))
                     emit_ctx.inline_str += ".0"
             }
             else {
                 // expects the numbers from expr to be [0,1] range
                 let c = this.active_param.get_value()
-                emit_ctx.inline_str = "vec4(" + (c.r/255) + "," + (c.g/255) + "," + (c.b/255) + "," + c.alpha + ")"
+                emit_ctx.inline_str = "return vec4(" + (c.r/255) + "," + (c.g/255) + "," + (c.b/255) + "," + c.alpha + ")"
             }
         }
         return emit_ctx;

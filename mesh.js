@@ -778,7 +778,7 @@ function arr_gl_type(arr) {
         return gl.UNSIGNED_INT
     if (ctor === Uint16Array)
         return gl.UNSIGNED_SHORT
-    throw "unexpected array type"
+    throw new Error("unexpected array type")
 }
 
 /*  make line segments, not really needed

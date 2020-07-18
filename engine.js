@@ -662,7 +662,7 @@ async function do_frame_draw(do_run, clear_all)
     for(let tn of program.tdisp_nodes) {
         const tdist_obj = tn.outputs[0].get_const()
         if (tdist_obj === null) {
-            set_error(tn, "No output generated")
+            set_error(tn.cls, "No output generated")
             continue
         }
         try {

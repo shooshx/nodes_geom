@@ -1142,6 +1142,10 @@ $UNIFORM_DEFS$
 
 $FUNCS$
 
+float flt_expr(vec2 v_coord) {
+    $EXPR$
+}
+
 void main() {
     vec3 tmp = t_mat * vec3(vtx_pos.xy, 1.0);
     vec2 v_coord = tmp.xy;
@@ -1151,8 +1155,7 @@ void main() {
         gl_PointSize = 1.0; // should not be 0
     }
     else {
-        $BEFORE_EXPR$
-        float f = $EXPR$;
+        float f = flt_expr(v_coord);
 
         // discretisize the pixel position to whole pixels
         gl_Position = vec4( (floor(vtx_pos.xy * res) + vec2(0.5,0.5)) / res, 0.0, 1.0) ;
@@ -1262,7 +1265,7 @@ class Scatter2 extends BaseNodeParcel
                 assert(false, this, "Expression error")
             }
             try {
-                emit_ctx.inline_str = item.e.to_glsl(emit_ctx)
+                emit_ctx.inline_str = ExprParser.do_to_glsl(item.e, emit_ctx)
             }
             catch(ex) {
                 assert(false, this, ex.message)
@@ -1411,6 +1414,7 @@ class PixelsToVertices extends NodeCls
         }
         const mesh = new Mesh()
         mesh.set("vtx_pos", new TVtxArr(vtx_pos), 2, false)
+        mesh.type = MESH_POINTS
         return mesh       
     }
 

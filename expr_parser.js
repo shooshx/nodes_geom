@@ -100,7 +100,7 @@ function numbersInType(t) {
 // pack multiple types in the same value, used for function lookup by argument types
 function type_tuple_l(lst) {
     if (lst.length > 4)
-        throw TypeErr("too many arguments to function")
+        throw new TypeErr("too many arguments to function")
     let at = 0, idx = 0
     for(let t of lst)
         at = at | (t << (8*idx++))
@@ -142,6 +142,7 @@ class NumNode  extends NodeBase {
         return this.v;
     }
     check_type() {
+        this.type = TYPE_NUM
         return TYPE_NUM
     }
     to_glsl(emit_ctx) {
@@ -171,6 +172,7 @@ class BoolNode extends NodeBase {
         return this.v;
     }
     check_type() {
+        this.type = TYPE_BOOL
         return TYPE_BOOL
     }
     to_glsl(emit_ctx) {
@@ -844,7 +846,7 @@ class InternalFuncCallNode extends NodeBase {
                 if (atypes.length === 1)
                     ret_t = atypes[0]
                 else
-                    throw TypeErr("Can't deduce return type of func " + this.funcname)
+                    throw new TypeErr("Can't deduce return type of func " + this.funcname)
             }
             else
                 ret_t = this.def.ret_type
@@ -1274,6 +1276,7 @@ class SubscriptNode extends NodeBase
         return sv
     }
     check_type() {
+        this.type = TYPE_NUM
         return TYPE_NUM
     }
     to_glsl(emit_ctx) {
@@ -1355,7 +1358,6 @@ class IfStatement extends Statement
         this.true_code = true_code // either can be null
         this.else_code = else_code 
     }
-    isReturn() { return false }
     invoke() {
         const cv = this.cond_expr.eval()
         let v = null
@@ -1368,7 +1370,7 @@ class IfStatement extends Statement
                 v = this.else_code.eval()
         }
         else 
-            throw ExprErr("Unexpected value from if condition " + v)
+            throw new ExprErr("Unexpected value from if condition " + v)
         return v
     }
     sclear_types_cache() {
@@ -1382,10 +1384,18 @@ class IfStatement extends Statement
     scheck_type() {
         const cond_type = this.cond_expr.check_type()
         eassert(cond_type === TYPE_BOOL, "If statement with non-bool condition")
+        let t1 = null, t2 = null
         if (this.true_code !== null)
-            this.true_code.check_type()
+            t1 = this.true_code.check_type()
         if (this.else_code !== null)
-            this.else_code.check_type()              
+            t2 = this.else_code.check_type()
+        if (t1 !== null && t2 != null) {
+            eassert(t1 === t2, "return different types: " + typename(t1) + " != " + typename(t2))
+            this.type = t1
+            return t1
+        }
+        this.type = null // also means we didn't check, that's why there's no caching of the type here
+        return null      
     }
     sto_glsl(emit_ctx) {
         let s = "if (" + this.cond_expr.to_glsl(emit_ctx) + ") {\n"
@@ -1432,8 +1442,8 @@ class ReturnStmt extends Statement {
     constructor(expr) {
         super()
         this.expr = expr
+        this.type = null
     }
-    isReturn() { return true }
     invoke() {
         const v = this.expr.eval()
         return v
@@ -1443,10 +1453,13 @@ class ReturnStmt extends Statement {
         this.expr.clear_types_cache()
     }
     scheck_type() {
-        return this.expr.check_type()
+        if (this.type !== null)
+            return this.type
+        this.type = this.expr.check_type()
+        return this.type
     }
     sto_glsl(emit_ctx) {
-        return this.expr.to_glsl(emit_ctx)  // ; will be added in template
+        return "return " + this.expr.to_glsl(emit_ctx) + ";"
     }
 }
 
@@ -1464,6 +1477,7 @@ class AssignNameStmt  extends Statement {  // not a proper node (no eval, has si
         this.subscriptIdx = (sp.length > 1) ? SUBSCRIPT_TO_IDX[sp[1]] : null
         eassert(this.subscriptIdx !== undefined, "Unknown subscript in: " + in_name)
         this.expr = expr
+        this.expr_type = null
         this.symbol = g_symbol_table[this.name]
         this.vNode = null  // a new node that has the actual value assigned to the symbol
         this.first_definition = false
@@ -1473,7 +1487,6 @@ class AssignNameStmt  extends Statement {  // not a proper node (no eval, has si
             this.first_definition = true
         }
     }
-    isReturn() { return false }
     invoke() {
         const v = this.expr.eval()
         if (this.subscriptIdx !== null) { 
@@ -1482,10 +1495,10 @@ class AssignNameStmt  extends Statement {  // not a proper node (no eval, has si
         }
         else {
             let vNode
-            switch  (this.type) {
+            switch  (this.expr_type) {
             case TYPE_NUM: vNode = new NumNode(v, false)
             case TYPE_BOOL: vNode = new BoolNode(v)
-            default: vNode = new VecNode(v, this.type)
+            default: vNode = new VecNode(v, this.expr_type)
             }
             // valueNode in symbol is null as long as the symbol doesn't have a value
             this.symbol.valueNode = vNode
@@ -1497,20 +1510,21 @@ class AssignNameStmt  extends Statement {  // not a proper node (no eval, has si
         this.expr.clear_types_cache()
     }
     scheck_type() {
-        this.type = this.expr.check_type()
+        this.expr_type = this.expr.check_type()
         if (this.subscriptIdx !== null) {
-            eassert(this.type === TYPE_NUM || this.type === TYPE_BOOL, "Subscript assign to `" + this.in_name + "` expects a number") // assume we don't assign things bigger than a number (no swizzle yet)
+            eassert(this.expr_type === TYPE_NUM || this.expr_type === TYPE_BOOL, "Subscript assign to `" + this.in_name + "` expects a number") // assume we don't assign things bigger than a number (no swizzle yet)
             eassert(this.symbol.type !== null, "Trying to assign subscipt of an undefined symbol: " + this.name)
             eassert(this.symbol.type !== TYPE_NUM && this.symbol.type !== TYPE_BOOL, "Number type symbol `" + this.name + "` can't have subscript")
             eassert(this.subscriptIdx < numbersInType(this.symbol.type), "Assigning to non-existing subscript " + this.subscriptName + " of symbol " + this.name)
         }
         else {
             if (this.symbol.type !== null)
-                eassert(this.symbol.type === this.type, "Symbol `" + this.in_name + "` can't change type (from " + typename(this.symbol.type) + " to " + typename(this.type) + ")")
+                eassert(this.symbol.type === this.expr_type, "Symbol `" + this.in_name + "` can't change type (from " + typename(this.symbol.type) + " to " + typename(this.expr_type) + ")")
             // changing type of a variable won't work in glsl so we don't allow it                
-            this.symbol.type = this.type  // needs to be here since it's needed in the check_type of referencing this symbol
+            this.symbol.type = this.expr_type  // needs to be here since it's needed in the check_type of referencing this symbol
         }
-        return this.type
+        this.type = null
+        return null // doesn't return from a code-block so it needs to be null
     }
     sto_glsl(emit_ctx) {
         let s = this.name
@@ -1519,7 +1533,7 @@ class AssignNameStmt  extends Statement {  // not a proper node (no eval, has si
         }
         s += "=" + this.expr.to_glsl(emit_ctx) + ";"
         if (this.first_definition)
-            s = TYPE_TO_STR[this.type] + " " + s
+            emit_ctx.locals_defs[this.name] = this.expr_type
         return s
     }
 }
@@ -1529,11 +1543,10 @@ var g_symbol_table = null
 var g_glsl_added_funcs = null // map [name of func]_[arg type] to the func text
 
 class CodeNode extends NodeBase {
-    constructor(stmts, symbol_table, has_return) {
+    constructor(stmts, symbol_table) {
         super()
         this.stmts = stmts
         this.symbol_table = symbol_table
-        this.has_return = has_return
     }
     count() {
         return this.stmts.length
@@ -1559,28 +1572,26 @@ class CodeNode extends NodeBase {
             stmt.sclear_types_cache()
     }
     check_type() {
-        let ret = null
+        if (this.type !== null)
+            return this.type
         for(let stmt of this.stmts) {
-            ret = stmt.scheck_type()
-            if (stmt.isReturn()) {
+            const sret = stmt.scheck_type()
+            if (sret !== null) { // means all control paths of this statement return a value
+                this.type = sret
                 break // anything after that is not going to be executed so it doesn't need to be checked
             }
         }
-        return ret
+        return this.type
     }
     to_glsl(emit_ctx) {
-        g_glsl_added_funcs = {}
+        let s = ""
         for(let stmt of this.stmts) {
-            let ret = stmt.sto_glsl(emit_ctx)
-            if (stmt.isReturn()) {
-                for(let ti in g_glsl_added_funcs)
-                    emit_ctx.add_funcs.push(g_glsl_added_funcs[ti])
-                return ret
-            }
-            emit_ctx.before_expr.push(ret)
+            let ret = stmt.sto_glsl(emit_ctx) 
+            s += ret + "\n"
         }
-        throw new ExprErr("No return?")
+        return s
     }
+
 }
 
 function skip_to_next_line() {
@@ -1618,7 +1629,7 @@ function parseCodeBlock() {
 
 // parse block of statements (without curly braces) or just one statement (instead of a block where there are no curly brances in an if)
 function parseCode(only_one_line) {
-    let lst = [], has_return = false
+    let lst = []
     while(!isEnd()) {
         const e = parseStmt()
         if (e === STMT_COMMENT) {
@@ -1627,13 +1638,11 @@ function parseCode(only_one_line) {
         }
         else if (e === STMT_END_BLOCK)
             break
-        if (e.isReturn())
-            has_return = true
         lst.push(e)
         if (only_one_line)
             break
     }
-    return new CodeNode(lst, g_symbol_table, has_return)
+    return new CodeNode(lst, g_symbol_table)
 }
 
 // parse a complete program from the use
@@ -1668,11 +1677,8 @@ function eparse(expr, state_access, opt) {
     try {
         if (opt === PARSE_EXPR)
             result = parseExpr();   
-        else if (opt == PARSE_CODE) {
+        else if (opt == PARSE_CODE) 
             result = parseCompleteCode();
-            if (!result.has_return)
-                throw new ExprErr("missing return statement")
-        }
         else 
             throw new ExprErr("unknown opt " + opt)
         if (!isEnd())
@@ -1693,7 +1699,10 @@ function eparse(expr, state_access, opt) {
 // expect_var_resolved means if there are still unresolved vars, throw, rather than set the exception
 function check_type(node, expect_var_resolved=false) {
     try {
-        return node.check_type()
+        const ret = node.check_type()
+        if (ret === null)
+            throw new ExprErr("Not all control paths return a value")
+        return ret
     } catch(e) {
         if (e.constructor === UndecidedTypeErr)
             return TYPE_UNDECIDED
@@ -1715,7 +1724,18 @@ function do_eval(node) {
     return ret
 }
 
-return {parse:eparse, make_num_node:make_num_node, check_type:check_type, clear_types_cache:clear_types_cache, do_eval:do_eval}
+function do_to_glsl(node, emit_ctx) {
+    g_glsl_added_funcs = {}
+    const ret = node.to_glsl(emit_ctx)
+    if (ret === null)
+        throw new ExprErr("No return statement")
+    for(let ti in g_glsl_added_funcs)
+        emit_ctx.add_funcs.push(g_glsl_added_funcs[ti])
+
+    return ret
+}
+
+return {parse:eparse, make_num_node:make_num_node, check_type:check_type, clear_types_cache:clear_types_cache, do_eval:do_eval, do_to_glsl:do_to_glsl}
 })()
 
 

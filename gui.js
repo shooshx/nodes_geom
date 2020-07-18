@@ -423,7 +423,7 @@ function open_context_menu(options, wx, wy, parent_elem, dismiss_func)
                     open_sub.elem.parentElement.removeChild(open_sub.elem)
                 open_sub.opt = opt
                 const rect = e.getBoundingClientRect();
-                open_sub.elem = open_context_menu(opt.sub_opts, rect.right-wx-4, rect.top-wy-3, menu_elem, dismiss_func)
+                open_sub.elem = open_context_menu(opt.sub_opts, Math.trunc(rect.right)-wx-4, Math.trunc(rect.top)-wy-3, menu_elem, dismiss_func)
             })
         }
         else { // normal option, dismiss open sub if exists
@@ -448,17 +448,20 @@ function open_context_menu(options, wx, wy, parent_elem, dismiss_func)
 
     let main_width = main_view.offsetWidth, main_height = main_view.offsetHeight
     let menu_width = menu_elem.offsetWidth, menu_height = menu_elem.offsetHeight
-    let rx = wx, ry = wy
+    const parentRect = parent_elem.getBoundingClientRect()
+    let rx = Math.trunc(parentRect.left) + wx, ry = Math.trunc(parentRect.top) + wy
     
-    if (wx + menu_width > main_width) {  // x overflow
+    if (rx + menu_width > main_width) {  // x overflow
         rx = main_width - menu_width
     }
-    if (wy + menu_height > main_height) { // y overflow
+    if (ry + menu_height > main_height) { // y overflow
         ry = main_height - menu_height
     }
+    wx = rx - parentRect.left
+    wy = ry - parentRect.top
     
-    menu_elem.style.left = rx + "px"
-    menu_elem.style.top = ry + "px"
+    menu_elem.style.left = wx + "px"
+    menu_elem.style.top = wy + "px"
     return menu_elem
 }
 
