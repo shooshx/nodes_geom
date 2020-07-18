@@ -787,7 +787,7 @@ class ExpressionItem {
         this.in_param.call_change() // need to do this even if it's not const for glsl in FuncFill
  
         if (this.expr_score == EXPR_CONST) { // depends on anything?
-            if (this.do_set_prop(this.e.eval()))  // returns false if it's the same value
+            if (this.do_set_prop(ExprParser.do_eval(this.e)))  // returns false if it's the same value
                 this.in_param.pset_dirty() 
             this.need_inputs = null
         }
@@ -896,7 +896,7 @@ class ExpressionItem {
         if (this.e === null)  // error in expr
             return this.get_prop()
         try {
-            return this.e.eval() // the state_input was put there using the evaler before the call to here
+            return ExprParser.do_eval(this.e) // the state_input was put there using the evaler before the call to here
         }
         catch(ex) {
             this.eset_error(ex)
@@ -953,7 +953,7 @@ class ExpressionItem {
                 this.in_param.pset_dirty()
             }
             else {
-                if (this.do_set_prop(this.e.eval(), false)) // don't do slider-update since we know the it's non-const expr and slider need to remain transparent
+                if (this.do_set_prop(ExprParser.do_eval(this.e), false)) // don't do slider-update since we know the it's non-const expr and slider need to remain transparent
                     this.in_param.pset_dirty()
             }
         }

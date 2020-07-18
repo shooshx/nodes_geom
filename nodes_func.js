@@ -157,7 +157,7 @@ class GlslEmitContext {
             let evaluator = this.uniform_evaluators[name]
             const param = shader_cls.param_of_uniform(name)
             console.assert(param !== null, "Missing expected uniform param " + name)
-            param.modify(evaluator.eval(), false)
+            param.modify(ExprParser.do_eval(evaluator), false)
         }
     }
 }

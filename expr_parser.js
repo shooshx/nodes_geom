@@ -217,7 +217,7 @@ function call_operator(v1, v2, op) {
         case OPERATOR_DIVISION:       ret = v1 / checkZero(v2); break;
         case OPERATOR_MODULO:         ret = v1 % checkZero(v2); break;
         case OPERATOR_POWER:          ret = Math.pow(v1, v2); break;
-        case OPERATOR_EXPONENT:       ret = v1 * Math.pow(10, v2); break;
+    //    case OPERATOR_EXPONENT:       ret = v1 * Math.pow(10, v2); break;
         case OPERATOR_SUBSCRIPT:      throw new ExprErr("subscript in binary (bug)");
 
         case OPERATOR_LESS:           ret = (v1 < v2); break // + to make it a number
@@ -246,7 +246,7 @@ function op_str(op) {
         case OPERATOR_DIVISION:       return '/'
         case OPERATOR_MODULO:         return '%'
         case OPERATOR_POWER:          return '**'
-        case OPERATOR_EXPONENT:       return 'e'
+    //    case OPERATOR_EXPONENT:       return 'e'
         case OPERATOR_SUBSCRIPT:      throw new ExprErr("subscript in binary (bug)");
 
         case OPERATOR_LESS:           return '<'
@@ -576,12 +576,12 @@ function parseOp()
                 return ops[OPERATOR_MULTIPLICATION];
             index_++;
             return ops[OPERATOR_POWER];
-        case 'e':
+     /*   case 'e':
             index_++;
             return ops[OPERATOR_EXPONENT];
         case 'E':
             index_++;
-            return ops[OPERATOR_EXPONENT];
+            return ops[OPERATOR_EXPONENT];*/
         case '.':
             index_++;
             return ops[OPERATOR_SUBSCRIPT]
@@ -1281,45 +1281,59 @@ class SubscriptNode extends NodeBase
     }
 }
 
-function parseStmt() {
-    eatSpaces()
-    if (index_ > 0 && !isSpace(expr_[index_-1]))
-        throw new ExprErr("Statments must be separated by whitespace")
-    // statement starts with a variable name to assign to or 'return'
-    const name = parseNewIdentifier()
-    if (name === null) // comment statement
-        return null 
-    eatSpaces()
-    let assign_type = null
-    if (name !== 'return') 
-    {
-        assign_type = OPERATOR_NULL
-        let c = getCharacter();
-        switch(c) {
-        case '+': assign_type = OPERATOR_ADDITION; break;
-        case '-': assign_type = OPERATOR_SUBTRACTION; break;
-        case '*': assign_type = OPERATOR_MULTIPLICATION; break;
-        case '/': assign_type = OPERATOR_DIVISION; break;
-        }
-        if (assign_type !== OPERATOR_NULL) {
-            index_++;
-            c = getCharacter();
-        }
-        if (c !== '=')
-            throw new ExprErr("expected assignment")
+function parseAssignStmt(name) {
+    let assign_type = OPERATOR_NULL
+    let c = getCharacter();
+    switch(c) {
+    case '+': assign_type = OPERATOR_ADDITION; break;
+    case '-': assign_type = OPERATOR_SUBTRACTION; break;
+    case '*': assign_type = OPERATOR_MULTIPLICATION; break;
+    case '/': assign_type = OPERATOR_DIVISION; break;
+    }
+    if (assign_type !== OPERATOR_NULL) {
         index_++;
-        eatSpaces()
+        c = getCharacter();
     }
+    if (c !== '=')
+        throw new ExprErr("expected assignment")
+    index_++;
+    eatSpaces()
     const expr = parseExpr()
-    if (assign_type === null) {
-        return new ReturnStmt(expr)
-    }
     if (assign_type === OPERATOR_NULL) {
         return new AssignNameStmt(name, expr)
     }
     return new AssignNameStmt(name, new BinaryOpNode(lookupIdentifier(name), expr, assign_type))
-    
 }
+
+
+
+function parseIfStmt() {
+    eatSpaces()
+    let c = getCharacter();
+    if (c !== '(')
+        throw new ExprErr("if expects open trace '('")
+    index_++;
+    const cond = parseExpr()
+    eatSpaces()
+    c = getCharacter();
+    if (c !== ')')
+        throw new ExprErr("if condition expects close trace ')'")
+    index_++;
+    eatSpaces()
+    let true_code = parseCodeBlock()
+    if (true_code.count() == 0)
+        true_code = null
+    eatSpaces()
+    let else_code = null
+    if (expr_.substr(index_, 4) == 'else') {
+        index_ += 4
+        else_code = parseCodeBlock()
+        if (else_code.count() == 0)
+            else_code = null
+    }
+    return new IfStatement(cond, true_code, else_code)
+}
+
 
 class Statement {
     constructor() {
@@ -1328,10 +1342,95 @@ class Statement {
     sclear_types_cache() {
         this.type = null
     }
+    invoke() {  // returns non-null when the code did "return"
+        return null
+    }
 }
 
-class ReturnStmt {
+class IfStatement extends Statement
+{
+    constructor(cond, true_code, else_code) {
+        super()
+        this.cond_expr = cond
+        this.true_code = true_code // either can be null
+        this.else_code = else_code 
+    }
+    isReturn() { return false }
+    invoke() {
+        const cv = this.cond_expr.eval()
+        let v = null
+        if (cv === true) {
+            if (this.true_code !== null)
+                v = this.true_code.eval()
+        }
+        else if(cv === false) {
+            if (this.else_code !== null)
+                v = this.else_code.eval()
+        }
+        else 
+            throw ExprErr("Unexpected value from if condition " + v)
+        return v
+    }
+    sclear_types_cache() {
+        super.sclear_types_cache()
+        this.cond_expr.clear_types_cache()
+        if (this.true_code !== null)
+            this.true_code.clear_types_cache()
+        if (this.else_code !== null)
+            this.else_code.clear_types_cache()            
+    }
+    scheck_type() {
+        const cond_type = this.cond_expr.check_type()
+        eassert(cond_type === TYPE_BOOL, "If statement with non-bool condition")
+        if (this.true_code !== null)
+            this.true_code.check_type()
+        if (this.else_code !== null)
+            this.else_code.check_type()              
+    }
+    sto_glsl(emit_ctx) {
+        let s = "if (" + this.cond_expr.to_glsl(emit_ctx) + ") {\n"
+        if (this.true_code !== null)
+            s += this.true_code.to_glsl(emit_ctx)
+        if (this.else_code !== null) {
+            s += "} else {\n"
+            s += this.else_code.to_glsl(emit_ctx)
+        }
+        s += "}\n"
+        return s
+    }
+
+}
+
+
+const STMT_COMMENT = 1
+const STMT_END_BLOCK = 2
+
+function parseStmt() {
+    eatSpaces()
+    if (index_ > 0 && !isSpace(expr_[index_-1]))
+        throw new ExprErr("Statments must be separated by whitespace")
+    // statement starts with a variable name to assign to or 'return'
+    let c = getCharacter();
+    if (c === '}')
+        return STMT_END_BLOCK
+
+    const name = parseNewIdentifier()
+    if (name === null) // comment statement
+        return STMT_COMMENT 
+    eatSpaces()
+    if (name === 'if') {
+        return parseIfStmt()
+    }
+    if (name === 'return') {
+        const expr = parseExpr()
+        return new ReturnStmt(expr)
+    }
+    return parseAssignStmt(name)
+}
+
+class ReturnStmt extends Statement {
     constructor(expr) {
+        super()
         this.expr = expr
     }
     isReturn() { return true }
@@ -1340,7 +1439,7 @@ class ReturnStmt {
         return v
     }
     sclear_types_cache() {
-        this.type = null
+        super.sclear_types_cache()
         this.expr.clear_types_cache()
     }
     scheck_type() {
@@ -1352,11 +1451,11 @@ class ReturnStmt {
 }
 
 
-
-
 const TYPE_TO_STR = { [TYPE_NUM]:'float', [TYPE_VEC2]:'vec2', [TYPE_VEC3]:'vec3', [TYPE_VEC4]:'vec4' }
-class AssignNameStmt {  // not a proper node (no eval, has side-effects)
+
+class AssignNameStmt  extends Statement {  // not a proper node (no eval, has side-effects)
     constructor(in_name, expr) {
+        super()
         this.in_name = in_name // for err msg
         const sp = in_name.split('.')
         eassert(sp.length == 1 || sp.length == 2, "Assigning to multi-level subscript not supported") // no such use case yet
@@ -1365,7 +1464,6 @@ class AssignNameStmt {  // not a proper node (no eval, has side-effects)
         this.subscriptIdx = (sp.length > 1) ? SUBSCRIPT_TO_IDX[sp[1]] : null
         eassert(this.subscriptIdx !== undefined, "Unknown subscript in: " + in_name)
         this.expr = expr
-        this.type = null
         this.symbol = g_symbol_table[this.name]
         this.vNode = null  // a new node that has the actual value assigned to the symbol
         this.first_definition = false
@@ -1392,10 +1490,10 @@ class AssignNameStmt {  // not a proper node (no eval, has side-effects)
             // valueNode in symbol is null as long as the symbol doesn't have a value
             this.symbol.valueNode = vNode
         }
-        return v
+        return null // never returning from the code in this statement
     }
     sclear_types_cache() {
-        this.type = null
+        super.sclear_types_cache()
         this.expr.clear_types_cache()
     }
     scheck_type() {
@@ -1431,26 +1529,28 @@ var g_symbol_table = null
 var g_glsl_added_funcs = null // map [name of func]_[arg type] to the func text
 
 class CodeNode extends NodeBase {
-    constructor(stmts, symbol_table) {
+    constructor(stmts, symbol_table, has_return) {
         super()
         this.stmts = stmts
         this.symbol_table = symbol_table
+        this.has_return = has_return
     }
-    eval() {
+    count() {
+        return this.stmts.length
+    }
+    eval() {  // returns non-null if the code does "return"
         // clear values from symbol table 
         for(let [name,sym] of Object.entries(this.symbol_table)) {
             sym.valueNode = null
         }
 
-        g_symbol_table = this.symbol_table
         let ret = null
         for(let stmt of this.stmts) {
             ret = stmt.invoke()
-            if (stmt.isReturn()) {
+            if (ret !== null) {
                 break
             }
         }
-        g_symbol_table = null
         return ret
     }
     clear_types_cache() {
@@ -1463,7 +1563,7 @@ class CodeNode extends NodeBase {
         for(let stmt of this.stmts) {
             ret = stmt.scheck_type()
             if (stmt.isReturn()) {
-                break
+                break // anything after that is not going to be executed so it doesn't need to be checked
             }
         }
         return ret
@@ -1496,24 +1596,54 @@ function skip_to_next_line() {
     }
 }
 
-function parseCode() {
+// with the curly braces, if they exist - sub code of an if statement
+function parseCodeBlock() {
+    let c = getCharacter();
+    let code
+    if (c == '{') {
+        index_++;
+        code = parseCode()
+        eatSpaces()
+        c = getCharacter();
+        if (c !== '}')
+            throw new ExprErr("code block expects closing curly braces")
+        index_++;
+    }
+    else { // single command
+        code = parseCode(true)
+        eatSpaces()
+    }
+    return code
+}
+
+// parse block of statements (without curly braces) or just one statement (instead of a block where there are no curly brances in an if)
+function parseCode(only_one_line) {
     let lst = [], has_return = false
-    let symbol_table = {}
-    g_symbol_table = symbol_table
     while(!isEnd()) {
-        let e = parseStmt()
-        if (e === null) {
+        const e = parseStmt()
+        if (e === STMT_COMMENT) {
             skip_to_next_line() // comment
             continue
         }
+        else if (e === STMT_END_BLOCK)
+            break
         if (e.isReturn())
             has_return = true
         lst.push(e)
+        if (only_one_line)
+            break
     }
+    return new CodeNode(lst, g_symbol_table, has_return)
+}
+
+// parse a complete program from the use
+function parseCompleteCode()
+{
+    let symbol_table = {}
+    g_symbol_table = symbol_table
+    const c = parseCode()
     g_symbol_table = null
-    if (!has_return)
-        throw new ExprErr("missing return statement")
-    return new CodeNode(lst, symbol_table)
+    return c
 }
 
 /// Expression string
@@ -1538,8 +1668,11 @@ function eparse(expr, state_access, opt) {
     try {
         if (opt === PARSE_EXPR)
             result = parseExpr();   
-        else if (opt == PARSE_CODE)
-            result = parseCode();
+        else if (opt == PARSE_CODE) {
+            result = parseCompleteCode();
+            if (!result.has_return)
+                throw new ExprErr("missing return statement")
+        }
         else 
             throw new ExprErr("unknown opt " + opt)
         if (!isEnd())
@@ -1574,8 +1707,15 @@ function clear_types_cache(node) {
     node.clear_types_cache()
 }
 
+function do_eval(node) {
+    if (node.symbol_table !== undefined)      
+        g_symbol_table = this.symbol_table
+    const ret = node.eval()
+    g_symbol_table = null
+    return ret
+}
 
-return {parse:eparse, make_num_node:make_num_node, check_type:check_type, clear_types_cache:clear_types_cache}
+return {parse:eparse, make_num_node:make_num_node, check_type:check_type, clear_types_cache:clear_types_cache, do_eval:do_eval}
 })()
 
 

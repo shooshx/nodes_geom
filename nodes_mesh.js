@@ -1719,7 +1719,7 @@ class NodeGeomDivide extends NodeCls
 
         if (this.by_dist.v)
             assert(this.distance.v != 0, this, "Division by zero")
-        if (obj.constructor === Mesh && mesh.type == MESH_QUAD) 
+        if (obj.constructor === Mesh && obj.type == MESH_QUAD) 
         {
             // quad divides to little quads
             // each quad separately, not unifying vertices from different quads
@@ -1734,7 +1734,7 @@ class NodeGeomDivide extends NodeCls
             out_mesh.type = MESH_QUAD
             this.out_mesh.set(out_mesh)
         }
-        if (obj.constructor === MultiPath) {
+        else if (obj.constructor === MultiPath) {
             const vtx = obj.effective_vtx_pos
             const out_vtx = [], out_ranges = []
             for(let pri = 0; pri < obj.paths_ranges.length; pri += 3) {
