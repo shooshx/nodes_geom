@@ -84,6 +84,11 @@ input {
 .ctx_menu_sep {
     margin: 3px;
 }
+.ctx_menu_sub:after {
+    content: "\2b9e";
+    position: absolute;
+    right: 5px;
+}
 
 .selection_rect {
     position: absolute;

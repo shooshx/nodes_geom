@@ -677,33 +677,41 @@ async function do_frame_draw(do_run, clear_all)
 
 
 const nodes_classes = [
-    //NodeTestDummy, 
-    NodeGeomPrimitive, 
-    NodeManualGeom,
-    NodeGradient,
-    NodeGeomDivide,
+    { group_name: "Geometry", nodes: [
+        NodeGeomPrimitive, 
+        NodeManualGeom,
+        NodeGeomDivide,
+        NodeGeomMerge, 
+        NodeRandomPoints,
+        Scatter2,
+        NodeTriangulate,
+        NodeVoronoi,
+        NodeRoundCorners,
+        NodeBoolOp,
+        NodeOffsetPath,
+    ]},
+    { group_name: "Image", nodes: [
+        NodeLoadImage,
+        NodeCreateFrameBuffer,
+        NodeShader,
+        NodePointGradFill,
+        NodeFuncFill,
+        NodeGradient,
+        PixelsToVertices,
+    ]},
     NodeSetAttr, 
-    NodeGeomMerge, 
-    NodeGroupObjects,
     NodeTransform,
-    NodeRandomPoints,
-    Scatter2,
-    NodeTriangulate,
-    NodeVoronoi,
-    NodeShader,
-    NodePointGradFill,
-    NodeLoadImage,
-    NodeCreateFrameBuffer,
-    NodeOffsetPath,
-    NodeRoundCorners,
-    NodeFuncFill,
-    NodeBoolOp,
+    NodeGroupObjects,
     NodeVariable,
-    PixelsToVertices,
 ]
 var nodes_classes_by_name = {}
-for(let c of nodes_classes)
-    nodes_classes_by_name[c.name()] = c
+for(let c of nodes_classes) {
+    if (c.group_name === undefined)
+        nodes_classes_by_name[c.name()] = c
+    else
+        for(let nc of c.nodes)
+            nodes_classes_by_name[nc.name()] = nc
+}
 // old names from saves
 nodes_classes_by_name["Manual_Points"] = NodeManualGeom
 nodes_classes_by_name["Shrink Faces"] = NodeOffsetPath

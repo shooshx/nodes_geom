@@ -53,8 +53,9 @@ EXPRESSIONS
 
 
 ****** CURRENT AGENDA ******
+- SetAttr with null return to do nothing like in fill
+    -none value for function
 - hex lattice?
-    divide line
     copy node
     merge deduplicate points
 - BoolParam from code (from variable)

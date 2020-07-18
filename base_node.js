@@ -1164,8 +1164,16 @@ function nodes_context_menu(px, py, wx, wy, cvs_x, cvs_y) {
         opt = [{text:"Delete Node", func:function() { program.delete_node(node, true)} }]
     else if (opt === null) {
         opt = [{text:"Clear", func:()=>{ clear_program(); draw_nodes() } }, {text:"-"}]
-        for(let c of nodes_classes)
-            opt.push( {text: c.name(), func:function() { program.add_node(px, py, null, c); draw_nodes() } } )
+        for(let c of nodes_classes) {
+            if (c.group_name === undefined)
+                opt.push( {text: c.name(), func:function() { program.add_node(px, py, null, c); draw_nodes() } } )
+            else {
+                const nodes = []
+                for(let cn of c.nodes)
+                    nodes.push( {text: cn.name(), func:function() { program.add_node(px, py, null, cn); draw_nodes() } } )
+                opt.push( {text: c.group_name, sub_opts: nodes })
+            }
+        }
     }
     
     nodes_view.last_ctx_menu = open_context_menu(opt, wx, wy, main_view, ()=>{nodes_view.dismiss_ctx_menu()})    

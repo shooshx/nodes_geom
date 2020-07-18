@@ -261,7 +261,7 @@ class NodeManualGeom extends NodeCls
         let ti = image_view.epnt_to_model(ex, ey)
         this.points.add(ti)
         for(let attr_param of this.pnt_attrs) {
-            attr_param.add(DEFAULT_FOR_VTX_ATTRS[attr_param.label].v)
+            attr_param.add(get_default_value(attr_param.values_per_entry))
         }
 
         this.paths_ranges.add_default() // do this anyway just to keep it simple, not much of an overhead
@@ -856,14 +856,21 @@ const DEFAULT_FOR_VTX_ATTRS = {
     "vtx_color"  : { v:DEFAULT_VTX_COLOR.arr,   num_elems:4 }
 }
 
-function fill_default_value(narr, at_index, name, umeta, count) {
+function get_default_value(name, numelems) {
+    const def = DEFAULT_FOR_VTX_ATTRS[name]
+    if (def === undefined || def.num_elems !== numelems)
+        return Array(numelems).fill(0);
+    return def.v
+}
+
+function fill_default_value(narr, at_index, name, num_elems, count) {
     const def = DEFAULT_FOR_VTX_ATTRS[name] // fill with a default value?
-    if (def !== undefined && def.num_elems === umeta.num_elems) { // if it's not the same num_elems, don't bother
-        for(let i = 0; i < count * umeta.num_elems; ++i)
-            narr[at_index++] = def.v[i % umeta.num_elems]
+    if (def !== undefined && def.num_elems === num_elems) { // if it's not the same num_elems, don't bother
+        for(let i = 0; i < count * num_elems; ++i)
+            narr[at_index++] = def.v[i % num_elems]
     }  // otherwise keep it 0
     else 
-        at_index += count * umeta.num_elems
+        at_index += count * num_elems
     return at_index
 }
 
@@ -973,7 +980,7 @@ class NodeGeomMerge extends NodeCls
                 }                    
                 if (m.arrs[name] === undefined) { // this mesh doesn't have this name
                     const count = isVtxProp ? m.vtx_count() : m.face_count()
-                    at_index = fill_default_value(narr, at_index, name, umeta, count)
+                    at_index = fill_default_value(narr, at_index, name, umeta.num_elems, count)
                     continue 
                 }
                 // data attribute that exists in this mesh, just copy it
@@ -1032,7 +1039,7 @@ class NodeGeomMerge extends NodeCls
                         count = (m.constructor === Mesh && m.arrs.idx !== null) ? m.arrs.idx.length : m.vtx_count()
                     else
                         count = m.face_count()
-                    at_index = fill_default_value(narr, at_index, name, umeta, count)
+                    at_index = fill_default_value(narr, at_index, name, umeta.num_elems, count)
                     continue 
                 }
                 

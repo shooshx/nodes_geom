@@ -396,6 +396,7 @@ function addTextChild(elem, txt) {
 function open_context_menu(options, wx, wy, parent_elem, dismiss_func)
 {
     let menu_elem = add_div(parent_elem, "ctx_menu")
+    let open_sub = {opt:null, elem:null}
     for(let opt of options) {
         let e = null
         if (opt.cmake_elems)
@@ -413,6 +414,25 @@ function open_context_menu(options, wx, wy, parent_elem, dismiss_func)
         
         if (e === undefined || e === null)
             continue
+        if (opt.sub_opts !== undefined) {
+            e.classList.toggle('ctx_menu_sub')
+            myAddEventListener(e, 'mousemove', function() {
+                if (open_sub.opt === opt)
+                    return // this is already open
+                if (open_sub.elem !== null)
+                    open_sub.elem.parentElement.removeChild(open_sub.elem)
+                open_sub.opt = opt
+                const rect = e.getBoundingClientRect();
+                open_sub.elem = open_context_menu(opt.sub_opts, rect.right-wx-4, rect.top-wy-3, menu_elem, dismiss_func)
+            })
+        }
+        else { // normal option, dismiss open sub if exists
+            myAddEventListener(e, 'mousemove', function() {
+                if (open_sub.elem !== null)
+                    open_sub.elem.parentElement.removeChild(open_sub.elem)
+                open_sub.elem = null; open_sub.opt = null
+            })
+        }
         stop_propogation_on("mousedown", e)
         if (opt.func === undefined)
             continue
@@ -426,15 +446,15 @@ function open_context_menu(options, wx, wy, parent_elem, dismiss_func)
 
     stop_propogation_on("mousedown", menu_elem) // stop it from dismissing on click due to other handlers in the document
 
-    let parent_width = parent_elem.offsetWidth, parent_height = parent_elem.offsetHeight
+    let main_width = main_view.offsetWidth, main_height = main_view.offsetHeight
     let menu_width = menu_elem.offsetWidth, menu_height = menu_elem.offsetHeight
     let rx = wx, ry = wy
     
-    if (wx + menu_width > parent_width) {  // x overflow
-        rx = parent_width - menu_width
+    if (wx + menu_width > main_width) {  // x overflow
+        rx = main_width - menu_width
     }
-    if (wy + menu_height > parent_height) { // y overflow
-        ry = parent_height - menu_height
+    if (wy + menu_height > main_height) { // y overflow
+        ry = main_height - menu_height
     }
     
     menu_elem.style.left = rx + "px"
