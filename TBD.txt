@@ -45,21 +45,14 @@ EXPRESSIONS
 - remove exponent opertor instead do it on number parsing
 - *** Vec2Int (resolution image)
 - default() to give value to non-existing variable - not so easy...
-- if
-
 - check CodeMirror
 - line errors for ExprErr outside main parsing (line in node)
     for mesh stuff eassert
 - colors [0-1] everywhere (set attr)
-
-
-
-
-****** CURRENT AGENDA ******
-- if and ?:
-- numbers 1e3 syntax
 - SetAttr with null return to do nothing like in fill
     -none value for function
+
+****** CURRENT AGENDA ******
 - hex lattice?
     copy node
     merge deduplicate points

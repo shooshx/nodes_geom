@@ -391,6 +391,7 @@ class UnaryOpNode extends NodeBase {
 }
 
 
+
 const OPERATOR_NULL = 0
 const OPERATOR_BITWISE_OR = 1     /// |
 const OPERATOR_BITWISE_XOR = 2    /// ^
@@ -413,6 +414,7 @@ const OPERATOR_NEQ = 18 // ==
 const OPERATOR_LOGIC_AND = 19 // &&
 const OPERATOR_LOGIC_OR = 20 // ||
 const OPERATOR_SUBSCRIPT = 21 // a.x
+const OPERATOR_TRINARY = 22 // ?:
 
 const OPERATORU_LOGIC_NOT = 100 // !
 const OPERATORU_BITWISE_NOT = 101 // ~
@@ -448,7 +450,7 @@ const ops = [
     new Operator(OPERATOR_DIVISION, 200, 'L', '/'),
     new Operator(OPERATOR_MODULO, 200, 'L', '%'),
     new Operator(OPERATOR_POWER, 300, 'R', 'TBD'),
-    new Operator(OPERATOR_EXPONENT, 400, 'R', 'e'),
+    null, //new Operator(OPERATOR_EXPONENT, 400, 'R', 'e'),
 
     new Operator(OPERATOR_LESS, 30, 'L', '<'),
     new Operator(OPERATOR_LESS_EQ, 30, 'L', '<='),
@@ -459,8 +461,9 @@ const ops = [
 
     new Operator(OPERATOR_LOGIC_AND, 20, 'L', '&&'),
     new Operator(OPERATOR_LOGIC_OR, 10, 'L', '||'),
-    new Operator(OPERATOR_SUBSCRIPT, 500, 'L', '.')
+    new Operator(OPERATOR_SUBSCRIPT, 500, 'L', '.'),
 
+    new Operator(OPERATOR_TRINARY, 10, null, '?:')
 ]
 
 
@@ -587,6 +590,9 @@ function parseOp()
         case '.':
             index_++;
             return ops[OPERATOR_SUBSCRIPT]
+        case '?':
+            index_++;
+            return ops[OPERATOR_TRINARY]
         default:
             return ops[OPERATOR_NULL];
     }
@@ -1039,6 +1045,21 @@ function parseDecimal() {
             f *= 0.1
         }
     }
+    let c = getCharacter()
+    if (c == 'e' || c == 'E') {
+        const lookahead = (expr_[index_+1] == '-')?1:0
+        c = expr_[index_+lookahead+1]
+        if (c >= '0' && c <= '9') {
+            index_ += 1+lookahead
+            let exp = 0
+            for (let d; (d = getInteger()) <= 9; index_++)
+                exp = exp * 10 + d;
+            if (lookahead)
+                exp = -exp
+            value = value * Math.pow(10, exp)
+            console.log(value)
+        }
+    }
     return new NumNode(value, true);
 }
 
@@ -1170,6 +1191,7 @@ function parseExpr() {
     stack_.push({ op:ops[OPERATOR_NULL] });
     // first parse value on the left
     let value = parseValue();
+    let tri_mid_expr = null
 
     while (stack_.length != 0) {
         // parse an operator (+, -, *, ...)
@@ -1186,6 +1208,11 @@ function parseExpr() {
             // do the calculation ("reduce"), producing a new value
             if (peek.op.op === OPERATOR_SUBSCRIPT)
                 value = new SubscriptNode(peek.value, null, value)
+            else if (peek.op.op == OPERATOR_TRINARY) {
+                eassert(tri_mid_expr !== null, "Missing mid value in trinary operator")
+                value = new TrinaryOpNode(peek.value, tri_mid_expr, value)
+                tri_mid_expr = null
+            }
             else
                 value = new BinaryOpNode(peek.value, value, peek.op.op);
             stack_.pop();
@@ -1196,8 +1223,14 @@ function parseExpr() {
         // parse value on the right
         if (op.op === OPERATOR_SUBSCRIPT)
             value = new TokenDummyNode(parseNewIdentifier())
-        else    
-            value = parseValue();
+        else if (op.op == OPERATOR_TRINARY) {
+            tri_mid_expr = parseExpr() // middle value between the ? and :
+            let c = getCharacter()
+            eassert(c === ':', "Trinary operator expects ':'")
+            index_++
+        }
+        
+        value = parseValue();
     }
     return null;
 }
@@ -1411,6 +1444,48 @@ class IfStatement extends Statement
 
 }
 
+class TrinaryOpNode extends NodeBase {
+    constructor(cond, true_node, false_node) {
+        super()
+        this.cond = cond
+        this.true_node = true_node
+        this.false_node = false_node
+    }
+    clear_types_cache() {
+        this.type = null
+        this.cond.clear_types_cache()
+        this.true_node.clear_types_cache()
+        this.false_node.clear_types_cache()
+    }
+    check_type() {
+        if (this.type === null) {
+            const cond_type = this.cond.check_type()
+            eassert(cond_type === TYPE_BOOL, "Trinary expression with non-bool condition")            
+            let t1 = this.true_node.check_type(), t2 = this.false_node.check_type()
+            eassert(t1 === t2, "Trinary expression mismatch types " + typename(t1) + ", " + typename(t2))
+            this.type = t1
+        }
+        return this.type
+    }
+
+    eval() {
+        console.assert(this.type !== null)
+        const cv = this.cond.eval()
+        if (cv === true)
+            return this.true_node.eval()
+        else if (cv === false)
+            return this.false_node.eval()
+        else
+            throw new ExprErr("Unexpected value from trinary condition " + cv)
+    }
+
+    to_glsl(emit_ctx) {
+        return '((' + this.cond.to_glsl(emit_ctx) + ')?(' + this.true_node.to_glsl(emit_ctx) + '):(' + this.false_node.to_glsl(emit_ctx) + '))';
+    }
+
+}
+
+
 
 const STMT_COMMENT = 1
 const STMT_END_BLOCK = 2
@@ -1496,9 +1571,9 @@ class AssignNameStmt  extends Statement {  // not a proper node (no eval, has si
         else {
             let vNode
             switch  (this.expr_type) {
-            case TYPE_NUM: vNode = new NumNode(v, false)
-            case TYPE_BOOL: vNode = new BoolNode(v)
-            default: vNode = new VecNode(v, this.expr_type)
+            case TYPE_NUM: vNode = new NumNode(v, false); break;
+            case TYPE_BOOL: vNode = new BoolNode(v); break;
+            default: vNode = new VecNode(v, this.expr_type); break;
             }
             // valueNode in symbol is null as long as the symbol doesn't have a value
             this.symbol.valueNode = vNode
@@ -1552,11 +1627,6 @@ class CodeNode extends NodeBase {
         return this.stmts.length
     }
     eval() {  // returns non-null if the code does "return"
-        // clear values from symbol table 
-        for(let [name,sym] of Object.entries(this.symbol_table)) {
-            sym.valueNode = null
-        }
-
         let ret = null
         for(let stmt of this.stmts) {
             ret = stmt.invoke()
@@ -1717,8 +1787,13 @@ function clear_types_cache(node) {
 }
 
 function do_eval(node) {
-    if (node.symbol_table !== undefined)      
-        g_symbol_table = this.symbol_table
+    if (node.symbol_table !== undefined) {
+        g_symbol_table = node.symbol_table
+        // clear values from symbol table 
+        for(let [name,sym] of Object.entries(node.symbol_table)) {
+            sym.valueNode = null
+        }
+    }
     const ret = node.eval()
     g_symbol_table = null
     return ret
