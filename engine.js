@@ -681,9 +681,10 @@ const nodes_classes = [
         NodeGeomPrimitive, 
         NodeManualGeom,
         NodeGeomDivide,
-        NodeGeomMerge, 
+        NodeGeomMerge,
+        NodeGeomCopy,
         NodeRandomPoints,
-        Scatter2,
+        NodeScatter2,
         NodeTriangulate,
         NodeVoronoi,
         NodeRoundCorners,
@@ -697,7 +698,7 @@ const nodes_classes = [
         NodePointGradFill,
         NodeFuncFill,
         NodeGradient,
-        PixelsToVertices,
+        NodePixelsToVertices,
     ]},
     NodeSetAttr, 
     NodeTransform,
@@ -717,5 +718,5 @@ nodes_classes_by_name["Manual_Points"] = NodeManualGeom
 nodes_classes_by_name["Shrink Faces"] = NodeOffsetPath
 nodes_classes_by_name["Geom_Primitive"] = NodeGeomPrimitive
 nodes_classes_by_name["Scatter"] = NodeRandomPoints
-nodes_classes_by_name["Scatter2"] = Scatter2
+nodes_classes_by_name["Scatter2"] = NodeScatter2
 

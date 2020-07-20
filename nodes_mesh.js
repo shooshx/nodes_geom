@@ -1002,7 +1002,7 @@ class NodeGeomMerge extends NodeCls
         {
             const m = meshes[si]
             if (m.constructor === Mesh) {
-                const step = idx_count_from_type(m.type)
+                const step = m.face_size()
                 const count_paths = (m.arrs.idx !== null) ? (m.arrs.idx.length / step) : m.vtx_count()
                 for(let i = 0; i < count_paths; ++i) {
                     ranges.push(at_index, at_index + step, PATH_CLOSED)
@@ -1079,6 +1079,86 @@ class NodeGeomMerge extends NodeCls
         this.out.set(r)
     }
 }
+
+
+class NodeGeomCopy extends NodeCls
+{
+    static name() { return "Copy" }
+    constructor(node) {
+        super(node)
+        this.in_obj = new InTerminal(node, "in_obj") // object to copy
+        this.in_target = new InTerminal(node, "in_target") // onto vertices of the target
+        this.out = new OutTerminal(node, "out_obj")
+
+        this.transform = new ParamTransform(node, "Object\nTransform")
+        this.bind_to = {sel_idx: 0} // just vertices
+        node.set_state_evaluators({"in_obj": (m,s)=>{ return new MeshPropEvaluator(m,s, this.bind_to) }})
+    }
+
+    mesh_copy(in_mesh, target) {
+        const out_mesh = new Mesh()
+        out_mesh.type = in_mesh.type
+        // copy vertex attribs as is, we're not adding vtx attribs
+        for(let name in in_mesh.arrs) {
+            const meta = in_mesh.meta[name]
+            if (name.startsWith("vtx_")) {
+                out_mesh.set(name, in_mesh.arrs[name], meta.num_elems, meta.need_normalize)
+            }
+        }
+        const face_sz = in_mesh.face_size()
+        const tg_vtx = target.effective_vtx_pos
+        const VTX_NUM_ELEM = 2
+        const tg_vtx_count = tg_vtx.length / VTX_NUM_ELEM
+
+        if (in_mesh.has_idx()) {
+            const count_faces = in_mesh.arrs.idx.length / face_sz
+            // make face transform for every face in the 
+            let pi = 0
+            const new_face_tr = new Float32Array(count_faces * tg_vtx_count * 6)
+            const m = mat3.create()
+            for(let i = 0; i < tg_vtx_count; ++i) {
+                const vi = i * VTX_NUM_ELEM
+                const x = tg_vtx[vi], y = tg_vtx[vi+1]
+                m[6] = x
+                m[7] = y
+                // duplicate the same transform for all faces of in_obj
+                for(let dupi = 0; dupi < count_faces; ++dupi) {
+                    new_face_tr[pi++] = m[0]; new_face_tr[pi++] = m[1]; 
+                    new_face_tr[pi++] = m[3]; new_face_tr[pi++] = m[4]; 
+                    new_face_tr[pi++] = m[6]; new_face_tr[pi++] = m[7];
+                }
+            }
+            // duplicate the indices
+            let idx = in_mesh.arrs.idx
+            const new_idx = new TIdxArr(idx.length * tg_vtx_count)
+            for(let ti = 0; ti < tg_vtx_count; ++ti) {
+                new_idx.set(idx, ti*idx.length)
+            }
+            out_mesh.set("idx", new_idx)
+            out_mesh.set("face_transform", new_face_tr, 6, false)
+            return out_mesh
+        }
+        else {
+        }
+    }
+
+    run() {
+        const in_obj = this.in_obj.get_const()
+        assert(in_obj !== null, this, "No input object to copy")
+        const target = this.in_target.get_const()
+        assert(target !== null, this, "No target vertices to copy to")
+
+        let out_obj = null
+        if (in_obj.constructor === Mesh)
+            out_obj = this.mesh_copy(in_obj, target)
+        else if (in_obj.constructor === MultiPath)
+            out_obj = this.path_copy(in_obj, target)
+        else
+            assert(false, this, "Expected geometry object input")
+        this.out.set(out_obj)
+    }
+}
+
 
 // TBD: a slightly better way to do this is to own PHandle and have a custom clone
 //      that clones only objects with more than 1 refcount

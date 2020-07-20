@@ -1203,7 +1203,7 @@ void main() {
 }
 `
 
-class Scatter2 extends BaseNodeParcel
+class NodeScatter2 extends BaseNodeParcel
 {
     static name() { return "Scatter Func" }
     constructor(node) 
@@ -1378,9 +1378,7 @@ class Scatter2 extends BaseNodeParcel
 
 
 
-
-
-class PixelsToVertices extends NodeCls
+class NodePixelsToVertices extends NodeCls
 {
     static name() { return "Pixels to Vertices" }
     constructor(node) {

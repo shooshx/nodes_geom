@@ -53,6 +53,10 @@ EXPRESSIONS
     -none value for function
 
 ****** CURRENT AGENDA ******
+- Copy
+    - with existing face transform and vertex transform
+    - face attributes
+    - rotates with target
 - hex lattice?
     copy node
     merge deduplicate points
