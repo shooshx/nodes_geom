@@ -261,7 +261,7 @@ class NodeManualGeom extends NodeCls
         let ti = image_view.epnt_to_model(ex, ey)
         this.points.add(ti)
         for(let attr_param of this.pnt_attrs) {
-            attr_param.add(get_default_value(attr_param.values_per_entry))
+            attr_param.add(get_default_value(attr_param.label, attr_param.values_per_entry))
         }
 
         this.paths_ranges.add_default() // do this anyway just to keep it simple, not much of an overhead
@@ -1109,37 +1109,46 @@ class NodeGeomCopy extends NodeCls
         const tg_vtx = target.effective_vtx_pos
         const VTX_NUM_ELEM = 2
         const tg_vtx_count = tg_vtx.length / VTX_NUM_ELEM
-
+        let idx = null
         if (in_mesh.has_idx()) {
-            const count_faces = in_mesh.arrs.idx.length / face_sz
-            // make face transform for every face in the 
-            let pi = 0
-            const new_face_tr = new Float32Array(count_faces * tg_vtx_count * 6)
-            const m = mat3.create()
-            for(let i = 0; i < tg_vtx_count; ++i) {
-                const vi = i * VTX_NUM_ELEM
-                const x = tg_vtx[vi], y = tg_vtx[vi+1]
-                m[6] = x
-                m[7] = y
-                // duplicate the same transform for all faces of in_obj
-                for(let dupi = 0; dupi < count_faces; ++dupi) {
-                    new_face_tr[pi++] = m[0]; new_face_tr[pi++] = m[1]; 
-                    new_face_tr[pi++] = m[3]; new_face_tr[pi++] = m[4]; 
-                    new_face_tr[pi++] = m[6]; new_face_tr[pi++] = m[7];
-                }
-            }
-            // duplicate the indices
-            let idx = in_mesh.arrs.idx
-            const new_idx = new TIdxArr(idx.length * tg_vtx_count)
-            for(let ti = 0; ti < tg_vtx_count; ++ti) {
-                new_idx.set(idx, ti*idx.length)
-            }
-            out_mesh.set("idx", new_idx)
-            out_mesh.set("face_transform", new_face_tr, 6, false)
-            return out_mesh
+            idx = in_mesh.arrs.idx
         }
         else {
+            assert(in_mesh.type == MESH_POINTS, this, "unexpected mesh type")
+            // case of a mesh of points with idx, add idx to it that repeats the points. 
+            // every point is its own face
+            const vtx_count = in_mesh.vtx_count()
+            idx = new TIdxArr(vtx_count)
+            for(let i = 0; i < vtx_count; ++i)
+                idx[i] = i
         }
+
+        const count_faces = idx.length / face_sz
+        // make face transform for every face in the 
+        let pi = 0
+        const new_face_tr = new Float32Array(count_faces * tg_vtx_count * 6)
+        const m = mat3.create()
+        for(let i = 0; i < tg_vtx_count; ++i) {
+            const vi = i * VTX_NUM_ELEM
+            const x = tg_vtx[vi], y = tg_vtx[vi+1]
+            m[6] = x
+            m[7] = y
+            // duplicate the same transform for all faces of in_obj
+            for(let dupi = 0; dupi < count_faces; ++dupi) {
+                new_face_tr[pi++] = m[0]; new_face_tr[pi++] = m[1]; 
+                new_face_tr[pi++] = m[3]; new_face_tr[pi++] = m[4]; 
+                new_face_tr[pi++] = m[6]; new_face_tr[pi++] = m[7];
+            }
+        }
+        
+        // duplicate the indices
+        const new_idx = new TIdxArr(idx.length * tg_vtx_count)
+        for(let ti = 0; ti < tg_vtx_count; ++ti) {
+            new_idx.set(idx, ti*idx.length)
+        }
+        out_mesh.set("idx", new_idx)
+        out_mesh.set("face_transform", new_face_tr, 6, false) // needs to come after idx since its using it
+        return out_mesh
     }
 
     run() {
