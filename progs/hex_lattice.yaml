@@ -1,0 +1,241 @@
+nodes:
+  '1':
+    params:
+      Shape:
+        sel_str: Regular Poly
+      Size:
+        e_x: 0.1
+        e_y: 0.1
+        se_cv: 'return vec2(0.5, 0.5)'
+      Num Points:
+        e_v: 6
+        se_cv: return 5
+      Inner Point:
+        e_x: 0.22600000000000003
+        se_y: '-0.311'
+        se_cv: 'return vec2(0.226, -0.311)'
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: geom_primitive_1
+    cls_name: Geom Primitive
+    x: -837
+    y: 551
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+      show_ctrls: true
+  '2':
+    params:
+      Shape:
+        sel_str: Rectangle
+      Size:
+        e_x: 1.5843431151241538
+        e_y: 1.0468555304740397
+        se_cv: 'return vec2(0.5, 0.5)'
+      Num Points:
+        e_v: 5
+        se_cv: return 5
+      Inner Point:
+        e_x: 0.22600000000000003
+        se_y: '-0.311'
+        se_cv: 'return vec2(0.226, -0.311)'
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: geom_primitive_2
+    cls_name: Geom Primitive
+    x: -602
+    y: 511
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+  '3':
+    params:
+      Set distance:
+        v: true
+      Divisions:
+        e_v: 4
+        se_cv: return 4
+      Separate U-V:
+        v: true
+      Distance:
+        e_v: 0.2
+        se_cv: return 0.1
+      Distance U-V:
+        se_x: 0.1*sin(PI/3)
+        e_y: 0.15000000000000002
+        se_cv: 'return vec2(0.1,0.1)'
+      Exact:
+        v: true
+    name: divide_1
+    cls_name: Divide
+    x: -583
+    y: 594
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+  '5':
+    params:
+      Count:
+        e_v: 50
+        se_cv: return 10
+      "Object\nTransform":
+        se_tx: in_target.vtx_pos.x
+        se_ty: in_target.vtx_pos.y
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: copy_1
+    cls_name: Copy
+    x: -749
+    y: 886
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+      show_ctrls: false
+  '32':
+    params:
+      transform:
+        se_tx: 0.1*sin(PI/3)/2
+        se_ty: 0.05*(1+0.5)
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: transform_2
+    cls_name: Transform
+    x: -483
+    y: 694
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+  '34':
+    params:
+      OrderInputs:
+        sorted_order: [0, 1]
+    name: geom_merge_1
+    cls_name: Geom Merge
+    x: -567
+    y: 803
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+  '38':
+    params:
+      npt:
+        v:
+          '0': color
+          '1': radius
+          '2': normal
+          '3': fill
+          '4': transform
+      Bind To:
+        sel_str: Vertices
+      Type:
+        sel_str: Color
+      Edit code:
+        v: false
+      Name:
+        v: color
+      Color:
+        hex: 'rgba(255,0,0,0.33)'
+        se_cv: 'return rgb(204,204,204)'
+      Float:
+        e_v: 0
+        se_cv: return 0
+      Float2:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      Select:
+        e_v: true
+        se_cv: return true
+      Transform:
+        se_tx: '0'
+        se_ty: '0'
+        e_r: 0
+        se_pvx: '0'
+        se_pvy: '0'
+        se_sx: '1'
+        se_sy: '1'
+    name: set_attribute_2
+    cls_name: Set Attribute
+    x: -708
+    y: 993
+    disp_param:
+      show_vtx: true
+      show_ctrls: true
+      show_lines: true
+      show_faces: false
+lines:
+  - from_name: out_mesh
+    from_id: 2
+    to_name: in_mesh
+    to_id: 3
+    uid: 4
+  - from_name: out_mesh
+    from_id: 1
+    to_name: in_obj
+    to_id: 5
+    uid: 31
+  - from_name: out_mesh
+    from_id: 3
+    to_name: input
+    to_id: 32
+    uid: 33
+  - from_name: output
+    from_id: 32
+    to_name: in_multi_mesh
+    to_id: 34
+    uid: 35
+  - from_name: out_mesh
+    from_id: 3
+    to_name: in_multi_mesh
+    to_id: 34
+    uid: 36
+  - from_name: out_mesh
+    from_id: 34
+    to_name: in_target
+    to_id: 5
+    uid: 37
+  - from_name: out_obj
+    from_id: 5
+    to_name: in_obj
+    to_id: 38
+    uid: 39
+next_node_id: 40
+names_idx_s:
+  Geom Primitive: 3
+  Divide: 1
+  Copy: 2
+  Manual Geometry: 5
+  Transform: 2
+  Set Attribute: 2
+  Variable: 1
+  Geom Merge: 1
+display_node_id: 38
+tdisp_node_ids: []
+input_node_ids: []
+nodes_view:
+  pan_x: 879
+  pan_y: -627

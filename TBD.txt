@@ -54,19 +54,14 @@ EXPRESSIONS
 
 ****** CURRENT AGENDA ******
 - Copy
-    - face attributes
-    - with transform param - in_target
-    - without target - number of times index in the param
-    - rotates with target (bool select)
-    - with existing face transform and vertex transform
-    - divide exact
-
+    - with existing vtx_transform, face_transform
+    - in features.txt
 - hex lattice?
-    copy node
     merge deduplicate points
 - BoolParam from code (from variable)
     fix in SetAttr fill from ParamFloat to ParamBool with code
 - Small: notes in nodes view
+- BUG: "0.05(1+sin(PI/3))" no error
 - BUG? rendering with effective_vtx ?
 - BUG: func node without show_code?
 - balls the know their end color

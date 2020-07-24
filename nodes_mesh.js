@@ -975,7 +975,7 @@ class NodeGeomMerge extends NodeCls
                 const m = meshes[si]
                 if (name === 'idx') {
                     for(let i = 0; i < m.arrs.idx.length; ++i)
-                        narr[at_index++] = m.arrs.idx[i] + d.start_idxs[mi]
+                        narr[at_index++] = m.arrs.idx[i] + d.start_idxs[si]
                     continue
                 }                    
                 if (m.arrs[name] === undefined) { // this mesh doesn't have this name
@@ -1098,18 +1098,17 @@ class NodeGeomCopy extends NodeCls
         this.in_target = new InTerminal(node, "in_target") // onto vertices of the target
         this.out = new OutTerminal(node, "out_obj")
 
-        this.transform = new ParamTransform(node, "Object\nTransform")
+        this.create_count = new ParamInt(node, "Count", 10, {min:2, max:50})
+        this.transform = new ParamTransform(node, "Object\nTransform", {tx: "in_target.vtx_pos.x", ty:"in_target.vtx_pos.y"})
         this.bind_to = {sel_idx: 0} // just vertices
-        node.set_state_evaluators({"in_obj": (m,s)=>{ return new MeshPropEvaluator(m,s, this.bind_to) }})
+        node.set_state_evaluators({"in_target": (m,s)=>{ return new MeshPropEvaluator(m,s, this.bind_to) },
+                                   "index": (m,s)=>{ return new ObjSingleEvaluator(m,s)}})
     }
 
-    mesh_copy(in_mesh, target) 
+    mesh_copy(in_mesh, tg_vtx_count, tr_need_target) 
     {
         const out_mesh = new Mesh()
         out_mesh.type = in_mesh.type
-
-        const tg_vtx = target.effective_vtx_pos
-        const tg_vtx_count = tg_vtx.length / VTX_NUM_ELEM
 
         // copy vertex attribs as is, we're not adding vtx attribs
         for(let name in in_mesh.arrs) {
@@ -1139,7 +1138,7 @@ class NodeGeomCopy extends NodeCls
         const face_sz = in_mesh.face_size()
         const count_faces = idx.length / face_sz
         // make face transform for every face in the 
-        const new_face_tr = this.make_face_transform(count_faces, tg_vtx)
+        const new_face_tr = this.make_face_transform(count_faces, tg_vtx_count, tr_need_target)
         
         // duplicate the indices
         const new_idx = repeat_arr(idx, tg_vtx_count)
@@ -1149,32 +1148,10 @@ class NodeGeomCopy extends NodeCls
         return out_mesh
     }
 
-    make_face_transform(count_faces, tg_vtx)
-    {
-        const tg_vtx_count = tg_vtx.length / VTX_NUM_ELEM
-        let pi = 0
-        const new_face_tr = new Float32Array(count_faces * tg_vtx_count * 6)
-        const m = mat3.create()
-        for(let i = 0; i < tg_vtx_count; ++i) {
-            const vi = i * VTX_NUM_ELEM
-            const x = tg_vtx[vi], y = tg_vtx[vi+1]
-            m[6] = x
-            m[7] = y
-            // duplicate the same transform for all faces of in_obj
-            for(let dupi = 0; dupi < count_faces; ++dupi) {
-                new_face_tr[pi++] = m[0]; new_face_tr[pi++] = m[1]; 
-                new_face_tr[pi++] = m[3]; new_face_tr[pi++] = m[4]; 
-                new_face_tr[pi++] = m[6]; new_face_tr[pi++] = m[7];
-            }
-        }
-        return new_face_tr
-    }
-
-    path_copy(in_obj, target) 
+    path_copy(in_obj, tg_vtx_count, tr_need_target) 
     {
         const out_paths = new MultiPath()
-        const tg_vtx = target.effective_vtx_pos
-        const tg_vtx_count = tg_vtx.length / VTX_NUM_ELEM
+
         // need to duplicate all arrays since there's no vertex sharing in paths
         const vtx_count = in_obj.vtx_count()
         const face_count = in_obj.face_count()
@@ -1187,7 +1164,7 @@ class NodeGeomCopy extends NodeCls
                 assert(arr.length === face_count * meta.num_elems, this, "unexpected vtx attrib array size")
             else 
                 assert(false, this, "unexpected attr name " + name)
-            repeat_arr(arr, tg_vtx_count)
+            const new_arr = repeat_arr(arr, tg_vtx_count)
             out_paths.set(name, new_arr, meta.num_elems, meta.need_normalize)
         }
         const new_ranges = []
@@ -1199,22 +1176,62 @@ class NodeGeomCopy extends NodeCls
         }
         out_paths.paths_ranges = new_ranges
 
-        const new_face_tr = this.make_face_transform(face_count, tg_vtx)
+        const new_face_tr = this.make_face_transform(face_count, tg_vtx_count, tr_need_target)
         out_paths.set("face_transform", new_face_tr, 6, false)
         return out_paths
+    }
+
+    make_face_transform(count_faces, tg_vtx_count, tr_need_target)
+    {
+        const tr_need_index = this.transform.need_input_evaler("index")
+        const index_wrap = [0]
+        if (tr_need_index !== null)
+            tr_need_index.dyn_set_obj(index_wrap)
+
+        let pi = 0
+        const new_face_tr = new Float32Array(count_faces * tg_vtx_count * 6)
+
+        for(let i = 0; i < tg_vtx_count; ++i) 
+        {
+            index_wrap[0] = i
+            if (tr_need_target !== null)
+                tr_need_target.dyn_set_prop_index(i)
+            //const vi = i * VTX_NUM_ELEM
+            //const x = tg_vtx[vi], y = tg_vtx[vi+1]
+            //m[6] = x
+            //m[7] = y
+            const m = this.transform.dyn_eval()
+            // duplicate the same transform for all faces of in_obj
+            for(let dupi = 0; dupi < count_faces; ++dupi) {
+                new_face_tr[pi++] = m[0]; new_face_tr[pi++] = m[1]; 
+                new_face_tr[pi++] = m[3]; new_face_tr[pi++] = m[4]; 
+                new_face_tr[pi++] = m[6]; new_face_tr[pi++] = m[7];
+            }
+        }
+        return new_face_tr
     }
 
     run() {
         const in_obj = this.in_obj.get_const()
         assert(in_obj !== null, this, "No input object to copy")
         const target = this.in_target.get_const()
-        assert(target !== null, this, "No target vertices to copy to")
-
+        let tg_vtx_count = null
+        const tr_need_target = this.transform.need_input_evaler("in_target")
+        if (target !== null && tr_need_target !== null) {
+            tg_vtx_count = target.effective_vtx_pos.length / VTX_NUM_ELEM
+            if (tr_need_target !== null)
+                tr_need_target.dyn_set_obj(target)            
+        }
+        else {
+            assert(tr_need_target === null, this, "in_target object not connected")
+            tg_vtx_count = this.create_count.get_value()
+        }
+            
         let out_obj = null
         if (in_obj.constructor === Mesh)
-            out_obj = this.mesh_copy(in_obj, target)
+            out_obj = this.mesh_copy(in_obj, tg_vtx_count, tr_need_target)
         else if (in_obj.constructor === MultiPath)
-            out_obj = this.path_copy(in_obj, target)
+            out_obj = this.path_copy(in_obj, tg_vtx_count, tr_need_target)
         else
             assert(false, this, "Expected geometry object input")
         this.out.set(out_obj)
@@ -1785,12 +1802,21 @@ class NodeGeomDivide extends NodeCls
         super(node)
         this.in_mesh = new InTerminal(node, "in_mesh")
         this.out_mesh = new OutTerminal(node, "out_mesh")
-        this.by_dist = new ParamBool(node, "Set approximate distance", false, (v)=>{
+        this.by_dist = new ParamBool(node, "Set distance", false, (v)=>{
             this.divisions.set_enable(!v)
             this.distance.set_enable(v)
+            this.exact.set_enable(v)
         })
         this.divisions = new ParamInt(node, "Divisions", 4, {min:1, max:10})
+        this.sep_uv = new ParamBool(node, "Separate U-V", false, (v)=>{
+            this.distance.set_visible(!v)
+            this.distance_uv.set_visible(v)
+        })
         this.distance = new ParamFloat(node, "Distance", 0.1)
+        this.distance_uv = new ParamVec2(node, "Distance U-V", 0.1, 0.1)
+        this.exact = new ParamBool(node, "Exact", false)
+
+        node.param_alias("Set approximate distance", this.by_dist)
     }
 
     divide_quad(mesh, out_vtx, out_idx, idx0, idx1, idx2, idx3) {
@@ -1806,11 +1832,28 @@ class NodeGeomDivide extends NodeCls
         if (!this.by_dist.v)
             div_a = div_b = this.divisions.v;
         else {
-            const dist = this.distance.v
-            div_a = Math.round(Math.sqrt(da_x*da_x + da_y*da_y)/dist)
-            div_b = Math.round(Math.sqrt(db_x*db_x + db_y*db_y)/dist)
+            let dist_a, dist_b
+            if (this.sep_uv.v) {
+                dist_a = this.distance_uv.y, dist_b = this.distance_uv.x
+            }
+            else {
+                dist_a = this.distance.v, dist_b = this.distance.v
+            }
+            assert(dist_a !== 0 && dist_b !== 0, this, "Division by zero")
+            const da_len = Math.sqrt(da_x*da_x + da_y*da_y)
+            div_a = Math.round(da_len/dist_a)
+            const db_len = Math.sqrt(db_x*db_x + db_y*db_y)
+            div_b = Math.round(db_len/dist_b) // how many dividers
+            if (this.exact.v) {
+                const new_da_len = dist_a*div_a, new_db_len=dist_b*div_b
+                da_x *= new_da_len/da_len
+                da_y *= new_da_len/da_len
+                db_x *= new_db_len/db_len
+                db_y *= new_db_len/db_len
+            }   
         }
         assert(div_a != 0 && div_b != 0, this, "Division by zero")
+        
         da_x /= div_a; da_y /= div_a
         db_x /= div_b; db_y /= div_b
 

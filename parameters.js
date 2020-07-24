@@ -1086,6 +1086,7 @@ class ParamBaseExpr extends CodeItemMixin(Parameter)
 {
     constructor(node, label, start_v, ed_type, conf) {
         super(node, label, conf)
+        dassert(start_v !== undefined, "start value should not be undefined");
         //this.v = start_v  // numerical value in case of const
         this.item = new ExpressionItem(this, "v", ed_type,  (v)=>{ if (!this.show_code) this.v = v }, null, conf)
         this.populate_code_ctx_menu(this.item.ctx_menu)
@@ -1171,6 +1172,7 @@ class ParamInt extends ParamBaseExpr {
 class ParamVec2 extends CodeItemMixin(Parameter) {
     constructor(node, label, start_x, start_y, conf=null) {
         super(node, label, conf)
+        dassert(start_x !== undefined && start_y !== undefined, "start value should not be undefined")
         this.x = start_x
         this.item_x = new ExpressionItem(this, "x", ED_FLOAT, (v)=>{ if (!this.show_code) this.x = v }, null, {allowed:false})
         this.y = start_y
@@ -1470,7 +1472,7 @@ function toFixedMag(f) {
 
 
 class ParamTransform extends Parameter {
-    constructor(node, label) {
+    constructor(node, label, start_values) {
         super(node, label)
         this.translate = [0,0] // coords here are not vec2.fromValues since they need to be nullable
         this.rotate = 0
@@ -1491,6 +1493,13 @@ class ParamTransform extends Parameter {
         this.item_sy = new ExpressionItem(this, "sy", ED_FLOAT, (v)=>{this.scale[1] = v; this.calc_mat()}, ()=>{ return this.scale[1]}, sld_conf)
 
         this.items = [this.item_tx, this.item_ty, this.item_r, this.item_pvx, this.item_pvy, this.item_sx, this.item_sy]
+        this.item_dict = {"tx":this.item_tx, "ty":this.item_ty, "r":this.item_r, "pvx":this.item_pvx, "pvy":this.item_pvy, "sx":this.item_sx, "sy":this.item_sy }        
+        
+        for(let name in start_values) {
+            const item = this.item_dict[name]
+            dassert(item !== undefined, "unknown name: " + name)
+            item.peval(start_values[name])
+        }
     }
     save() { 
         let r = {} 

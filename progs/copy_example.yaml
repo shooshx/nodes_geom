@@ -1,0 +1,293 @@
+nodes:
+  '1':
+    params:
+      Shape:
+        sel_str: Rectangle
+      Size:
+        e_x: 0.14100000000000001
+        e_y: 0.138
+        se_cv: 'return vec2(0.5, 0.5)'
+      Num Points:
+        e_v: 5
+        se_cv: return 5
+      Inner Point:
+        e_x: 0.22600000000000003
+        se_y: '-0.311'
+        se_cv: 'return vec2(0.226, -0.311)'
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: geom_primitive_1
+    cls_name: Geom Primitive
+    x: -985
+    y: 448
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+      show_ctrls: true
+  '2':
+    params:
+      Shape:
+        sel_str: Rectangle
+      Size:
+        e_x: 1.8625507900677198
+        e_y: 1.082647855530472
+        se_cv: 'return vec2(0.5, 0.5)'
+      Num Points:
+        e_v: 5
+        se_cv: return 5
+      Inner Point:
+        e_x: 0.22600000000000003
+        se_y: '-0.311'
+        se_cv: 'return vec2(0.226, -0.311)'
+      Transform:
+        e_tx: 0.09686252821670462
+        e_ty: 0.08523024830699785
+        se_r: rot
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: geom_primitive_2
+    cls_name: Geom Primitive
+    x: -601
+    y: 511
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+  '3':
+    params:
+      Set approximate distance:
+        v: true
+      Divisions:
+        e_v: 4
+        se_cv: return 4
+      Distance:
+        e_v: 0.2
+        se_cv: return 0.1
+    name: divide_1
+    cls_name: Divide
+    x: -593
+    y: 591
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+  '5':
+    params:
+      Count:
+        e_v: 50
+        se_cv: return 10
+      "Object\nTransform":
+        se_tx: in_target.vtx_pos.x
+        se_ty: in_target.vtx_pos.y
+        se_r: index*1+rot
+        e_pvx: 0
+        e_pvy: 0
+        se_sx: 1+index*0.01
+        e_sy: 1
+    name: copy_1
+    cls_name: Copy
+    x: -735
+    y: 732
+    disp_param:
+      show_vtx: false
+      show_lines: true
+      show_faces: true
+      show_ctrls: false
+  '12':
+    params:
+      Type:
+        sel_str: Mesh
+      Add points:
+        v: false
+      vtx_pos:
+        lst: [-0.03153149038553238, -0.0292793158441782, 0.018017824739217758, 0.009009111672639847, 0.015765776857733727, 0.058558642864227295, -0.027027083560824394, 0.08783788979053497, -0.06531528383493423, 0.04729727283120155]
+      vtx_color:
+        lst: [204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255]
+      path_ranges:
+        ranges: [0, 5, 0]
+    name: manual_geometry_4
+    cls_name: Manual Geometry
+    x: -1035
+    y: 346
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+  '17':
+    params:
+      transform:
+        e_tx: 0.04700000000000001
+        se_ty: '-0.043'
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: transform_1
+    cls_name: Transform
+    x: -1024
+    y: 739
+    disp_param:
+      show_vtx: true
+      show_ctrls: true
+      show_lines: true
+      show_faces: true
+  '19':
+    params:
+      Type:
+        sel_str: Paths
+      Add points:
+        v: true
+      vtx_pos:
+        lst: [0.15349870920181274, -0.08126413077116013, 0.16478535532951355, -0.027088036760687828, 0.1196388304233551, -0.03386004641652107, 0.14672675728797913, 0.00902935117483139, 0.16027075052261353, 0.05869074910879135, 0.1218961775302887, 0.06320542097091675]
+      vtx_color:
+        lst: [204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255]
+      path_ranges:
+        ranges: [0, 3, 1, 3, 6, 1]
+    name: manual_geometry_5
+    cls_name: Manual Geometry
+    x: -743
+    y: 390
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+      show_ctrls: true
+  '22':
+    params:
+      npt:
+        v:
+          '0': color
+          '1': radius
+          '2': normal
+          '3': fill
+          '4': transform
+      Bind To:
+        sel_str: Faces
+      Type:
+        sel_str: Color
+      Edit code:
+        v: false
+      Name:
+        v: color
+      Color:
+        hex: '#F54444'
+        se_cv: 'return rgb(204,204,204) '
+      Float:
+        e_v: 0
+        se_cv: return 0
+      Float2:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      Select:
+        e_v: true
+        se_cv: return true
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: set_attribute_1
+    cls_name: Set Attribute
+    x: -883
+    y: 596
+    disp_param:
+      show_vtx: true
+      show_ctrls: true
+      show_lines: true
+      show_faces: true
+  '28':
+    params:
+      Type:
+        sel_str: Float
+      Name:
+        v: rot
+      Float:
+        e_v: 0
+        sldcfg_v:
+          min: 0
+          max: 360
+          allowed: true
+          visible: true
+        se_cv: return 1
+      Integer:
+        e_v: 1
+        se_cv: return 1
+      Float2:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      Color:
+        hex: '#CCCCCC'
+        se_cv: 'return rgb(204, 204, 204)'
+      Mouse Coord:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      Sample At:
+        sel_str: Mouse left down
+    name: rot
+    cls_name: Variable
+    x: -787
+    y: 504
+    disp_param: {}
+lines:
+  - from_name: out_mesh
+    from_id: 2
+    to_name: in_mesh
+    to_id: 3
+    uid: 4
+  - from_name: out_mesh
+    from_id: 3
+    to_name: in_target
+    to_id: 5
+    uid: 7
+  - from_name: out_mesh
+    from_id: 22
+    to_name: in_obj
+    to_id: 5
+    uid: 24
+  - from_name: out_mesh
+    from_id: 1
+    to_name: in_obj
+    to_id: 22
+    uid: 26
+  - from_name: variable_out
+    from_id: 28
+    to_name: vars_in
+    to_id: 2
+    uid: 29
+  - from_name: variable_out
+    from_id: 28
+    to_name: vars_in
+    to_id: 5
+    uid: 30
+next_node_id: 31
+names_idx_s:
+  Geom Primitive: 3
+  Divide: 1
+  Copy: 2
+  Manual Geometry: 5
+  Transform: 1
+  Set Attribute: 1
+  Variable: 1
+display_node_id: 5
+tdisp_node_ids:
+  - 2
+input_node_ids: []
+nodes_view:
+  pan_x: 1033
+  pan_y: -424

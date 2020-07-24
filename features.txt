@@ -42,16 +42,24 @@ Node: Set Attribute
 - Sample color value from an image or gradient
 - Calculate value according to vertex or face position
 - Expression possibilites:
-    - Any atteibute that already exists the input bound objects (in_obj.vtx_pos.x, in_obj.face_color.r)
+    - Any attribute that already exists the input bound objects (in_obj.vtx_pos.x, in_obj.face_color.r)
+    - Index in the attribute we bind to and set value for (in_obj.index)
     - Color from the source input (in_src to get the color vec4, in_src.r for just red)
     - computed attributes: 
         in_obj.face_center: geomtric center of face (vec3)
-- special attribute names:
+- special attribute names that can be set:
     - pos (vertex) - vertex position
     - color (vertex and face) - fill color
     - radius (vertex) - of the vertex circle
     - fill (face, with type:image-fill) - makes the input geometry a clipping path for the source
     - transform (vertex and face) - change position/rotation per vertex or per face
+
+Node: Geometry Merge
+
+Node: Geometry Copy
+
+Node: Scatter 
+
 
 Node: Group Objects
 
