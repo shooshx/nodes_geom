@@ -1082,6 +1082,13 @@ class NodeGeomMerge extends NodeCls
 
 const VTX_NUM_ELEM = 2
 
+function repeat_arr(arr, count) {
+    const new_arr = new arr.constructor(arr.length * count)
+    for(let ti = 0, at_index = 0; ti < count; ++ti, at_index += arr.length)
+        new_arr.set(arr, at_index)
+    return new_arr
+}
+
 class NodeGeomCopy extends NodeCls
 {
     static name() { return "Copy" }
@@ -1100,17 +1107,21 @@ class NodeGeomCopy extends NodeCls
     {
         const out_mesh = new Mesh()
         out_mesh.type = in_mesh.type
+
+        const tg_vtx = target.effective_vtx_pos
+        const tg_vtx_count = tg_vtx.length / VTX_NUM_ELEM
+
         // copy vertex attribs as is, we're not adding vtx attribs
         for(let name in in_mesh.arrs) {
             const meta = in_mesh.meta[name]
-            if (name.startsWith("vtx_")) {
-                out_mesh.set(name, in_mesh.arrs[name], meta.num_elems, meta.need_normalize)
-            }
+            const arr = in_mesh.arrs[name]
+            let new_arr
+            if (name.startsWith("vtx_"))
+                new_arr = arr  // same vertices shared (will be unshared by Mesh when setting face_transform)
+            else if (name.startsWith("face_"))
+                new_arr = repeat_arr(arr, tg_vtx_count)
+            out_mesh.set(name, new_arr, meta.num_elems, meta.need_normalize)
         }
-        const face_sz = in_mesh.face_size()
-        const tg_vtx = target.effective_vtx_pos
-
-        const tg_vtx_count = tg_vtx.length / VTX_NUM_ELEM
         let idx = null
         if (in_mesh.has_idx()) {
             idx = in_mesh.arrs.idx
@@ -1125,15 +1136,14 @@ class NodeGeomCopy extends NodeCls
                 idx[i] = i
         }
 
+        const face_sz = in_mesh.face_size()
         const count_faces = idx.length / face_sz
         // make face transform for every face in the 
         const new_face_tr = this.make_face_transform(count_faces, tg_vtx)
         
         // duplicate the indices
-        const new_idx = new TIdxArr(idx.length * tg_vtx_count)
-        for(let ti = 0; ti < tg_vtx_count; ++ti) {
-            new_idx.set(idx, ti*idx.length)
-        }
+        const new_idx = repeat_arr(idx, tg_vtx_count)
+
         out_mesh.set("idx", new_idx)
         out_mesh.set("face_transform", new_face_tr, 6, false) // needs to come after idx since its using it
         return out_mesh
@@ -1167,16 +1177,18 @@ class NodeGeomCopy extends NodeCls
         const tg_vtx_count = tg_vtx.length / VTX_NUM_ELEM
         // need to duplicate all arrays since there's no vertex sharing in paths
         const vtx_count = in_obj.vtx_count()
+        const face_count = in_obj.face_count()
         for(let name in in_obj.arrs) {
             const meta = in_obj.meta[name]
             const arr = in_obj.arrs[name]
-            if (name.startsWith("vtx_") || name.startsWith("ctrl_")) {
+            if (name.startsWith("vtx_") || name.startsWith("ctrl_"))
                 assert(arr.length === vtx_count * meta.num_elems, this, "unexpected vtx attrib array size")
-                const new_arr = new arr.constructor(arr.length * tg_vtx_count)
-                for(let ti = 0, at_index = 0; ti < tg_vtx_count; ++ti, at_index += arr.length)
-                    new_arr.set(arr, at_index)
-                out_paths.set(name, new_arr, meta.num_elems, meta.need_normalize)
-            }
+            else if (name.startsWith("face_"))
+                assert(arr.length === face_count * meta.num_elems, this, "unexpected vtx attrib array size")
+            else 
+                assert(false, this, "unexpected attr name " + name)
+            repeat_arr(arr, tg_vtx_count)
+            out_paths.set(name, new_arr, meta.num_elems, meta.need_normalize)
         }
         const new_ranges = []
         let at_vtx_index = 0
@@ -1187,7 +1199,7 @@ class NodeGeomCopy extends NodeCls
         }
         out_paths.paths_ranges = new_ranges
 
-        const new_face_tr = this.make_face_transform(in_obj.face_count(), tg_vtx)
+        const new_face_tr = this.make_face_transform(face_count, tg_vtx)
         out_paths.set("face_transform", new_face_tr, 6, false)
         return out_paths
     }

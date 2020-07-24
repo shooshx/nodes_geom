@@ -317,7 +317,7 @@ class MultiPath extends PObject
     draw_control_points() {
         let ctp = this.eff_ctrl_to_prev, cfp = this.eff_ctrl_from_prev
         ctx_img.beginPath()
-        this.foreach_line((vidx, vx, vy)=>{
+        this.foreach_line((vidx, prev_x, prev_y, vx, vy)=>{
             if (this.is_curve(vidx))
             {
                 let abs_cfp_x = prev_x+cfp[vidx], abs_cfp_y = prev_y+cfp[vidx+1]
