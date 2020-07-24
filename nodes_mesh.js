@@ -1080,6 +1080,7 @@ class NodeGeomMerge extends NodeCls
     }
 }
 
+const VTX_NUM_ELEM = 2
 
 class NodeGeomCopy extends NodeCls
 {
@@ -1095,7 +1096,8 @@ class NodeGeomCopy extends NodeCls
         node.set_state_evaluators({"in_obj": (m,s)=>{ return new MeshPropEvaluator(m,s, this.bind_to) }})
     }
 
-    mesh_copy(in_mesh, target) {
+    mesh_copy(in_mesh, target) 
+    {
         const out_mesh = new Mesh()
         out_mesh.type = in_mesh.type
         // copy vertex attribs as is, we're not adding vtx attribs
@@ -1107,7 +1109,7 @@ class NodeGeomCopy extends NodeCls
         }
         const face_sz = in_mesh.face_size()
         const tg_vtx = target.effective_vtx_pos
-        const VTX_NUM_ELEM = 2
+
         const tg_vtx_count = tg_vtx.length / VTX_NUM_ELEM
         let idx = null
         if (in_mesh.has_idx()) {
@@ -1125,6 +1127,21 @@ class NodeGeomCopy extends NodeCls
 
         const count_faces = idx.length / face_sz
         // make face transform for every face in the 
+        const new_face_tr = this.make_face_transform(count_faces, tg_vtx)
+        
+        // duplicate the indices
+        const new_idx = new TIdxArr(idx.length * tg_vtx_count)
+        for(let ti = 0; ti < tg_vtx_count; ++ti) {
+            new_idx.set(idx, ti*idx.length)
+        }
+        out_mesh.set("idx", new_idx)
+        out_mesh.set("face_transform", new_face_tr, 6, false) // needs to come after idx since its using it
+        return out_mesh
+    }
+
+    make_face_transform(count_faces, tg_vtx)
+    {
+        const tg_vtx_count = tg_vtx.length / VTX_NUM_ELEM
         let pi = 0
         const new_face_tr = new Float32Array(count_faces * tg_vtx_count * 6)
         const m = mat3.create()
@@ -1140,15 +1157,39 @@ class NodeGeomCopy extends NodeCls
                 new_face_tr[pi++] = m[6]; new_face_tr[pi++] = m[7];
             }
         }
-        
-        // duplicate the indices
-        const new_idx = new TIdxArr(idx.length * tg_vtx_count)
-        for(let ti = 0; ti < tg_vtx_count; ++ti) {
-            new_idx.set(idx, ti*idx.length)
+        return new_face_tr
+    }
+
+    path_copy(in_obj, target) 
+    {
+        const out_paths = new MultiPath()
+        const tg_vtx = target.effective_vtx_pos
+        const tg_vtx_count = tg_vtx.length / VTX_NUM_ELEM
+        // need to duplicate all arrays since there's no vertex sharing in paths
+        const vtx_count = in_obj.vtx_count()
+        for(let name in in_obj.arrs) {
+            const meta = in_obj.meta[name]
+            const arr = in_obj.arrs[name]
+            if (name.startsWith("vtx_") || name.startsWith("ctrl_")) {
+                assert(arr.length === vtx_count * meta.num_elems, this, "unexpected vtx attrib array size")
+                const new_arr = new arr.constructor(arr.length * tg_vtx_count)
+                for(let ti = 0, at_index = 0; ti < tg_vtx_count; ++ti, at_index += arr.length)
+                    new_arr.set(arr, at_index)
+                out_paths.set(name, new_arr, meta.num_elems, meta.need_normalize)
+            }
         }
-        out_mesh.set("idx", new_idx)
-        out_mesh.set("face_transform", new_face_tr, 6, false) // needs to come after idx since its using it
-        return out_mesh
+        const new_ranges = []
+        let at_vtx_index = 0
+        for(let ti = 0; ti < tg_vtx_count; ++ti) {
+            for(let fi = 0; fi < in_obj.paths_ranges.length; fi += 3) 
+                new_ranges.push(in_obj.paths_ranges[fi] + at_vtx_index, in_obj.paths_ranges[fi+1] + at_vtx_index, in_obj.paths_ranges[fi+2])
+            at_vtx_index += vtx_count
+        }
+        out_paths.paths_ranges = new_ranges
+
+        const new_face_tr = this.make_face_transform(in_obj.face_count(), tg_vtx)
+        out_paths.set("face_transform", new_face_tr, 6, false)
+        return out_paths
     }
 
     run() {

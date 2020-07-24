@@ -88,12 +88,14 @@ class MultiPath extends PObject
         dassert(face_transform.length / 6 === this.face_count(), "unexpect length of face_transform")
 
         let vtx_pos = this.effective_vtx_pos, ctp = this.eff_ctrl_to_prev, cfp = this.eff_ctrl_from_prev
-
+        const is_curve = this.is_curve()
         if (this.effective_vtx_pos === null || this.effective_vtx_pos === this.arrs.vtx_pos || this.effective_vtx_pos.length != vtx_pos.length) {
             // when vtx needs to be new, all of them need to be new
             this.effective_vtx_pos = new TVtxArr(vtx_pos.length)
-            this.eff_ctrl_to_prev = new TVtxArr(ctp.length)
-            this.eff_ctrl_from_prev = new TVtxArr(cfp.length)
+            if (is_curve) {
+                this.eff_ctrl_to_prev = new TVtxArr(ctp.length)
+                this.eff_ctrl_from_prev = new TVtxArr(cfp.length)
+            }
         }
         const vtx_new = this.effective_vtx_pos, ctp_new = this.eff_ctrl_to_prev, cfp_new = this.eff_ctrl_from_prev
         
@@ -107,13 +109,15 @@ class MultiPath extends PObject
                 vtx_new[vi]   = face_transform[ti]   * x + face_transform[ti+2] * y + face_transform[ti+4];
                 vtx_new[vi+1] = face_transform[ti+1] * x + face_transform[ti+3] * y + face_transform[ti+5];
 
-                x = ctp[vi]; y = ctp[vi+1]
-                ctp_new[vi]   = face_transform[ti]   * x + face_transform[ti+2] * y;
-                ctp_new[vi+1] = face_transform[ti+1] * x + face_transform[ti+3] * y;   
+                if (is_curve) {
+                    x = ctp[vi]; y = ctp[vi+1]
+                    ctp_new[vi]   = face_transform[ti]   * x + face_transform[ti+2] * y;
+                    ctp_new[vi+1] = face_transform[ti+1] * x + face_transform[ti+3] * y;   
 
-                x = cfp[vi]; y = cfp[vi+1]
-                cfp_new[vi]   = face_transform[ti]   * x + face_transform[ti+2] * y;
-                cfp_new[vi+1] = face_transform[ti+1] * x + face_transform[ti+3] * y;   
+                    x = cfp[vi]; y = cfp[vi+1]
+                    cfp_new[vi]   = face_transform[ti]   * x + face_transform[ti+2] * y;
+                    cfp_new[vi+1] = face_transform[ti+1] * x + face_transform[ti+3] * y;   
+                }
             }
         }        
     }
@@ -218,7 +222,7 @@ class MultiPath extends PObject
     }
     has_curves() {
         // can go over the arrays and check if all zeros
-        return (this.arrs.ctrl_to_prev !== undefined)
+        return (this.arrs.ctrl_to_prev !== undefined && this.arrs.ctrl_to_prev !== null)
     }
 
     call_path_commands(obj, pri) {

@@ -54,9 +54,13 @@ EXPRESSIONS
 
 ****** CURRENT AGENDA ******
 - Copy
-    - with existing face transform and vertex transform
     - face attributes
-    - rotates with target
+    - with transform param - in_target
+    - without target - number of times index in the param
+    - rotates with target (bool select)
+    - with existing face transform and vertex transform
+    - divide exact
+
 - hex lattice?
     copy node
     merge deduplicate points
@@ -304,6 +308,9 @@ get ideas from
 
 Minify:
     https://github.com/terser/terser
+
+icons
+    https://tablericons.com/
 
 Write-About
 - difference in radial gradient between canvas and svg (opposite circles), browsers difference
