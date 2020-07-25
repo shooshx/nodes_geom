@@ -56,19 +56,24 @@ EXPRESSIONS
 - Copy
     - with existing vtx_transform, face_transform
     - in features.txt
-- hex lattice?
-    merge deduplicate points
-- BoolParam from code (from variable)
-    fix in SetAttr fill from ParamFloat to ParamBool with code
 - Small: notes in nodes view
+- BUG: primitive regular poily tri and quad should be mesh
 - BUG: "0.05(1+sin(PI/3))" no error
 - BUG? rendering with effective_vtx ?
 - BUG: func node without show_code?
+- distance fields
+    - primitives
+    - marching sqares
+    - smoothmin from article
+    - meatballs
+    - moving
 - balls the know their end color
     - Animation
     - box2d
     - flow control
     - anim - some frames are not displayed?
+- BoolParam from code (from variable)
+    fix in SetAttr fill from ParamFloat to ParamBool with code
 - Mandelbrot
     change power
     anim gradient
@@ -110,6 +115,7 @@ NODES:
     - point size
     - BUG - yellow line doesn't follow the selected point
     - make several versions of the arrays in the same object and a node to select version - instead of a modify node
+    - with code that adds triangles? combine code and clicks somehow?
 - Divide 
     - just vertices without faces (better performance)
     - triangles - for better interpolation
@@ -212,6 +218,21 @@ NODES:
     - canvas owned by shader node
     - attr_names auto? still support arbitrary attributes
         getActiveAttrib, also type check with what's coming from mesh  
+- plane deform
+    https://www.iquilezles.org/www/articles/deform/deform.htm
+- marching squares/triangles
+    with adjucency like in video?  https://youtu.be/lctXaT9pxA0?t=370   
+        smoothmin function for blending shapes
+        3d primitives functions https://www.iquilezles.org/www/articles/distfunctions/distfunctions.htm
+        2d https://www.iquilezles.org/www/articles/distfunctions2d/distfunctions2d.htm
+    ray marching
+        https://adrianb.io/2016/10/01/raymarching.html#:~:text=Raymarching%20is%20a%20fairly%20new,the%20camera's%20field%20of%20vision.
+    impl
+        https://github.com/d3/d3-contour     
+        https://github.com/RaumZeit/MarchingSquares.js
+        https://github.com/sakri/MarchingSquaresJS - canvas based?
+        circle blobs: http://jamie-wong.com/2014/08/19/metaballs-and-marching-squares/
+
 - Anim: Accumulate geometry every N frames
 - Anim: object feedback - from specific frame, every N frame, from N frames in the past (delay line)
 

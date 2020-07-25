@@ -882,8 +882,10 @@ class NodeGeomMerge extends NodeCls
         this.in_m = new InTerminalMulti(node, "in_multi_mesh")
         this.out = new OutTerminal(node, "out_mesh")
 
+        this.dedup_vtx = new ParamBool(node, "Deduplicate Points (Output mesh)", false)
+        this.dedup_epsilon = new ParamFloat(node, "Dedup epsilon", 0.00001, {visible:false})
         this.sorted_order = []       
-        mixin_multi_reorder_control(node, this, this.sorted_order, this.in_m)        
+        mixin_multi_reorder_control(node, this, this.sorted_order, this.in_m)
     }
 
     analyze_inputs(meshes) {
@@ -1059,23 +1061,91 @@ class NodeGeomMerge extends NodeCls
         return r
     }
 
+    dedup_vertices(obj) 
+    {
+        const points_hash = new Map() // map discretisized [x,y] to the first index it appears in
+        const old_went_to = [] // went_to[i] is the index int the new vtx_pos where index i went to (for reconstructing idx)
+        const new_vtx = []
+        const new_to_old_indices = [] // what indices in the original vtx the new_vtx came from (for reconstructing all the other arrays)
+        const vtx = obj.effective_vtx_pos // take the baked vertices
+        const vtx_len = vtx.length, discrete_factor = 1/this.dedup_epsilon.v
+        let count_dups = 0
+        // do the deduplication according to coordinates
+        for(let vi = 0, i = 0; vi < vtx_len; vi += 2, ++i) {
+            const x = vtx[vi], y = vtx[vi+1]
+            const key = "" + Math.round(x * discrete_factor) + "_" + Math.round(y * discrete_factor) // no tuple type in ES6 yet so need use string
+            let goes_to = points_hash.get(key)
+            if (goes_to === undefined) { // something not seen before
+                points_hash.set(key, i)
+                goes_to = i
+                new_vtx.push(x, y)
+                new_to_old_indices.push(i)
+            }
+            else
+                ++count_dups
+            old_went_to.push(goes_to)
+        }
+        if (count_dups === 0 && obj.constructor === Mesh) // need to actually do something?
+            return obj;  // if it's not a mesh, we want to do it anyway because the output needs to be a mesh
+        
+        const new_mesh = new Mesh()
+        new_mesh.set("vtx_pos", new TVtxArr(new_vtx), 2, false)
+        // all other arrays
+        for(let name in obj.arrs) {
+            if (!name.startsWith("vtx_") || name == "vtx_pos" || name == "vtx_transform") // already baked the transform using effective_vtx so don't need it
+                continue
+            const arr = obj.arrs[name], meta = obj.meta[name]
+            const new_arr = new arr.constructor(new_to_old_indices.length * meta.num_elems)
+            let pi = 0
+            for(let old_idx of new_to_old_indices) {
+                for(let ei = 0; ei < meta.num_elems; ++ei)
+                    new_arr[pi++] = arr[old_idx * meta.num_elems + ei]
+            }
+            new_mesh.set(name, new_arr, meta.num_elems, meta.need_normalize)
+        }
+        // recreate idx
+        if (obj.constructor === Mesh) {
+            if (obj.has_idx()) {
+                const idx = obj.arrs.idx
+                const new_idx = new TIdxArr(idx.length)
+                let pi = 0;
+                for(let old_idx of idx)
+                    new_idx[pi++] = old_went_to[old_idx]
+                new_mesh.set("idx", new_idx)
+                new_mesh.type = obj.type
+            }
+            else {
+                assert(obj.type === MESH_POINTS, this, "unexpected input mesh type " + obj.type)
+                new_mesh.type = MESH_POINTS
+            }
+        }
+        else { // it was paths, discard all the paths information except the points
+            new_mesh.type = MESH_POINTS
+        }
+        return new_mesh
+    }
+
     run() {
         const meshes = this.in_m.get_input_consts()
         if (meshes.length == 0) {
             this.out.set(new Mesh())
             return
         }
+        let r = null
         if (meshes.length == 1) {
-            this.out.set(meshes[0])
-            return
+            r = meshes[0]
+        }
+        else {
+            const d = this.analyze_inputs(meshes)
+            if (d.obj_ctor == Mesh) // all inputs are meshes of the same type
+                r = this.merge_to_mesh(d, meshes)
+            else 
+                r = this.merge_to_paths(d, meshes)
         }
 
-        const d = this.analyze_inputs(meshes)
-        let r
-        if (d.obj_ctor == Mesh) // all inputs are meshes of the same type
-            r = this.merge_to_mesh(d, meshes)
-        else 
-            r = this.merge_to_paths(d, meshes)
+        if (this.dedup_vtx.v)
+            r = this.dedup_vertices(r)
+
         this.out.set(r)
     }
 }
