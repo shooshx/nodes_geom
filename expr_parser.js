@@ -1752,7 +1752,7 @@ function eparse(expr, state_access, opt) {
         else 
             throw new ExprErr("unknown opt " + opt)
         if (!isEnd())
-            new ExprErr("Syntax error: unexpected token, expected expression end")
+            throw new ExprErr("Syntax error: unexpected token, expected expression end")
     }
     catch(e)
     {

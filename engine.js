@@ -132,6 +132,7 @@ class Program {
         this.next_eph_obj_id = 1
         this.tdisp_nodes = [] // template display
         this.input_nodes = []
+        this.nodes_decor = [] // non-functional decorations in the nodes view
     }
 
     // for objects who's id is serialized (node, line)
@@ -225,7 +226,12 @@ class Program {
         line.from_term.lines.splice(line.from_term.lines.indexOf(line), 1)
         line.to_term.lines.splice(line.to_term.lines.indexOf(line), 1)
         line.to_term.tset_dirty(true)
-        this.lines.splice(this.lines.indexOf(line), 1)
+
+        const pos = this.lines.indexOf(line)
+        dassert(pos !== -1, "line not found")
+        this.lines.splice(pos, 1)
+        delete this.obj_map[line.uid]
+
         try { // might do console.assert to check stuff, don't want it to mess with us
             line.to_term.get_attachee().tdid_disconnect(line)
         } catch(e) {}
@@ -271,6 +277,21 @@ class Program {
             draw_nodes()
     }
     
+    nodes_add_text_note(x, y, uid=null) {
+        const obj = new NV_TextNote(x, y, "text")
+        if (uid === null || uid === undefined)
+            uid = this.alloc_graphic_obj_id()
+        obj.uid = uid
+        this.nodes_decor.push(obj)
+        this.obj_map[obj.uid] = obj
+    }
+    delete_decor(obj) {
+        const pos = this.nodes_decor.indexOf(obj)
+        dassert(pos !== -1, "object not found")
+        this.nodes_decor.splice(pos, 1)
+        delete this.obj_map[obj.uid];
+        draw_nodes()
+    }
 }
 
 var program = null

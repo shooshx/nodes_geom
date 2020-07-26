@@ -57,17 +57,19 @@ EXPRESSIONS
     - with existing vtx_transform, face_transform
     - in features.txt
 - Small: notes in nodes view
-- BUG: primitive regular poily tri and quad should be mesh
-- BUG: "0.05(1+sin(PI/3))" no error
+    edit
+    text size
+    color
 - BUG? rendering with effective_vtx ?
+    - get rid of effective, just change vtx_pos?
 - BUG: func node without show_code?
 - distance fields
     - primitives
     - marching sqares
     - smoothmin from article
     - meatballs
-    - moving
-- balls the know their end color
+    - moving, bounding walls
+- balls that know their end color
     - Animation
     - box2d
     - flow control

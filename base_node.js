@@ -158,6 +158,10 @@ class Line {
         connector_line(this.from_term.center_x(), this.from_term.center_y(), this.from_term.center_offset(),
                        this.to_term.center_x(), this.to_term.center_y(), this.to_term.center_offset(), false, this.uid, this.from_term.kind)
     }
+
+    ctx_menu_opts() {
+        return [{text:"Delete Line", func:()=>{ program.delete_line(this, true)} }]       
+    }
 }
 
 const KIND_OBJ = 0   // terminal that passes renderable objects
@@ -1064,6 +1068,45 @@ function nodes_unselect_all(redraw=true, trig_frame=true) {
 }
 
 
+class NV_TextNote
+{
+    constructor(x, y, text) {
+        this.x = x
+        this.y = y
+        this.text = text
+        this.uid = null  // set when creating
+        this.color = "#ffffff"
+        this.font_size = 16
+        this.width = null // from y to down
+        this.height = null // from x to left
+    }
+    px() { return this.x + nodes_view.pan_x }
+    py() { return this.y + nodes_view.pan_y }    
+    draw() {
+        const px = this.px(), py = this.py()
+        ctx_nodes.font = this.font_size + "px Verdana"
+        ctx_nodes.fillStyle = this.color
+        ctx_nodes.textAlign = "start"
+        ctx_nodes.fillText(this.text, px, py);
+        if (this.width === null) {
+            const measure = ctx_nodes.measureText(this.text)
+            this.width = measure.width
+            this.height = measure.actualBoundingBoxDescent
+        }
+    }
+    draw_shadow() {
+        const px = this.px(), py = this.py()
+        ctx_nd_shadow.beginPath();
+        ctx_nd_shadow.fillStyle = color_from_uid(this.uid)
+        ctx_nd_shadow.fillRect(px, py, this.width, this.height)        
+    }
+
+    ctx_menu_opts() {
+        return [{text:"Delete Text", func:()=>{ program.delete_decor(this, true)} }]       
+    }
+}
+
+
 // pass along the messages to the node and just flip the display flag
 class NodeFlagProxy
 {
@@ -1153,10 +1196,10 @@ function nodes_context_menu(px, py, wx, wy, cvs_x, cvs_y) {
             node = obj
         else if (obj.constructor === NodeFlagProxy)
             node = obj.node
-        else if (obj.constructor === Line)
-            opt = [{text:"Delete Line", func:function() { program.delete_line(obj, true)} }]       
         else if (obj.constructor === NameInput)
             obj = null // treat it like we pressed the background
+        else if (obj.ctx_menu_opts !== undefined)
+            opt = obj.ctx_menu_opts()
         else
             return null
     }
@@ -1174,6 +1217,7 @@ function nodes_context_menu(px, py, wx, wy, cvs_x, cvs_y) {
                 opt.push( {text: c.group_name, sub_opts: nodes })
             }
         }
+        opt.push({text:"-"}, {text:"Text Note", func:()=>{ program.nodes_add_text_note(px, py); draw_nodes() }})
     }
     
     nodes_view.last_ctx_menu = open_context_menu(opt, wx, wy, main_view, ()=>{nodes_view.dismiss_ctx_menu()})    
@@ -1226,15 +1270,21 @@ function draw_nodes()
     ctx_nodes.stroke()
 
     // nodes
-    
+
+    for(let n of program.nodes_decor) {
+        n.draw()        
+    }   
     for(let n of program.nodes) {
         n.draw();
     }
-    
     for(let l of program.lines) {
         l.draw()
     }
+
     // in the shadow canvas nodes should be above lines so that the lines don't obscure the terminals
+    for(let n of program.nodes_decor) {
+        n.draw_shadow()        
+    }   
     for(let n of program.nodes) {
         n.draw_shadow();
     }

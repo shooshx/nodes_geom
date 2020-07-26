@@ -33,7 +33,11 @@ Node: Gradient
 
 Node: Divide
 - Divide each quad in a quad mesh into smaller quads
+- Divide line segments in a path into smaller segment
 - by a constant number of division or a constant required distance
+- Can set the distance to be exact, in that case the result complete quad might be of different size than the input quad
+  - exact distance doesn't work for lines
+- Can set different distances for u and v coordinates
 
 Node: Set Attribute
 - Set an attribute of vertices or faces of gemortry to a constant, sampled or calculated value
@@ -55,6 +59,10 @@ Node: Set Attribute
     - transform (vertex and face) - change position/rotation per vertex or per face
 
 Node: Geometry Merge
+- Merges one or more geometry objects into one geometry object
+- Meshes of the same type result in a mesh of the same type
+- Any other combination results in a paths object
+- Can deduplicate vertices with a given epsilon accuracy
 
 Node: Geometry Copy
 

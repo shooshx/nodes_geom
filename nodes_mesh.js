@@ -60,7 +60,7 @@ class NodeGeomPrimitive extends NodeCls
         assert(this.transform.is_valid(), this, "invalid transform")
         let obj
         let hx = this.size.x * 0.5, hy = this.size.y * 0.5
-        if (this.shape.sel_idx == 0) {
+        if (this.shape.sel_idx == 0) { //quad
             obj = new Mesh()
             // center at 0,0
             obj.set('vtx_pos', new TVtxArr([-hx, -hy, -hx, hy, hx, hy, hx, -hy]), 2)
@@ -95,9 +95,23 @@ class NodeGeomPrimitive extends NodeCls
                     vtx.push(rx*r_inner*Math.sin(inner_angle), -ry*r_inner*Math.cos(inner_angle))
                 }
             }
-            obj = new MultiPath()
+
+            if (!isStar && (np == 3 || np == 4)) {
+                obj = new Mesh()
+                if (np == 3) {
+                    obj.type = MESH_TRI
+                    obj.arrs.idx = [0,1,2]
+                }
+                else {
+                    obj.type = MESH_QUAD
+                    obj.arrs.idx = [0,1,2,3]
+                }
+            }
+            else {
+                obj = new MultiPath()
+                obj.paths_ranges = [0,np*(isStar?2:1),PATH_CLOSED]
+            }
             obj.set('vtx_pos', new TVtxArr(vtx), 2)
-            obj.paths_ranges = [0,np*(isStar?2:1),PATH_CLOSED]
         }
         else 
             assert("unknown shape")
@@ -882,7 +896,9 @@ class NodeGeomMerge extends NodeCls
         this.in_m = new InTerminalMulti(node, "in_multi_mesh")
         this.out = new OutTerminal(node, "out_mesh")
 
-        this.dedup_vtx = new ParamBool(node, "Deduplicate Points (Output mesh)", false)
+        this.dedup_vtx = new ParamBool(node, "Deduplicate Points (Output mesh)", false, (v)=>{
+            this.dedup_epsilon.set_enable(v)
+        })
         this.dedup_epsilon = new ParamFloat(node, "Dedup epsilon", 0.00001, {visible:false})
         this.sorted_order = []       
         mixin_multi_reorder_control(node, this, this.sorted_order, this.in_m)
@@ -1875,6 +1891,8 @@ class NodeGeomDivide extends NodeCls
         this.by_dist = new ParamBool(node, "Set distance", false, (v)=>{
             this.divisions.set_enable(!v)
             this.distance.set_enable(v)
+            this.distance_uv.set_enable(v)
+            this.sep_uv.set_enable(v)
             this.exact.set_enable(v)
         })
         this.divisions = new ParamInt(node, "Divisions", 4, {min:1, max:10})
@@ -1927,6 +1945,7 @@ class NodeGeomDivide extends NodeCls
         da_x /= div_a; da_y /= div_a
         db_x /= div_b; db_y /= div_b
 
+        const vtx_start = out_vtx.length / mesh.meta.vtx_pos.num_elems
         for(let bi = 0; bi <= div_b; ++bi) {
             for(let ai = 0; ai <= div_a; ++ai) {
                 const np_x = p0_x + da_x*ai + db_x*bi
@@ -1943,7 +1962,7 @@ class NodeGeomDivide extends NodeCls
                 const idx1 = idx0+1
                 const idx2 = idx1+sz_a
                 const idx3 = idx0+sz_a
-                out_idx.push(idx0, idx1, idx2, idx3)
+                out_idx.push(vtx_start + idx0, vtx_start + idx1, vtx_start + idx2, vtx_start + idx3)
             }
         }
     }
