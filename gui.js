@@ -125,7 +125,7 @@ class NodesView extends ViewBase
     }
 
     dismiss_popups() {
-        nodes_dismiss_name_input()
+        nodes_dismiss_text_input()
         param_dismiss_popups()
         dismiss_top_menus()
     }
@@ -244,7 +244,8 @@ function panel_mouse_control(view, canvas)
             prev_x = e.pageX; prev_y = e.pageY
             down_x = e.pageX; down_y = e.pageY
             let vx=view.view_x(e.pageX), vy=view.view_y(e.pageY)
-            hit = view.find_obj(vx, vy, e.pageX, e.pageY);
+            const cvs_x = e.pageX - view.rect.left, cvs_y = e.pageY - view.rect.top
+            hit = view.find_obj(vx, vy, e.pageX, e.pageY, cvs_x, cvs_y);
             if (hit != null) {
                 //console.log("hit ", hit)
                 // passing e to potentiall stop propogation
@@ -319,7 +320,7 @@ function panel_mouse_control(view, canvas)
     
     myAddEventListener(canvas, "contextmenu", function(e) {
         view.dismiss_ctx_menu()
-        let cvs_x = e.pageX - view.rect.left, cvs_y = e.pageY - view.rect.top // relative to canvas
+        const cvs_x = e.pageX - view.rect.left, cvs_y = e.pageY - view.rect.top // relative to canvas
         let ctx = view.context_menu(view.view_x(e.pageX), view.view_y(e.pageY), e.pageX, e.pageY, cvs_x, cvs_y)
         if (ctx !== null)
             e.preventDefault()
@@ -465,12 +466,48 @@ function open_context_menu(options, wx, wy, parent_elem, dismiss_func)
     return menu_elem
 }
 
-var last_name_input = null
-function nodes_dismiss_name_input() {
-    if (last_name_input != null && last_name_input.elem != null) {
-        main_view.removeChild(last_name_input.elem)
-        last_name_input = null
+var last_name_input_elem = null
+function nodes_dismiss_text_input() {
+    if (last_name_input_elem != null) {
+        main_view.removeChild(last_name_input_elem)
+        last_name_input_elem = null
     }
+}
+function pop_nodes_text_input(x, y, startv, func, opt) {
+    nodes_dismiss_text_input()
+    const multi = opt && opt.multiline
+    const elem = add_div(main_view, "node_name_edit")
+    let input, yoffset
+    if (!multi) {
+        input = add_elem(elem, "input", "node_name_input")
+        input.setAttribute("type", "text")
+        yoffset = 5
+    }
+    else {
+        input = add_elem(elem, "textarea", ["node_name_input", "node_text_area"])
+        yoffset = (opt.yoffset !== undefined) ? opt.yoffset : 6  // depends on font size
+    }
+    input.setAttribute("spellcheck", false)
+    const move_to = (to_x, to_y)=>{
+        elem.style.left = (to_x + nodes_view.rect.left) + "px"
+        elem.style.top = (to_y + nodes_view.rect.top - yoffset) + "px"
+    }
+    move_to(x, y)
+    input.value = startv
+    stop_propogation_on("mousedown", input)
+    myAddEventListener(input, 'input', ()=>{
+        func(input.value)
+        draw_nodes()
+    })
+    if (!multi) {
+        myAddEventListener(input, "keypress", function(e) {
+            if (e.keyCode == 13)
+                nodes_dismiss_text_input()
+        })
+    }
+    last_name_input_elem = elem
+
+    return {elem:elem, input:input, move_to:move_to}
 }
 
 class NameInput
@@ -481,23 +518,9 @@ class NameInput
     }
     mousedown(e) {
         e.stopPropagation() // don't want it to dismiss the NameInput we just opened
-        nodes_dismiss_name_input()
-        let text = "<div class='node_name_edit'><input class='node_name_input' type='text' spellcheck='false'></div>"
-        this.elem = addTextChild(main_view, text)
-        let input = this.elem.firstChild
-        this.elem.style.left = this.node.namex() + nodes_view.rect.left + "px"
-        this.elem.style.top = this.node.namey() + nodes_view.rect.top - 5 + "px"
-        input.value = this.node.name
-        stop_propogation_on("mousedown", input)
-        myAddEventListener(input, 'input', ()=>{
-            this.node.set_name(input.value)
-            draw_nodes()
-        })
-        myAddEventListener(input, "keypress", function(e) {
-            if (e.keyCode == 13)
-                nodes_dismiss_name_input()
-        })
-        last_name_input = this
+        pop_nodes_text_input(this.node.namex(), this.node.namey(), this.node.name, (v)=>{
+            this.node.set_name(v)
+        });
     }
     mouseup() {
     }
@@ -624,7 +647,7 @@ function add_move_handlers(grip, movefunc, downfunc=null) {
             return
         moving = true;
         if (downfunc)
-            downfunc(e.pageX, e.pageY)
+            downfunc(e.pageX, e.pageY, e)
         prevx = e.pageX; prevy = e.pageY
         ev.move = myAddEventListener(document, 'mousemove', moveHandler);
         ev.up = myAddEventListener(document, 'mouseup', upHandler);

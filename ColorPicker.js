@@ -418,7 +418,7 @@ function create_at(elem, add_func, sz, visible, onchange, options, start_color)
                 .replace(/STYLE/g, visible ? '' : 'style="display:none;"')
     let canvas = add_func(elem, txt)
     canvas.style.borderRadius = "7px"
-    canvas.tabIndex = 0  // make it focusable
+    canvas.tabIndex = 0  // make it focusable so that the interfaction with the edit box works
     canvas.style.outline = "none"  // but don't put a focus border on it
     canvas.style.zIndex = 100  // don't allow other stuff from around to change the cursor
     let ctx = canvas.getContext("2d")
@@ -612,6 +612,7 @@ return { create_as_child:create_as_child,
 
 var ColorEditBox = (function(){
 var DEBUG_NO_BLUR = false
+var OPEN_POS_LEFTOF_BOTTOM_LEFT = 1
 function create_at(edit_elem, sz, onchange, options, start_value) 
 {
     let picker = ColorPicker.create_after(edit_elem, sz, false, function(c, trigger_level2=true) { 
@@ -624,12 +625,23 @@ function create_at(edit_elem, sz, onchange, options, start_value)
     }, options, start_value)
     picker.elem.style.position = "fixed"
     edit_elem.spellcheck = false
-    function position_to_edit_elem() {
-        let ed_rect = edit_elem.getBoundingClientRect()
-        picker.elem.style.top = ed_rect.bottom + window.scrollY + 2 + "px"
-        picker.elem.style.left = ed_rect.left + window.scrollX + "px"
+    let position_to_edit_elem
+    if (options.open_pos === OPEN_POS_LEFTOF_BOTTOM_LEFT) {
+        position_to_edit_elem = ()=>{
+            let ed_rect = edit_elem.getBoundingClientRect()
+            picker.elem.style.top = ed_rect.bottom - sz + "px"
+            picker.elem.style.left = ed_rect.right + window.scrollX + 2 + "px"
+        }
+    }
+    else { // where to open the picker, default, top-left corner is below element
+        position_to_edit_elem = ()=>{
+            let ed_rect = edit_elem.getBoundingClientRect()
+            picker.elem.style.top = ed_rect.bottom + window.scrollY + 2 + "px"
+            picker.elem.style.left = ed_rect.left + window.scrollX + "px"
+        }
     }
 
+    // opt.focus_func can be set by the user to get events when thee picker and edit go in and out of focus
     let picker_set_color = picker.set_color
     picker.set_color = function(c, trigger=true) {
         picker_set_color(c, true, trigger) 
@@ -643,11 +655,16 @@ function create_at(edit_elem, sz, onchange, options, start_value)
     options.myAddEventListener(edit_elem, "focus", function() { 
         position_to_edit_elem(); 
         picker.set_visible(true) 
+        if (options.focus_func)
+            options.focus_func(true)
     })
     if (!DEBUG_NO_BLUR) {
         options.myAddEventListener(edit_elem, "blur", function(e) { 
-            if (e.relatedTarget !== picker.elem)  // if focus moved from the edit to something not the canvas, hide it
+            if (e.relatedTarget !== picker.elem) { // if focus moved from the edit to something not the canvas, hide it
                 picker.set_visible(false) 
+                if (options.focus_func)
+                    options.focus_func(false)
+            }
         })
     }
     
@@ -656,8 +673,11 @@ function create_at(edit_elem, sz, onchange, options, start_value)
     })
     if (!DEBUG_NO_BLUR) {
         options.myAddEventListener(picker.elem, "blur", function(e) { 
-            if (e.relatedTarget !== edit_elem)
+            if (e.relatedTarget !== edit_elem) {
                 picker.set_visible(false) 
+                if (options.focus_func)
+                    options.focus_func(false)                
+            }
         })
     }
     

@@ -254,7 +254,7 @@ class TerminalBase {
     }
     
     mousemove(dx, dy, px, py, ex, ey, cvs_x, cvs_y) {
-        let linkto = find_node_obj(px, py, cvs_x, cvs_y)
+        let linkto = find_node_obj(px, py, ex, ey, cvs_x, cvs_y)
         this.line_pending = null
         draw_nodes()
         if (linkto === this) { // should not connect to itself
@@ -1067,6 +1067,9 @@ function nodes_unselect_all(redraw=true, trig_frame=true) {
         trigger_frame_draw(false) // if there was something selected, undisplay it's selection in the image
 }
 
+// by how much to move the textarea to align with the canvas text
+// this is for chrome but not for firefox, too bad
+let Y_OFFSET_BY_FONT_SIZE = {11:5, 12:6, 13:6, 14:6, 16:6, 18:7, 20:7, 24:8, 30:9, 36:11, 48:13, 60:16, 72:18 }
 
 class NV_TextNote
 {
@@ -1074,11 +1077,14 @@ class NV_TextNote
         this.x = x
         this.y = y
         this.text = text
+        this.lines = this.text.split('\n');
         this.uid = null  // set when creating
         this.color = "#ffffff"
         this.font_size = 16
         this.width = null // from y to down
         this.height = null // from x to left
+        this.lineWidth = null
+        this.edit_elem = null
     }
     px() { return this.x + nodes_view.pan_x }
     py() { return this.y + nodes_view.pan_y }    
@@ -1087,12 +1093,31 @@ class NV_TextNote
         ctx_nodes.font = this.font_size + "px Verdana"
         ctx_nodes.fillStyle = this.color
         ctx_nodes.textAlign = "start"
-        ctx_nodes.fillText(this.text, px, py);
+        ctx_nodes.textBaseline = "top"
+
         if (this.width === null) {
-            const measure = ctx_nodes.measureText(this.text)
-            this.width = measure.width
-            this.height = measure.actualBoundingBoxDescent
+            this.measure()
         }
+        for (let i = 0; i < this.lines.length; ++i)
+            ctx_nodes.fillText(this.lines[i], px, py + i*this.lineHeight);
+    }
+    measure() {
+        const elem = add_div(main_view, "measure_hidden")
+        elem.style.font = this.font_size + "px Verdana"
+        elem.innerText = this.text
+        this.height = elem.clientHeight
+        this.width = elem.clientWidth
+        elem.innerText = this.lines[0]
+        this.lineHeight = elem.clientHeight
+        elem.parentElement.removeChild(elem)
+        this.resize_edit()
+    }
+    resize_edit() {
+        if (this.edit_elem === null)
+            return
+        this.edit_elem.style.width = Math.max(this.width + 10, 200) + "px"
+        this.edit_elem.style.height = this.height + this.lineHeight + 5 + "px"
+        this.elem_input.setAttribute("rows", this.lines.length)           
     }
     draw_shadow() {
         const px = this.px(), py = this.py()
@@ -1103,6 +1128,73 @@ class NV_TextNote
 
     ctx_menu_opts() {
         return [{text:"Delete Text", func:()=>{ program.delete_decor(this, true)} }]       
+    }
+
+    mousedown(e) {
+        e.stopPropagation() // don't want it to dismiss the NameInput we just opened
+        const ti = pop_nodes_text_input(this.px(), this.py(), this.text, (v)=>{
+            this.text = v
+            this.lines = this.text.split('\n');
+            this.measure()
+        }, {multiline:true, yoffset:Y_OFFSET_BY_FONT_SIZE[this.font_size] });
+        ti.input.style.fontSize = this.font_size + "px"
+        this.edit_elem = ti.elem
+        this.elem_input = ti.input
+        this.resize_edit()
+
+        // buttons container
+        const button_cont = add_div(ti.elem, "nodes_text_buttons_cont")
+
+        // move button
+        const move_elem = add_div(button_cont, ["nodes_text_button","nodes_text_move_grip"])
+        add_move_handlers(move_elem, (dx, dy)=>{
+            this.x += dx
+            this.y += dy
+            draw_nodes()
+            ti.move_to(this.px(), this.py())
+        }, (ex, ey, e)=> {
+            e.stopPropagation() // prevent dismiss of the edit
+        })
+
+        // color button
+        const color_elem = add_div(button_cont, ["nodes_text_color_pick","nodes_text_button"])
+        color_elem.setAttribute("tabindex", 1) // make it get focus and blur events for the picker to work
+        const picker = ColorEditBox.create_at(color_elem, 200, (v)=>{
+            this.color = v.hex
+            draw_nodes()
+        }, {...colorEdit_default_opt(), open_pos:1, focus_func: (v)=>{
+            ti.input.style.display = v?"none":"" // when picking color, show canvas the text and not the input box
+        }}, this.color)
+        const e_stopProp = (e)=>{
+            e.stopPropagation() // prevent dismiss of the edit
+        }
+        myAddEventListener(color_elem, "mousedown", e_stopProp)
+        myAddEventListener(picker.elem, "mousedown", e_stopProp)
+
+        // font-size buttons        
+        const font_sizes = [11,12,13,14,16,18,20,24,30,36,48,60,72]
+        const font_size_change = (dir)=>{
+            let i = 0
+            while(font_sizes[i] < this.font_size)
+                ++i;
+            i = Math.min(font_sizes.length-1, Math.max(0, i + dir))
+            this.font_size = font_sizes[i]
+            ti.input.style.fontSize = this.font_size + "px"
+            console.log("font-size=", this.font_size)
+            this.measure()
+            draw_nodes()
+        }
+        const fup_elem = add_div(button_cont, ["nodes_text_font_up", "nodes_text_button"])        
+        const fdown_elem = add_div(button_cont, ["nodes_text_font_down", "nodes_text_button"])
+        myAddEventListener(fup_elem, "mousedown", e_stopProp)
+        myAddEventListener(fdown_elem, "mousedown", e_stopProp)
+        myAddEventListener(fup_elem, "click", ()=>{font_size_change(1)})
+        myAddEventListener(fdown_elem, "click", ()=>{font_size_change(-1)})
+
+    }
+    mouseup() {
+    }
+    mousemove() {
     }
 }
 
@@ -1150,7 +1242,7 @@ function nodes_find_obj_shadow(cvs_x, cvs_y) {
     return null
 }
 
-function find_node_obj(px, py, cvs_x, cvs_y) {
+function find_node_obj(px, py, ex, ey, cvs_x, cvs_y) {
     for(let n of program.nodes) {
         // in this node (including terminals and name input) ?
         if (px < n.tx || px > n.tx + n.twidth || py < n.ty || py >  n.ty + n.theight) {
@@ -1188,7 +1280,7 @@ function find_node_obj(px, py, cvs_x, cvs_y) {
 
 
 function nodes_context_menu(px, py, wx, wy, cvs_x, cvs_y) {
-    let obj = find_node_obj(px, py, cvs_x, cvs_y)
+    let obj = find_node_obj(px, py, wx, wy, cvs_x, cvs_y)
     
     let opt = null, node = null;
     if (obj != null) {

@@ -323,6 +323,7 @@ Name?
 get ideas from
     https://www.reddit.com/r/InternetIsBeautiful/
     procedural generation
+    r/loadingicon
 
 Minify:
     https://github.com/terser/terser

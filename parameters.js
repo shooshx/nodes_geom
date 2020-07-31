@@ -349,11 +349,16 @@ function add_param_slider(line, min_val, max_val, start_value, type, set_func) {
     return { update: update, elem: center, update_range: update_range }
     // TBD refactor capture
 }
+
+function colorEdit_default_opt() { // can't be const var since function below is still not defined
+    return {with_alpha:true, myAddEventListener:myAddEventListener, dropper:start_color_dropper}
+}
+
 function add_param_color(line, value, cls, set_func) {
     let e = document.createElement('input')
     e.className = cls
     line.appendChild(e) // must have parent
-    let ce = ColorEditBox.create_at(e, 200, function(c) { set_func(c) }, {with_alpha:true, myAddEventListener:myAddEventListener, dropper:start_color_dropper}, value)
+    let ce = ColorEditBox.create_at(e, 200, function(c) { set_func(c) }, colorEdit_default_opt(), value)
     return [ce.get_color().copy(), e, ce]
 }
 let g_input_ids = 1
