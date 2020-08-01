@@ -8,6 +8,7 @@ function save_program() {
         tdisp_node_ids: [], 
         input_node_ids: [],
         nodes_view: nodes_view.save(),  // part of the program so the user won't need to start looking for the nodes
+        decor: []
     }
     for(let n of program.nodes) {
         let sn = { params: {}, name:n.name, cls_name: n.cls.constructor.name(), x:n.x, y:n.y, disp_param:n.display_values }
@@ -30,6 +31,12 @@ function save_program() {
     }
     for(let inn of program.input_nodes) {
         sprog.input_node_ids.push(inn.id)
+    }
+    for(let dec of program.nodes_decor) {
+        const r = dec.save()
+        r.type = dec.constructor.name()
+        r.uid = dec.uid
+        sprog.decor.push(r)
     }
     return sprog
 }
@@ -205,6 +212,19 @@ function _load_program(sprog)
 
     if (sprog.nodes_view !== undefined) // old progs don't have it
         nodes_view.load(sprog.nodes_view)
+
+    if (sprog.decor !== undefined) {        
+        for(let sdec of sprog.decor) {
+            const type = nodes_decor_by_name[sdec.type]
+            if (type === undefined) {
+                console.warn("unknown decor class " + sdec.type)
+                continue
+            }
+            const obj = new type()
+            obj.load(sdec)
+            newprog.nodes_add_decor(obj, sdec.uid)
+        }
+    }
 
     console.assert(newprog.next_obj_id === parseInt(sprog.next_node_id), "Unexpected ids created")
 

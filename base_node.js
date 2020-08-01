@@ -1073,18 +1073,30 @@ let Y_OFFSET_BY_FONT_SIZE = {11:5, 12:6, 13:6, 14:6, 16:6, 18:7, 20:7, 24:8, 30:
 
 class NV_TextNote
 {
-    constructor(x, y, text) {
+    static name() { return "Text" }
+    constructor(x = null, y = null, text = "") {
         this.x = x
         this.y = y
-        this.text = text
-        this.lines = this.text.split('\n');
+        this.set_text(text)
         this.uid = null  // set when creating
         this.color = "#ffffff"
         this.font_size = 16
+        
         this.width = null // from y to down
         this.height = null // from x to left
         this.lineWidth = null
         this.edit_elem = null
+    }
+    save() {
+        return { x:this.x, y:this.y, text:this.text, font_size:this.font_size, color:this.color }
+    }
+    load(v) {
+        this.x = v.x; this.y = v.y; this.set_text(v.text); this.font_size = v.font_size; this.color = v.color
+        this.measure()
+    }
+    set_text(v) {
+        this.text = v
+        this.lines = this.text.split('\n');
     }
     px() { return this.x + nodes_view.pan_x }
     py() { return this.y + nodes_view.pan_y }    
@@ -1133,8 +1145,7 @@ class NV_TextNote
     mousedown(e) {
         e.stopPropagation() // don't want it to dismiss the NameInput we just opened
         const ti = pop_nodes_text_input(this.px(), this.py(), this.text, (v)=>{
-            this.text = v
-            this.lines = this.text.split('\n');
+            this.set_text(v)
             this.measure()
         }, {multiline:true, yoffset:Y_OFFSET_BY_FONT_SIZE[this.font_size] });
         ti.input.style.fontSize = this.font_size + "px"
@@ -1309,7 +1320,7 @@ function nodes_context_menu(px, py, wx, wy, cvs_x, cvs_y) {
                 opt.push( {text: c.group_name, sub_opts: nodes })
             }
         }
-        opt.push({text:"-"}, {text:"Text Note", func:()=>{ program.nodes_add_text_note(px, py); draw_nodes() }})
+        opt.push({text:"-"}, {text:"Text Note", func:()=>{ program.nodes_add_decor(new NV_TextNote(px, py, "text")); draw_nodes() }})
     }
     
     nodes_view.last_ctx_menu = open_context_menu(opt, wx, wy, main_view, ()=>{nodes_view.dismiss_ctx_menu()})    

@@ -277,8 +277,7 @@ class Program {
             draw_nodes()
     }
     
-    nodes_add_text_note(x, y, uid=null) {
-        const obj = new NV_TextNote(x, y, "text")
+    nodes_add_decor(obj, uid=null) {
         if (uid === null || uid === undefined)
             uid = this.alloc_graphic_obj_id()
         obj.uid = uid
@@ -741,3 +740,9 @@ nodes_classes_by_name["Geom_Primitive"] = NodeGeomPrimitive
 nodes_classes_by_name["Scatter"] = NodeRandomPoints
 nodes_classes_by_name["Scatter2"] = NodeScatter2
 
+var nodes_decor = [
+    NV_TextNote
+]
+var nodes_decor_by_name = {}
+for(let d of nodes_decor)
+    nodes_decor_by_name[d.name()] = d
