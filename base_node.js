@@ -323,6 +323,10 @@ class PObject {
     async pre_draw(m, disp_values) {
     }
 
+    transform(m) {
+        throw new Error("not implemented transform")
+    }
+
     // this is the default that just sets the transform and calls draw_m which doesn't need to worry about it
     draw(m, disp_values) {
         ctx_img.save()

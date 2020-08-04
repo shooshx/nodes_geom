@@ -1257,7 +1257,7 @@ class NodeScatter2 extends BaseNodeParcel
 
     make_vtx_text(expr_param, template_text, to_shader_prm)  // TBD refactor with func
     {
-        let emit_ctx = new GlslEmitContext()
+        const emit_ctx = new GlslEmitContext()
 
         const item = expr_param.get_active_item()
         if (item.e !== null) {

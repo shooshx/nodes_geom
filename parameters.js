@@ -1601,8 +1601,8 @@ class ParamTransform extends Parameter {
         this.item_sy.set_to_const(sy)
     }
     draw_dial_at_obj(obj, m) {
-        if (obj === null)
-            return // might be it's not connected so it doesn't have output
+        //if (obj === null)
+       //     return // might be it's not connected so it doesn't have output - not used
         // this was replaced with pivot thing. TBD - button for starting pivot should be the center of the bbox instead of 0,0
         let center = vec2.clone(this.rotate_pivot)
 
@@ -1645,7 +1645,10 @@ class ParamTransform extends Parameter {
         }
         return null
     }
-    
+    get_value() { // reimplement if this.v is not ther value
+        dassert(this.v !== null, "value of transform expr not set")
+        return this.v
+    }
     modify(v, dirtyify=true) { 
         // TBD right now this just bypasses the calc_mat logic and does direct setting of the matrix
         // need that for NodeFuncFill where there's no display to this Param so there's no need for all that

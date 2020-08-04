@@ -56,19 +56,20 @@ EXPRESSIONS
 - Copy
     - with existing vtx_transform, face_transform
     - in features.txt
-- Small: notes in nodes view
-    edit
-    text size
-    color
 - BUG? rendering with effective_vtx ?
     - get rid of effective, just change vtx_pos?
 - BUG: func node without show_code?
 - distance fields
     - primitives
+        circle, half-plane
+        multiple circles from vertices
+    - custom distance function/gradient
+    - transforms and args from textures, don't compile each time
     - marching sqares
     - smoothmin from article
     - meatballs
     - moving, bounding walls
+        - for walls - variable from object, anything from the object, x,y,bbox,transform,attrbiture
 - balls that know their end color
     - Animation
     - box2d

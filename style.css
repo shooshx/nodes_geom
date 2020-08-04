@@ -84,6 +84,9 @@ input {
 .ctx_menu_sep {
     margin: 3px;
 }
+.ctx_menu_sub {
+    padding-right: 20px; /* add space for the arrow */
+}
 .ctx_menu_sub:after {
     content: "\2b9e";
     position: absolute;

@@ -67,7 +67,17 @@ Node: Geometry Merge
 Node: Geometry Copy
 
 Node: Scatter 
-
+- Create an image with single pixels scattered according to a given function
+- Output can be linked to "Pixels to Vertices" node to create geometry
+- Expression possibilityes:
+    - use "coord" variable to know where you are
+    - can use color from input textures/gradient 
+- Input a clipping shape to control exactly where points are created
+- The output points is a subset of an initial points pattern. This can either be
+    - Randomally generated using a given seed and initial count 
+    - From input geometry (usually of a some vertices pattern
+        - This can optionally be shuffled to get some randomization in the points selection
+- Set the resolution of the render to control the granularity and precision
 
 Node: Group Objects
 

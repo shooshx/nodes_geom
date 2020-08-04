@@ -720,6 +720,10 @@ const nodes_classes = [
         NodeGradient,
         NodePixelsToVertices,
     ]},
+    { group_name: "Distance Field", nodes: [
+        NodeDFPrimitive,
+        NodeDFCombine
+    ]},
     NodeSetAttr, 
     NodeTransform,
     NodeGroupObjects,
