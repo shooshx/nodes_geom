@@ -1,5 +1,7 @@
 "use strict"
 
+// https://www.math3d.org/
+
 const DISTANCE_VTX_TEXT = `
 in vec4 vtx_pos;
 out vec2 v_coord;
@@ -205,6 +207,14 @@ function func_call_text(func_name) {
     }
 }
 
+function formula_shape_template(name, s) {
+    return `float $NAME$(int tr_idx, float radius) {
+    mat3x2 tr = tr_arr[tr_idx];
+    vec2 coord = tr * vec3(v_coord, 1.0);
+    return $F$;
+}`.replace('$F$', s).replace('$NAME$', name)
+}
+
 class NodeDFPrimitive extends NodeCls 
 {
     static name() { return "Distance Field Primitive" }
@@ -215,7 +225,7 @@ class NodeDFPrimitive extends NodeCls
 
         this.out = new OutTerminal(node, "out_field")
 
-        this.type = new ParamSelect(node, "Shape", 0, ["Circle"], (sel_idx)=>{
+        this.type = new ParamSelect(node, "Shape", 0, ["Circle", "Inverse-Circle"], (sel_idx)=>{
         })
         this.radius = new ParamFloat(node, "Radius", 0.25, {enabled:true})
 
@@ -227,13 +237,13 @@ class NodeDFPrimitive extends NodeCls
     run() {
         let dfnode = null, glsl_funcs = new FuncsSet()
         if (this.type.sel_idx === 0)  { // circle 
-            glsl_funcs.add("circle", `
-float circle(int tr_idx, float radius) {
-    mat3x2 tr = tr_arr[tr_idx];
-    vec2 coord = tr * vec3(v_coord, 1.0);
-    return (radius*radius) / (coord.x*coord.x + coord.y*coord.y);
-}`)
+            glsl_funcs.add("circle", formula_shape_template("circle", "sqrt(coord.x*coord.x + coord.y*coord.y) - radius"))
             dfnode = new DFNode(func_call_text("circle"), this.transform.get_value(), [this.radius.get_value()], [], glsl_funcs)
+        } 
+        else if (this.type.sel_idx === 1) {
+            // used for blobs with added level of 1
+            glsl_funcs.add("inv_circle", formula_shape_template("inv_circle", "(radius*radius) / (coord.x*coord.x + coord.y*coord.y)")) 
+            dfnode = new DFNode(func_call_text("inv_circle"), this.transform.get_value(), [this.radius.get_value()], [], glsl_funcs)
         }
         else {
             assert(false, this, "expr not set")
@@ -264,7 +274,7 @@ function binary_func_to_multi(func_name) {
             return args_strs[0]
         let ret = ""
         for(let i = 0; i < len - 2; ++i)
-            ret += func_name + "(" + s + ", "
+            ret += func_name + "(" + args_strs[i] + ", "
         ret += func_name + "(" + args_strs[len-2] + ", " + args_strs[len-1]
         ret += ')'.repeat(len-1)
         return ret

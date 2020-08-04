@@ -493,7 +493,7 @@ class NodeShader extends NodeCls
 
         this.sorted_order = []
         mixin_multi_reorder_control(node, this, this.sorted_order, this.in_texs)
-        this.override_texs = null // the node we're in can override a specific index of a texture with an internal texture
+        this.override_texs = null // the node we're in can override a specific index of a texture with an internal texture - clip texture in scatter
 
         this.attr_names = ["vtx_pos"] //null // will be set by caller TODO just figure it out with errors
         this.program = null
