@@ -246,7 +246,7 @@ function panel_mouse_control(view, canvas)
             let vx=view.view_x(e.pageX), vy=view.view_y(e.pageY)
             const cvs_x = e.pageX - view.rect.left, cvs_y = e.pageY - view.rect.top
             hit = view.find_obj(vx, vy, e.pageX, e.pageY, cvs_x, cvs_y);
-            if (hit != null) {
+            if (hit != null && hit.mousedown !== undefined) {
                 //console.log("hit ", hit)
                 // passing e to potentiall stop propogation
                 hit.mousedown(e, vx, vy, e.pageX, e.pageY) 
@@ -270,7 +270,7 @@ function panel_mouse_control(view, canvas)
     });
     myAddEventListener(document, 'mouseup', function(e) {
         panning = false;
-        if (hit !== null)
+        if (hit !== null && hit.mouseup !== undefined)
             hit.mouseup()  // commit line pending
         else if (!did_move)
             view.unselect_all(true) // click anywhere empty, without panning, just unselects the current selection (for nodes_view)
@@ -302,7 +302,7 @@ function panel_mouse_control(view, canvas)
             view.pan_y += dy / view.zoom
             view.pan_redraw()
         }
-        else if (hit !== null) {
+        else if (hit !== null && hit.mousemove !== undefined) {
             let cvs_x = e.pageX - view.rect.left, cvs_y = e.pageY - view.rect.top
             hit.mousemove(dx, dy, view.view_x(e.pageX), view.view_y(e.pageY), e.pageX, e.pageY, cvs_x, cvs_y, e)
         }

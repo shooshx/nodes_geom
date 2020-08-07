@@ -174,6 +174,13 @@ class DFNode {
         this.func_set = func_set // my own functions (not children's)
     }
     make_text(dfstate) {
+        // call order to any function is func_name(tr_if_exists, child_vars_if_exist, float_args_if_exist)
+        const child_vars = []
+        for(let child of this.children) {
+            const var_name = child.make_text(dfstate)
+            child_vars.push(var_name)
+        }
+
         const myvar = "v" + dfstate.var_count
         ++dfstate.var_count
         let args_strs = []
@@ -185,15 +192,12 @@ class DFNode {
 
         for(let i = 0; i < this.args.length; ++i) {
             args_strs.push("args_arr[ai+" + i + "]")
-            dfstate.args_arr.push(...this.args)
         }
-        for(let child of this.children) {
-            const var_name = child.make_text(dfstate)
-            args_strs.push(var_name)
-        }
+        dfstate.args_arr.push(...this.args)
+
         dfstate.func_set.extend(this.func_set)
 
-        let text = "float " + myvar + " = " + this.make_call(args_strs) + ";\n"
+        let text = "float " + myvar + " = " + this.make_call(args_strs, child_vars) + ";\n"
         if (this.args.length > 0)
             text += "ai += " + this.args.length + ";\n"
         dfstate.text += text
@@ -207,14 +211,9 @@ function func_call_text(func_name) {
     }
 }
 
-function formula_shape_template(name, s) {
-    return `float $NAME$(int tr_idx, float radius) {
-    mat3x2 tr = tr_arr[tr_idx];
-    vec2 coord = tr * vec3(v_coord, 1.0);
-    return $F$;
-}`.replace('$F$', s).replace('$NAME$', name)
-}
 
+
+// https://www.iquilezles.org/www/articles/distfunctions2d/distfunctions2d.htm
 class NodeDFPrimitive extends NodeCls 
 {
     static name() { return "Distance Field Primitive" }
@@ -225,27 +224,46 @@ class NodeDFPrimitive extends NodeCls
 
         this.out = new OutTerminal(node, "out_field")
 
-        this.type = new ParamSelect(node, "Shape", 0, ["Circle", "Inverse-Circle"], (sel_idx)=>{
+        this.type = new ParamSelect(node, "Shape", 0, ["Circle", "Inverse-Circle", "Box"], (sel_idx)=>{
         })
         this.radius = new ParamFloat(node, "Radius", 0.25, {enabled:true})
+        this.size = new ParamVec2(node, "Size", 0.5, 0.3)
 
         this.transform = new ParamTransform(node, "Transform")
 
-        //this.size_dial = new SizeDial(this.size)
+        this.size_dial = new SizeDial(this.size)
+    }
+
+    need_size() {
+        return this.type.sel_idx === 2
     }
 
     run() {
         let dfnode = null, glsl_funcs = new FuncsSet()
-        if (this.type.sel_idx === 0)  { // circle 
-            glsl_funcs.add("circle", formula_shape_template("circle", "sqrt(coord.x*coord.x + coord.y*coord.y) - radius"))
-            dfnode = new DFNode(func_call_text("circle"), this.transform.get_value(), [this.radius.get_value()], [], glsl_funcs)
-        } 
-        else if (this.type.sel_idx === 1) {
-            // used for blobs with added level of 1
-            glsl_funcs.add("inv_circle", formula_shape_template("inv_circle", "(radius*radius) / (coord.x*coord.x + coord.y*coord.y)")) 
-            dfnode = new DFNode(func_call_text("inv_circle"), this.transform.get_value(), [this.radius.get_value()], [], glsl_funcs)
+        
+        const add = (name, args, args_vals, func)=>{
+            const s = `float $NAME$(int tr_idx, $ARGS$) {
+    mat3x2 tr = tr_arr[tr_idx];
+    vec2 p = tr * vec3(v_coord, 1.0);
+    $F$
+}`.replace('$F$', func).replace('$NAME$', name).replace('$ARGS$', 'float ' + args.join(', float ')) 
+            glsl_funcs.add(name, s)
+            dfnode = new DFNode(func_call_text(name), this.transform.get_value(), args_vals, [], glsl_funcs)
         }
-        else {
+
+        switch (this.type.sel_idx) {
+        case 0: 
+            add("circle", ["radius"], [this.radius.get_value()], "return sqrt(p.x*p.x + p.y*p.y) - radius;")
+            break
+        case 1: // used for blobs with added level of 1
+            add("inv_circle", ["radius"],  [this.radius.get_value()], "return (radius*radius) / (p.x*p.x + p.y*p.y);")
+            break
+        case 2:
+            const sz = this.size.get_value()
+            add("box", ["width", "height"], [sz[0], sz[1]], `vec2 d = abs(p)-vec2(width/2.0, height/2.0);
+return length(max(d,0.0)) + min(max(d.x,d.y),0.0);`)
+            break
+        default:
             assert(false, this, "expr not set")
         }
 
@@ -255,45 +273,67 @@ class NodeDFPrimitive extends NodeCls
 
     draw_selection(m) {
         this.transform.draw_dial_at_obj(null, m)
-        //this.size_dial.draw(this.transform.v, m)
+        if (this.need_size())
+            this.size_dial.draw(this.transform.v, m)
     }    
     image_find_obj(vx, vy, ex, ey) {
-        let hit = this.transform.dial.find_obj(ex, ey) //|| this.size_dial.find_obj(ex, ey)
+        let hit = this.transform.dial.find_obj(ex, ey) 
         if (hit)
             return hit
+        if (this.need_size()) {
+            hit = this.size_dial.find_obj(ex, ey)
+            if (hit)
+                return hit
+        }
         return null
     }
 
 }
 
+function commaize(arr) {
+    let r = ""
+    for(let c of arr)
+        r += c + ", "
+    return r
+}
+
 // take a binary function like min(a,b) and make a chain to handle any number of arguments
 function binary_func_to_multi(func_name) {
-    return function multi_min(args_strs) {
-        const len = args_strs.length
+    return function multi_min(args_strs, child_vars) {
+        const len = child_vars.length
         if (len === 1)
-            return args_strs[0]
+            return child_vars[0]
         let ret = ""
-        for(let i = 0; i < len - 2; ++i)
-            ret += func_name + "(" + args_strs[i] + ", "
-        ret += func_name + "(" + args_strs[len-2] + ", " + args_strs[len-1]
+        for(let i = 0; i < len - 2; ++i) 
+            ret += func_name + "(" + commaize(args_strs) + child_vars[i] + ", "
+        ret += func_name + "(" + commaize(args_strs) + child_vars[len-2] + ", " + child_vars[len-1]
         ret += ')'.repeat(len-1)
         return ret
     }
 }
 
-function multi_sum(args_strs) {
-    return "(" + args_strs.join(" + ") + ")"
+function multi_sum(args_strs, child_vars) {
+    return "(" + child_vars.join(" + ") + ")"
 }
+
+const poly_smin = `float poly_smin(float k, float d1, float d2) {
+    float h = clamp( 0.5 + 0.5*(d2-d1)/k, 0.0, 1.0 );
+    return mix( d2, d1, h ) - k*h*(1.0-h); 
+}
+`
 
 class NodeDFCombine extends NodeCls 
 {
     static name() { return "Distance Field Combine" }
     constructor(node) {
         super(node)
-        this.op = new ParamSelect(node, "Operator", 0, ["Min (union)", "Max (intersect)", "Sum", "Smooth-min"], (sel_idx)=>{
-        })
         this.in_df_objs = new InTerminalMulti(node, "in_fields")
         this.out = new OutTerminal(node, "out_field")
+
+        this.op = new ParamSelect(node, "Operator", 0, ["Min (union)", "Max (intersect)", "Sum", "Smooth-min"], (sel_idx)=>{
+        })
+        this.radius = new ParamFloat(node, "Radius", 0.25, {enabled:true})
+
     }
 
     run() {
@@ -305,16 +345,21 @@ class NodeDFCombine extends NodeCls
             children.push(obj.dfnode)
         }
 
-        let func_maker = null, func_set = new FuncsSet()
+        let func_maker = null, func_set = new FuncsSet(), args=[]
 
         switch (this.op.sel_idx) {// min
         case 0: func_maker = binary_func_to_multi("min"); break;
         case 1: func_maker = binary_func_to_multi("max"); break;
         case 2: func_maker = multi_sum; break;
+        case 3: 
+            func_maker = binary_func_to_multi('poly_smin'); 
+            func_set.add('poly_smin', poly_smin)
+            args.push(this.radius.get_value())
+            break;
         default: assert(false, this, "unexpected operator")
         }
 
-        let dfnode = new DFNode(func_maker, null, [], children, func_set)
+        let dfnode = new DFNode(func_maker, null, args, children, func_set)
         let obj = new DistanceField(dfnode)
         this.out.set(obj)
     }
