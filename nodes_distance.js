@@ -15,7 +15,6 @@ const DISTANCE_FRAG_TEXT = `
 out vec4 outColor;
 in vec2 v_coord;
 
-mat3x2[] tr_arr = mat3x2[]($TR_ARR$);
 float[] args_arr = float[]($ARGS_ARR$);
 
 $FUNCS$
@@ -26,7 +25,7 @@ float value_func() {
 
 void main() {
     float d = value_func();
-    d = d - 1.0;
+   // d = d - 1.0;
     if (d < 0.0)
         outColor = vec4(1.0+d, 0.0, 0.0, 1.0);
     else
@@ -57,6 +56,13 @@ class NodeStandin {
     register_rename_observer() {}
 }
 
+function float_strs(nums) {
+    const lst = []
+    for(let n of nums)
+        lst.push(asFloatStr(n))
+    return lst
+}
+
 class DistanceField extends PObject 
 {
     constructor(dfnode) {
@@ -83,16 +89,11 @@ class DistanceField extends PObject
         const dfstate = new DFTextState()
         const var_name = this.dfnode.make_text(dfstate)
 
-        const tr_str_arr = []
-        for(let tr of dfstate.tr_arr)
-            tr_str_arr.push("mat3x2(" + [tr[0], tr[1], tr[3],tr[4], tr[6],tr[7]].join(",") + ")")
-
         let func_body = "int ai = 0;\n" + dfstate.text + "return " + var_name + ";"
 
         const text = template.replace('$FUNCS$', dfstate.func_set.to_text())
                              .replace('$EXPR$', func_body)
-                             .replace('$TR_ARR$', tr_str_arr.join(',\n'))
-                             .replace('$ARGS_ARR$', dfstate.args_arr.join(','))
+                             .replace('$ARGS_ARR$', float_strs(dfstate.args_arr).join(','))
 
         this.shader_node.cls.frag_text.set_text(text)
     }
@@ -174,7 +175,7 @@ class DFNode {
         this.func_set = func_set // my own functions (not children's)
     }
     make_text(dfstate) {
-        // call order to any function is func_name(tr_if_exists, child_vars_if_exist, float_args_if_exist)
+        // call order to any function is func_name(tr_index_in_args_arr_if_exists, child_vars_if_exist, float_args_if_exist)
         const child_vars = []
         for(let child of this.children) {
             const var_name = child.make_text(dfstate)
@@ -183,15 +184,17 @@ class DFNode {
 
         const myvar = "v" + dfstate.var_count
         ++dfstate.var_count
-        let args_strs = []
+        let args_strs = [], args_offset = 0
         if (this.inv_tr !== null) {
-            const mytr_idx = dfstate.tr_arr.length        
-            dfstate.tr_arr.push(this.inv_tr)
+            const mytr_idx = dfstate.args_arr.length
+            const tr = this.inv_tr
+            dfstate.args_arr.push(tr[0], tr[1], tr[3],tr[4], tr[6],tr[7])
             args_strs.push(mytr_idx)
+            args_offset += 6
         }
 
         for(let i = 0; i < this.args.length; ++i) {
-            args_strs.push("args_arr[ai+" + i + "]")
+            args_strs.push("args_arr[ai+" + (i + args_offset) + "]")
         }
         dfstate.args_arr.push(...this.args)
 
@@ -199,7 +202,7 @@ class DFNode {
 
         let text = "float " + myvar + " = " + this.make_call(args_strs, child_vars) + ";\n"
         if (this.args.length > 0)
-            text += "ai += " + this.args.length + ";\n"
+            text += "ai += " + (this.args.length + args_offset) + ";\n"
         dfstate.text += text
         return myvar
     }
@@ -243,7 +246,7 @@ class NodeDFPrimitive extends NodeCls
         
         const add = (name, args, args_vals, func)=>{
             const s = `float $NAME$(int tr_idx, $ARGS$) {
-    mat3x2 tr = tr_arr[tr_idx];
+    mat3x2 tr = mat3x2(args_arr[tr_idx], args_arr[tr_idx+1], args_arr[tr_idx+2], args_arr[tr_idx+3], args_arr[tr_idx+4], args_arr[tr_idx+5]);
     vec2 p = tr * vec3(v_coord, 1.0);
     $F$
 }`.replace('$F$', func).replace('$NAME$', name).replace('$ARGS$', 'float ' + args.join(', float ')) 
