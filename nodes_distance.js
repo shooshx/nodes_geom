@@ -15,13 +15,19 @@ const DISTANCE_FRAG_TEXT = `
 out vec4 outColor;
 in vec2 v_coord;
 
-float[] args_arr = float[]($ARGS_ARR$);
+//float[] args_arr = float[]($ARGS_ARR$);
+
+float get_arg(int i) {
+    return texelFetch(_u_in_tex_3, ivec2(i,0), 0).r;
+    //return args_arr[i];
+}
 
 $FUNCS$
 
 float value_func() {
     $EXPR$
 }
+
 
 void main() {
     float d = value_func();
@@ -63,6 +69,8 @@ function float_strs(nums) {
     return lst
 }
 
+const ARGS_TEX_UNIT = 3
+
 class DistanceField extends PObject 
 {
     constructor(dfnode) {
@@ -75,17 +83,20 @@ class DistanceField extends PObject
 
         //this.set_state_evaluators({"coord":  (m,s)=>{ return new ObjSingleEvaluator(m,s) } })
         this.shader_node.set_state_evaluators({"coord":  (m,s)=>{ return new GlslTextEvaluator(s, "v_coord", ['x','y'], TYPE_VEC2) }})
-
-
         this.shader_node.cls.vtx_text.set_text(DISTANCE_VTX_TEXT)
+
+        this.args_tex = null
     }
 
-
+    set_dfnode(dfnode) {
+        this.dfnode = dfnode
+    }
 
     transform(m) { mat3.multiply(this.t_mat, m, this.t_mat) }
 
     make_frag_text(template) 
     {
+        ensure_webgl()
         const dfstate = new DFTextState()
         const var_name = this.dfnode.make_text(dfstate)
 
@@ -93,9 +104,17 @@ class DistanceField extends PObject
 
         const text = template.replace('$FUNCS$', dfstate.func_set.to_text())
                              .replace('$EXPR$', func_body)
-                             .replace('$ARGS_ARR$', float_strs(dfstate.args_arr).join(','))
 
         this.shader_node.cls.frag_text.set_text(text)
+
+        if (this.args_tex === null)
+            this.args_tex = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, this.args_tex);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, dfstate.args_arr.length, 1, 0, gl.RED, gl.FLOAT, new Float32Array(dfstate.args_arr));
+        setTexParams(false, 'pad', 'pad')
+        this.args_tex.t_mat = mat3.create()
+        this.shader_node.cls.override_texs = {3:this.args_tex}
+        gl.bindTexture(gl.TEXTURE_2D, null);
     }
 
     async pre_draw(m, disp_values) {
@@ -108,6 +127,8 @@ class DistanceField extends PObject
         this.make_frag_text(DISTANCE_FRAG_TEXT)
 
         await this.shader_node.cls.run()
+        this.shader_node.clear_dirty() // otherwise it remains dirty since it's not part of normal run loop
+
         this.img = this.shader_node.cls.out_tex.get_const()
         await this.img.pre_draw(null, null)
     }
@@ -194,7 +215,8 @@ class DFNode {
         }
 
         for(let i = 0; i < this.args.length; ++i) {
-            args_strs.push("args_arr[ai+" + (i + args_offset) + "]")
+            //args_strs.push("args_arr[ai+" + (i + args_offset) + "]")
+            args_strs.push("get_arg(ai+" + (i + args_offset) + ")")
         }
         dfstate.args_arr.push(...this.args)
 
@@ -215,9 +237,23 @@ function func_call_text(func_name) {
 }
 
 
+class BaseDFNodeCls extends NodeCls
+{
+    constructor(node) {
+        super(node)
+        this.out_obj = null // cache the out objet so that that the shader inside it compile the program only when needed
+    }
+    set_out_dfnode(dfnode) {
+        if (this.out_obj === null)
+            this.out_obj = new DistanceField(dfnode)
+        else
+            this.out_obj.set_dfnode(dfnode)
+        this.out.set(this.out_obj)        
+    }
+}
 
 // https://www.iquilezles.org/www/articles/distfunctions2d/distfunctions2d.htm
-class NodeDFPrimitive extends NodeCls 
+class NodeDFPrimitive extends BaseDFNodeCls 
 {
     static name() { return "Distance Field Primitive" }
     constructor(node) {
@@ -234,7 +270,7 @@ class NodeDFPrimitive extends NodeCls
 
         this.transform = new ParamTransform(node, "Transform")
 
-        this.size_dial = new SizeDial(this.size)
+        this.size_dial = new SizeDial(this.size)        
     }
 
     need_size() {
@@ -246,7 +282,7 @@ class NodeDFPrimitive extends NodeCls
         
         const add = (name, args, args_vals, func)=>{
             const s = `float $NAME$(int tr_idx, $ARGS$) {
-    mat3x2 tr = mat3x2(args_arr[tr_idx], args_arr[tr_idx+1], args_arr[tr_idx+2], args_arr[tr_idx+3], args_arr[tr_idx+4], args_arr[tr_idx+5]);
+    mat3x2 tr = mat3x2(get_arg(tr_idx), get_arg(tr_idx+1), get_arg(tr_idx+2), get_arg(tr_idx+3), get_arg(tr_idx+4), get_arg(tr_idx+5));
     vec2 p = tr * vec3(v_coord, 1.0);
     $F$
 }`.replace('$F$', func).replace('$NAME$', name).replace('$ARGS$', 'float ' + args.join(', float ')) 
@@ -269,9 +305,7 @@ return length(max(d,0.0)) + min(max(d.x,d.y),0.0);`)
         default:
             assert(false, this, "expr not set")
         }
-
-        let obj = new DistanceField(dfnode)
-        this.out.set(obj)
+        this.set_out_dfnode(dfnode)
     }
 
     draw_selection(m) {
@@ -325,7 +359,7 @@ const poly_smin = `float poly_smin(float k, float d1, float d2) {
 }
 `
 
-class NodeDFCombine extends NodeCls 
+class NodeDFCombine extends BaseDFNodeCls 
 {
     static name() { return "Distance Field Combine" }
     constructor(node) {
@@ -337,6 +371,7 @@ class NodeDFCombine extends NodeCls
         })
         this.radius = new ParamFloat(node, "Radius", 0.25, {enabled:true})
 
+        this.out_obj = null // cache out object
     }
 
     run() {
@@ -362,8 +397,8 @@ class NodeDFCombine extends NodeCls
         default: assert(false, this, "unexpected operator")
         }
 
-        let dfnode = new DFNode(func_maker, null, args, children, func_set)
-        let obj = new DistanceField(dfnode)
-        this.out.set(obj)
+        const dfnode = new DFNode(func_maker, null, args, children, func_set)
+
+        this.set_out_dfnode(dfnode)
     }
 }

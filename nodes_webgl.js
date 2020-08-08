@@ -722,10 +722,14 @@ class NodeShader extends NodeCls
             // if we're creating the texutre, create it in the right unit so that it won't overwrite other stuff
             gl.activeTexture(gl.TEXTURE0 + ti)
             let tex_obj;
-            try {                    
-                tex_obj = tex.make_gl_texture(in_fb)  // in_fb needed for gradient
-                if (isPromise(tex_obj))
-                    tex_obj = await tex_obj
+            try {           
+                if (tex.constructor === WebGLTexture)
+                    tex_obj = tex // comes from override (from distance fields)
+                else {         
+                    tex_obj = tex.make_gl_texture(in_fb)  // in_fb needed for gradient
+                    if (isPromise(tex_obj))
+                        tex_obj = await tex_obj
+                }
             }
             catch(e) {
                 assert(false, this, e.message)

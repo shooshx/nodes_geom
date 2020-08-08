@@ -63,11 +63,12 @@ EXPRESSIONS
     - primitives
         circle, half-plane
         multiple circles from vertices
+    - full viewport render
     - custom distance function/gradient
-    - transforms and args from textures, don't compile each time
+    - hide non relevant params
+    - DistanceField transform t_mat should do something (transform using transform node)
     - marching sqares
-    - smoothmin from article
-    - meatballs
+
     - moving, bounding walls
         - for walls - variable from object, anything from the object, x,y,bbox,transform,attrbiture
 - balls that know their end color
