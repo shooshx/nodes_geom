@@ -171,7 +171,7 @@ class FrameBufferFactory extends ImageBase
         this.t_mat = mat3.create() 
         this.resolution_x = resolution_x
         this.resolution_y = resolution_y
-        this.edge = edge  // str
+        this.edge = edge  // str (pad, reflect, repeat)
     }
 
     draw(m) {

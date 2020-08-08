@@ -5,8 +5,11 @@
 const DISTANCE_VTX_TEXT = `
 in vec4 vtx_pos;
 out vec2 v_coord;
+uniform mat3 t_mat;
+
 void main() {
-    v_coord = vtx_pos.xy;
+    vec3 tmp = t_mat * vec3(vtx_pos.xy, 1.0);
+    v_coord = tmp.xy;
     gl_Position = vtx_pos;
 }
 `
@@ -28,14 +31,27 @@ float value_func() {
     $EXPR$
 }
 
+vec3 lines_color_(float d) {
+    d *= 2.0;
+    if (d < 0.0)
+        return vec3(1.0, 0.45, 0.5) + d;
+    else
+        return vec3(0.4, 0.5, 1.0) - d;
+}
+
+vec3 lines_color(float d) {
+    d *= 2.0;
+    vec3 col = vec3(0.7, 0.475, 0.75) - sign(d)*vec3(0.3, -0.025, -0.25);
+    d = trunc(d*15.0)/15.0;
+    col -= abs(d);
+    return col;
+}
 
 void main() {
     float d = value_func();
    // d = d - 1.0;
-    if (d < 0.0)
-        outColor = vec4(1.0+d, 0.0, 0.0, 1.0);
-    else
-        outColor = vec4(0.0, 0.0, 1.0-d, 1.0);
+   
+   outColor = vec4(lines_color(d), 1.0);
 }
 `
 // stand-in for a real param to the ExpressionItem in DistanceField
@@ -117,9 +133,26 @@ class DistanceField extends PObject
         gl.bindTexture(gl.TEXTURE_2D, null);
     }
 
+    make_viewport_fb() {
+        const pmin = vec2.fromValues(0,0), pmax = vec2.fromValues(canvas_image.width, canvas_image.height)
+        vec2.transformMat3(pmin, pmin, image_view.t_inv_viewport)
+        vec2.transformMat3(pmax, pmax, image_view.t_inv_viewport)
+        const pavg = vec2.create()
+        vec2.add(pavg, pmin, pmax)
+        vec2.scale(pavg, pavg, 0.5)
+        const tr = mat3.create()
+        mat3.fromTranslation(tr, pavg)
+
+        const fb = new FrameBufferFactory(canvas_image.width, canvas_image.height, pmax[0]-pmin[0], pmax[1]-pmin[1], false, "pad")
+        fb.transform(tr)
+        //const fb = new FrameBufferFactory(canvas_image.width, canvas_image.height, 4, 4, false, "pad")
+        return fb
+    }
+
     async pre_draw(m, disp_values) {
 
-        const fb = new FrameBufferFactory(800, 800, 2, 2, false, "pad") // TBD
+        //const fb = new FrameBufferFactory(800, 800, 2, 2, false, "pad") // TBD
+        const fb = this.make_viewport_fb()
 
         this.shader_node.cls.in_fb.force_set(fb)
 
