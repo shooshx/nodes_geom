@@ -1175,20 +1175,57 @@ function repeat_arr(arr, count) {
     return new_arr
 }
 
-class NodeGeomCopy extends NodeCls
+
+// common functionality for NodeGeomCopy and D
+let CopyNodeMixin =  (superclass) => class extends superclass 
+{
+    add_terminal_and_params(node) {
+        this.in_target = new InTerminal(node, "in_target", (c)=>{
+            this.create_count.set_enable(!c)
+        }) // onto vertices of the target
+
+        // before parameters so initialization would work
+        this.bind_to = {sel_idx: 0} // just vertices
+        node.set_state_evaluators({"in_target": (m,s)=>{ return new MeshPropEvaluator(m,s, this.bind_to) },
+                                   "index": (m,s)=>{ return new ObjSingleEvaluator(m,s)}})
+
+        this.create_count = new ParamInt(node, "Count", 10, {min:2, max:50})
+        this.transform = new ParamTransform(node, "Object\nTransform", {tx: "in_target.vtx_pos.x", ty:"in_target.vtx_pos.y"})
+    }
+    get_meta_target() {
+        const target = this.in_target.get_const()
+
+        let tg_vtx_count = null
+        const tr_need_target = this.transform.need_input_evaler("in_target")
+        if (target !== null) { // if there's a target, it always controls the count
+            tg_vtx_count = target.effective_vtx_pos.length / VTX_NUM_ELEM
+            if (tr_need_target !== null)
+                tr_need_target.dyn_set_obj(target)            
+        }
+        else {
+            assert(tr_need_target === null, this, "in_target object not connected")
+            tg_vtx_count = this.create_count.get_value()
+        }
+        return [tg_vtx_count, tr_need_target]
+    }
+    get_index_wrap() {
+        const tr_need_index = this.transform.need_input_evaler("index")
+        const index_wrap = [0]
+        if (tr_need_index !== null)
+            tr_need_index.dyn_set_obj(index_wrap)
+        return index_wrap
+    }
+}
+
+class NodeGeomCopy extends CopyNodeMixin(NodeCls)
 {
     static name() { return "Copy" }
     constructor(node) {
         super(node)
         this.in_obj = new InTerminal(node, "in_obj") // object to copy
-        this.in_target = new InTerminal(node, "in_target") // onto vertices of the target
         this.out = new OutTerminal(node, "out_obj")
 
-        this.create_count = new ParamInt(node, "Count", 10, {min:2, max:50})
-        this.transform = new ParamTransform(node, "Object\nTransform", {tx: "in_target.vtx_pos.x", ty:"in_target.vtx_pos.y"})
-        this.bind_to = {sel_idx: 0} // just vertices
-        node.set_state_evaluators({"in_target": (m,s)=>{ return new MeshPropEvaluator(m,s, this.bind_to) },
-                                   "index": (m,s)=>{ return new ObjSingleEvaluator(m,s)}})
+        this.add_terminal_and_params(node)
     }
 
     mesh_copy(in_mesh, tg_vtx_count, tr_need_target) 
@@ -1269,10 +1306,7 @@ class NodeGeomCopy extends NodeCls
 
     make_face_transform(count_faces, tg_vtx_count, tr_need_target)
     {
-        const tr_need_index = this.transform.need_input_evaler("index")
-        const index_wrap = [0]
-        if (tr_need_index !== null)
-            tr_need_index.dyn_set_obj(index_wrap)
+        const index_wrap = this.get_index_wrap()
 
         let pi = 0
         const new_face_tr = new Float32Array(count_faces * tg_vtx_count * 6)
@@ -1282,10 +1316,7 @@ class NodeGeomCopy extends NodeCls
             index_wrap[0] = i
             if (tr_need_target !== null)
                 tr_need_target.dyn_set_prop_index(i)
-            //const vi = i * VTX_NUM_ELEM
-            //const x = tg_vtx[vi], y = tg_vtx[vi+1]
-            //m[6] = x
-            //m[7] = y
+
             const m = this.transform.dyn_eval()
             // duplicate the same transform for all faces of in_obj
             for(let dupi = 0; dupi < count_faces; ++dupi) {
@@ -1300,18 +1331,8 @@ class NodeGeomCopy extends NodeCls
     run() {
         const in_obj = this.in_obj.get_const()
         assert(in_obj !== null, this, "No input object to copy")
-        const target = this.in_target.get_const()
-        let tg_vtx_count = null
-        const tr_need_target = this.transform.need_input_evaler("in_target")
-        if (target !== null && tr_need_target !== null) {
-            tg_vtx_count = target.effective_vtx_pos.length / VTX_NUM_ELEM
-            if (tr_need_target !== null)
-                tr_need_target.dyn_set_obj(target)            
-        }
-        else {
-            assert(tr_need_target === null, this, "in_target object not connected")
-            tg_vtx_count = this.create_count.get_value()
-        }
+
+        const [tg_vtx_count, tr_need_target] = this.get_meta_target()
             
         let out_obj = null
         if (in_obj.constructor === Mesh)

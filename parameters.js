@@ -889,7 +889,7 @@ class ExpressionItem {
     }
     dyn_eval() {
         this.eclear_error()
-        if (this.etype == null) { // either undecided or depend on var, doesn't matter since we need to run this anyway
+        if (this.etype === null) { // either undecided or depend on var, doesn't matter since we need to run this anyway
             try {
                 this.do_check_type() // in case we need to do it now, after there was a mesh set
             }
@@ -898,7 +898,7 @@ class ExpressionItem {
                 throw ex // will be caught by do_run
             }                     
         }
-        if (this.e === null)  // error in expr
+        if (this.e === null)  // error in expr or const
             return this.get_prop()
         try {
             return ExprParser.do_eval(this.e) // the state_input was put there using the evaler before the call to here
@@ -1477,7 +1477,7 @@ function toFixedMag(f) {
 
 
 class ParamTransform extends Parameter {
-    constructor(node, label, start_values) {
+    constructor(node, label, start_values={}) {
         super(node, label)
         this.translate = [0,0] // coords here are not vec2.fromValues since they need to be nullable
         this.rotate = 0
@@ -1504,6 +1504,10 @@ class ParamTransform extends Parameter {
             const item = this.item_dict[name]
             dassert(item !== undefined, "unknown name: " + name)
             item.peval(start_values[name])
+        }
+        for(let name in this.item_dict) {
+            if (start_values[name] === undefined)
+                this.item_dict[name].peval_self()
         }
     }
     save() { 

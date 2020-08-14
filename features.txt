@@ -65,6 +65,10 @@ Node: Geometry Merge
 - Can deduplicate vertices with a given epsilon accuracy
 
 Node: Geometry Copy
+- Copy in_obj geometry with multiple transformations
+- Transformations can be base on in_target geometry vertices locations
+- If no in_target geometry is given, a count of vertices to generate needs to be specified
+- transform expressions can use variable 'index' to know which copy it is controlling
 
 Node: Scatter 
 - Create an image with single pixels scattered according to a given function

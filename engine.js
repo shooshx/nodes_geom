@@ -722,7 +722,8 @@ const nodes_classes = [
     ]},
     { group_name: "Distance Field", nodes: [
         NodeDFPrimitive,
-        NodeDFCombine
+        NodeDFCombine,
+        NodeDFCopy
     ]},
     NodeSetAttr, 
     NodeTransform,
