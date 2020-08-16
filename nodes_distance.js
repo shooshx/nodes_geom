@@ -107,25 +107,40 @@ class DistanceField extends PObject
         this.t_mat = mat3.create()
         this.dfnode = dfnode
 
-        this.prog = new Program()
-        this.shader_node = this.prog.add_node(0, 0, "<dist-shader>", NodeShader, null)
-
-        //this.set_state_evaluators({"coord":  (m,s)=>{ return new ObjSingleEvaluator(m,s) } })
-        this.shader_node.set_state_evaluators({"coord":  (m,s)=>{ return new GlslTextEvaluator(s, "v_coord", ['x','y'], TYPE_VEC2) }})
-        this.shader_node.cls.vtx_text.set_text(DISTANCE_VTX_TEXT)
-
-        this.args_tex = null
+        this.p_prog = null // may not need to display at all
+        this.p_shader_node = null
+        this.p_args_tex = null
+        this.p_img = null
     }
 
     set_dfnode(dfnode) {
         this.dfnode = dfnode
     }
 
-    transform(m) { mat3.multiply(this.t_mat, m, this.t_mat) }
+    transform(m) { 
+        if (this.dfnode.tr === null) {
+            this.dfnode.tr = mat3.create()
+            this.dfnode.inv_tr = mat3.create()
+        }
+        mat3.multiply(this.dfnode.tr, m, this.dfnode.tr)
+        mat3.invert(this.dfnode.inv_tr, this.dfnode.tr)
+    }
+
+    ensure_prog() {
+        if (this.p_prog !== null)
+            return
+        this.p_prog = new Program()
+        this.p_shader_node = this.p_prog.add_node(0, 0, "<dist-shader>", NodeShader, null)
+
+        //this.set_state_evaluators({"coord":  (m,s)=>{ return new ObjSingleEvaluator(m,s) } })
+        this.p_shader_node.set_state_evaluators({"coord":  (m,s)=>{ return new GlslTextEvaluator(s, "v_coord", ['x','y'], TYPE_VEC2) }})
+        this.p_shader_node.cls.vtx_text.set_text(DISTANCE_VTX_TEXT)
+    }
 
     make_frag_text(template) 
     {
         ensure_webgl()
+        this.ensure_prog()
         const dfstate = new DFTextState()
         const [var_name, dftext] = this.dfnode.make_text(dfstate)
 
@@ -134,15 +149,15 @@ class DistanceField extends PObject
         const text = template.replace('$FUNCS$', dfstate.func_set.to_text())
                              .replace('$EXPR$', func_body)
 
-        this.shader_node.cls.frag_text.set_text(text)
+        this.p_shader_node.cls.frag_text.set_text(text)
 
-        if (this.args_tex === null)
-            this.args_tex = gl.createTexture();
-        gl.bindTexture(gl.TEXTURE_2D, this.args_tex);
+        if (this.p_args_tex === null)
+            this.p_args_tex = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, this.p_args_tex);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, dfstate.args_arr.length, 1, 0, gl.RED, gl.FLOAT, new Float32Array(dfstate.args_arr));
         setTexParams(false, 'pad', 'pad')
-        this.args_tex.t_mat = mat3.create()
-        this.shader_node.cls.override_texs = {3:this.args_tex}
+        this.p_args_tex.t_mat = mat3.create()
+        this.p_shader_node.cls.override_texs = {3:this.p_args_tex}
         gl.bindTexture(gl.TEXTURE_2D, null);
     }
 
@@ -162,25 +177,24 @@ class DistanceField extends PObject
         return fb
     }
 
-    async pre_draw(m, disp_values) {
-
+    async pre_draw(m, disp_values) 
+    {
+        this.make_frag_text(DISTANCE_FRAG_TEXT)
         //const fb = new FrameBufferFactory(800, 800, 2, 2, false, "pad") // TBD
         const fb = this.make_viewport_fb()
 
-        this.shader_node.cls.in_fb.force_set(fb)
+        this.p_shader_node.cls.in_fb.force_set(fb)
 
-        // TBD only if changed
-        this.make_frag_text(DISTANCE_FRAG_TEXT)
 
-        await this.shader_node.cls.run()
-        this.shader_node.clear_dirty() // otherwise it remains dirty since it's not part of normal run loop
+        await this.p_shader_node.cls.run()
+        this.p_shader_node.clear_dirty() // otherwise it remains dirty since it's not part of normal run loop
 
-        this.img = this.shader_node.cls.out_tex.get_const()
-        await this.img.pre_draw(null, null)
+        this.p_img = this.p_shader_node.cls.out_tex.get_const()
+        await this.p_img.pre_draw(null, null)
     }
 
     draw(m, disp_values) {
-        this.img.draw(m, null)
+        this.p_img.draw(m, null)
     }
 
     draw_selection(m, select_vindices) {
@@ -230,17 +244,25 @@ class DFTextState {
     }
 }
 
+function range_getarg(a, b) {
+    let s = []
+    for(let i = a; i < b; ++i)
+        s.push("get_arg(" + i + ")")
+    return s.join(', ')
+}
+
 // node in the tree that produces glsl code
 class DFNode {
-    constructor(make_call, tr, args, children, func_set) {
-        this.make_call = make_call  //  afunction that takes list of arguments and returns a string with the function call
+    constructor(make_call=null, tr=null, args=null, children=null, func_set=null) { // need default values for clone
+        this.make_call = make_call  //  afunction that takes list of arguments and returns a string with the function call        
         this.tr = tr // actual matrix
         if (this.tr !== null) {
             this.inv_tr = mat3.create()
             mat3.invert(this.inv_tr, this.tr)
         }
-        else 
+        else
             this.inv_tr = null
+        this.inline_tr = false // is the transform inline or given to the function as arg
         this.args = args // list of floats
         this.children = children // list of DFNode
         this.func_set = func_set // my own functions (not children's)
@@ -248,21 +270,34 @@ class DFNode {
     make_text(dfstate) {
         // call order to any function is func_name(tr_index_in_args_arr_if_exists, child_vars_if_exist, float_args_if_exist)
         const child_vars = []
-        let text = "", arg_offset = 0
+        let text = "", prefix = "", postfix = "", added_type = false
+        const myvar = "v" + dfstate.alloc_var()
+
         for(let child of this.children) {
             const [var_name, add_text] = child.make_text(dfstate)
             child_vars.push(var_name)
             text += add_text
         }
 
-        const myvar = "v" + dfstate.alloc_var()
-
-        let args_strs = [], args_offset = 0
+        let args_strs = []
         if (this.inv_tr !== null) {
             const mytr_idx = dfstate.args_arr.length
             const tr = this.inv_tr
             dfstate.args_arr.push(tr[0], tr[1], tr[3],tr[4], tr[6],tr[7])
-            args_strs.push(mytr_idx)
+
+            if (this.inline_tr) {
+                let in_coord_var = "in_coord" + dfstate.alloc_var()
+                prefix += "float " + myvar + " = 0.0;\n"
+                prefix += "vec2 " + in_coord_var + " = coord;\n"
+                prefix += "{\n"
+                prefix += "  mat3x2 tr = mat3x2(" + range_getarg(mytr_idx, mytr_idx+6) + ");\n"
+                prefix += "  coord = tr * vec3(" + in_coord_var + ", 1.0);\n"
+                postfix = "}\n"
+                added_type = true
+            }
+            else {
+                args_strs.push(mytr_idx)
+            }
         }
 
         for(let i = 0; i < this.args.length; ++i) {
@@ -273,9 +308,9 @@ class DFNode {
 
         dfstate.func_set.extend(this.func_set)
 
-        text += "float " + myvar + " = " + this.make_call(args_strs, child_vars) + ";\n"
+        text += (added_type ? "" : "float ") + myvar + " = " + this.make_call(args_strs, child_vars) + ";\n"
         
-        return [myvar, text, arg_offset]
+        return [myvar, prefix + text + postfix]
     }
 }
 
@@ -313,6 +348,8 @@ class NodeDFPrimitive extends BaseDFNodeCls
         this.out = new OutTerminal(node, "out_field")
 
         this.type = new ParamSelect(node, "Shape", 0, ["Circle", "Inverse-Circle", "Box"], (sel_idx)=>{
+            this.radius.set_visible(sel_idx === 0 || sel_idx === 1)
+            this.size.set_visible(sel_idx === 2)
         })
         this.radius = new ParamFloat(node, "Radius", 0.25, {enabled:true})
         this.size = new ParamVec2(node, "Size", 0.5, 0.3)
@@ -408,6 +445,9 @@ const poly_smin = `float poly_smin(float k, float d1, float d2) {
 }
 `
 
+
+
+
 class BaseDFCombine extends BaseDFNodeCls 
 {
     constructor(node) {
@@ -460,13 +500,17 @@ class NodeDFCombine extends BaseDFCombine
         const [func_maker, func_set, args] = this.make_combiner()
 
         const dfnode = new DFNode(func_maker, null, args, children, func_set)
+        dfnode.inline_tr = true
         this.set_out_dfnode(dfnode)
     }
 }
 
-class DFForLoopNode {
+class DFNodeForLoop {
     constructor(child, tr_lst, combiner_maker, combiner_args, combiner_funcs) {
         this.child = child
+        this.tr = null
+        this.inv_tr = null
+
         this.tr_lst = tr_lst
         this.combiner_maker = combiner_maker
         this.combiner_args = combiner_args
@@ -491,16 +535,18 @@ class DFForLoopNode {
         const trs_start = dfstate.args_arr.length
         for(let tr of this.tr_lst) {
             mat3.invert(inv_tr, tr)
+            if (this.inv_tr !== null) // has a self transform as well?
+                mat3.multiply(inv_tr, inv_tr, this.inv_tr)
             dfstate.args_arr.push(inv_tr[0], inv_tr[1], inv_tr[3],inv_tr[4], inv_tr[6],inv_tr[7])
         }
 
-
+        const in_coord_var = "in_coord" + dfstate.alloc_var()
         let text = "float " + myvar + " = 999999.0;\n"  // TBD from combiner
-        text += "vec2 in_coord = coord;\n"
+        text += "vec2 " + in_coord_var + " = coord;\n"
         text += "for(int i = 0; i < " + this.tr_lst.length + "; ++i) {\n"
         text += "  int tr_idx = i*6 + " + trs_start + ";\n"
         text += "  mat3x2 tr = mat3x2(get_arg(tr_idx), get_arg(tr_idx+1), get_arg(tr_idx+2), get_arg(tr_idx+3), get_arg(tr_idx+4), get_arg(tr_idx+5));\n"
-        text += "  coord = tr * vec3(in_coord, 1.0);\n"
+        text += "  coord = tr * vec3(" + in_coord_var + ", 1.0);\n"
         text += child_text
         text += "  " + myvar + " = " + this.combiner_maker(args_strs, [myvar, child_var_name]) + ";\n"
         text += "}\n"
@@ -532,7 +578,6 @@ class NodeDFCopy extends CopyNodeMixin(BaseDFCombine)
         const [func_maker, func_set, args] = this.make_combiner()
 
         const in_dfnode = in_obj.dfnode
-        const in_tr = in_dfnode.tr
         const tr_lst = []
         for(let i = 0; i < tg_vtx_count; ++i) 
         {
@@ -540,12 +585,10 @@ class NodeDFCopy extends CopyNodeMixin(BaseDFCombine)
             if (tr_need_target !== null)
                 tr_need_target.dyn_set_prop_index(i)
             const m = this.transform.dyn_eval()
-            const fm = mat3.create()
-            mat3.multiply(fm, m, in_tr)
-            tr_lst.push(fm)
+            tr_lst.push(m)
         }
 
-        const dfnode = new DFForLoopNode(in_dfnode, tr_lst, func_maker, args, func_set)
+        const dfnode = new DFNodeForLoop(in_dfnode, tr_lst, func_maker, args, func_set)
         this.set_out_dfnode(dfnode)
     }
 }

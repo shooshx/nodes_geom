@@ -63,11 +63,8 @@ EXPRESSIONS
     - primitives
         circle, half-plane
         multiple circles from vertices
-            BUG transform is magnified
             init from combiner
     - custom distance function/gradient
-    - hide non relevant params
-    - DistanceField transform t_mat should do something (transform using transform node)
     - marching sqares
     - moving, bounding walls
         - for walls - variable from object, anything from the object, x,y,bbox,transform,attrbiture

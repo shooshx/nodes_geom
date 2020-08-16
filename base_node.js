@@ -421,6 +421,10 @@ function clone(obj) {
     // values as properties
     let n = new obj.constructor()
     for(let k in obj) {
+        if (k.startsWith("p_"))  {
+            n[k] = null // don't clone private field of the object
+            continue
+        }
         n[k] = clone(obj[k])
     }
     return n
