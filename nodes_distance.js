@@ -63,8 +63,10 @@ vec3 smooth_lines_color(float d) {
 void main() {
     float d = value_func(v_coord);
    // d = d - 1.0;
-   
-   outColor = vec4(lines_color(d), 1.0);
+
+   //outColor = vec4(lines_color(d), 1.0);
+   d += 0.5;
+   outColor = vec4(d, d, d, 1.0);
 }
 `
 // stand-in for a real param to the ExpressionItem in DistanceField
@@ -185,7 +187,6 @@ class DistanceField extends PObject
 
         this.p_shader_node.cls.in_fb.force_set(fb)
 
-
         await this.p_shader_node.cls.run()
         this.p_shader_node.clear_dirty() // otherwise it remains dirty since it's not part of normal run loop
 
@@ -195,6 +196,16 @@ class DistanceField extends PObject
 
     draw(m, disp_values) {
         this.p_img.draw(m, null)
+    }
+
+    async get_pixels_for_fb(fb) {
+        // TBD cache
+        this.make_frag_text(DISTANCE_FRAG_TEXT)
+        this.p_shader_node.cls.in_fb.force_set(fb)
+        await this.p_shader_node.cls.run()
+        this.p_shader_node.clear_dirty() 
+        const img = this.p_shader_node.cls.out_tex.get_const()
+        return img.get_pixels()
     }
 
     draw_selection(m, select_vindices) {
@@ -609,16 +620,28 @@ class NodeMarchingSquares extends NodeCls
         this.thresh = new ParamFloat(node, "Threshold", 0, {enabled:true, min:-1, max:1})
         this.res = new ParamVec2Int(node, "Resolution", 256, 256)
         this.size = new ParamVec2(node, "Size", 2, 2)
+        this.flip_sign = new ParamBool(node, "Flip sign", false)
         this.transform = new ParamTransform(node, "Transform")
     }
 
-    run() {
+    async run() {
+        const df = this.in_df_obj.get_const()
+        assert(df !== null || df.constructor !== DistanceField, this, "Missing input distance field")
 
-        // Populate a grid of n×m values where -2 ≤ x ≤ 2 and -2 ≤ y ≤ 1.
         const width = this.res.x, height = this.res.y
         const sx = this.size.x, sy = this.size.y
-        const top_left = vec2.fromValues(-sx/2, -sy/2), bot_left = vec2.fromValues(-sx/2, sy/2), top_right = vec2.fromValues(sx/2, -sy/2)
         const tr = this.transform.v
+        const sign = this.flip_sign.v ? -1 : 1
+
+        const fb = new FrameBufferFactory(width, height, sx, sy, false, "pad")
+        fb.transform(tr)
+        const pixels = await df.get_pixels_for_fb(fb)
+        const len = width * height
+        const values = new Float32Array(len);
+        for(let pi = 0, vi = 0; vi < len; pi += 4, ++vi)
+            values[vi] = sign * pixels[pi] / 256.0
+
+ /*        const top_left = vec2.fromValues(-sx/2, -sy/2), bot_left = vec2.fromValues(-sx/2, sy/2), top_right = vec2.fromValues(sx/2, -sy/2)
         vec2.transformMat3(top_left, top_left, tr)
         vec2.transformMat3(bot_left, bot_left, tr)
         vec2.transformMat3(top_right, top_right, tr)
@@ -628,21 +651,23 @@ class NodeMarchingSquares extends NodeCls
         da[0] /= width-1; da[1] /= width-1
         db[0] /= height-1; db[1] /= height-1
 
-        const values = new Array(width * height);
+       const values = new Float32Array(width * height);
         let k = 0
         for (let ib = 0; ib < height; ++ib) {
             for (let ia = 0; ia < width; ++ia) {
                 const x = da[0] * ia + db[0] * ib + top_left[0]
                 const y = da[1] * ia + db[1] * ib + top_left[1]
-                //values[k] = goldsteinPrice(i / n * 4 - 2, 1 - j / m * 3);
-                values[k++] = 1-Math.sqrt(x*x + y*y)
+                //values[k] = goldsteinPrice(x, y);
+                values[k] = 1-Math.sqrt(x*x + y*y)
+                k++
             }
-        }
+        }*/
 
         //const contours = d3.contours().size([width, height]).thresholds([this.thresh.v])(values);
         const gen = d3.contours()
         gen.size([width, height])
         //contours.contours(values, this.thresh.v)
+        gen.smooth(true)
         const cont = gen.contour(values, this.thresh.v)
         // returns a list of multipaths
 
