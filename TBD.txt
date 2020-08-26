@@ -57,15 +57,16 @@ EXPRESSIONS
     - with existing vtx_transform, face_transform
     - in features.txt
 - BUG? rendering with effective_vtx ?
-    - get rid of effective, just change vtx_pos?
 - BUG: func node without show_code?
 - distance fields
     - primitives
-        circle, half-plane
+        circle, half-plane, function
         multiple circles from vertices
             init from combiner
+    - more combiners
     - custom distance function/gradient
     - marching sqares
+        map like iso lines, color with gradient
     - moving, bounding walls
         - for walls - variable from object, anything from the object, x,y,bbox,transform,attrbiture
 - balls that know their end color
@@ -75,6 +76,7 @@ EXPRESSIONS
     - anim - some frames are not displayed?
 - BoolParam from code (from variable)
     fix in SetAttr fill from ParamFloat to ParamBool with code
+- frame buffer params default to viewport    
 - Mandelbrot
     change power
     anim gradient
@@ -231,7 +233,7 @@ NODES:
     impl
         https://github.com/d3/d3-contour     
         https://github.com/RaumZeit/MarchingSquares.js
-        https://github.com/sakri/MarchingSquaresJS - canvas based?
+        https://github.com/sakri/MarchingSquaresJS - no, canvas based
         circle blobs: http://jamie-wong.com/2014/08/19/metaballs-and-marching-squares/
 
 - Anim: Accumulate geometry every N frames

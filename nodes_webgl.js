@@ -229,7 +229,6 @@ class NodeCreateFrameBuffer extends NodeCls
         this.tex_edge = new ParamSelect(node, "Texture Edge", 0, ["Pad", "Reflect", "Repeat"])
         this.transform = new ParamTransform(node, "Transform")
         res_fit()
-        this.size_dial = new SizeDial(this.size)
     }
     run() {
         assert(this.transform.is_valid(), this, "invalid transform")
@@ -247,11 +246,11 @@ class NodeCreateFrameBuffer extends NodeCls
         if (tex === null)  // happens if we never did run()
             return
         this.transform.draw_dial_at_obj(tex, m)
-        this.size_dial.draw(this.transform.v, m)
+        this.size.size_dial_draw(this.transform.v, m)
         tex.draw_border(m)
     }    
     image_find_obj(vx, vy, ex, ey) {
-        return this.transform.dial.find_obj(ex, ey) || this.size_dial.find_obj(ex, ey)
+        return this.transform.dial.find_obj(ex, ey) || this.size.size_dial_find_obj(ex, ey)
     }
 }
 

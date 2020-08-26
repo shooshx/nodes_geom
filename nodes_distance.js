@@ -339,7 +339,7 @@ class BaseDFNodeCls extends NodeCls
 // https://www.iquilezles.org/www/articles/distfunctions2d/distfunctions2d.htm
 class NodeDFPrimitive extends BaseDFNodeCls 
 {
-    static name() { return "Distance Field Primitive" }
+    static name() { return "Field Primitive" }
     constructor(node) {
         super(node)
 
@@ -354,9 +354,7 @@ class NodeDFPrimitive extends BaseDFNodeCls
         this.radius = new ParamFloat(node, "Radius", 0.25, {enabled:true})
         this.size = new ParamVec2(node, "Size", 0.5, 0.3)
 
-        this.transform = new ParamTransform(node, "Transform")
-
-        this.size_dial = new SizeDial(this.size)        
+        this.transform = new ParamTransform(node, "Transform")      
     }
 
     need_size() {
@@ -397,14 +395,14 @@ return length(max(d,0.0)) + min(max(d.x,d.y),0.0);`)
     draw_selection(m) {
         this.transform.draw_dial_at_obj(null, m)
         if (this.need_size())
-            this.size_dial.draw(this.transform.v, m)
+            this.size.size_dial_draw(this.transform.v, m)
     }    
     image_find_obj(vx, vy, ex, ey) {
         let hit = this.transform.dial.find_obj(ex, ey) 
         if (hit)
             return hit
         if (this.need_size()) {
-            hit = this.size_dial.find_obj(ex, ey)
+            hit = this.size.size_dial_find_obj(ex, ey)
             if (hit)
                 return hit
         }
@@ -481,7 +479,7 @@ class BaseDFCombine extends BaseDFNodeCls
 
 class NodeDFCombine extends BaseDFCombine
 {
-    static name() { return "Distance Field Combine" }
+    static name() { return "Field Combine" }
     constructor(node) {
         super(node)
         this.in_df_objs = new InTerminalMulti(node, "in_fields")
@@ -592,3 +590,96 @@ class NodeDFCopy extends CopyNodeMixin(BaseDFCombine)
         this.set_out_dfnode(dfnode)
     }
 }
+
+
+// See https://en.wikipedia.org/wiki/Test_functions_for_optimization
+function goldsteinPrice(x, y) {
+    return (1 + Math.pow(x + y + 1, 2) * (19 - 14 * x + 3 * x * x - 14 * y + 6 * x * x + 3 * y * y))
+        * (30 + Math.pow(2 * x - 3 * y, 2) * (18 - 32 * x + 12 * x * x + 48 * y - 36 * x * y + 27 * y * y));
+  }
+
+class NodeMarchingSquares extends NodeCls
+{
+    static name() { return "Marching Squares" }
+    constructor(node) {
+        super(node)
+        this.in_df_obj = new InTerminal(node, "in_field")
+        this.out = new OutTerminal(node, "out_paths")
+
+        this.thresh = new ParamFloat(node, "Threshold", 0, {enabled:true, min:-1, max:1})
+        this.res = new ParamVec2Int(node, "Resolution", 256, 256)
+        this.size = new ParamVec2(node, "Size", 2, 2)
+        this.transform = new ParamTransform(node, "Transform")
+    }
+
+    run() {
+
+        // Populate a grid of n×m values where -2 ≤ x ≤ 2 and -2 ≤ y ≤ 1.
+        const width = this.res.x, height = this.res.y
+        const sx = this.size.x, sy = this.size.y
+        const top_left = vec2.fromValues(-sx/2, -sy/2), bot_left = vec2.fromValues(-sx/2, sy/2), top_right = vec2.fromValues(sx/2, -sy/2)
+        const tr = this.transform.v
+        vec2.transformMat3(top_left, top_left, tr)
+        vec2.transformMat3(bot_left, bot_left, tr)
+        vec2.transformMat3(top_right, top_right, tr)
+        const da = vec2.create(), db = vec2.create() // the square has two orthogonal vectors a,b
+        vec2.subtract(da, top_right, top_left)
+        vec2.subtract(db, bot_left, top_left)
+        da[0] /= width-1; da[1] /= width-1
+        db[0] /= height-1; db[1] /= height-1
+
+        const values = new Array(width * height);
+        let k = 0
+        for (let ib = 0; ib < height; ++ib) {
+            for (let ia = 0; ia < width; ++ia) {
+                const x = da[0] * ia + db[0] * ib + top_left[0]
+                const y = da[1] * ia + db[1] * ib + top_left[1]
+                //values[k] = goldsteinPrice(i / n * 4 - 2, 1 - j / m * 3);
+                values[k++] = 1-Math.sqrt(x*x + y*y)
+            }
+        }
+
+        //const contours = d3.contours().size([width, height]).thresholds([this.thresh.v])(values);
+        const gen = d3.contours()
+        gen.size([width, height])
+        //contours.contours(values, this.thresh.v)
+        const cont = gen.contour(values, this.thresh.v)
+        // returns a list of multipaths
+
+        //console.log(contours)
+        const vtx = [], ranges = []
+        //const cont = contours[0] // first multipath
+        for(let paths of cont.coordinates) {
+            for(let path of paths) { // ???
+                const start_at = vtx.length/2
+                for(let point of path) {
+                    const v = vec2.fromValues((point[0]-0.5) / (width-1) * sx -(sx/2), (point[1]-0.5) / (height-1) * sy -(sy/2))
+                    vec2.transformMat3(v, v, tr)
+                    vtx.push(v[0], v[1])
+                }
+                ranges.push(start_at, vtx.length/2, PATH_CLOSED)
+            }
+        }
+
+        const obj = new MultiPath()
+
+        obj.set('vtx_pos', new TVtxArr(vtx), 2)
+        obj.paths_ranges = ranges
+        this.out.set(obj)
+    }
+
+    draw_selection(m) {
+        this.transform.draw_dial_at_obj(null, m)
+        this.size.size_dial_draw(this.transform.v, m)
+        
+        const sx = this.size.x, sy = this.size.y
+        const top_left = vec2.fromValues(-sx/2, -sy/2), bottom_right = vec2.fromValues(sx/2, sy/2)
+        draw_rect(top_left, bottom_right, m, this.transform.v, "#000")
+    }    
+    image_find_obj(vx, vy, ex, ey) {
+        return this.transform.dial.find_obj(ex, ey) || this.size.size_dial_find_obj(ex, ey)
+    }
+}
+
+
+

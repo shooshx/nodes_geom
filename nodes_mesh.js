@@ -50,8 +50,6 @@ class NodeGeomPrimitive extends NodeCls
 
         this.transform = new ParamTransform(node, "Transform")
 
-        this.size_dial = new SizeDial(this.size)
-
         this.inner_dial = new PointDial((dx,dy)=>{
             this.inner_point.increment(vec2.fromValues(dx/this.size.x*2, dy/this.size.y*2))
         })
@@ -125,13 +123,13 @@ class NodeGeomPrimitive extends NodeCls
         this.transform.draw_dial_at_obj(outmesh, m)
 
         //  dials
-        this.size_dial.draw(this.transform.v, m)
+        this.size.size_dial_draw(this.transform.v, m)
         // the inner point needs to move along with the entire size
         if (this.shape.sel_idx == 4)
             this.inner_dial.draw(this.inner_point.x*this.size.x/2, this.inner_point.y*this.size.y/2, this.transform.v, m)
     }    
     image_find_obj(vx, vy, ex, ey) {
-        let hit = this.transform.dial.find_obj(ex, ey) || this.size_dial.find_obj(ex, ey)
+        let hit = this.transform.dial.find_obj(ex, ey) || this.size.size_dial_find_obj(ex, ey)
         if (hit)
             return hit
         if (this.shape.sel_idx == 4)

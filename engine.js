@@ -723,7 +723,8 @@ const nodes_classes = [
     { group_name: "Distance Field", nodes: [
         NodeDFPrimitive,
         NodeDFCombine,
-        NodeDFCopy
+        NodeDFCopy,
+        NodeMarchingSquares
     ]},
     NodeSetAttr, 
     NodeTransform,
@@ -744,6 +745,8 @@ nodes_classes_by_name["Shrink Faces"] = NodeOffsetPath
 nodes_classes_by_name["Geom_Primitive"] = NodeGeomPrimitive
 nodes_classes_by_name["Scatter"] = NodeRandomPoints
 nodes_classes_by_name["Scatter2"] = NodeScatter2
+nodes_classes_by_name["Distance Field Primitive"] = NodeDFPrimitive
+nodes_classes_by_name["Distance Field Combine"] = NodeDFCombine
 
 var nodes_decor = [
     NV_TextNote

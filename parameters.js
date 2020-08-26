@@ -1203,6 +1203,7 @@ class ParamVec2 extends CodeItemMixin(Parameter) {
             }, 
             {allowed:false})
         this.make_code_item(code_expr, "vec2(" + start_x + ", " + start_y + ")")
+        this.size_dial = null // if was ever created
     }
 
     non_code_peval_self() {
@@ -1283,6 +1284,18 @@ class ParamVec2 extends CodeItemMixin(Parameter) {
         dassert(this.x !== undefined, "value of vec2 expr not set (gl_set)")  // instead of going through get_value()
         gl.uniform2f(loc, this.x, this.y)
     }
+
+    size_dial_draw(transform_v, m) {
+        if (this.size_dial === null)
+            this.size_dial = new SizeDial(this)
+        this.size_dial.draw(transform_v, m)
+    }
+    size_dial_find_obj(ex, ey) {
+        if (this.size_dial === null)
+            return // it is first drawn, then clicked
+        return this.size_dial.find_obj(ex, ey)
+    }
+
 }
 
 class ParamVec2Int extends Parameter {
