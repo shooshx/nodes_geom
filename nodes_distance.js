@@ -617,11 +617,134 @@ class NodeMarchingSquares extends NodeCls
         this.in_df_obj = new InTerminal(node, "in_field")
         this.out = new OutTerminal(node, "out_paths")
 
+        this.alg = new ParamSelect(node, "Algorithm", 0, ["Square Marching", "Po-Trace"])
         this.thresh = new ParamFloat(node, "Threshold", 0, {enabled:true, min:-1, max:1})
         this.res = new ParamVec2Int(node, "Resolution", 256, 256)
         this.size = new ParamVec2(node, "Size", 2, 2)
         this.flip_sign = new ParamBool(node, "Flip sign", false)
         this.transform = new ParamTransform(node, "Transform")
+    }
+
+    async values_from_df(df, width, height, sx, sy, tr, sign) {
+        const fb = new FrameBufferFactory(width, height, sx, sy, false, "pad")
+        fb.transform(tr)
+        const pixels = await df.get_pixels_for_fb(fb)
+        const len = width * height
+        const values = new Float32Array(len);
+        for(let pi = 0, vi = 0; vi < len; pi += 4, ++vi)
+            values[vi] = sign * pixels[pi] / 256.0  // TBD Render to float
+        return values
+    }
+
+    values_test_func(width, height, sx, sy, tr, sign)
+    {
+        const top_left = vec2.fromValues(-sx/2, -sy/2), bot_left = vec2.fromValues(-sx/2, sy/2), top_right = vec2.fromValues(sx/2, -sy/2)
+        vec2.transformMat3(top_left, top_left, tr)
+        vec2.transformMat3(bot_left, bot_left, tr)
+        vec2.transformMat3(top_right, top_right, tr)
+        const da = vec2.create(), db = vec2.create() // the square has two orthogonal vectors a,b
+        vec2.subtract(da, top_right, top_left)
+        vec2.subtract(db, bot_left, top_left)
+        da[0] /= width-1; da[1] /= width-1
+        db[0] /= height-1; db[1] /= height-1
+
+        const values = new Float32Array(width * height);
+        let k = 0
+        for (let ib = 0; ib < height; ++ib) {
+            for (let ia = 0; ia < width; ++ia) {
+                const x = da[0] * ia + db[0] * ib + top_left[0]
+                const y = da[1] * ia + db[1] * ib + top_left[1]
+                //values[k] = goldsteinPrice(x, y);
+                values[k] = sign * (Math.sqrt(x*x + y*y) - 1)
+                k++
+            }
+        }
+        return values
+    }
+
+    square_march(values, thresh, width, height, sx, sy, tr) {
+        //const contours = d3.contours().size([width, height]).thresholds([this.thresh.v])(values);
+        const gen = d3.contours()
+        gen.size([width, height])
+        gen.smooth(true) // without this it's just steps
+        const cont = gen.contour(values, thresh)
+        // returns a list of multipaths
+
+        const vtx = [], ranges = []
+        for(let paths of cont.coordinates) {
+            for(let path of paths) { // can have 1 or two paths if there's an outside when the value is negative inside
+                const start_at = vtx.length/2
+                for(let point of path) {
+                    const v = vec2.fromValues((point[0]-0.5) / (width-1) * sx -(sx/2), 
+                                              (point[1]-0.5) / (height-1) * sy -(sy/2))
+                    vec2.transformMat3(v, v, tr)
+                    vtx.push(v[0], v[1])
+                }
+                ranges.push(start_at, vtx.length/2, PATH_CLOSED)
+            }
+        }
+
+        const obj = new MultiPath()
+        obj.set('vtx_pos', new TVtxArr(vtx), 2)
+        obj.paths_ranges = ranges
+        return obj
+    }
+
+    potrace(values, thresh, width, height, sx, sy, tr) {
+        const arr = new Int8Array(width * height)
+        const len = width * height
+        for(let i = 0; i < len; ++i)
+            arr[i] = (values[i] < thresh) ? 0 : 1
+        Potrace.setBm(arr, width, height)
+        const paths = Potrace.process()
+        //const svg = Potrace.getSVG(0.1, 'curve')
+        //console.log(svg)
+        //console.log(paths)
+        Potrace.clear()
+
+        function tr_p(out, p) {
+            out[0] = (p.x-0.5) / (width-1) * sx - (sx/2)
+            out[1] = (p.y-0.5) / (height-1) * sy - (sy/2)
+            vec2.transformMat3(out, out, tr)
+        }
+
+        const vtx = [], ranges = [], ctp = [], cfp = []
+        const t = vec2.create(), tc = vec2.create()  // scratchpads for transformed points
+        for(let path of paths) {
+            const c = path.curve
+            const startIdx = vtx.length / 2
+            tr_p(t, c.c[(c.n - 1) * 3 + 2])
+            let prev_x = t[0], prev_y = t[1]
+            for(let i = 0; i < c.n; ++i) {
+                if (c.tag[i] === "CURVE") {
+                    tr_p(t, c.c[i*3 + 2])
+                    vtx.push(t[0], t[1])
+                    tr_p(tc, c.c[i*3 + 1])
+                    ctp.push(tc[0] - t[0], tc[1] - t[1])
+                    tr_p(tc, c.c[i*3 + 0])
+                    cfp.push(tc[0] - prev_x, tc[1] - prev_y)
+                    prev_x = t[0]; prev_y = t[1]
+                }
+                else if (c.tag[i] == "CORNER") {
+                    tr_p(t,  c.c[i*3 + 1])
+                    tr_p(tc, c.c[i*3 + 2])
+                    vtx.push(t[0],t[1],  tc[0],tc[1])
+                    ctp.push(0, 0, 0, 0)
+                    cfp.push(0, 0, 0, 0)
+                    prev_x = tc[0]; prev_y = tc[1]
+                }
+                else
+                    assert(false, this, "unexpected tag")
+            }
+            ranges.push(startIdx, vtx.length /2, PATH_CLOSED)
+        }
+
+        const obj = new MultiPath()
+        obj.set('vtx_pos', new TVtxArr(vtx), 2)
+        obj.set('ctrl_to_prev',   new TVtxArr(ctp), 2)
+        obj.set('ctrl_from_prev', new TVtxArr(cfp), 2)
+        obj.paths_ranges = ranges
+        return obj        
     }
 
     async run() {
@@ -633,63 +756,19 @@ class NodeMarchingSquares extends NodeCls
         const tr = this.transform.v
         const sign = this.flip_sign.v ? -1 : 1
 
-        const fb = new FrameBufferFactory(width, height, sx, sy, false, "pad")
-        fb.transform(tr)
-        const pixels = await df.get_pixels_for_fb(fb)
-        const len = width * height
-        const values = new Float32Array(len);
-        for(let pi = 0, vi = 0; vi < len; pi += 4, ++vi)
-            values[vi] = sign * pixels[pi] / 256.0
+        let values
+        if (true)
+            values = await this.values_from_df(df, width, height, sx, sy, tr, sign)
+        else
+            values = this.values_test_func(width, height, sx, sy, tr, sign)
 
- /*        const top_left = vec2.fromValues(-sx/2, -sy/2), bot_left = vec2.fromValues(-sx/2, sy/2), top_right = vec2.fromValues(sx/2, -sy/2)
-        vec2.transformMat3(top_left, top_left, tr)
-        vec2.transformMat3(bot_left, bot_left, tr)
-        vec2.transformMat3(top_right, top_right, tr)
-        const da = vec2.create(), db = vec2.create() // the square has two orthogonal vectors a,b
-        vec2.subtract(da, top_right, top_left)
-        vec2.subtract(db, bot_left, top_left)
-        da[0] /= width-1; da[1] /= width-1
-        db[0] /= height-1; db[1] /= height-1
+        let obj
+        if (this.alg.sel_idx === 0)
+            obj = this.square_march(values, this.thresh.v * sign, width, height, sx, sy, tr)
+        else
+            obj = this.potrace(values, this.thresh.v * sign, width, height, sx, sy, tr)
 
-       const values = new Float32Array(width * height);
-        let k = 0
-        for (let ib = 0; ib < height; ++ib) {
-            for (let ia = 0; ia < width; ++ia) {
-                const x = da[0] * ia + db[0] * ib + top_left[0]
-                const y = da[1] * ia + db[1] * ib + top_left[1]
-                //values[k] = goldsteinPrice(x, y);
-                values[k] = 1-Math.sqrt(x*x + y*y)
-                k++
-            }
-        }*/
 
-        //const contours = d3.contours().size([width, height]).thresholds([this.thresh.v])(values);
-        const gen = d3.contours()
-        gen.size([width, height])
-        //contours.contours(values, this.thresh.v)
-        gen.smooth(true)
-        const cont = gen.contour(values, this.thresh.v)
-        // returns a list of multipaths
-
-        //console.log(contours)
-        const vtx = [], ranges = []
-        //const cont = contours[0] // first multipath
-        for(let paths of cont.coordinates) {
-            for(let path of paths) { // ???
-                const start_at = vtx.length/2
-                for(let point of path) {
-                    const v = vec2.fromValues((point[0]-0.5) / (width-1) * sx -(sx/2), (point[1]-0.5) / (height-1) * sy -(sy/2))
-                    vec2.transformMat3(v, v, tr)
-                    vtx.push(v[0], v[1])
-                }
-                ranges.push(start_at, vtx.length/2, PATH_CLOSED)
-            }
-        }
-
-        const obj = new MultiPath()
-
-        obj.set('vtx_pos', new TVtxArr(vtx), 2)
-        obj.paths_ranges = ranges
         this.out.set(obj)
     }
 
