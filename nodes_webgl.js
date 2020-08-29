@@ -88,11 +88,12 @@ class ImageBase extends PObject
 class FrameBuffer extends ImageBase
 {
     static name() { return "FrameBuffer" }
-    constructor(tex_obj, sz_x, sz_y, smooth) {
+    constructor(tex_obj, sz_x, sz_y, smooth, type) {
         super(sz_x, sz_y, smooth)
         this.tex_obj = tex_obj
         this.pixels = null
         this.imgBitmap = null
+        this.type = type // str
     }
 
     // TBDno need for destructor, the texture is owned by the NodeShader that created it
@@ -104,8 +105,16 @@ class FrameBuffer extends ImageBase
             gl.bindFramebuffer(gl.FRAMEBUFFER, gl.my_fb);
             gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.tex_obj, 0);
             //let pixels = new Uint8ClampedArray(this.tex_obj.width * this.tex_obj.height * 4) // problem in firefox
-            this.pixels = new Uint8Array(this.tex_obj.width * this.tex_obj.height * 4)
-            gl.readPixels(0, 0, this.tex_obj.width, this.tex_obj.height, gl.RGBA, gl.UNSIGNED_BYTE, this.pixels);
+            if (this.type === "rgba") {
+                this.pixels = new Uint8Array(this.tex_obj.width * this.tex_obj.height * 4)
+                gl.readPixels(0, 0, this.tex_obj.width, this.tex_obj.height, gl.RGBA, gl.UNSIGNED_BYTE, this.pixels);
+            }
+            else if (this.type === "float") {
+                this.pixels = new Float32Array(this.tex_obj.width * this.tex_obj.height)
+                gl.readPixels(0, 0, this.tex_obj.width, this.tex_obj.height, gl.RED, gl.FLOAT, this.pixels);
+            }
+            else 
+                dassert(false, "unexpected type: " + this.type)
         }
         return this.pixels
     }
@@ -166,12 +175,13 @@ class FrameBuffer extends ImageBase
 class FrameBufferFactory extends ImageBase
 {
     static name() { return "FrameBufferParams" }
-    constructor(resolution_x, resolution_y, sz_x, sz_y, smooth, edge) {
+    constructor(resolution_x, resolution_y, sz_x, sz_y, smooth, edge, type) {
         super(sz_x, sz_y, smooth)
         this.t_mat = mat3.create() 
         this.resolution_x = resolution_x
         this.resolution_y = resolution_y
         this.edge = edge  // str (pad, reflect, repeat)
+        this.type = type  // str (rgba, float)
     }
 
     draw(m) {
@@ -184,13 +194,19 @@ class FrameBufferFactory extends ImageBase
     create_tex() {
         const tex = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, tex);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.resolution_x, this.resolution_y, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        if (this.type === "rgba")
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.resolution_x, this.resolution_y, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        else if (this.type == "float")
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, this.resolution_x, this.resolution_y, 0, gl.RED, gl.FLOAT, null);
+        else
+            dassert(false, "unexpected texture type " + this.type)      
+            
         tex.width = this.resolution_x
         tex.height = this.resolution_y
         
         setTexParams(this.smooth, this.edge, this.edge)
 
-        const fb = new FrameBuffer(tex, this.sz_x, this.sz_y, this.smooth)
+        const fb = new FrameBuffer(tex, this.sz_x, this.sz_y, this.smooth, this.type)
         fb.transform(this.t_mat)
         gl.bindTexture(gl.TEXTURE_2D, null);
         return fb
@@ -235,7 +251,7 @@ class NodeCreateFrameBuffer extends NodeCls
         
         const sz = this.size.get_value()
         const res = this.resolution.get_value()
-        const ret = new FrameBufferFactory(res[0], res[0], sz[0], sz[1], this.smoothImage.get_value(), this.tex_edge.get_sel_name());
+        const ret = new FrameBufferFactory(res[0], res[0], sz[0], sz[1], this.smoothImage.get_value(), this.tex_edge.get_sel_name(), "rgba");
         ret.transform(this.transform.v)
 
         this.out_tex.set(ret)
@@ -428,6 +444,7 @@ function make_dummy_texture()
 }
 
 let g_dummy_texture = null
+let ext_col_float = null
 function ensure_webgl() {
     if (gl !== null)    
         return
@@ -435,6 +452,9 @@ function ensure_webgl() {
     if (!gl) {
         return;
     }
+    // for distance field render to float
+    ext_col_float = gl.getExtension('EXT_color_buffer_float')
+    dassert(ext_col_float !== null, "EXT_color_buffer_float unavailable")
 
     gl.my_fb = gl.createFramebuffer();
     gl.bindFramebuffer(gl.FRAMEBUFFER, gl.my_fb);
@@ -1291,7 +1311,7 @@ class NodeScatter2 extends BaseNodeParcel
         const res_x = Math.round(this.rel_res.v * sz_x)
         const res_y = Math.round(this.rel_res.v * sz_y)
         //console.log("resolution: ", res_x, ", ", res_y)
-        const fb = new FrameBufferFactory(res_x, res_y, sz_x, sz_y, false, "pad") // 
+        const fb = new FrameBufferFactory(res_x, res_y, sz_x, sz_y, false, "pad", "rgba")
         const tr = mat3.create()
         mat3.fromTranslation(tr, clip_bbox.center())
         fb.transform(tr)

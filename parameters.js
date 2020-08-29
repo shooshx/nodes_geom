@@ -524,6 +524,9 @@ class ParamBool extends Parameter {
         dassert(this.v !== undefined, "value of bool not set")
         return this.v
     }
+    gl_set_value(loc) {
+        gl.uniform1i(loc, this.get_value())
+    }  
 }
 
 function get_default(m, k, d) {

@@ -17,7 +17,7 @@ class PImage extends FrameBuffer
             setTexParams(smooth, spread, spread)
             gl.bindTexture(gl.TEXTURE_2D, null);
         }
-        super(tex, sz_x, sz_y, smooth)
+        super(tex, sz_x, sz_y, smooth, "rgba")
         this.img = js_img
         this.pixels = null
     }

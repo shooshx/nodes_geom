@@ -17,6 +17,7 @@ void main() {
 const DISTANCE_FRAG_TEXT = `
 out vec4 outColor;
 in vec2 v_coord;
+uniform bool u_raw_value;
 
 //float[] args_arr = float[]($ARGS_ARR$);
 
@@ -64,9 +65,10 @@ void main() {
     float d = value_func(v_coord);
    // d = d - 1.0;
 
-   //outColor = vec4(lines_color(d), 1.0);
-   d += 0.5;
-   outColor = vec4(d, d, d, 1.0);
+   if (u_raw_value)
+       outColor = vec4(d, d, d, 1.0);
+   else 
+       outColor = vec4(lines_color(d), 1.0);
 }
 `
 // stand-in for a real param to the ExpressionItem in DistanceField
@@ -173,20 +175,20 @@ class DistanceField extends PObject
         const tr = mat3.create()
         mat3.fromTranslation(tr, pavg)
 
-        const fb = new FrameBufferFactory(canvas_image.width, canvas_image.height, pmax[0]-pmin[0], pmax[1]-pmin[1], false, "pad")
+        const fb = new FrameBufferFactory(canvas_image.width, canvas_image.height, pmax[0]-pmin[0], pmax[1]-pmin[1], false, "pad", "rgba")
         fb.transform(tr)
-        //const fb = new FrameBufferFactory(canvas_image.width, canvas_image.height, 4, 4, false, "pad")
+        //const fb = new FrameBufferFactory(canvas_image.width, canvas_image.height, 4, 4, false, "pad", "rgba")
         return fb
     }
 
     async pre_draw(m, disp_values) 
     {
         this.make_frag_text(DISTANCE_FRAG_TEXT)
-        //const fb = new FrameBufferFactory(800, 800, 2, 2, false, "pad") // TBD
+        //const fb = new FrameBufferFactory(800, 800, 2, 2, false, "pad", "rgba") // TBD
         const fb = this.make_viewport_fb()
 
         this.p_shader_node.cls.in_fb.force_set(fb)
-
+        this.p_shader_node.cls.uniforms["u_raw_value"].param.modify(false)
         await this.p_shader_node.cls.run()
         this.p_shader_node.clear_dirty() // otherwise it remains dirty since it's not part of normal run loop
 
@@ -202,6 +204,7 @@ class DistanceField extends PObject
         // TBD cache
         this.make_frag_text(DISTANCE_FRAG_TEXT)
         this.p_shader_node.cls.in_fb.force_set(fb)
+        this.p_shader_node.cls.uniforms["u_raw_value"].param.modify(true)
         await this.p_shader_node.cls.run()
         this.p_shader_node.clear_dirty() 
         const img = this.p_shader_node.cls.out_tex.get_const()
@@ -626,13 +629,16 @@ class NodeMarchingSquares extends NodeCls
     }
 
     async values_from_df(df, width, height, sx, sy, tr, sign) {
-        const fb = new FrameBufferFactory(width, height, sx, sy, false, "pad")
+        const fb = new FrameBufferFactory(width, height, sx, sy, false, "pad", "float")
         fb.transform(tr)
-        const pixels = await df.get_pixels_for_fb(fb)
-        const len = width * height
-        const values = new Float32Array(len);
-        for(let pi = 0, vi = 0; vi < len; pi += 4, ++vi)
-            values[vi] = sign * pixels[pi] / 256.0  // TBD Render to float
+        const values = await df.get_pixels_for_fb(fb)
+
+        if (sign < 0) {
+            const len = values.length
+            for(let i = 0; i < len; ++i)
+                values[i] = -values[i]
+        }
+      
         return values
     }
 
@@ -662,22 +668,33 @@ class NodeMarchingSquares extends NodeCls
         return values
     }
 
-    square_march(values, thresh, width, height, sx, sy, tr) {
+    run_square_march(values, thresh, width, height) {
         //const contours = d3.contours().size([width, height]).thresholds([this.thresh.v])(values);
         const gen = d3.contours()
         gen.size([width, height])
         gen.smooth(true) // without this it's just steps
         const cont = gen.contour(values, thresh)
         // returns a list of multipaths
+        return cont
+    }
+
+    square_march(values, thresh, width, height, sx, sy, tr) 
+    {
+        const cont = this.run_square_march(values, thresh, width, height)
+
+        const v = vec2.create()
+        function tr_p(out, p) {
+            out[0] = (p[0]-0.5) / (width-1) * sx - (sx/2)
+            out[1] = (p[1]-0.5) / (height-1) * sy - (sy/2)
+            vec2.transformMat3(out, out, tr)
+        }
 
         const vtx = [], ranges = []
         for(let paths of cont.coordinates) {
             for(let path of paths) { // can have 1 or two paths if there's an outside when the value is negative inside
                 const start_at = vtx.length/2
                 for(let point of path) {
-                    const v = vec2.fromValues((point[0]-0.5) / (width-1) * sx -(sx/2), 
-                                              (point[1]-0.5) / (height-1) * sy -(sy/2))
-                    vec2.transformMat3(v, v, tr)
+                    tr_p(v, point)
                     vtx.push(v[0], v[1])
                 }
                 ranges.push(start_at, vtx.length/2, PATH_CLOSED)
@@ -690,18 +707,8 @@ class NodeMarchingSquares extends NodeCls
         return obj
     }
 
-    potrace(values, thresh, width, height, sx, sy, tr) {
-        const arr = new Int8Array(width * height)
-        const len = width * height
-        for(let i = 0; i < len; ++i)
-            arr[i] = (values[i] < thresh) ? 0 : 1
-        Potrace.setBm(arr, width, height)
-        const paths = Potrace.process()
-        //const svg = Potrace.getSVG(0.1, 'curve')
-        //console.log(svg)
-        //console.log(paths)
-        Potrace.clear()
-
+    potrace_res_to_obj(paths, width, height, sx, sy, tr) 
+    {
         function tr_p(out, p) {
             out[0] = (p.x-0.5) / (width-1) * sx - (sx/2)
             out[1] = (p.y-0.5) / (height-1) * sy - (sy/2)
@@ -747,6 +754,45 @@ class NodeMarchingSquares extends NodeCls
         return obj        
     }
 
+    potrace(values, thresh, width, height, sx, sy, tr) {
+        const arr = new Int8Array(width * height)
+        const len = width * height
+        for(let i = 0; i < len; ++i)
+            arr[i] = (values[i] < thresh) ? 0 : 1
+        Potrace.setBm(arr, width, height)
+        const paths = Potrace.process()
+        //const svg = Potrace.getSVG(0.1, 'curve')
+        //console.log(svg)
+        //console.log(paths)
+        Potrace.clear()
+
+        return this.potrace_res_to_obj(paths, width, height, sx, sy, tr)
+    }
+
+    // the idea with this is that instead of the simple tracing potrace does, feed it the output of square marching
+    // but the result is worse than any one of them so don't really need this
+    march_then_potrace(values, thresh, width, height, sx, sy, tr)
+    {
+        const cont = this.run_square_march(values, thresh, width, height)
+
+        // convert to the input potrace expects
+        const po_paths = []
+        for(let paths of cont.coordinates) {
+            for(let path of paths) { // can have 1 or two paths if there's an outside when the value is negative inside
+                const po_path = []
+                for(let point of path) {
+                    po_path.push({x:point[0], y:point[1]})
+                }
+                po_paths.push({pt:po_path, len:po_path.length})
+            }
+        }
+
+        const pathlist = Potrace.do_processPath(po_paths)
+        Potrace.clear()
+
+        return this.potrace_res_to_obj(pathlist, width, height, sx, sy, tr)
+    }
+
     async run() {
         const df = this.in_df_obj.get_const()
         assert(df !== null || df.constructor !== DistanceField, this, "Missing input distance field")
@@ -762,12 +808,12 @@ class NodeMarchingSquares extends NodeCls
         else
             values = this.values_test_func(width, height, sx, sy, tr, sign)
 
-        let obj
+        let obj, thresh = this.thresh.v * sign
         if (this.alg.sel_idx === 0)
-            obj = this.square_march(values, this.thresh.v * sign, width, height, sx, sy, tr)
-        else
-            obj = this.potrace(values, this.thresh.v * sign, width, height, sx, sy, tr)
-
+            obj = this.square_march(values, thresh, width, height, sx, sy, tr)
+        else if (this.alg.sel_idx === 1)
+            obj = this.potrace(values, thresh, width, height, sx, sy, tr)
+     
 
         this.out.set(obj)
     }
