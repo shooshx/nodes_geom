@@ -175,6 +175,13 @@ class GlslEmitContext {
             param.modify(ExprParser.do_eval(evaluator), false)
         }
     }
+
+    set_uniform_vars_to_obj(obj) {
+        for(let name in this.uniform_evaluators) {
+            let evaluator = this.uniform_evaluators[name]
+            obj[name] = ExprParser.do_eval(evaluator);
+        }
+    }
 }
 
 // glsl example: 

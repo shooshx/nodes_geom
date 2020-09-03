@@ -163,6 +163,7 @@ class DistanceField extends PObject
         this.p_args_tex.t_mat = mat3.create()
         this.p_shader_node.cls.override_texs = {3:this.p_args_tex}
         gl.bindTexture(gl.TEXTURE_2D, null);
+        return dfstate
     }
 
     make_viewport_fb() {
@@ -183,12 +184,21 @@ class DistanceField extends PObject
 
     async pre_draw(m, disp_values) 
     {
-        this.make_frag_text(DISTANCE_FRAG_TEXT)
+        const dfstate = this.make_frag_text(DISTANCE_FRAG_TEXT)
         //const fb = new FrameBufferFactory(800, 800, 2, 2, false, "pad", "rgba") // TBD
         const fb = this.make_viewport_fb()
 
         this.p_shader_node.cls.in_fb.force_set(fb)
         this.p_shader_node.cls.uniforms["u_raw_value"].param.modify(false)
+
+        // variables values
+        const uniforms = dfstate.uniform_values.get_kv()
+        for(let u_name in uniforms) {
+            const prm = this.p_shader_node.cls.uniforms[u_name]
+            dassert(prm !== undefined, "Uniform not found " + u_name)
+            prm.param.modify(uniforms[u_name])
+        }
+
         await this.p_shader_node.cls.run()
         this.p_shader_node.clear_dirty() // otherwise it remains dirty since it's not part of normal run loop
 
@@ -242,6 +252,9 @@ class FuncsSet {
             func_lst.push(this.set[ft_name])
         return func_lst.join("\n")
     }
+    get_kv() {
+        return this.set
+    }
 };
 
 class DFTextState {
@@ -250,6 +263,7 @@ class DFTextState {
         this.args_arr = []
         this.tr_arr = []
         this.func_set = new FuncsSet()
+        this.uniform_values = new FuncsSet() // not actually funcs, map uniform name to its value
     }
     alloc_var() {
         const v = this.var_count
@@ -267,8 +281,8 @@ function range_getarg(a, b) {
 
 // node in the tree that produces glsl code
 class DFNode {
-    constructor(make_call=null, tr=null, args=null, children=null, func_set=null) { // need default values for clone
-        this.make_call = make_call  //  afunction that takes list of arguments and returns a string with the function call        
+    constructor(func_maker=null, tr=null, args=null, children=null, func_set=null) { // need default values for clone
+        this.func_maker = func_maker  //  afunction that takes list of arguments and returns a string with the function call        
         this.tr = tr // actual matrix
         if (this.tr !== null) {
             this.inv_tr = mat3.create()
@@ -287,10 +301,12 @@ class DFNode {
         let text = "", prefix = "", postfix = "", added_type = false
         const myvar = "v" + dfstate.alloc_var()
 
-        for(let child of this.children) {
-            const [var_name, add_text] = child.make_text(dfstate)
-            child_vars.push(var_name)
-            text += add_text
+        if (this.children !== null) {
+            for(let child of this.children) {
+                const [var_name, add_text] = child.make_text(dfstate)
+                child_vars.push(var_name)
+                text += add_text
+            }
         }
 
         let args_strs = []
@@ -314,23 +330,41 @@ class DFNode {
             }
         }
 
-        for(let i = 0; i < this.args.length; ++i) {
-            const my_idx = dfstate.args_arr.length
-            args_strs.push("get_arg(" + my_idx + ")")
-            dfstate.args_arr.push(this.args[i])
+        if (this.args !== null) {
+            for(let i = 0; i < this.args.length; ++i) {
+                const my_idx = dfstate.args_arr.length
+                args_strs.push("get_arg(" + my_idx + ")")
+                dfstate.args_arr.push(this.args[i])
+            }
         }
 
-        dfstate.func_set.extend(this.func_set)
+        if (this.func_set !== null) {
+            dfstate.func_set.extend(this.func_set)  
+        }
 
-        text += (added_type ? "" : "float ") + myvar + " = " + this.make_call(args_strs, child_vars) + ";\n"
+        text += (added_type ? "" : "float ") + myvar + " = " + this.func_maker.make_func(args_strs, child_vars, dfstate) + ";\n"
         
+        // returns the name of the variable in which the current result is in
+        // and the text to add before to create this variable
         return [myvar, prefix + text + postfix]
     }
 }
 
-function func_call_text(func_name) {
-    return function(args_strs, child_vars) {
-        return func_name + "(coord, " + args_strs.join(", ") + ")"
+class FuncMaker
+{
+    make_func(args_strs, child_vars, dfstate) {
+        dassert(false, "unimplemented")
+    }
+}
+
+
+class Call_FuncMaker extends FuncMaker {
+    constructor(func_name) { // func_call_text
+        super()
+        this.func_name = func_name
+    }
+    make_func(args_strs, child_vars, dfstate) {
+        return this.func_name + "(coord, " + args_strs.join(", ") + ")"
     }
 }
 
@@ -385,7 +419,7 @@ class NodeDFPrimitive extends BaseDFNodeCls
     $F$
 }`.replace('$F$', func).replace('$NAME$', name).replace('$ARGS$', 'float ' + args.join(', float ')) 
             glsl_funcs.add(name, s)
-            dfnode = new DFNode(func_call_text(name), this.transform.get_value(), args_vals, [], glsl_funcs)
+            dfnode = new DFNode(new Call_FuncMaker(name), this.transform.get_value(), args_vals, [], glsl_funcs)
         }
 
         switch (this.type.sel_idx) {
@@ -432,23 +466,31 @@ function commaize(arr) {
     return r
 }
 
+
 // take a binary function like min(a,b) and make a chain to handle any number of arguments
-function binary_func_to_multi(func_name) {
-    return function multi_min(args_strs, child_vars) {
+class BinaryToMulti_FuncMaker extends FuncMaker {
+    constructor(func_name) {
+        super()
+        this.func_name = func_name
+    }// binary_func_to_multi
+
+    make_func(args_strs, child_vars, dfstate) {
         const len = child_vars.length
         if (len === 1)
             return child_vars[0]
         let ret = ""
         for(let i = 0; i < len - 2; ++i) 
-            ret += func_name + "(" + commaize(args_strs) + child_vars[i] + ", "
-        ret += func_name + "(" + commaize(args_strs) + child_vars[len-2] + ", " + child_vars[len-1]
+            ret += this.func_name + "(" + commaize(args_strs) + child_vars[i] + ", "
+        ret += this.func_name + "(" + commaize(args_strs) + child_vars[len-2] + ", " + child_vars[len-1]
         ret += ')'.repeat(len-1)
         return ret
     }
 }
 
-function multi_sum(args_strs, child_vars) {
-    return "(" + child_vars.join(" + ") + ")"
+class MultiSum_FuncMaker extends FuncMaker {
+    make_func(args_strs, child_vars, dfstate) {
+        return "(" + child_vars.join(" + ") + ")"
+    }
 }
 
 const poly_smin = `float poly_smin(float k, float d1, float d2) {
@@ -458,47 +500,76 @@ const poly_smin = `float poly_smin(float k, float d1, float d2) {
 `
 
 
-
-
-class BaseDFCombine extends BaseDFNodeCls 
+function make_combiner(op_sel_idx, radius)
 {
-    constructor(node) {
-        super(node)
+    let func_maker = null, func_set = new FuncsSet(), args=[]
 
-        this.op = new ParamSelect(node, "Operator", 0, ["Min (union)", "Max (intersect)", "Sum", "Smooth-min"], (sel_idx)=>{
-            this.radius.set_visible(sel_idx === 3)
-        })
-        this.radius = new ParamFloat(node, "Radius", 0.25, {enabled:true})
+    switch (op_sel_idx) {
+    case 0: func_maker = new BinaryToMulti_FuncMaker("min"); break;
+    case 1: func_maker = new BinaryToMulti_FuncMaker("max"); break;
+    case 2: func_maker = new MultiSum_FuncMaker(); break;
+    case 3: 
+        func_maker = new BinaryToMulti_FuncMaker('poly_smin'); 
+        func_set.add('poly_smin', poly_smin)
+        args.push(radius)
+        break;
+    default: assert(false, this, "unexpected operator")
     }
-
-    make_combiner()
-    {
-        let func_maker = null, func_set = new FuncsSet(), args=[]
-
-        switch (this.op.sel_idx) {
-        case 0: func_maker = binary_func_to_multi("min"); break;
-        case 1: func_maker = binary_func_to_multi("max"); break;
-        case 2: func_maker = multi_sum; break;
-        case 3: 
-            func_maker = binary_func_to_multi('poly_smin'); 
-            func_set.add('poly_smin', poly_smin)
-            args.push(this.radius.get_value())
-            break;
-        default: assert(false, this, "unexpected operator")
-        }
-        return [func_maker, func_set, args]
-    }
-
+    return [func_maker, func_set, args]
 }
 
-class NodeDFCombine extends BaseDFCombine
+class Expr_FuncMaker extends FuncMaker
+{
+    constructor(inline_str, funcs, uniform_decls, uniform_values) {
+        super()
+        this.inline_str = inline_str
+        this.funcs = funcs
+        this.uniform_decls = uniform_decls
+        this.uniform_values = uniform_values
+    }
+    make_func(args_strs, child_vars, dfstate) {
+        const func_name = "expr_func_" + dfstate.alloc_var()
+        let func = "float " + func_name + "(vec2 coord) {\n"
+        func += this.inline_str + "\n"
+        func += "}\n"
+        for(let uniform_str of this.uniform_decls)
+            dfstate.func_set.add("#uniform|" + uniform_str, uniform_str) // need key so that the same uniform won't be declared twice
+        dfstate.func_set.add(func_name, func)
+        for(let u_name in this.uniform_values)
+            dfstate.uniform_values.add(u_name, this.uniform_values[u_name])
+        return func_name + "(coord)"
+    }
+}
+
+
+class NodeDFCombine extends BaseDFNodeCls
 {
     static name() { return "Field Combine" }
     constructor(node) {
         super(node)
         this.in_df_objs = new InTerminalMulti(node, "in_fields")
         this.out = new OutTerminal(node, "out_field")
+
+        node.set_state_evaluators({"coord":  (m,s)=>{ return new GlslTextEvaluator(s, "coord", ['x','y'], TYPE_VEC2) },
+                                    })//...TEX_STATE_EVALUATORS} ) 
+
+        this.op = new ParamSelect(node, "Operator", 0, ["Min (union)", "Max (intersect)", "Sum", "Smooth-min", "Function"], (sel_idx)=>{
+            this.radius.set_visible(sel_idx === 3)
+            this.dist_func.set_visible(sel_idx === 4)
+        })
+        this.radius = new ParamFloat(node, "Radius", 0.25, {enabled:true})
+        this.dist_func = new ParamFloat(node, "Distance\nFunction", "length(coord) - 1", {show_code:true})
     }
+
+    make_dist_func() {
+        let emit_ctx = new GlslEmitContext()
+        emit_ctx.inline_str = ExprParser.do_to_glsl(this.dist_func.code_item.e, emit_ctx) // BUG - item not supported
+        assert(emit_ctx.inline_str !== null, this, 'unexpected expression null')
+        const uniform_values = {}
+        emit_ctx.set_uniform_vars_to_obj(uniform_values) // commit the variables to their current value to set in the output object
+        return new DFNode(new Expr_FuncMaker(emit_ctx.inline_str, this.add_funcs, emit_ctx.uniform_decls, uniform_values), null, null, null, null)
+    }
+
 
     run() {
         const objs = this.in_df_objs.get_input_consts()
@@ -509,9 +580,14 @@ class NodeDFCombine extends BaseDFCombine
             children.push(obj.dfnode)
         }
        
-        const [func_maker, func_set, args] = this.make_combiner()
-
-        const dfnode = new DFNode(func_maker, null, args, children, func_set)
+        let dfnode
+        if (this.op.sel_idx !== 4) {
+            const [func_maker, func_set, args] = make_combiner(this.op.sel_idx, this.radius.get_value())
+            dfnode = new DFNode(func_maker, null, args, children, func_set)
+        }
+        else {
+            dfnode = this.make_dist_func()
+        }
         dfnode.inline_tr = true
         this.set_out_dfnode(dfnode)
     }
@@ -568,13 +644,18 @@ class DFNodeForLoop {
 }
 
 // this is not the same node as NodeGeomCopy since we need the combine params
-class NodeDFCopy extends CopyNodeMixin(BaseDFCombine)
+class NodeDFCopy extends CopyNodeMixin(BaseDFNodeCls)
 {
     static name() { return "Field Copy" }
     constructor(node) {
         super(node)
         this.in_df_obj = new InTerminal(node, "in_field")
         this.out = new OutTerminal(node, "out_field")
+
+        this.op = new ParamSelect(node, "Operator", 0, ["Min (union)", "Max (intersect)", "Sum", "Smooth-min"], (sel_idx)=>{
+            this.radius.set_visible(sel_idx === 3)
+        })
+        this.radius = new ParamFloat(node, "Radius", 0.25, {enabled:true})        
 
         this.add_terminal_and_params(node)
     }
@@ -587,7 +668,7 @@ class NodeDFCopy extends CopyNodeMixin(BaseDFCombine)
         const index_wrap = this.get_index_wrap()
 
         
-        const [func_maker, func_set, args] = this.make_combiner()
+        const [func_maker, func_set, args] = make_combiner(this.op.sel_idx, this.radius.get_value())
 
         const in_dfnode = in_obj.dfnode
         const tr_lst = []

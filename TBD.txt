@@ -60,14 +60,19 @@ EXPRESSIONS
 - BUG: func node without show_code?
 - distance fields
     - primitives
-        half-plane, function
+        half-plane, polygons
         multiple circles from vertices
             init from combiner
+    - more smooth combiners
+    - combiner function
+        input from texture?
+        with transform node
+        constant
+    - rendering the distance field to texture - func node?
     - marching sqares
         multiple iso lines, with value attached, color with gradient
     - moving, bounding walls
         - for walls - variable from object, anything from the object, x,y,bbox,transform,attrbiture
-    - rendering the distance field to texture - func node?
 - balls that know their end color
     - Animation
     - box2d
