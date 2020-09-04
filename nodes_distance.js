@@ -602,6 +602,12 @@ class ItemStandin
             return null
         return ev
     }
+
+    oclone() {
+        // called from clone() when copying the object, no need to really copy since this is an immutable object
+        // (except type cache in the expr but that's probably ok since it's not going to change due to changing variables or evaluators)
+        return this
+    }
 }
 
 
@@ -623,6 +629,9 @@ class NodeDFCombine extends BaseDFNodeCls
         })
         this.radius = new ParamFloat(node, "Radius", 0.25, {enabled:true})
         this.dist_func = new ParamFloat(node, "Distance\nFunction", "length(coord) - 1", {show_code:true})
+
+        this.sorted_order = []
+        mixin_multi_reorder_control(node, this, this.sorted_order, this.in_df_objs)
     }
 
     make_dist_func(children) {
@@ -659,7 +668,8 @@ class NodeDFCombine extends BaseDFNodeCls
         const objs = this.in_df_objs.get_input_consts()
         assert(objs.length > 0, this, "No inputs")
         const children = []
-        for(let obj of objs) {
+        for(let i = 0; i < objs.length; ++i) {
+            const obj = objs[this.sorted_order[i]]
             assert(obj.constructor === DistanceField, this, "Input object is not a Distance Field")
             children.push(obj.dfnode)
         }

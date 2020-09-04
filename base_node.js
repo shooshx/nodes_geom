@@ -406,7 +406,7 @@ function clone(obj) {
         return new obj.constructor(obj)
     }
     if (obj.constructor === WebGLBuffer || obj.constructor === WebGLTexture || obj.constructor === CanvasGradient) {
-        return null // gl buffers can't be cloned
+        return null // gl buffers can't be cloned, cached objects
     }
     if (obj.constructor === HTMLImageElement) {
         return obj // immutable object (once it's loaded) so it's ok for several clones to reference it
@@ -416,6 +416,10 @@ function clone(obj) {
     }
     if (obj._class !== undefined)
         return null // paper.js object, can be discarded, it will be regenerated since it's a cache
+
+    if (obj.oclone !== undefined)
+        return obj.oclone() // class implements its own method
+
     // it's ok for a PObject constructor to take arguments
     // as long as it's fine with getting them as undefined and later being assigned the same
     // values as properties
