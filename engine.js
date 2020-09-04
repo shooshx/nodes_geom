@@ -509,9 +509,9 @@ function clear_draw_req() {
     draw_request.clear_all = false
 }
 
-function eventWrapper(func, do_save=true) {
+function eventWrapper(func, event_name, do_save=true) {
     return function() {
-        //console.log("Added event ", event_name, " ", obj)
+        //console.log("-event ", event_name)
         //clear_draw_req()
         let r
         try {
@@ -528,6 +528,8 @@ function eventWrapper(func, do_save=true) {
         }
         
         if (draw_request.draw) {
+            //console.log("-event ", event_name)
+
             if (do_save)  // automatic events like onload shouldn't save since they are not user interaction
                 save_state()
 
@@ -543,7 +545,7 @@ function eventWrapper(func, do_save=true) {
 const FLAG_DONT_SAVE = 1
 
 function myAddEventListener(obj, event_name, func, flags=0) {
-    const w = eventWrapper(func, flags != FLAG_DONT_SAVE)
+    const w = eventWrapper(func, event_name + "-" + obj, flags != FLAG_DONT_SAVE)
     obj.addEventListener(event_name, w)
     return w
 }

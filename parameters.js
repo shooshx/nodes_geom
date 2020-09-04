@@ -911,6 +911,18 @@ class ExpressionItem {
             throw ex // will be caught by the node and node error set by caller          
         }
     }
+
+    eto_glsl(emit_ctx) {
+        this.eclear_error()
+        try {
+            return ExprParser.do_to_glsl(this.e, emit_ctx) 
+        }
+        catch(ex) {
+            this.eset_error(ex)
+            throw ex 
+        }                     
+    }
+
     // returns null or the ObjRef of this name
     need_input_evaler(input_name) {
         if (this.need_inputs === undefined || this.need_inputs === null)
@@ -2310,7 +2322,7 @@ class Editor
             if (e.add_inf === "remove_in_insert")
                 return
             change_func(this.editor.getValue())
-        }))
+        }), "editor-change")
 
         this.err_elem = add_div(ed_elem, "prm_text_err")
         this.err_elem.style.display = "none"
@@ -2318,7 +2330,8 @@ class Editor
         this.errors = null
 
         // show error only when on the line
-        this.editor.getSelection().on("changeCursor", eventWrapper(()=>{this.update_err_elem()}))
+        //  don't need event wrapper for this, don't want it to cause spurious draws
+        this.editor.getSelection().on("changeCursor", ()=>{this.update_err_elem()})
         this.marker_ids = []
         this.show_errors()
 

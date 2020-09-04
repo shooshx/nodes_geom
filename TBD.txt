@@ -29,8 +29,9 @@ ENGINE:
 - !!! frame buffer transform??
     - or maybe func transform?
     - explicit error
- -figure out constness of images thing (can't get mutable ref?)
+-figure out constness of images thing (can't get mutable ref?)
     - also texture destructor
+- fix spurious runs on mousemove right after change (when async?)
 
 EXPRESSIONS
 - boolean comparisons operator ?: - better than if(,,) since false side is not evaluated

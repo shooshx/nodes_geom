@@ -90,7 +90,7 @@ class ParamProxy extends Parameter {
 }
 
 // evaluator for the v_coord variable in glsl
-class GlslTextEvaluator extends NodeBase {
+class GlslTextEvaluator extends EvaluatorBase {
     constructor(subscripts, glsl_name, allowed_subscripts, obj_type, func_ret_by_args=null) {        
         super()
         if (subscripts.length === 0) { // just name without sub

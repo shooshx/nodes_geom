@@ -834,7 +834,7 @@ class NodeShader extends NodeCls
                 if (bv === true || bv === 1)
                     defines[def_name] = 1 // it's either defined or not defines
             }
-
+            //console.log("~~ createprog")
             const [_prog, vtxerr, fragerr] = createProgram(gl, this.vtx_text.v, this.frag_text.v, this.attr_names, defines, FLAG_WITH_TEXTURE_ACCESS);
             this.program = _prog
             this.vtx_text.set_errors(vtxerr)
@@ -845,6 +845,9 @@ class NodeShader extends NodeCls
             for(let uniform_name of Object.keys(this.uniforms).concat(['t_mat'])) {
                 this.program.uniforms[uniform_name] = gl.getUniformLocation(this.program, uniform_name);
             }
+        }
+        else {
+            //console.log("~~ skipped create")
         }
 
         // draw

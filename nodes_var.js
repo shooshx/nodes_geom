@@ -105,7 +105,7 @@ class VariablesBox extends PObject
 }
 
 // added into expression
-class VariableEvaluator extends NodeBase
+class VariableEvaluator extends EvaluatorBase
 {
     constructor(varname, line_num) {
         super()

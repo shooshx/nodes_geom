@@ -712,6 +712,7 @@ class StateAccess {
         if (evaluator_factory !== undefined) {
             let e = evaluator_factory(top_level, sp.slice(1))
             this.score |= EXPR_NEED_INPUT // TBD depend on evaluator?
+            e.line_num = line_num
             return e
         }
 

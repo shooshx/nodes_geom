@@ -427,7 +427,7 @@ class NodeDFPrimitive extends BaseDFNodeCls
             add("circle", ["radius"], [this.radius.get_value()], "return sqrt(p.x*p.x + p.y*p.y) - radius;")
             break
         case 1: // used for blobs with added level of 1
-            add("inv_circle", ["radius"],  [this.radius.get_value()], "return (radius*radius) / (p.x*p.x + p.y*p.y);")
+            add("inv_circle", ["radius"],  [this.radius.get_value()], "return sqrt((radius*radius) / (p.x*p.x + p.y*p.y));")
             break
         case 2:
             const sz = this.size.get_value()
@@ -465,7 +465,12 @@ function commaize(arr) {
         r += c + ", "
     return r
 }
-
+function commaize_pre(arr) {
+    let r = ""
+    for(let c of arr)
+        r += ", " + c
+    return r
+}
 
 // take a binary function like min(a,b) and make a chain to handle any number of arguments
 class BinaryToMulti_FuncMaker extends FuncMaker {
@@ -520,24 +525,82 @@ function make_combiner(op_sel_idx, radius)
 
 class Expr_FuncMaker extends FuncMaker
 {
-    constructor(inline_str, funcs, uniform_decls, uniform_values) {
+    constructor(item, funcs, uniform_decls, uniform_values) {
         super()
-        this.inline_str = inline_str
+        this.item = item
         this.funcs = funcs
         this.uniform_decls = uniform_decls
         this.uniform_values = uniform_values
     }
     make_func(args_strs, child_vars, dfstate) {
+        // do glsl emit again now that the children names are known
+        const value_need_in_field = this.item.need_input_evaler("in_fields")
+        if (value_need_in_field) 
+            value_need_in_field.dyn_set_obj(child_vars)
+        
+        const emit_ctx = new GlslEmitContext()
+        emit_ctx.inline_str = ExprParser.do_to_glsl(this.item.e, emit_ctx) 
+        dassert(emit_ctx.inline_str !== null, 'unexpected expression null')
+
         const func_name = "expr_func_" + dfstate.alloc_var()
-        let func = "float " + func_name + "(vec2 coord) {\n"
-        func += this.inline_str + "\n"
+        let childs_args_declr = ""
+        for(let c of child_vars)
+            childs_args_declr += ', float ' + c
+
+        let func = "float " + func_name + "(vec2 coord" + childs_args_declr + ") {\n"
+        func += emit_ctx.inline_str + "\n"
         func += "}\n"
         for(let uniform_str of this.uniform_decls)
             dfstate.func_set.add("#uniform|" + uniform_str, uniform_str) // need key so that the same uniform won't be declared twice
         dfstate.func_set.add(func_name, func)
         for(let u_name in this.uniform_values)
             dfstate.uniform_values.add(u_name, this.uniform_values[u_name])
-        return func_name + "(coord)"
+
+        return func_name + "(coord" + commaize_pre(child_vars) + ")"
+    }
+}
+
+// reference object that must have subscripts that are ints
+// the glsl result is a variable name that is of type float
+class GlslArrayEvaluator extends EvaluatorBase {
+    constructor(objref,subscripts) {
+        super()
+        eassert(subscripts.length == 1, "wrong number of subscripts")
+        this.sub = subscripts[0]
+        this.objref = objref
+    }
+    consumes_subscript() { return true }
+    eval() { 
+        eassert(false, "text evaluator can't be evaled", this.line_num)  
+    }
+    check_type() {
+        return TYPE_NUM
+    }
+    clear_types_cache() {}
+    to_glsl(emit_ctx) {
+        eassert(this.objref.obj !== null, "object not set", this.line_num)
+        let child = this.objref.obj[this.sub]
+        eassert(child !== undefined, "subscript not found " + this.sub, this.line_num)        
+        return child
+    }
+}
+
+// this object is a one-time use standin for the long-term item that is inside the node param
+// it holds the expression and what's needed to fill the evaluator needs of the expression
+class ItemStandin
+{
+    constructor(item) {
+        this.e = item.e
+        this.need_inputs = item.need_inputs // this, like e is also recreated each pase so we can just take reference it and not copy
+    }
+
+    need_input_evaler(input_name) {
+        if (this.need_inputs === undefined || this.need_inputs === null)
+            return null
+        let ev = this.need_inputs[input_name]
+        if (ev === undefined)
+            return null
+        return ev
     }
 }
 
@@ -551,6 +614,7 @@ class NodeDFCombine extends BaseDFNodeCls
         this.out = new OutTerminal(node, "out_field")
 
         node.set_state_evaluators({"coord":  (m,s)=>{ return new GlslTextEvaluator(s, "coord", ['x','y'], TYPE_VEC2) },
+                                   "in_fields": (m,s)=>{ return new GlslArrayEvaluator(m,s) }
                                     })//...TEX_STATE_EVALUATORS} ) 
 
         this.op = new ParamSelect(node, "Operator", 0, ["Min (union)", "Max (intersect)", "Sum", "Smooth-min", "Function"], (sel_idx)=>{
@@ -561,13 +625,33 @@ class NodeDFCombine extends BaseDFNodeCls
         this.dist_func = new ParamFloat(node, "Distance\nFunction", "length(coord) - 1", {show_code:true})
     }
 
-    make_dist_func() {
-        let emit_ctx = new GlslEmitContext()
-        emit_ctx.inline_str = ExprParser.do_to_glsl(this.dist_func.code_item.e, emit_ctx) // BUG - item not supported
+    make_dist_func(children) {
+        const ditem = this.dist_func.code_item
+        const item = new ItemStandin(ditem) // BUG - item not supported
+
+        const value_need_in_field = item.need_input_evaler("in_fields")
+        if (value_need_in_field) {
+            // for the first emit pass that's done here, give it dummy names for the child indices that exist so that the check in to_glsl pass
+            const dummy_names = []
+            for(let i = 0; i < children.length; ++i)
+                dummy_names[i] = "###dummy_name_" + i
+            value_need_in_field.dyn_set_obj(dummy_names)
+        }
+        
+        // do first emit here so that we can commit the variable values to the value the are during this run
+        // and for error checking. In this emit child var names are still unknown, The final text will get emitted in make_text.
+        const emit_ctx = new GlslEmitContext()
+        try {
+            emit_ctx.inline_str = ditem.eto_glsl(emit_ctx) 
+        }
+        catch(e) {
+            assert(false, this, e.message)
+        }
         assert(emit_ctx.inline_str !== null, this, 'unexpected expression null')
+
         const uniform_values = {}
         emit_ctx.set_uniform_vars_to_obj(uniform_values) // commit the variables to their current value to set in the output object
-        return new DFNode(new Expr_FuncMaker(emit_ctx.inline_str, this.add_funcs, emit_ctx.uniform_decls, uniform_values), null, null, null, null)
+        return new DFNode(new Expr_FuncMaker(item, this.add_funcs, emit_ctx.uniform_decls, uniform_values), null, null, children, null)
     }
 
 
@@ -586,7 +670,7 @@ class NodeDFCombine extends BaseDFNodeCls
             dfnode = new DFNode(func_maker, null, args, children, func_set)
         }
         else {
-            dfnode = this.make_dist_func()
+            dfnode = this.make_dist_func(children)
         }
         dfnode.inline_tr = true
         this.set_out_dfnode(dfnode)

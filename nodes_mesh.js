@@ -349,7 +349,7 @@ class ObjRef { // top level variable that references an object
     }       
 }
 
-class ObjSingleEvaluator extends NodeBase{
+class ObjSingleEvaluator extends EvaluatorBase {
     constructor(objref, subscripts) {
         super()
         if (subscripts.length != 0)
@@ -367,7 +367,8 @@ class ObjSingleEvaluator extends NodeBase{
     }
 }
 
-class ObjSubscriptEvaluator extends NodeBase{
+// evaluates either a vec object or a subscript of a vec object
+class ObjSubscriptEvaluator extends EvaluatorBase {
     constructor(objref, subscripts) {
         super()
         //if (subscripts.length != 1)
@@ -413,7 +414,7 @@ function type_from_numelems(num_elems) {
 }
 
 
-class MeshPropEvaluator extends NodeBase
+class MeshPropEvaluator extends EvaluatorBase
 {
     constructor(meshref, subscripts, param_bind_to) 
     {

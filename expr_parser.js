@@ -24,7 +24,7 @@ var g_lineNum = 0
 class ExprErr extends Error {
     constructor(msg, line_num=null) { 
         super(msg)
-        if (line_num !== null)
+        if (line_num !== null && line_num !== undefined)
             this.line = line_num
         else
             this.line = g_lineNum
@@ -42,9 +42,9 @@ class DependOnVarErr extends Error {
 }
 
 // throw in expressions
-function eassert(cond, msg) {
+function eassert(cond, msg, line_num=null) {
     if (!cond)
-        throw new ExprErr(msg)
+        throw new ExprErr(msg, line_num)
 }
 
 class NodeBase {
@@ -73,6 +73,14 @@ class NodeBase {
     }
     to_glsl() { 
         eassert(false, "to_glsl not implemented") 
+    }
+}
+
+// base class for all evaluators
+class EvaluatorBase extends NodeBase {
+    constructor() {
+        super()
+        this.line_num = null // set it StateAccess.get_evaluator
     }
 }
 
@@ -874,7 +882,7 @@ class InternalFuncCallNode extends NodeBase {
         const tr = glsl_translate[this.funcname] 
         let name = this.funcname
         if (tr !== undefined) {
-            if (tr === null)
+            if (tr === null) // marks is as unsupported
                 throw new ExprErr("Function not supported in GLSL: " + this.funcname)
             if (typeof tr === 'string')
                 name = tr
@@ -888,7 +896,20 @@ class InternalFuncCallNode extends NodeBase {
         }
         for(let arg of this.args)
             slst.push(arg.to_glsl(emit_ctx))
+        
+        if (this.def.num_args === -2 && slst.length > 2) {
+            // case of "at least two arguments but maybe more" - Math.min like functions - call pairwise
+            let ret = "", len = slst.length
+            for(let i = 0; i < len - 2; ++i) 
+                ret += name + "(" + slst[i] + ", "
+            ret += name + "(" + slst[len-2] + ", " + slst[len-1]
+            ret += ')'.repeat(len-1)
+            return ret
+        }
+
+        eassert(slst.length === Math.abs(this.def.num_args), "Wrong number of arguments")
         return name + '(' + slst.join(',') + ')'
+        
     }
 }
 
