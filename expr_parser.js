@@ -1820,11 +1820,13 @@ function do_eval(node) {
     return ret
 }
 
-function do_to_glsl(node, emit_ctx) {
+function do_to_glsl(node, emit_ctx, opt=null) {
     g_glsl_added_funcs = {}
-    const ret = node.to_glsl(emit_ctx)
+    let ret = node.to_glsl(emit_ctx)
     if (ret === null)
         throw new ExprErr("No return statement")
+    if (opt === PARSE_EXPR)  //  single expression, no multiple lines, should be wrapped in return to be a function body
+        ret = "return " + ret + ";"
     for(let ti in g_glsl_added_funcs)
         emit_ctx.add_funcs.push(g_glsl_added_funcs[ti])
 

@@ -915,7 +915,7 @@ class ExpressionItem {
     eto_glsl(emit_ctx) {
         this.eclear_error()
         try {
-            return ExprParser.do_to_glsl(this.e, emit_ctx) 
+            return ExprParser.do_to_glsl(this.e, emit_ctx, this.parse_opt) 
         }
         catch(ex) {
             this.eset_error(ex)

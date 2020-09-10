@@ -101,5 +101,6 @@ Node: Field Combine
   - Smooth-min - union with soft transitions
 - Function - define an expression for a distance field that can be stand alone or take the input distance fields
   - variables that can be used: coord (.x, .y)
-  - function can use variables from variables. 
+  - function can use variables from variables nodes. 
     The same variable name can't get more than one value in the same eventual unified distance field
+  - function can use input distance field by with in_fields.0, in_fields.1 etc'

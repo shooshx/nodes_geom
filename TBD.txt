@@ -65,10 +65,7 @@ EXPRESSIONS
         multiple circles from vertices
             init from combiner
     - more smooth combiners
-    - combiner function
-        input from texture?
-        constant
-        fix code item bug, also in texture func
+    - distance field from texture
     - rendering the distance field to texture - func node?
     - marching sqares
         multiple iso lines, with value attached, color with gradient

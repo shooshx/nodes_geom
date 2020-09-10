@@ -525,21 +525,21 @@ function make_combiner(op_sel_idx, radius)
 
 class Expr_FuncMaker extends FuncMaker
 {
-    constructor(item, funcs, uniform_decls, uniform_values) {
+    constructor(sitem, funcs, uniform_decls, uniform_values) {
         super()
-        this.item = item
+        this.sitem = sitem  // ItemStandin
         this.funcs = funcs
         this.uniform_decls = uniform_decls
         this.uniform_values = uniform_values
     }
     make_func(args_strs, child_vars, dfstate) {
         // do glsl emit again now that the children names are known
-        const value_need_in_field = this.item.need_input_evaler("in_fields")
+        const value_need_in_field = this.sitem.need_input_evaler("in_fields")
         if (value_need_in_field) 
             value_need_in_field.dyn_set_obj(child_vars)
         
         const emit_ctx = new GlslEmitContext()
-        emit_ctx.inline_str = ExprParser.do_to_glsl(this.item.e, emit_ctx) 
+        emit_ctx.inline_str = this.sitem.eto_glsl(emit_ctx) 
         dassert(emit_ctx.inline_str !== null, 'unexpected expression null')
 
         const func_name = "expr_func_" + dfstate.alloc_var()
@@ -591,6 +591,7 @@ class ItemStandin
 {
     constructor(item) {
         this.e = item.e
+        this.parse_opt = item.parse_opt
         this.need_inputs = item.need_inputs // this, like e is also recreated each pase so we can just take reference it and not copy
     }
 
@@ -601,6 +602,10 @@ class ItemStandin
         if (ev === undefined)
             return null
         return ev
+    }
+
+    eto_glsl(emit_ctx) {
+        return ExprParser.do_to_glsl(this.e, emit_ctx, this.parse_opt)                  
     }
 
     oclone() {
@@ -635,7 +640,7 @@ class NodeDFCombine extends BaseDFNodeCls
     }
 
     make_dist_func(children) {
-        const ditem = this.dist_func.code_item
+        const ditem = this.dist_func.get_active_item()
         const item = new ItemStandin(ditem) // BUG - item not supported
 
         const value_need_in_field = item.need_input_evaler("in_fields")

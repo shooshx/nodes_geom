@@ -1,0 +1,601 @@
+nodes:
+  '1':
+    params:
+      Shape:
+        sel_str: Circle
+      Radius:
+        e_v: 0.5
+        se_cv: return 0.25
+      Size:
+        e_x: 0.5
+        e_y: 0.30000000000000004
+        se_cv: 'return vec2(0.5, 0.3)'
+      Transform:
+        e_tx: 0.36492715231788153
+        e_ty: -0.45050772626931557
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: distance_field_primitive_1
+    cls_name: Field Primitive
+    x: -817
+    y: 662
+    disp_param: {}
+  '3':
+    params:
+      Shape:
+        sel_str: Box
+      Radius:
+        e_v: 0.24900000000000003
+        se_cv: return 0.25
+      Size:
+        e_x: 0.8930949227373067
+        e_y: 0.5228300220750548
+        se_cv: 'return vec2(0.5, 0.3)'
+      Transform:
+        e_tx: 0.16343267108167772
+        e_ty: 0.41690507726269327
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: distance_field_primitive_2
+    cls_name: Field Primitive
+    x: -989
+    y: 623
+    disp_param: {}
+  '4':
+    params:
+      Operator:
+        sel_str: Smooth-min
+      Radius:
+        e_v: 0.22900000000000004
+        se_cv: return 0.25
+    name: distance_field_combine_1
+    cls_name: Field Combine
+    x: -906
+    y: 803
+    disp_param: &ref_0 {}
+  '7':
+    params:
+      Shape:
+        sel_str: Circle
+      Radius:
+        e_v: 0.3490000000000001
+        se_cv: return 0.25
+      Size:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0.5, 0.3)'
+      Transform:
+        se_tx: '-0.431'
+        se_ty: '-0.086'
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: distance_field_primitive_3
+    cls_name: Field Primitive
+    x: -1138
+    y: 686
+    disp_param: {}
+  '9':
+    params:
+      Shape:
+        sel_str: Rectangle
+      Size:
+        e_x: 0.5
+        e_y: 0.5
+        se_cv: 'return vec2(0.5, 0.5)'
+      Num Points:
+        e_v: 5
+        se_cv: return 5
+      Inner Point:
+        e_x: 0.22600000000000003
+        se_y: '-0.311'
+        se_cv: 'return vec2(0.226, -0.311)'
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: geom_primitive_2
+    cls_name: Geom Primitive
+    x: -1243
+    y: 830
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+  '13':
+    params:
+      npt:
+        v:
+          '0': color
+          '1': radius
+          '2': normal
+          '3': fill
+          '4': transform
+      Bind To:
+        sel_str: Faces
+      Type:
+        sel_str: Color
+      Edit code:
+        v: false
+      Name:
+        v: color
+      Color:
+        hex: 'rgba(255,133,133,0.93)'
+        se_cv: 'return rgb(204,204,204)'
+      Float:
+        e_v: 0
+        se_cv: return 0
+      Float2:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      Select:
+        e_v: true
+        se_cv: return true
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: set_attribute_1
+    cls_name: Set Attribute
+    x: -1210
+    y: 923
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+  '16':
+    params:
+      Shape:
+        sel_str: Rectangle
+      Size:
+        e_x: 0.253
+        e_y: 0.21800000000000003
+        se_cv: 'return vec2(0.5, 0.5)'
+      Num Points:
+        e_v: 5
+        se_cv: return 5
+      Inner Point:
+        e_x: 0.22600000000000003
+        se_y: '-0.311'
+        se_cv: 'return vec2(0.226, -0.311)'
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 353.777
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: geom_primitive_3
+    cls_name: Geom Primitive
+    x: -1409
+    y: 495
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+  '18':
+    params:
+      Type:
+        sel_str: Mesh
+      Add points:
+        v: true
+      vtx_pos:
+        lst: [0.4846274256706238, -0.4655883312225342, 0.7734913229942322, -0.23518775403499603, 0.7320834994316101, 0.27563321590423584, 0.7105513215065002, 0.6607077121734619, -0.6610776782035828, 0.5986399054527283, -0.35942667722702026, -0.1058434396982193, -0.3175303339958191, -0.46527013182640076, 0.0645689070224762, -0.8511356115341187, -0.2817552387714386, -0.9186394810676575, -0.6104696989059448, -0.9215744137763977, -0.8863550424575806, -0.8276560306549072, -1.262028694152832, -0.2054465264081955, -1.3265975713729858, 0.16435721516609192, -1.068321943283081, 0.6867783665657043, -0.8540705442428589, 0.807111382484436, -0.2612105906009674, 0.9127695560455322, 0.11739801615476608, 0.9303792715072632, 0.6783283352851868, 1.1579362154006958, 1.115281105041504, 0.6251444220542908, 1.2297441959381104, 0.17609702050685883, 1.188654899597168, -0.322844535112381, 1.1387608051300049, -0.5781852006912231, 0.8599404692649841, -1.000818133354187, 0.628079354763031, -1.256158709526062, -0.2494707852602005, -1.382361650466919, -0.6427541375160217, -1.4351907968521118, -1.085931658744812, -1.39997136592865, -1.6905313730239868, -0.8658103346824646, 1.5556734800338745, -0.13154593110084534, 1.7251858711242676, -0.4118611812591553, 1.8077059984207153, -1.0348299741744995, 1.3955307006835938, -1.5499541759490967, 0.6977653503417969, -1.973188877105713, 0.09151020646095276, -1.984627604484558, -0.36032143235206604, -1.9903470277786255, -1.0123317241668701, -1.984627604484558, -1.6071480512619019, -1.8816787004470825, -1.9560307264328003, -1.452724575996399, -1.7901684045791626, -0.04003571718931198, -2.3220715522766113, -1.0294898748397827, -2.516530752182007, -0.4689898192882538, -2.4021430015563965, 0.09722959250211716]
+      vtx_color:
+        lst: [204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255]
+      path_ranges:
+        ranges: [0, 42, 0]
+    name: manual_geometry_2
+    cls_name: Manual Geometry
+    x: -1304
+    y: 611
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+  '31':
+    params:
+      Count:
+        e_v: 10
+        se_cv: return 10
+      "Object\nTransform":
+        se_tx: in_target.vtx_pos.x
+        se_ty: in_target.vtx_pos.y
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: copy_6
+    cls_name: Copy
+    x: -1360
+    y: 745
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+  '34':
+    params:
+      Operator:
+        sel_str: Smooth-min
+      Radius:
+        e_v: 0.10700000000000001
+        se_cv: return 0.25
+      Count:
+        e_v: 21
+        sldcfg_v:
+          min: 2
+          max: 150
+          allowed: true
+          visible: true
+        se_cv: return 10
+      "Object\nTransform":
+        se_tx: in_target.vtx_pos.x
+        se_ty: in_target.vtx_pos.y
+        se_r: in_target.vtx_pos.x*40
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: field_copy_1
+    cls_name: Field Copy
+    x: -1565
+    y: 877
+    disp_param: {}
+  '36':
+    params:
+      Shape:
+        sel_str: Circle
+      Radius:
+        e_v: 0.31400000000000006
+        se_cv: return 0.25
+      Size:
+        e_x: 0.5
+        e_y: 0.30000000000000004
+        se_cv: 'return vec2(0.5, 0.3)'
+      Transform:
+        e_tx: 0.036000000000000004
+        se_ty: '-0.0126'
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: distance_field_primitive_4
+    cls_name: Field Primitive
+    x: -1625
+    y: 563
+    disp_param: {}
+  '38':
+    params:
+      npt:
+        v:
+          '0': color
+          '1': radius
+          '2': normal
+          '3': fill
+          '4': transform
+      Bind To:
+        sel_str: Vertices
+      Type:
+        sel_str: Float
+      Edit code:
+        v: false
+      Name:
+        v: radius
+      Color:
+        hex: '#CCCCCC'
+        se_cv: 'return rgb(204,204,204)'
+      Float:
+        se_v: in_obj.vtx_pos.x*20
+        sldcfg_v:
+          min: 0
+          max: 30
+          visible: true
+          allowed: true
+        se_cv: return 0
+      Float2:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      Select:
+        e_v: true
+        se_cv: return true
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: set_attribute_2
+    cls_name: Set Attribute
+    x: -1496
+    y: 721
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+  '50':
+    params:
+      Shape:
+        sel_str: Box
+      Radius:
+        e_v: 0.21200000000000002
+        se_cv: return 0.25
+      Size:
+        e_x: 0.549
+        e_y: 0.6050000000000001
+        se_cv: 'return vec2(0.5, 0.3)'
+      Transform:
+        se_tx: '-0.070'
+        se_ty: '-0.305'
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: distance_field_primitive_5
+    cls_name: Field Primitive
+    x: -1819
+    y: 631
+    disp_param: {}
+  '51':
+    params:
+      Operator:
+        sel_str: Smooth-min
+      Radius:
+        e_v: 0.25
+        se_cv: return 0.25
+    name: distance_field_combine_2
+    cls_name: Field Combine
+    x: -1720
+    y: 760
+    disp_param: {}
+  '57':
+    params:
+      transform:
+        e_tx: 0.22000000000000003
+        e_ty: 0.5750000000000001
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: transform_1
+    cls_name: Transform
+    x: -1653
+    y: 965
+    disp_param: {}
+  '59':
+    params:
+      Shape:
+        sel_str: Circle
+      Radius:
+        e_v: 0.25
+        se_cv: return 0.25
+      Size:
+        e_x: 0.5
+        e_y: 0.30000000000000004
+        se_cv: 'return vec2(0.5, 0.3)'
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: distance_field_primitive_6
+    cls_name: Field Primitive
+    x: -2004
+    y: 710
+    disp_param: {}
+  '63':
+    params:
+      transform:
+        se_tx: '-0.093'
+        e_ty: 0.06000000000000001
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: transform_2
+    cls_name: Transform
+    x: -1807
+    y: 869
+    disp_param: {}
+  '67':
+    params:
+      Shape:
+        sel_str: Ellipse
+      Size:
+        e_x: 1
+        e_y: 1
+        se_cv: 'return vec2(0.5, 0.5)'
+      Num Points:
+        e_v: 5
+        se_cv: return 5
+      Inner Point:
+        e_x: 0.22600000000000003
+        se_y: '-0.311'
+        se_cv: 'return vec2(0.226, -0.311)'
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: geom_primitive_4
+    cls_name: Geom Primitive
+    x: -575
+    y: 898
+    disp_param:
+      show_vtx: true
+      show_lines: true
+      show_faces: true
+      show_ctrls: true
+  '70':
+    params:
+      Algorithm:
+        sel_str: Po-Trace
+      Threshold:
+        e_v: 0
+        se_cv: return 0
+      Resolution:
+        x: 200
+        y: 200
+      Size:
+        e_x: 2
+        e_y: 2
+        se_cv: 'return vec2(2, 2)'
+      Flip sign:
+        v: true
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: marching_squares_3
+    cls_name: Marching Squares
+    x: -834
+    y: 900
+    disp_param: &ref_1
+      show_vtx: false
+      show_ctrls: false
+      show_lines: true
+      show_faces: true
+  '72':
+    params:
+      OrderInputs:
+        sorted_order: [1, 0]
+    name: group_objects_1
+    cls_name: Group Objects
+    x: -933
+    y: 984
+    disp_param: [*ref_0, *ref_1]
+lines:
+  - from_name: out_field
+    from_id: 3
+    to_name: in_fields
+    to_id: 4
+    uid: 5
+  - from_name: out_field
+    from_id: 7
+    to_name: in_fields
+    to_id: 4
+    uid: 10
+  - from_name: out_field
+    from_id: 1
+    to_name: in_fields
+    to_id: 4
+    uid: 12
+  - from_name: out_mesh
+    from_id: 9
+    to_name: in_obj
+    to_id: 13
+    uid: 14
+  - from_name: out_mesh
+    from_id: 18
+    to_name: in_target
+    to_id: 31
+    uid: 32
+  - from_name: out_mesh
+    from_id: 16
+    to_name: in_obj
+    to_id: 31
+    uid: 33
+  - from_name: out_mesh
+    from_id: 18
+    to_name: in_obj
+    to_id: 38
+    uid: 39
+  - from_name: out_mesh
+    from_id: 38
+    to_name: in_target
+    to_id: 34
+    uid: 49
+  - from_name: out_field
+    from_id: 36
+    to_name: in_fields
+    to_id: 51
+    uid: 52
+  - from_name: out_field
+    from_id: 50
+    to_name: in_fields
+    to_id: 51
+    uid: 53
+  - from_name: out_field
+    from_id: 51
+    to_name: in_field
+    to_id: 34
+    uid: 56
+  - from_name: out_field
+    from_id: 34
+    to_name: input
+    to_id: 57
+    uid: 62
+  - from_name: out_field
+    from_id: 51
+    to_name: input
+    to_id: 63
+    uid: 64
+  - from_name: out_field
+    from_id: 4
+    to_name: in_field
+    to_id: 70
+    uid: 71
+  - from_name: out_paths
+    from_id: 70
+    to_name: in_multi_mesh
+    to_id: 72
+    uid: 73
+  - from_name: out_field
+    from_id: 4
+    to_name: in_multi_mesh
+    to_id: 72
+    uid: 74
+next_node_id: 75
+names_idx_s:
+  Distance Field Primitive: 6
+  Geom Primitive: 4
+  Distance Field Combine: 2
+  Set Attribute: 2
+  Manual Geometry: 2
+  Copy: 6
+  Field Copy: 1
+  Transform: 2
+  Marching Squares: 3
+  Group Objects: 1
+display_node_id: 36
+tdisp_node_ids: []
+input_node_ids: []
+nodes_view:
+  pan_x: 928
+  pan_y: -603
+decor: []
