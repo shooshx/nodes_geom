@@ -650,10 +650,11 @@ class NodeShader extends NodeCls
         check_redef_and_add(this.uniforms_vert)
 
         // removed uniforms - remove param objects
+        // if type changed - remove param so it can be recreated in the new type
         // want to keep the surviving ones around so they won't be reset
         const del_non_existing = (from_cont)=> {
             for(let ename in from_cont) {
-                if (new_unified[ename] === undefined) {
+                if (new_unified[ename] === undefined || new_unified[ename].type !== from_cont[ename].type) {
                     this.node.remove_param(from_cont[ename].param)
                     delete from_cont[ename]
                 }
@@ -756,7 +757,7 @@ class NodeShader extends NodeCls
 
             texParam.modify(ti, false)   // don't dirtify since we're in run() and that would cause a loop
             gl.bindTexture(gl.TEXTURE_2D, tex_obj);
-            assert(tex_obj.t_mat !== undefined, this, "texture has not transform") 
+            assert(tex_obj.t_mat !== undefined, this, "texture has no transform") 
 
             // the texture has an associated transform with it, need to make the glsl code move it accordingly
             const tex_tmat = this.param_of_uniform('_u_tex_tmat_' + ti, true)
@@ -764,7 +765,13 @@ class NodeShader extends NodeCls
             let adj_m = mat3.create()
             mat3.translate(adj_m, adj_m, vec2.fromValues(0.5,0.5))
 
-            const tr_from = (tex instanceof Gradient) ? in_fb : tex
+            //const tr_from = (tex instanceof Gradient) ? in_fb : tex
+            let tr_from = null
+            if (tex instanceof Gradient || tex instanceof DistanceField) 
+                tr_from = in_fb
+            else
+                tr_from = tex
+            assert(tr_from.sz_x !== undefined && tr_from.sz_y !== undefined, this, "Image without dimentions")
 
             // scale 0-1 range of a texture to -1:1 of the framebuffer (with the translation above)
             mat3.scale(adj_m, adj_m, vec2.fromValues(1 / tr_from.sz_x, 1 / tr_from.sz_y))
@@ -802,7 +809,7 @@ class NodeShader extends NodeCls
     {
         ensure_webgl()
         assert(this.last_uniforms_err === null, this, this.last_uniforms_err)
-        const fb_factory = this.in_fb.get_const() 
+        const fb_factory = this.in_fb.get_const()  // FrameBufferFactory object
         assert(fb_factory !== null, this, "missing input FrameBuffer factory")
         assert(fb_factory.create_tex !== undefined, this, "Expected FrameBuffer factory object")
         const fb = fb_factory.create_tex()
@@ -813,6 +820,8 @@ class NodeShader extends NodeCls
         for(let tex of texs) {
             assert(tex !== null, this, "Connected texture input has null object") // if it's connected, there should be something on it
             assert(tex.make_gl_texture !== undefined, this, "Input should be able to convert to textute")
+            if (tex.premake_gl_texture !== undefined)
+                await tex.premake_gl_texture(fb_factory) //  stuff that needs to be done well before we get our hands dirty with our own webgl
         }
 
         let mesh = this.in_mesh.get_const()
@@ -861,7 +870,8 @@ class NodeShader extends NodeCls
 
         gl.useProgram(this.program);
 
-        await this.bind_textures(texs, fb) // before uniforms are sent
+        // do before uniforms are sent, passing the factory since only sizes are needed and DistanceField circles this back to a ShaderNode
+        await this.bind_textures(texs, fb_factory) 
 
         // transform for the geometry
         let transform = mat3.create()

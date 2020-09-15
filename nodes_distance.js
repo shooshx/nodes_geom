@@ -115,6 +115,7 @@ class DistanceField extends PObject
         this.p_shader_node = null
         this.p_args_tex = null
         this.p_img = null
+        this.last_tex_premade = null
     }
 
     set_dfnode(dfnode) {
@@ -141,7 +142,7 @@ class DistanceField extends PObject
         this.p_shader_node.cls.vtx_text.set_text(DISTANCE_VTX_TEXT)
     }
 
-    make_frag_text(template) 
+    make_frag_text(template)  // TBD cache this
     {
         ensure_webgl()
         this.ensure_prog()
@@ -161,6 +162,7 @@ class DistanceField extends PObject
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, dfstate.args_arr.length, 1, 0, gl.RED, gl.FLOAT, new Float32Array(dfstate.args_arr));
         setTexParams(false, 'pad', 'pad')
         this.p_args_tex.t_mat = mat3.create()
+        this.p_args_tex.sz_x = 1; this.p_args_tex.sz_y = 1 // things requred by ShaderNode
         this.p_shader_node.cls.override_texs = {3:this.p_args_tex}
         gl.bindTexture(gl.TEXTURE_2D, null);
         return dfstate
@@ -182,6 +184,16 @@ class DistanceField extends PObject
         return fb
     }
 
+    set_shader_variables_uniforms(dfstate) {
+        // variables values
+        const uniforms = dfstate.uniform_values.get_kv()
+        for(let u_name in uniforms) {
+            const prm = this.p_shader_node.cls.uniforms[u_name]
+            dassert(prm !== undefined, "Uniform not found " + u_name)
+            prm.param.modify(uniforms[u_name])
+        }
+    }
+
     async pre_draw(m, disp_values) 
     {
         const dfstate = this.make_frag_text(DISTANCE_FRAG_TEXT)
@@ -190,14 +202,8 @@ class DistanceField extends PObject
 
         this.p_shader_node.cls.in_fb.force_set(fb)
         this.p_shader_node.cls.uniforms["u_raw_value"].param.modify(false)
+        this.set_shader_variables_uniforms(dfstate)
 
-        // variables values
-        const uniforms = dfstate.uniform_values.get_kv()
-        for(let u_name in uniforms) {
-            const prm = this.p_shader_node.cls.uniforms[u_name]
-            dassert(prm !== undefined, "Uniform not found " + u_name)
-            prm.param.modify(uniforms[u_name])
-        }
 
         await this.p_shader_node.cls.run()
         this.p_shader_node.clear_dirty() // otherwise it remains dirty since it's not part of normal run loop
@@ -210,15 +216,36 @@ class DistanceField extends PObject
         this.p_img.draw(m, null)
     }
 
-    async get_pixels_for_fb(fb) {
+    // called from marching cubes
+    async get_pixels_for_fb(fb_fact) {
+        const img = await this.do_texture(fb_fact)
+        return img.get_pixels()
+    }
+
+    async do_texture(fb_fact) {
         // TBD cache
-        this.make_frag_text(DISTANCE_FRAG_TEXT)
-        this.p_shader_node.cls.in_fb.force_set(fb)
+        const dfstate = this.make_frag_text(DISTANCE_FRAG_TEXT)
+        this.p_shader_node.cls.in_fb.force_set(fb_fact)
         this.p_shader_node.cls.uniforms["u_raw_value"].param.modify(true)
+        this.set_shader_variables_uniforms(dfstate)
         await this.p_shader_node.cls.run()
         this.p_shader_node.clear_dirty() 
         const img = this.p_shader_node.cls.out_tex.get_const()
-        return img.get_pixels()
+        dassert(img !== null, "distance shader produced not output")
+        return img
+    }
+
+    async premake_gl_texture(for_fb_factory) {
+        const img = await this.do_texture(for_fb_factory)
+        const tex = img.tex_obj
+        tex.t_mat = mat3.create()
+        mat3.copy(tex.t_mat, this.t_mat)
+        // this is saved just to be returns in make_gl_texture since we can'd do all of the above in make_gl_texture since it's called in the middle of other webgl stuff
+        this.last_tex_premade = tex 
+    }
+
+    async make_gl_texture(for_fb_factory) {
+        return this.last_tex_premade
     }
 
     draw_selection(m, select_vindices) {
@@ -226,6 +253,7 @@ class DistanceField extends PObject
 
     draw_template(m) {
     }
+
 }
 
 function asFloatStr(v) {
@@ -809,9 +837,9 @@ class NodeMarchingSquares extends NodeCls
     }
 
     async values_from_df(df, width, height, sx, sy, tr, sign) {
-        const fb = new FrameBufferFactory(width, height, sx, sy, false, "pad", "float")
-        fb.transform(tr)
-        const values = await df.get_pixels_for_fb(fb)
+        const fb_fact = new FrameBufferFactory(width, height, sx, sy, false, "pad", "float")
+        fb_fact.transform(tr)
+        const values = await df.get_pixels_for_fb(fb_fact)
 
         if (sign < 0) {
             const len = values.length

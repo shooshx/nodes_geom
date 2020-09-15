@@ -289,7 +289,7 @@ class Gradient extends PObject
     }
 
     async make_img_gl_texture(for_fb) {
-        const pa = await this.get_pixels_adapter(for_fb, true)
+        const pa = await this.get_pixels_adapter(for_fb, true) // draws on canvas_img_shadow
         // TBD use canvas directly instead of ImageData
         //const pixels = pa.get_pixels()
         const tex = generateTexture(for_fb.width(), for_fb.height(), canvas_img_shadow, this.tex_smooth, 'pad', 'pad') 
@@ -450,6 +450,7 @@ class LinearGradient extends Gradient {
         //const im = ctx_img_shadow.getImageData(0, 0, resolution, HEIGHT)
      
         let tex = generateTexture(this.tex_res, HEIGHT, canvas_img_shadow, this.tex_smooth, this.spread, 'pad')
+        tex.t_mat = mat3.create()  // identity transform
 
         this.tex_obj_cache = tex
         return tex

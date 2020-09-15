@@ -59,6 +59,8 @@ EXPRESSIONS
     - in features.txt
 - BUG? rendering with effective_vtx ?
 - BUG: func node without show_code?
+- *** EXPR-BUG: func node expr in_texi(1,coord).r
+- BUG: if variable changes type, expression that depend on it need to be reparsed
 - distance fields
     - primitives
         half-plane, polygons
@@ -67,6 +69,9 @@ EXPRESSIONS
     - more smooth combiners
     - distance field from texture
     - rendering the distance field to texture - func node?
+        - *** BUG: func_fill - add checkbox to assume tex 0 is gradient
+        - negative values? float tex?
+    - cache make_frag_text and don't generate it every time
     - marching sqares
         multiple iso lines, with value attached, color with gradient
     - moving, bounding walls
@@ -106,6 +111,7 @@ NODES:
     - variable ratio, not just square, take the ratio of the current viewport
         - !!!!!! pixel buffer ratio according to resolution ratio (with checkbox - square pixels)
     - canvas set_width takes a long time, use a pool of canvases
+- Viewport framebuffer
 - Geom primitive
     - rect round edges
     - spiral
