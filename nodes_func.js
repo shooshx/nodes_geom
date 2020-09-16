@@ -44,7 +44,7 @@ vec4 vec_cvt(vec3 v) { return vec4(v, 1.0); }
 void main() {
 #ifndef _D_EXPR_IS_COLOR
     float v = flt_expr();
- #ifdef _D_HAS_TEXTURE
+ #ifdef _D_TEX0_GRAD
     outColor = texture(_u_in_tex_0, vec2(v,0));
  #else
     outColor = vec4(vec3(1.0, 0.5, 0.0) + vec3(v*2.0-1.0, v*2.0-1.0, v*2.0-1.0), 1.0);
@@ -211,6 +211,7 @@ class NodeFuncFill extends BaseNodeShaderParcel
         //this.time = new ParamProxy(node, this.shader_node.cls.uniform_by_name('time').param)
         this.type = new ParamSelect(node, "Type", 0, ["Float to Gradient", "Direct Color", "GLSL Program"], (sel_idx)=>{
             this.float_expr.set_visible(sel_idx === 0)
+            this.tex0_is_gradient.set_visible(sel_idx === 0)
             this.color_expr.set_visible(sel_idx === 1)
             this.glsl_text.set_visible(sel_idx === 2)
             if (sel_idx === 0) {
@@ -230,6 +231,7 @@ class NodeFuncFill extends BaseNodeShaderParcel
             }
            // this.make_frag_text() // changes where we take the expr from
         })
+        this.tex0_is_gradient = new ParamBool(node, "Use first texture as gradient", true)
         this.float_expr = new ParamFloat(node, "Float\nExpression", "coord.x", {show_code:true})
         // color_expr is expected to return a vec4 or vec3 with values in range [0,1]
         this.color_expr = new ParamColor(node, "Color\nExpression", ["#cccccc", "rgb(coord.x, coord.y, 1.0)"], {show_code:true})
@@ -335,7 +337,7 @@ class NodeFuncFill extends BaseNodeShaderParcel
         // set_text creates parameters for the uniforms in the text, which are then read in run and transfered to gl
         this.glsl_emit_ctx.set_uniform_vars(this.shader_node.cls)
         this.shader_node.cls.param_of_define("_D_EXPR_IS_COLOR").modify( this.type.sel_idx === 1, false)
-        this.shader_node.cls.param_of_define("_D_HAS_TEXTURE").modify(texs.length >= 1, false)
+        this.shader_node.cls.param_of_define("_D_TEX0_GRAD").modify(texs.length >= 1 && this.tex0_is_gradient.get_value(), false)
         this.shader_node.cls.param_of_define("_D_IS_GLSL_CODE").modify( this.type.sel_idx === 2, false)
 
         // don't need to actually give anything to the evaluator since it's not doing eval, it's doing to_glsl

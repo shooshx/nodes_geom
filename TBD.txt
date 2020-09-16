@@ -59,7 +59,6 @@ EXPRESSIONS
     - in features.txt
 - BUG? rendering with effective_vtx ?
 - BUG: func node without show_code?
-- *** EXPR-BUG: func node expr in_texi(1,coord).r
 - BUG: if variable changes type, expression that depend on it need to be reparsed
 - distance fields
     - primitives
@@ -69,7 +68,6 @@ EXPRESSIONS
     - more smooth combiners
     - distance field from texture
     - rendering the distance field to texture - func node?
-        - *** BUG: func_fill - add checkbox to assume tex 0 is gradient
         - negative values? float tex?
     - cache make_frag_text and don't generate it every time
     - marching sqares

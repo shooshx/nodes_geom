@@ -907,7 +907,7 @@ class InternalFuncCallNode extends NodeBase {
             return ret
         }
 
-        eassert(slst.length === Math.abs(this.def.num_args), "Wrong number of arguments")
+        // number of arguments was check during parse
         return name + '(' + slst.join(',') + ')'
         
     }
@@ -1228,7 +1228,7 @@ function parseExpr() {
             }
             // do the calculation ("reduce"), producing a new value
             if (peek.op.op === OPERATOR_SUBSCRIPT)
-                value = new SubscriptNode(peek.value, null, value)
+                value = new SubscriptNode(peek.value, null, value) // handle things like rgb(1,2,3).r
             else if (peek.op.op == OPERATOR_TRINARY) {
                 eassert(tri_mid_expr !== null, "Missing mid value in trinary operator")
                 value = new TrinaryOpNode(peek.value, tri_mid_expr, value)
@@ -1243,15 +1243,17 @@ function parseExpr() {
         stack_.push( {op:op, value:value });
         // parse value on the right
         if (op.op === OPERATOR_SUBSCRIPT)
-            value = new TokenDummyNode(parseNewIdentifier())
+            value = new TokenDummyNode(parseNewIdentifier())  // assume only one subscript in the chain
         else if (op.op == OPERATOR_TRINARY) {
             tri_mid_expr = parseExpr() // middle value between the ? and :
             let c = getCharacter()
             eassert(c === ':', "Trinary operator expects ':'")
             index_++
+            value = parseValue(); // not parseExpr since we only want to collect something if its in parens, and not a binary operator that might be there like in (1 == 1)?0.1:0.2+0.1
         }
-        
-        value = parseValue();
+        else {
+            value = parseValue();  // next part in the chain
+        }
     }
     return null;
 }

@@ -11,14 +11,14 @@ nodes:
         e_y: 0.30000000000000004
         se_cv: 'return vec2(0.5, 0.3)'
       Transform:
-        e_tx: 0.36492715231788153
-        e_ty: -0.45050772626931557
+        e_tx: 0.5760000000000001
+        se_ty: '-0.613'
         e_r: 0
         e_pvx: 0
         e_pvy: 0
         e_sx: 1
         e_sy: 1
-    name: distance_field_primitive_1
+    name: circle2
     cls_name: Field Primitive
     x: -817
     y: 662
@@ -31,54 +31,76 @@ nodes:
         e_v: 0.24900000000000003
         se_cv: return 0.25
       Size:
-        e_x: 0.8930949227373067
-        e_y: 0.5228300220750548
+        e_x: 0.8930000000000001
+        e_y: 0.523
         se_cv: 'return vec2(0.5, 0.3)'
       Transform:
-        e_tx: 0.16343267108167772
-        e_ty: 0.41690507726269327
+        e_tx: 0.6150000000000001
+        e_ty: 0.56
         e_r: 0
         e_pvx: 0
         e_pvy: 0
         e_sx: 1
         e_sy: 1
-    name: distance_field_primitive_2
+    name: rect
     cls_name: Field Primitive
-    x: -989
-    y: 623
+    x: -995
+    y: 625
     disp_param: {}
   '4':
     params:
       Operator:
-        sel_str: Smooth-min
+        sel_str: Function
       Radius:
-        e_v: 0.22900000000000004
+        e_v: 0.22200000000000003
         se_cv: return 0.25
+      "Distance\nFunction":
+        e_v: 0.2
+        sldcfg_v:
+          show_code: true
+          allowed: true
+          visible: true
+          min: -1
+          max: 1
+        show_code: true
+        dlg_rect:
+          left: null
+          top: null
+          width: null
+          height: null
+          visible: false
+        se_cv: |-
+          return min(length(coord)-radius, 
+                     length(coord+vec2(0.3,0.5))-radius) 
+                     
+          #return min(in_fields.0, in_fields.1, in_fields.2)
+      OrderInputs:
+        sorted_order: [2, 1, 0]
     name: distance_field_combine_1
     cls_name: Field Combine
-    x: -906
-    y: 803
-    disp_param: &ref_0 {}
+    x: -877
+    y: 795
+    disp_param: {}
   '7':
     params:
       Shape:
         sel_str: Circle
       Radius:
-        e_v: 0.3490000000000001
+        e_v: 0.256
         se_cv: return 0.25
       Size:
         e_x: 0
         e_y: 0
         se_cv: 'return vec2(0.5, 0.3)'
       Transform:
-        se_tx: '-0.431'
-        se_ty: '-0.086'
+        se_tx: '-0.112'
+        se_ty: '-0.0106'
         e_r: 0
         e_pvx: 0
         e_pvy: 0
         e_sx: 1
         e_sy: 1
-    name: distance_field_primitive_3
+    name: circle1
     cls_name: Field Primitive
     x: -1138
     y: 686
@@ -108,8 +130,8 @@ nodes:
         e_sy: 1
     name: geom_primitive_2
     cls_name: Geom Primitive
-    x: -1243
-    y: 830
+    x: -1302
+    y: 894
     disp_param:
       show_vtx: true
       show_lines: true
@@ -154,8 +176,8 @@ nodes:
         e_sy: 1
     name: set_attribute_1
     cls_name: Set Attribute
-    x: -1210
-    y: 923
+    x: -1286
+    y: 964
     disp_param:
       show_vtx: true
       show_lines: true
@@ -366,6 +388,12 @@ nodes:
       Radius:
         e_v: 0.25
         se_cv: return 0.25
+      "Distance\nFunction":
+        se_v: length(coord) - 1
+        show_code: true
+        se_cv: return length(coord) - 1
+      OrderInputs:
+        sorted_order: [0, 1]
     name: distance_field_combine_2
     cls_name: Field Combine
     x: -1720
@@ -460,7 +488,7 @@ nodes:
   '70':
     params:
       Algorithm:
-        sel_str: Po-Trace
+        sel_str: Square Marching
       Threshold:
         e_v: 0
         se_cv: return 0
@@ -474,8 +502,8 @@ nodes:
       Flip sign:
         v: true
       Transform:
-        e_tx: 0
-        e_ty: 0
+        e_tx: 0.41800000000000004
+        e_ty: 0.101
         e_r: 0
         e_pvx: 0
         e_pvy: 0
@@ -483,9 +511,9 @@ nodes:
         e_sy: 1
     name: marching_squares_3
     cls_name: Marching Squares
-    x: -834
-    y: 900
-    disp_param: &ref_1
+    x: -736
+    y: 855
+    disp_param:
       show_vtx: false
       show_ctrls: false
       show_lines: true
@@ -496,15 +524,259 @@ nodes:
         sorted_order: [1, 0]
     name: group_objects_1
     cls_name: Group Objects
-    x: -933
-    y: 984
-    disp_param: [*ref_0, *ref_1]
+    x: -773
+    y: 980
+    disp_param: [{}, {show_vtx: false, show_ctrls: false, show_lines: true, show_faces: true}]
+  '75':
+    params:
+      Type:
+        sel_str: Float to Gradient
+      "Float\nExpression":
+        se_v: coord.x
+        show_code: true
+        se_cv: return coord.x
+      "Color\nExpression":
+        hex: '#CCCCCC'
+        show_code: true
+        se_cv: 'return rgb(coord.x, coord.y, 1.0)'
+      "GLSL\nCode":
+        dlg_rect: null
+        text: |
+          void main() {
+              outColor = vec4(1.0, v_coord.x, 0.0, 1.0);    
+          }
+    name: function_fill_1
+    cls_name: Function Fill
+    x: -367
+    y: 781
+    disp_param: {}
+  '76':
+    params:
+      Resolution:
+        x: 931
+        y: 931
+      Size:
+        e_x: 2
+        e_y: 2
+        se_cv: 'return vec2(2, 2)'
+      Smooth Scaling:
+        v: true
+      Texture Edge:
+        sel_str: Pad
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: create_pixel_buffer_1
+    cls_name: Create Pixel-Buffer
+    x: -343
+    y: 681
+    disp_param: {}
+  '79':
+    params:
+      Type:
+        sel_str: Float
+      Name:
+        v: radius
+      Float:
+        e_v: 0.19700000000000004
+        se_cv: return 1
+      Integer:
+        e_v: 1
+        se_cv: return 1
+      Float2:
+        e_x: 0.2
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      Color:
+        hex: '#CCCCCC'
+        se_cv: 'return rgb(204, 204, 204)'
+      Mouse Coord:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      Sample At:
+        sel_str: Mouse left down
+    name: radius
+    cls_name: Variable
+    x: -1174
+    y: 835
+    disp_param: {}
+  '82':
+    params:
+      transform:
+        se_tx: '-0.345'
+        e_ty: 0.48800000000000004
+        e_r: 261.351
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: transform_3
+    cls_name: Transform
+    x: -1029
+    y: 923
+    disp_param: {}
+  '84':
+    params:
+      Type:
+        sel_str: Float to Gradient
+      "Float\nExpression":
+        se_v: coord.x
+        show_code: true
+        se_cv: |-
+          c = in_texi(1,coord)
+          a = c.r
+          return abs(a)
+      "Color\nExpression":
+        hex: '#CCCCCC'
+        show_code: true
+        se_cv: 'return rgb(coord.x, coord.y, 1.0)'
+      "GLSL\nCode":
+        dlg_rect: null
+        text: |
+          void main() {
+              outColor = vec4(1.0, v_coord.x, 0.0, 1.0);    
+          }
+    name: function_fill_2
+    cls_name: Function Fill
+    x: -951
+    y: 1145
+    disp_param: {}
+  '85':
+    params:
+      Resolution:
+        x: 975
+        y: 975
+      Size:
+        e_x: 2
+        e_y: 2
+        se_cv: 'return vec2(2, 2)'
+      Smooth Scaling:
+        v: true
+      Texture Edge:
+        sel_str: Pad
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: create_pixel_buffer_2
+    cls_name: Create Pixel-Buffer
+    x: -808
+    y: 1047
+    disp_param: {}
+  '89':
+    params:
+      Type:
+        sel_str: Sample
+      Method:
+        sel_str: Stops
+      Point 1:
+        se_x: '-0.5'
+        e_y: 0
+        se_cv: 'return vec2(-0.5, 0)'
+      Radius 1:
+        e_v: 0.1
+        se_cv: return 0.1
+      Point 2:
+        e_x: 0.5
+        e_y: 0
+        se_cv: 'return vec2(0.5, 0)'
+      Radius 2:
+        e_v: 0.7
+        se_cv: return 0.7
+      Spread:
+        sel_str: Pad
+      f(t)=:
+        hex: '#CCCCCC'
+        show_code: true
+        se_cv: 'return rgb(255, 128, 0.0) + rgb(t, t, t)*255'
+      Sample Num:
+        e_v: 10
+        se_cv: return 10
+      Add stops:
+        v: true
+      Value:
+        lst: [0, 0.25, 0.5, 0.75, 1]
+      Color:
+        lst: [0, 0, 0, 255, 128, 0, 0, 255, 255, 128, 0, 255, 255, 255, 128, 255, 255, 255, 255, 255]
+      Resolution:
+        e_v: 128
+        se_cv: return 128
+      Smooth:
+        v: false
+    name: gradient_1
+    cls_name: Gradient
+    x: -1125
+    y: 1053
+    disp_param:
+      show_fill: true
+  '93':
+    params:
+      File Upload:
+        rurl: img/test_img1.png
+      size:
+        e_x: 1.097
+        e_y: 0.8370000000000001
+        se_cv: 'return vec2(2, 2)'
+      Smooth Scaling:
+        v: true
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+      Texture Edge:
+        sel_str: Pad
+    name: load_image_1
+    cls_name: Load Image
+    x: -1138
+    y: 1185
+    disp_param: {}
+  '96':
+    params:
+      Shape:
+        sel_str: Ellipse
+      Size:
+        se_x: radius*2
+        se_y: radius*2
+        se_cv: 'return vec2(0.5, 0.5)'
+      Num Points:
+        e_v: 5
+        se_cv: return 5
+      Inner Point:
+        e_x: 0.22600000000000003
+        se_y: '-0.311'
+        se_cv: 'return vec2(0.226, -0.311)'
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: geom_primitive_5
+    cls_name: Geom Primitive
+    x: -1116
+    y: 753
+    disp_param:
+      show_vtx: true
+      show_ctrls: true
+      show_lines: true
+      show_faces: true
 lines:
-  - from_name: out_field
-    from_id: 3
-    to_name: in_fields
-    to_id: 4
-    uid: 5
   - from_name: out_field
     from_id: 7
     to_name: in_fields
@@ -580,22 +852,67 @@ lines:
     to_name: in_multi_mesh
     to_id: 72
     uid: 74
-next_node_id: 75
+  - from_name: out_tex
+    from_id: 76
+    to_name: in_fb
+    to_id: 75
+    uid: 77
+  - from_name: variable_out
+    from_id: 79
+    to_name: vars_in
+    to_id: 4
+    uid: 80
+  - from_name: out_field
+    from_id: 3
+    to_name: in_fields
+    to_id: 4
+    uid: 81
+  - from_name: out_field
+    from_id: 4
+    to_name: input
+    to_id: 82
+    uid: 83
+  - from_name: out_tex
+    from_id: 85
+    to_name: in_fb
+    to_id: 84
+    uid: 86
+  - from_name: out_gradient
+    from_id: 89
+    to_name: in_texs
+    to_id: 84
+    uid: 91
+  - from_name: out_field
+    from_id: 4
+    to_name: in_texs
+    to_id: 84
+    uid: 95
+  - from_name: variable_out
+    from_id: 79
+    to_name: vars_in
+    to_id: 96
+    uid: 97
+next_node_id: 98
 names_idx_s:
   Distance Field Primitive: 6
-  Geom Primitive: 4
+  Geom Primitive: 5
   Distance Field Combine: 2
   Set Attribute: 2
   Manual Geometry: 2
   Copy: 6
   Field Copy: 1
-  Transform: 2
+  Transform: 3
   Marching Squares: 3
   Group Objects: 1
-display_node_id: 36
+  Function Fill: 2
+  Create Pixel-Buffer: 2
+  Variable: 2
+  Gradient: 1
+  Load Image: 1
+display_node_id: 84
 tdisp_node_ids: []
 input_node_ids: []
 nodes_view:
-  pan_x: 928
-  pan_y: -603
+  pan_x: 1207
+  pan_y: -611
 decor: []
