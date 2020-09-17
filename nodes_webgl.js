@@ -41,6 +41,7 @@ class ImageBase extends PObject
     }
 
     logical_size() { return [this.sz_x, this.sz_y] }
+    set_smooth(v) { this.smooth = v }
 
     set_transform(m) { mat3.copy(this.t_mat, m) }
     transform(m) { mat3.multiply(this.t_mat, m, this.t_mat) } 
@@ -182,6 +183,10 @@ class FrameBufferFactory extends ImageBase
         this.resolution_y = resolution_y
         this.edge = edge  // str (pad, reflect, repeat)
         this.type = type  // str (rgba, float)
+    }
+
+    set_type(v) {
+        this.type = v
     }
 
     draw(m) {
@@ -736,8 +741,6 @@ class NodeShader extends NodeCls
                 empty_indices.push(ti)
                 continue
             }
-
-            const texParam = this.param_of_uniform('_u_in_tex_' + ti, true)  // was supposed to be there from uniform parsing
             
             // if we're creating the texutre, create it in the right unit so that it won't overwrite other stuff
             gl.activeTexture(gl.TEXTURE0 + ti)
@@ -749,12 +752,14 @@ class NodeShader extends NodeCls
                     tex_obj = tex.make_gl_texture(in_fb)  // in_fb needed for gradient
                     if (isPromise(tex_obj))
                         tex_obj = await tex_obj
+                    assert(tex_obj !== null, this, "null tex_obj")
                 }
             }
             catch(e) {
                 assert(false, this, e.message)
             }
 
+            const texParam = this.param_of_uniform('_u_in_tex_' + ti, true)  // was supposed to be there from uniform parsing
             texParam.modify(ti, false)   // don't dirtify since we're in run() and that would cause a loop
             gl.bindTexture(gl.TEXTURE_2D, tex_obj);
             assert(tex_obj.t_mat !== undefined, this, "texture has no transform") 

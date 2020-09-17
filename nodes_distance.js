@@ -230,13 +230,18 @@ class DistanceField extends PObject
         this.set_shader_variables_uniforms(dfstate)
         await this.p_shader_node.cls.run()
         this.p_shader_node.clear_dirty() 
+        //return null
         const img = this.p_shader_node.cls.out_tex.get_const()
         dassert(img !== null, "distance shader produced not output")
         return img
     }
 
     async premake_gl_texture(for_fb_factory) {
-        const img = await this.do_texture(for_fb_factory)
+        const factory_copy = clone(for_fb_factory)
+        factory_copy.set_type("float") // don't mess up the factory we're give since it's needed by the webgl node
+        factory_copy.set_smooth(false) // float texture can't do linear interpolation without an additional extension
+        const img = await this.do_texture(factory_copy)
+        
         const tex = img.tex_obj
         tex.t_mat = mat3.create()
         mat3.copy(tex.t_mat, this.t_mat)
@@ -244,7 +249,7 @@ class DistanceField extends PObject
         this.last_tex_premade = tex 
     }
 
-    async make_gl_texture(for_fb_factory) {
+    make_gl_texture(for_fb_factory) {
         return this.last_tex_premade
     }
 
@@ -699,7 +704,8 @@ class NodeDFCombine extends BaseDFNodeCls
 
     run() {
         const objs = this.in_df_objs.get_input_consts()
-        assert(objs.length > 0, this, "No inputs")
+        if (this.op.sel_idx !== 4) // function doesn't need to have inputs
+            assert(objs.length > 0, this, "No inputs")
         const children = []
         for(let i = 0; i < objs.length; ++i) {
             const obj = objs[this.sorted_order[i]]

@@ -67,8 +67,6 @@ EXPRESSIONS
             init from combiner
     - more smooth combiners
     - distance field from texture
-    - rendering the distance field to texture - func node?
-        - negative values? float tex?
     - cache make_frag_text and don't generate it every time
     - marching sqares
         multiple iso lines, with value attached, color with gradient
@@ -187,6 +185,7 @@ NODES:
     for loop?
     webgl point sprites
 - Gradient
+    Atari rolling gradient effect
     in stroke (line),
     - Coon patch (not supported in chrome) http://tavmjong.free.fr/SVG/MESH/Mesh.html
 
@@ -337,6 +336,8 @@ Minify:
 
 icons
     https://tablericons.com/
+
+Pratt parser in rust: https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
 
 Write-About
 - difference in radial gradient between canvas and svg (opposite circles), browsers difference
