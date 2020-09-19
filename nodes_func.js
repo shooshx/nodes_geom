@@ -141,7 +141,7 @@ function glsl_type_name(t) {
 
 class GlslEmitContext {
     constructor() {
-        this.add_funcs = []    // function definitions to go before main
+        this.add_funcs = null    // function definitions to go before main
         this.uniform_decls = []  // set of strings of the uniform declarations
         this.inline_str = null  // the final expression
         this.uniform_evaluators = {} // map name of uniform to UniformVarRef
@@ -160,7 +160,9 @@ class GlslEmitContext {
         let func_body = ""
         for(let name in this.locals_defs) // define all locals ahead of everything else since a local may be first assigned in an if
             func_body += glsl_type_name(this.locals_defs[name]) + " " + name + ";\n"
-        return text.replace('$FUNCS$', this.add_funcs.join('\n'))
+        
+
+        return text.replace('$FUNCS$', this.add_funcs.to_text())
                    .replace('$UNIFORM_DEFS$', this.uniform_decls.join('\n')) // from variables
                    .replace(/\$EXPR\$/g, func_body + this.inline_str)
                    .replace('$EXPR_VEC_RET$', this.vec_expr_type)

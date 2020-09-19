@@ -61,6 +61,7 @@ EXPRESSIONS
 - BUG: func node without show_code?
 - BUG: if variable changes type, expression that depend on it need to be reparsed
 - distance fields
+    - in_field.0 to in_field(0)
     - primitives
         half-plane, polygons
         multiple circles from vertices

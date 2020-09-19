@@ -136,6 +136,38 @@ function clamp(a, v, b) {
 const SUBSCRIPT_TO_IDX = { x:0, y:1, z: 2, w:3, r:0, g:1, b:2, a: 3, alpha:3 }
 const SUBIDX_TO_GLSL = ['r','g','b','w']
 
+class FuncsSet {
+    constructor() {
+        this.set = {}
+    }
+    add(name, text) {
+        if (this.set[name] !== undefined)
+            return
+        this.set[name] = text
+    }
+    extend(v) {
+        this.set = {...this.set, ...v.set}
+    }
+    to_text() {
+        const func_lst = []
+        for(let ft_name in this.set)
+            func_lst.push(this.set[ft_name])
+        return func_lst.join("\n")
+    }
+    get_kv() {
+        return this.set
+    }
+    get(name) {
+        return this.set[name]
+    }
+    append_text(name, text) {
+        if (this.set[name] === undefined)
+            this.set[name] = text
+        else
+            this.set[name] += text
+    }
+};
+
 var ExprParser = (function() {
 
 // immutable object
@@ -719,6 +751,9 @@ function plasma(coord, time=null, move=null) {
     return c*0.5+0.5  // return range [0,1]
 }
 
+function smoothmin(k, d1, d2) {
+    eassert(false, "not-implemented")
+}
 
 const func_defs = {
     'cos': new FuncDef(Math.cos, 1), 'sin': new FuncDef(Math.sin, 1), 'tan': new FuncDef(Math.tan, 1),
@@ -739,7 +774,9 @@ const func_defs = {
     'normalize': new FuncDef(normalize_lookup, 1, FUNC_TYPE_LOOKUP, null),
     'hsl' : new FuncDef(hsl, 3, [TYPE_NUM, TYPE_NUM, TYPE_NUM], TYPE_VEC3), 
     'hsla' : new FuncDef(hsla, 4, [TYPE_NUM, TYPE_NUM, TYPE_NUM, TYPE_NUM],TYPE_VEC4),
-    'plasma' : new FuncDef(plasma, [1,3], [TYPE_VEC2, TYPE_NUM, TYPE_VEC2] , TYPE_NUM)
+    'plasma' : new FuncDef(plasma, [1,3], [TYPE_VEC2, TYPE_NUM, TYPE_VEC2] , TYPE_NUM),
+    'smoothmin' : new FuncDef(smoothmin, -3, [TYPE_NUM, TYPE_NUM, TYPE_NUM], TYPE_NUM)
+
 }
 // aliases
 func_defs['rgb'] = func_defs['vec3']
@@ -780,6 +817,12 @@ float plasma(vec2 coord, float time, vec2 move) {
 }
 float plasma(vec2 coord, float time) { return plasma(coord, time, vec2(0.0, 0.0)); }
 float plasma(vec2 coord) { return plasma(coord, 20000.0, vec2(0.0, 0.0)); }
+    `),
+    'smoothmin': new AddGlslFunc(`
+    float smoothmin(float k, float d1, float d2) {
+        float h = clamp( 0.5 + 0.5*(d2-d1)/k, 0.0, 1.0 );
+        return mix( d2, d1, h ) - k*h*(1.0-h); 
+    }
     `)
 }
 
@@ -868,9 +911,21 @@ class InternalFuncCallNode extends NodeBase {
         else { // args value has a specific given type
             eassert(Array.isArray(def_t))
             const args_type = args_check_type_lst(this.args)
-            for(let i = 0; i < args_type.length; ++i) // check only upto how many area given
+
+            if (def_t.num_args > 0) // sanity, might have been checked before
+                eassert(args_type.length === def_t.length, "Unexpected number of arguments " + args_type.length, " != " + def_t.length)
+            else {
+                eassert(args_type.length >= def_t.length, "Unexpected number of arguments " + args_type.length, " != " + def_t.length)
+                // check the last ones, if the exist, type needs to be as the last type of the in the definition
+                for(let i = def_t.length; i < args_type.length; ++i)
+                    if (args_type[i] !== def_t[def_t.length - 1])
+                        throw new TypeErr("Unexpected argument types expected arg: " + (i+1) + ": " + type_tuple_str(def_t[def_t.length - 1]) + " got " + type_tuple_str(args_type[i]))    
+            }
+            for(let i = 0; i < def_t.length; ++i) // check only upto how many are given
                 if (args_type[i] !== def_t[i])  
-                    throw new TypeErr("Unexpected argument types expected " + type_tuple_str(def_t) + " got " + type_tuple_str(args_type))
+                    throw new TypeErr("Unexpected argument types expected arg: " + (i+1) + ": " + type_tuple_str(def_t[i]) + " got " + type_tuple_str(args_type[i]))
+
+
 
             ret_t = this.def.ret_type
         }
@@ -890,20 +945,25 @@ class InternalFuncCallNode extends NodeBase {
                 const gtype = TYPE_TO_STR[this.type]
                 let text = tr.func_str.replace(/\$T/g, gtype) // assume there's only on type, that's the same as the func return type
                 const key = name + "|" + gtype
-                if (g_glsl_added_funcs[key] === undefined)
-                    g_glsl_added_funcs[key] = text
+                g_glsl_added_funcs.add(key, {name:name, text:text})
             }
         }
         for(let arg of this.args)
             slst.push(arg.to_glsl(emit_ctx))
         
-        if (this.def.num_args === -2 && slst.length > 2) {
+        if (this.def.num_args <= -2 && slst.length > 2) {
             // case of "at least two arguments but maybe more" - Math.min like functions - call pairwise
+            // if there are more than 2 args, assume the first are constant to all calls (like smoothmin)
+            let constant_args = ""
+            const c_offset = -(2 + this.def.num_args)
+            for(let i = 0; i < c_offset; ++i)
+                constant_args += slst[i] + ", "
+
             let ret = "", len = slst.length
-            for(let i = 0; i < len - 2; ++i) 
-                ret += name + "(" + slst[i] + ", "
-            ret += name + "(" + slst[len-2] + ", " + slst[len-1]
-            ret += ')'.repeat(len-1)
+            for(let i = c_offset; i < len - 2; ++i) 
+                ret += name + "(" + constant_args + slst[i] + ", "
+            ret += name + "(" + constant_args + slst[len-2] + ", " + slst[len-1]
+            ret += ')'.repeat(len-1-c_offset)
             return ret
         }
 
@@ -1823,14 +1883,20 @@ function do_eval(node) {
 }
 
 function do_to_glsl(node, emit_ctx, opt=null) {
-    g_glsl_added_funcs = {}
+    g_glsl_added_funcs = new FuncsSet()
     let ret = node.to_glsl(emit_ctx)
     if (ret === null)
         throw new ExprErr("No return statement")
     if (opt === PARSE_EXPR)  //  single expression, no multiple lines, should be wrapped in return to be a function body
         ret = "return " + ret + ";"
-    for(let ti in g_glsl_added_funcs)
-        emit_ctx.add_funcs.push(g_glsl_added_funcs[ti])
+
+    // g_glsl_added_funcs is keyed by name|type, need to aggregate just by name
+    const funcs_agg = new FuncsSet()
+    for(let k in g_glsl_added_funcs.get_kv()) {
+        const entry = g_glsl_added_funcs.get(k)
+        funcs_agg.append_text(entry.name, entry.text)
+    }
+    emit_ctx.add_funcs = funcs_agg
 
     return ret
 }

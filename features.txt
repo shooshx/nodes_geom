@@ -89,10 +89,11 @@ Node: Function Fill
 - Sample texture with 
     - in_tex(coord) or in_tex(x,y) for texture 0 or
     - in_texi(i, coord) or in_tex(i,x,y) for texture 0 to 4
-- in "Float to Gradient" input texture 0 is assumed to be a gradient ??? TBD
+- in "Float to Gradient" input texture 0 can optionally be a gradient for the value, otherwise a default gold gradient is used
 - Examples for "Float to Gradient"
     - return coord.x
-    
+    - return in_texi(1, coord).r  with texture 1 being an image, a gradient or distance field (which can have negative values)
+
 
 Distance fields
 ---------------

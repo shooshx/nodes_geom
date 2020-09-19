@@ -267,28 +267,7 @@ function asFloatStr(v) {
     return "" + v
 }
 
-class FuncsSet {
-    constructor() {
-        this.set = {}
-    }
-    add(name, text) {
-        if (this.set[name] !== undefined)
-            return
-        this.set[name] = text
-    }
-    extend(v) {
-        this.set = {...this.set, ...v.set}
-    }
-    to_text() {
-        const func_lst = []
-        for(let ft_name in this.set)
-            func_lst.push(this.set[ft_name])
-        return func_lst.join("\n")
-    }
-    get_kv() {
-        return this.set
-    }
-};
+
 
 class DFTextState {
     constructor() {
@@ -313,8 +292,13 @@ function range_getarg(a, b) {
 }
 
 // node in the tree that produces glsl code
-class DFNode {
+class DFNodeBase {
+}
+
+
+class DFNode extends DFNodeBase {
     constructor(func_maker=null, tr=null, args=null, children=null, func_set=null) { // need default values for clone
+        super()
         this.func_maker = func_maker  //  afunction that takes list of arguments and returns a string with the function call        
         this.tr = tr // actual matrix
         if (this.tr !== null) {
@@ -531,6 +515,7 @@ class MultiSum_FuncMaker extends FuncMaker {
     }
 }
 
+// TBD code dup
 const poly_smin = `float poly_smin(float k, float d1, float d2) {
     float h = clamp( 0.5 + 0.5*(d2-d1)/k, 0.0, 1.0 );
     return mix( d2, d1, h ) - k*h*(1.0-h); 
@@ -574,6 +559,8 @@ class Expr_FuncMaker extends FuncMaker
         const emit_ctx = new GlslEmitContext()
         emit_ctx.inline_str = this.sitem.eto_glsl(emit_ctx) 
         dassert(emit_ctx.inline_str !== null, 'unexpected expression null')
+
+        dfstate.func_set.extend(this.funcs)
 
         const func_name = "expr_func_" + dfstate.alloc_var()
         let childs_args_declr = ""
@@ -674,11 +661,11 @@ class NodeDFCombine extends BaseDFNodeCls
 
     make_dist_func(children) {
         const ditem = this.dist_func.get_active_item()
-        const item = new ItemStandin(ditem) // BUG - item not supported
+        const item = new ItemStandin(ditem) 
 
         const value_need_in_field = item.need_input_evaler("in_fields")
         if (value_need_in_field) {
-            // for the first emit pass that's done here, give it dummy names for the child indices that exist so that the check in to_glsl pass
+            // for the first emit pass that's done here, give it dummy variable names for the child indices that exist so that the check in to_glsl pass
             const dummy_names = []
             for(let i = 0; i < children.length; ++i)
                 dummy_names[i] = "###dummy_name_" + i
@@ -698,7 +685,7 @@ class NodeDFCombine extends BaseDFNodeCls
 
         const uniform_values = {}
         emit_ctx.set_uniform_vars_to_obj(uniform_values) // commit the variables to their current value to set in the output object
-        return new DFNode(new Expr_FuncMaker(item, this.add_funcs, emit_ctx.uniform_decls, uniform_values), null, null, children, null)
+        return new DFNode(new Expr_FuncMaker(item, emit_ctx.add_funcs, emit_ctx.uniform_decls, uniform_values), null, null, children, null)
     }
 
 
@@ -726,7 +713,7 @@ class NodeDFCombine extends BaseDFNodeCls
     }
 }
 
-class DFNodeForLoop {
+class DFNodeForLoop extends DFNodeBase {
     constructor(child, tr_lst, combiner_maker, combiner_args, combiner_funcs) {
         this.child = child
         this.tr = null
@@ -818,6 +805,44 @@ class NodeDFCopy extends CopyNodeMixin(BaseDFNodeCls)
         this.set_out_dfnode(dfnode)
     }
 }
+
+
+class NodeDFImage extends BaseDFNodeCls
+{
+    static name() { return "Field Image" }
+    constructor(node) {
+        super(node)
+        this.in_texs = new InTerminalMulti(node, "in_texs")
+        this.out = new OutTerminal(node, "out_field")
+
+        this.dist_func = new ParamFloat(node, "Distance\nFunction", "length(coord) - 1", {show_code:true})
+
+        node.set_state_evaluators({"coord":  (m,s)=>{ return new GlslTextEvaluator(s, "v_coord", ['x','y'], TYPE_VEC2) },
+                                   ...TEX_STATE_EVALUATORS} ) 
+    }
+
+    run() {
+        const imgs = this.in_df_objs.get_input_consts()
+
+        const ditem = this.dist_func.get_active_item()
+        const item = new ItemStandin(ditem) 
+
+        const emit_ctx = new GlslEmitContext()
+        try {
+            emit_ctx.inline_str = ditem.eto_glsl(emit_ctx) 
+        }
+        catch(e) {
+            assert(false, this, e.message)
+        }
+        assert(emit_ctx.inline_str !== null, this, 'unexpected expression null')
+
+        const uniform_values = {}
+        emit_ctx.set_uniform_vars_to_obj(uniform_values) // commit the variables to their current value to set in the output object
+        return new DFNode(new Expr_FuncMaker(item, this.add_funcs, emit_ctx.uniform_decls, uniform_values), null, null, children, null)
+    }
+}
+
+
 
 
 // See https://en.wikipedia.org/wiki/Test_functions_for_optimization
