@@ -91,8 +91,9 @@ class ParamProxy extends Parameter {
 
 // evaluator for the v_coord variable in glsl
 class GlslTextEvaluator extends EvaluatorBase {
-    constructor(subscripts, glsl_name, allowed_subscripts, obj_type, func_ret_by_args=null) {        
+    constructor(objref, subscripts, glsl_name, allowed_subscripts, obj_type, func_ret_by_args=null) {        
         super()
+        this.objref = objref
         if (subscripts.length === 0) { // just name without sub
             this.type = obj_type
             this.name = glsl_name
@@ -207,7 +208,7 @@ class NodeFuncFill extends BaseNodeShaderParcel
         this.out_tex = new TerminalProxy(node, this.shader_node.cls.out_tex)
 
         // this is the coordinates of the pixel to be referenced by the code as `coord`
-        node.set_state_evaluators({"coord":  (m,s)=>{ return new GlslTextEvaluator(s, "v_coord", ['x','y'], TYPE_VEC2) },
+        node.set_state_evaluators({"coord":  (m,s)=>{ return new GlslTextEvaluator(m,s, "v_coord", ['x','y'], TYPE_VEC2) },
                                    ...TEX_STATE_EVALUATORS} ) 
 
         //this.time = new ParamProxy(node, this.shader_node.cls.uniform_by_name('time').param)

@@ -68,6 +68,11 @@ EXPRESSIONS
             init from combiner
     - more smooth combiners
     - distance field from texture
+        - test uid leak due to add_line
+        - test smooth min strangess
+        - same image a few times transformed
+        - several images
+        - gradient strangess?
     - cache make_frag_text and don't generate it every time
     - marching sqares
         multiple iso lines, with value attached, color with gradient

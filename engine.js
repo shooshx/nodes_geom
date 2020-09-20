@@ -203,7 +203,7 @@ class Program {
         }
     }
 
-    add_line(line, uid) {
+    add_line(line, uid, redraw) {
         this.lines.push(line)
         if (uid === null || uid === undefined)
             uid = this.alloc_graphic_obj_id()
@@ -215,7 +215,8 @@ class Program {
             line.to_term.get_attachee().tdid_connect(line)  // telling the node into what terminal line was connected
         } catch(e) {}    
         line.to_term.tset_dirty(true) // need function so that it will work for multi in as well
-        trigger_frame_draw(true)
+        if (redraw)
+            trigger_frame_draw(true)
     }
 
 
@@ -240,6 +241,11 @@ class Program {
             draw_nodes()
             trigger_frame_draw(true)
         }
+    }
+
+    delete_lines_of(term) {
+        while(term.lines.length > 0)
+            this.delete_line(term.lines[0], false)
     }
 
 
@@ -726,6 +732,7 @@ const nodes_classes = [
         NodeDFPrimitive,
         NodeDFCombine,
         NodeDFCopy,
+        NodeDFImage,
         NodeMarchingSquares
     ]},
     NodeSetAttr, 

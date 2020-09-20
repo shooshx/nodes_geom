@@ -849,7 +849,7 @@ class ObjConstProxy {
     constructor(in_obj, display_values) {
         this.obj = in_obj
         this.with_display_values = display_values
-        if (Object.keys(this.with_display_values).length == 0) { 
+        if (this.with_display_values !== null && Object.keys(this.with_display_values).length == 0) { 
             // happens if this node was never displayed
             //   used for the side-effect that it sets the defaults
             this.obj.get_disp_params(this.with_display_values)
@@ -860,6 +860,9 @@ class ObjConstProxy {
     }
     async pre_draw(m) {
         await this.obj.pre_draw(m, this.with_display_values)
+    }
+    prox_get_const_obj() {
+        return this.obj
     }
 }
 

@@ -104,6 +104,19 @@ function float_strs(nums) {
 
 const ARGS_TEX_UNIT = 3
 
+// used as from of dummy lines to shader for textures
+class DummyNodePlaceholder {
+    constructor(id) {
+        this.lines = []  // needed by add line
+        // needed by sort order mixin so that the shader node will have a proper sorted_order
+        this.owner = {id: id, 
+                      name: "dummy_node" + id,
+                      register_rename_observer: ()=>{}
+                    }
+    }
+    
+}
+
 class DistanceField extends PObject 
 {
     constructor(dfnode) {
@@ -138,7 +151,7 @@ class DistanceField extends PObject
         this.p_shader_node = this.p_prog.add_node(0, 0, "<dist-shader>", NodeShader, null)
 
         //this.set_state_evaluators({"coord":  (m,s)=>{ return new ObjSingleEvaluator(m,s) } })
-        this.p_shader_node.set_state_evaluators({"coord":  (m,s)=>{ return new GlslTextEvaluator(s, "v_coord", ['x','y'], TYPE_VEC2) }})
+        this.p_shader_node.set_state_evaluators({"coord":  (m,s)=>{ return new GlslTextEvaluator(m,s, "v_coord", ['x','y'], TYPE_VEC2) }})
         this.p_shader_node.cls.vtx_text.set_text(DISTANCE_VTX_TEXT)
     }
 
@@ -156,6 +169,7 @@ class DistanceField extends PObject
 
         this.p_shader_node.cls.frag_text.set_text(text)
 
+        // args texture
         if (this.p_args_tex === null)
             this.p_args_tex = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, this.p_args_tex);
@@ -165,6 +179,16 @@ class DistanceField extends PObject
         this.p_args_tex.sz_x = 1; this.p_args_tex.sz_y = 1 // things requred by ShaderNode
         this.p_shader_node.cls.override_texs = {3:this.p_args_tex}
         gl.bindTexture(gl.TEXTURE_2D, null);
+
+        // input textures
+        this.p_prog.delete_lines_of(this.p_shader_node.cls.in_texs)
+        let idx = 0
+        for(let img_prox of dfstate.img_proxies) {
+            const ln = new Line(new DummyNodePlaceholder(idx++), this.p_shader_node.cls.in_texs.get_attachment())
+            this.p_prog.add_line(ln)
+            ln.to_term.force_set(img_prox.prox_get_const_obj())
+        }
+
         return dfstate
     }
 
@@ -276,11 +300,18 @@ class DFTextState {
         this.tr_arr = []
         this.func_set = new FuncsSet()
         this.uniform_values = new FuncsSet() // not actually funcs, map uniform name to its value
+        this.img_proxies = [];
     }
     alloc_var() {
         const v = this.var_count
         ++this.var_count;
         return v
+    }
+    alloc_tex_slots(img_proxies) {
+        dassert(this.img_proxies.length + img_proxies.length <= IN_TEX_COUNT - 1, "Too many textures in distance field") // -1 since tex 3 is for args
+        const ret = this.img_proxies.length;
+        this.img_proxies.push(...img_proxies)
+        return ret
     }
 }
 
@@ -543,19 +574,33 @@ function make_combiner(op_sel_idx, radius)
 
 class Expr_FuncMaker extends FuncMaker
 {
-    constructor(sitem, funcs, uniform_decls, uniform_values) {
+    constructor(sitem, funcs, uniform_decls, uniform_values, imgs) {
         super()
         this.sitem = sitem  // ItemStandin
         this.funcs = funcs
         this.uniform_decls = uniform_decls
         this.uniform_values = uniform_values
+        if (imgs !== null) {
+            this.imgs = [] // references const objects
+            for(let img of imgs)
+                this.imgs.push(new ObjConstProxy(img, null))
+        }
+        else
+            this.imgs = null
     }
     make_func(args_strs, child_vars, dfstate) {
         // do glsl emit again now that the children names are known
         const value_need_in_field = this.sitem.need_input_evaler("in_fields")
         if (value_need_in_field) 
             value_need_in_field.dyn_set_obj(child_vars)
-        
+        if (this.imgs !== null) {
+            const value_need_in_tex = this.sitem.need_input_evaler("in_texi")
+            if (value_need_in_tex) {
+                const offset = dfstate.alloc_tex_slots(this.imgs)
+                value_need_in_tex.dyn_set_obj(offset)
+            }
+        }  
+            
         const emit_ctx = new GlslEmitContext()
         emit_ctx.inline_str = this.sitem.eto_glsl(emit_ctx) 
         dassert(emit_ctx.inline_str !== null, 'unexpected expression null')
@@ -644,9 +689,11 @@ class NodeDFCombine extends BaseDFNodeCls
         this.in_df_objs = new InTerminalMulti(node, "in_fields")
         this.out = new OutTerminal(node, "out_field")
 
-        node.set_state_evaluators({"coord":  (m,s)=>{ return new GlslTextEvaluator(s, "coord", ['x','y'], TYPE_VEC2) },
+        node.set_state_evaluators({"coord":  (m,s)=>{ return new GlslTextEvaluator(m,s, "coord", ['x','y'], TYPE_VEC2) },
                                    "in_fields": (m,s)=>{ return new GlslArrayEvaluator(m,s) }
                                     })//...TEX_STATE_EVALUATORS} ) 
+        // in_fields is an array accessed with in_fields.0 - static index
+        // since making it a function is not so simple, need to select one of N variables
 
         this.op = new ParamSelect(node, "Operator", 0, ["Min (union)", "Max (intersect)", "Sum", "Smooth-min", "Function"], (sel_idx)=>{
             this.radius.set_visible(sel_idx === 3)
@@ -682,10 +729,12 @@ class NodeDFCombine extends BaseDFNodeCls
             assert(false, this, e.message)
         }
         assert(emit_ctx.inline_str !== null, this, 'unexpected expression null')
+        // inline_str not used since this is going to run again in the object with the real variables
+        // runs here so an error is visible in the node
 
         const uniform_values = {}
         emit_ctx.set_uniform_vars_to_obj(uniform_values) // commit the variables to their current value to set in the output object
-        return new DFNode(new Expr_FuncMaker(item, emit_ctx.add_funcs, emit_ctx.uniform_decls, uniform_values), null, null, children, null)
+        return new DFNode(new Expr_FuncMaker(item, emit_ctx.add_funcs, emit_ctx.uniform_decls, uniform_values, []), null, null, children, null)
     }
 
 
@@ -708,7 +757,7 @@ class NodeDFCombine extends BaseDFNodeCls
         else {
             dfnode = this.make_dist_func(children)
         }
-        dfnode.inline_tr = true
+        dfnode.inline_tr = true // in case we pass it through transform node
         this.set_out_dfnode(dfnode)
     }
 }
@@ -806,7 +855,21 @@ class NodeDFCopy extends CopyNodeMixin(BaseDFNodeCls)
     }
 }
 
+// a call to in_texi that can change its index according to the texture index allocation in the Object it is in
+class DFImgGlslTextEvaluator extends GlslTextEvaluator {
+    to_glsl_mutate_args(emit_ctx, args) {
+        // all textures that came from the same NodeDFImage will have the same offset
+        const tex_offset = this.objref.obj
+        dassert(tex_offset !== null, "texi offset not set")
+        dassert(Number.isInteger(tex_offset), "texi offset expected to be int")
 
+        args[0] += " + " + tex_offset + ".0"
+        return this.name
+    }
+}
+
+
+// this is a separate not from NodeDFCombine just so that there won't be confusion with the input terminals
 class NodeDFImage extends BaseDFNodeCls
 {
     static name() { return "Field Image" }
@@ -815,18 +878,23 @@ class NodeDFImage extends BaseDFNodeCls
         this.in_texs = new InTerminalMulti(node, "in_texs")
         this.out = new OutTerminal(node, "out_field")
 
-        this.dist_func = new ParamFloat(node, "Distance\nFunction", "length(coord) - 1", {show_code:true})
+        this.dist_func = new ParamFloat(node, "Distance\nFunction", "in_texi(0,coord).r", {show_code:true})
 
-        node.set_state_evaluators({"coord":  (m,s)=>{ return new GlslTextEvaluator(s, "v_coord", ['x','y'], TYPE_VEC2) },
-                                   ...TEX_STATE_EVALUATORS} ) 
+        node.set_state_evaluators({"coord":  (m,s)=>{ return new GlslTextEvaluator(m,s, "coord", ['x','y'], TYPE_VEC2) },
+                                   "in_texi":  (m,s)=>{ return new DFImgGlslTextEvaluator(m,s, "in_texi", [], TYPE_FUNCTION, in_texi_types )}} ) 
     }
 
     run() {
-        const imgs = this.in_df_objs.get_input_consts()
+        const imgs = this.in_texs.get_input_consts()
 
         const ditem = this.dist_func.get_active_item()
         const item = new ItemStandin(ditem) 
 
+        const value_need_in_tex = item.need_input_evaler("in_texi")
+        if (value_need_in_tex) 
+            value_need_in_tex.dyn_set_obj(0) // just so that the test glsl generation won't complain
+
+        // same idea as NodeDFCombine
         const emit_ctx = new GlslEmitContext()
         try {
             emit_ctx.inline_str = ditem.eto_glsl(emit_ctx) 
@@ -838,7 +906,9 @@ class NodeDFImage extends BaseDFNodeCls
 
         const uniform_values = {}
         emit_ctx.set_uniform_vars_to_obj(uniform_values) // commit the variables to their current value to set in the output object
-        return new DFNode(new Expr_FuncMaker(item, this.add_funcs, emit_ctx.uniform_decls, uniform_values), null, null, children, null)
+        const dfnode = new DFNode(new Expr_FuncMaker(item, null, emit_ctx.uniform_decls, uniform_values, imgs), null, null, null, null)
+        dfnode.inline_tr = true
+        this.set_out_dfnode(dfnode)
     }
 }
 

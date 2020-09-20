@@ -176,7 +176,7 @@ function _load_program(sprog)
             console.warn("did not find terminal of node ", from_node.name)
             continue
         }
-        newprog.add_line(new Line(from_term.get_attachment(), to_term.get_attachment()), sl.uid)
+        newprog.add_line(new Line(from_term.get_attachment(), to_term.get_attachment()), sl.uid, false)
     }
 
     for(let n of newprog.nodes) {

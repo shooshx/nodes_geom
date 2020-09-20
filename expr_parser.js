@@ -146,6 +146,8 @@ class FuncsSet {
         this.set[name] = text
     }
     extend(v) {
+        if (v === null)
+            return
         this.set = {...this.set, ...v.set}
     }
     to_text() {
@@ -1002,10 +1004,16 @@ class FuncObjCallNode extends NodeBase
         this.func_node.clear_types_cache()
     }  
     to_glsl(emit_ctx) { 
-        const name = this.func_node.to_glsl(emit_ctx)
         let args = []
         for(let arg of this.arg_nodes)
             args.push(arg.to_glsl(emit_ctx))
+
+        let name
+        if (this.func_node.to_glsl_mutate_args !== undefined) // hack for allowing the function node to modify the arguments (image distance field needs it)
+            name = this.func_node.to_glsl_mutate_args(emit_ctx, args)
+        else
+            name = this.func_node.to_glsl(emit_ctx)
+
         return name + "(" + args.join(",") + ")"
     }
 }

@@ -391,8 +391,8 @@ vec4 in_texi(float i, vec2 v) { return in_texi(i, v.x, v.y); }
 const IN_TEX_COUNT = 4
 const FLAG_WITH_TEXTURE_ACCESS = 1
 
-const TEX_STATE_EVALUATORS = { "in_tex":  (m,s)=>{ return new GlslTextEvaluator(s, "in_tex", [], TYPE_FUNCTION, in_tex_types ) },
-                               "in_texi":  (m,s)=>{ return new GlslTextEvaluator(s, "in_texi", [], TYPE_FUNCTION, in_texi_types ) }
+const TEX_STATE_EVALUATORS = { "in_tex":  (m,s)=>{ return new GlslTextEvaluator(m,s, "in_tex", [], TYPE_FUNCTION, in_tex_types ) },
+                               "in_texi":  (m,s)=>{ return new GlslTextEvaluator(m,s, "in_texi", [], TYPE_FUNCTION, in_texi_types ) }
                              }  // also takes index of texture
 
 
@@ -1143,7 +1143,7 @@ class NodePassThrough extends NodeCls
         // adding the line to the desitnation only when I'm connected since I don't want the destination
         // to think it has input when it doesn't
         this.line = new Line(this.out.get_attachment(), this.to_term.get_attachment())
-        this.prog.add_line(this.line)
+        this.prog.add_line(this.line, null, false)
     }
     doing_disconnect(term, line) {
         if (term !== this.in)
@@ -1285,7 +1285,7 @@ class NodeScatter2 extends BaseNodeParcel
         this.do_clip = new ParamSelect(node, "Clip Object", 0, ["Clips by bounding-box", "Clips by shape"])
         this.density = new ParamFloat(node, "Density", 0.1, {show_code:true})
 
-        node.set_state_evaluators({"coord":  (m,s)=>{ return new GlslTextEvaluator(s, "v_coord", ['x','y'], TYPE_VEC2) },
+        node.set_state_evaluators({"coord":  (m,s)=>{ return new GlslTextEvaluator(m,s, "v_coord", ['x','y'], TYPE_VEC2) },
                                    ...TEX_STATE_EVALUATORS} ) 
 
         this.shader_node.cls.frag_text.set_text(SCATTER_FRAG_TEXT)

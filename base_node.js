@@ -282,7 +282,7 @@ class TerminalBase {
     }
     mouseup() {
         if (this.line_pending !== null) {
-            program.add_line(this.line_pending)
+            program.add_line(this.line_pending, null, true)
             this.line_pending = null
         }
 
@@ -572,7 +572,11 @@ class InAttachMulti {
         else            
             this.h = new PWeakHandle(v)
         this.tset_dirty(true)
-    }    
+    }
+    force_set(v) { // generated object into internal nodes
+        this.clear()
+        this.set(v)
+    }
     get_const() {
         if (this.h === null)
             return null     
