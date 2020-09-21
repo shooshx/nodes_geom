@@ -52,6 +52,7 @@ EXPRESSIONS
 - colors [0-1] everywhere (set attr)
 - SetAttr with null return to do nothing like in fill
     -none value for function
+- BUG: display_slider shouldn't call peval() - happens every add_elems
 
 ****** CURRENT AGENDA ******
 - Copy
@@ -60,6 +61,7 @@ EXPRESSIONS
 - BUG? rendering with effective_vtx ?
 - BUG: func node without show_code?
 - BUG: if variable changes type, expression that depend on it need to be reparsed
+- BUG Editor - marking char and replacing it doesn't cause a change
 - distance fields
     - in_field.0 to in_field(0)
     - primitives
@@ -69,10 +71,7 @@ EXPRESSIONS
     - more smooth combiners
     - distance field from texture
         - test uid leak due to add_line
-        - test smooth min strangess
-        - same image a few times transformed
-        - several images
-        - gradient strangess?
+        - create new field_image node and connect to it doesn't resolve the error in the expr
     - cache make_frag_text and don't generate it every time
     - marching sqares
         multiple iso lines, with value attached, color with gradient

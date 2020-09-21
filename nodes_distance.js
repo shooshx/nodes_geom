@@ -19,11 +19,9 @@ out vec4 outColor;
 in vec2 v_coord;
 uniform bool u_raw_value;
 
-//float[] args_arr = float[]($ARGS_ARR$);
 
 float get_arg(int i) {
     return texelFetch(_u_in_tex_3, ivec2(i,0), 0).r;
-    //return args_arr[i];
 }
 
 $FUNCS$
@@ -369,7 +367,7 @@ class DFNode extends DFNodeBase {
                 prefix += "vec2 " + in_coord_var + " = coord;\n"
                 prefix += "{\n"
                 prefix += "  mat3x2 tr = mat3x2(" + range_getarg(mytr_idx, mytr_idx+6) + ");\n"
-                prefix += "  coord = tr * vec3(" + in_coord_var + ", 1.0);\n"
+                prefix += "  vec2 coord = tr * vec3(" + in_coord_var + ", 1.0);\n"
                 postfix = "}\n"
                 added_type = true
             }
@@ -574,7 +572,7 @@ function make_combiner(op_sel_idx, radius)
 
 class Expr_FuncMaker extends FuncMaker
 {
-    constructor(sitem, funcs, uniform_decls, uniform_values, imgs) {
+    constructor(sitem, funcs, uniform_decls, uniform_values, imgs = null) {
         super()
         this.sitem = sitem  // ItemStandin
         this.funcs = funcs
@@ -584,6 +582,8 @@ class Expr_FuncMaker extends FuncMaker
             this.imgs = [] // references const objects
             for(let img of imgs)
                 this.imgs.push(new ObjConstProxy(img, null))
+            // this doesn't detect if the same image was added a few times just with different transform
+            // Doing that would allow adding the same texture again and again more than 3 times
         }
         else
             this.imgs = null
@@ -878,10 +878,11 @@ class NodeDFImage extends BaseDFNodeCls
         this.in_texs = new InTerminalMulti(node, "in_texs")
         this.out = new OutTerminal(node, "out_field")
 
-        this.dist_func = new ParamFloat(node, "Distance\nFunction", "in_texi(0,coord).r", {show_code:true})
-
         node.set_state_evaluators({"coord":  (m,s)=>{ return new GlslTextEvaluator(m,s, "coord", ['x','y'], TYPE_VEC2) },
                                    "in_texi":  (m,s)=>{ return new DFImgGlslTextEvaluator(m,s, "in_texi", [], TYPE_FUNCTION, in_texi_types )}} ) 
+
+        this.dist_func = new ParamFloat(node, "Distance\nFunction", "in_texi(0,coord).r", {show_code:true})
+
     }
 
     run() {

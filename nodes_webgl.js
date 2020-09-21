@@ -1274,6 +1274,9 @@ class NodeScatter2 extends BaseNodeParcel
         this.out_tex = new TerminalProxy(node, this.shader_node.cls.out_tex)
         //this.out_tex = new TerminalProxy(node, this.clip_shader_node.cls.out_tex) // for testing clip
 
+        node.set_state_evaluators({"coord":  (m,s)=>{ return new GlslTextEvaluator(m,s, "v_coord", ['x','y'], TYPE_VEC2) },
+                                   ...TEX_STATE_EVALUATORS} ) 
+
         //this.sz = new ParamVec2(node, "Size", 2, 2);
         this.rel_res = new ParamFloat(node, "Pixels Per Unit", 200)
         this.start_point_count = new ParamInt(node, "Start Count", 10000) // assuming there's no in_points
@@ -1284,9 +1287,6 @@ class NodeScatter2 extends BaseNodeParcel
         this.seed = new ParamInt(node, "Seed", 1)
         this.do_clip = new ParamSelect(node, "Clip Object", 0, ["Clips by bounding-box", "Clips by shape"])
         this.density = new ParamFloat(node, "Density", 0.1, {show_code:true})
-
-        node.set_state_evaluators({"coord":  (m,s)=>{ return new GlslTextEvaluator(m,s, "v_coord", ['x','y'], TYPE_VEC2) },
-                                   ...TEX_STATE_EVALUATORS} ) 
 
         this.shader_node.cls.frag_text.set_text(SCATTER_FRAG_TEXT)
         this.shader_node.cls.opt.override_just_points = true // even if the input mesh has faces, display just the vertices

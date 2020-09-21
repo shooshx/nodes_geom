@@ -518,7 +518,9 @@ function clear_draw_req() {
 function eventWrapper(func, event_name, do_save=true) {
     return function() {
         //console.log("-event ", event_name)
-        //clear_draw_req()
+        // clear any event that happened in async microtasks triggered by the previous draw and before this was called again
+        // we want to just get the events that happen during func()
+        clear_draw_req() 
         let r
         try {
             r = func.apply(null, arguments)
@@ -534,7 +536,7 @@ function eventWrapper(func, event_name, do_save=true) {
         }
         
         if (draw_request.draw) {
-            //console.log("-event ", event_name)
+            //console.log("-event-draw ", event_name)
 
             if (do_save)  // automatic events like onload shouldn't save since they are not user interaction
                 save_state()
