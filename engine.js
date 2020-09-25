@@ -732,6 +732,7 @@ const nodes_classes = [
     ]},
     { group_name: "Distance Field", nodes: [
         NodeDFPrimitive,
+        NodeDFFromGeom,
         NodeDFCombine,
         NodeDFCopy,
         NodeDFImage,

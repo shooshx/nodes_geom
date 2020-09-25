@@ -340,6 +340,9 @@ class DFNode extends DFNodeBase {
         this.args = args // list of floats
         this.children = children // list of DFNode
         this.func_set = func_set // my own functions (not children's)
+        // pass just the index of the first arg instead of the values of all args
+        // for functions that take lots of data (mesh)
+        this.pass_first_arg_idx = false; 
     }
     make_text(dfstate) {
         // call order to any function is func_name(tr_index_in_args_arr_if_exists, child_vars_if_exist, float_args_if_exist)
@@ -377,9 +380,12 @@ class DFNode extends DFNodeBase {
         }
 
         if (this.args !== null) {
+            if (this.pass_first_arg_idx)
+                args_strs.push(dfstate.args_arr.length);
             for(let i = 0; i < this.args.length; ++i) {
                 const my_idx = dfstate.args_arr.length
-                args_strs.push("get_arg(" + my_idx + ")")
+                if (!this.pass_first_arg_idx)
+                    args_strs.push("get_arg(" + my_idx + ")")
                 dfstate.args_arr.push(this.args[i])
             }
         }
@@ -422,6 +428,7 @@ class BaseDFNodeCls extends NodeCls
         this.out_obj = null // cache the out objet so that that the shader inside it compile the program only when needed
     }
     set_out_dfnode(dfnode) {
+        assert(dfnode !== null, this, "null dfnode")
         if (this.out_obj === null)
             this.out_obj = new DistanceField(dfnode)
         else
@@ -502,7 +509,127 @@ return length(max(d,0.0)) + min(max(d.x,d.y),0.0);`)
         }
         return null
     }
+}
 
+const DFFUNC_TRIANGLE = `float sdTriangle(in vec2 p, in vec2 p0, in vec2 p1, in vec2 p2)
+{
+    vec2 e0 = p1-p0, e1 = p2-p1, e2 = p0-p2;
+    vec2 v0 = p -p0, v1 = p -p1, v2 = p -p2;
+    vec2 pq0 = v0 - e0*clamp( dot(v0,e0)/dot(e0,e0), 0.0, 1.0 );
+    vec2 pq1 = v1 - e1*clamp( dot(v1,e1)/dot(e1,e1), 0.0, 1.0 );
+    vec2 pq2 = v2 - e2*clamp( dot(v2,e2)/dot(e2,e2), 0.0, 1.0 );
+    float s = sign( e0.x*e2.y - e0.y*e2.x );
+    vec2 d = min(min(vec2(dot(pq0,pq0), s*(v0.x*e0.y-v0.y*e0.x)),
+                     vec2(dot(pq1,pq1), s*(v1.x*e1.y-v1.y*e1.x))),
+                     vec2(dot(pq2,pq2), s*(v2.x*e2.y-v2.y*e2.x)));
+    return -sqrt(d.x)*sign(d.y);
+}
+`
+const DFCALL_TRI = `float triMesh(vec2 coord, int startIdx) {
+    int countTri = int(get_arg(startIdx));
+    float d = 3.402823466e+38;
+    int idx = startIdx + 1;
+    for(int i = 0; i < countTri; ++i) {
+        d = min(d, sdTriangle(coord, vec2(get_arg(idx), get_arg(idx+1)), vec2(get_arg(idx+2), get_arg(idx+3)), vec2(get_arg(idx+4), get_arg(idx+5))));
+        idx += 6;
+    }
+    return d;
+}`
+
+const DFFUNC_PATH = `float sdPolygon(in vec2 p, int count, int idx)
+{
+    float d = 3.402823466e+38;
+    float s = 1.0;
+    int lastIdx = idx+(count-1)*2;
+    vec2 vj = vec2(get_arg(lastIdx), get_arg(lastIdx+1));
+
+    for(int i = 0; i < count; ++i)
+    {
+        vec2 vi = vec2(get_arg(idx), get_arg(idx+1));
+        idx += 2;
+
+        vec2 e = vj - vi;
+        vec2 w = p - vi;
+        vec2 b = w - e*clamp( dot(w,e)/dot(e,e), 0.0, 1.0 );
+        d = min(d, dot(b,b));
+        bvec3 c = bvec3(p.y >= vi.y, p.y < vj.y, e.x*w.y > e.y*w.x);
+        if (all(c) || all(not(c))) 
+            s*=-1.0;  
+        vj = vi;
+    }
+    return s*sqrt(d);
+}
+`
+const DFFUNC_MULTI_PATH = `float multiPath(vec2 coord, int startIdx) {
+    int countPaths = int(get_arg(startIdx));
+    float d = 3.402823466e+38;
+    int idx = startIdx + 1;
+    for(int i = 0; i < countPaths; ++i) {
+        int polyLen = int(get_arg(idx));
+        idx += 1;
+        d = min(d, sdPolygon(coord, polyLen, idx));
+        idx += polyLen*2;
+    }
+    return d;
+}`
+
+
+
+class NodeDFFromGeom extends BaseDFNodeCls 
+{
+    static name() { return "Field From Geometry" }
+    constructor(node) {
+        super(node)
+        this.in_geom = new InTerminal(node, "in_geom")
+        this.out = new OutTerminal(node, "out_field")
+    }
+
+    args_for_tri_mesh(mesh) {
+        const args = [], vtx = mesh.effective_vtx_pos
+        args.push(mesh.face_count()) 
+        for(let idx of mesh.arrs.idx) {
+            args.push(vtx[idx*2], vtx[idx*2+1])
+        }
+        return args
+    }
+
+    args_for_quad_mesh(mesh) {
+        const args = [], vtx = mesh.effective_vtx_pos
+        args.push(mesh.face_count()) 
+        let i = 0;
+        for(let idx of mesh.arrs.idx) {
+            if ((i++ % 4) == 0)
+                args.push(4)
+            args.push(vtx[idx*2], vtx[idx*2+1])
+        }
+        return args        
+    }
+
+    run() {
+        const in_obj = this.in_geom.get_const()
+        const glsl_funcs = new FuncsSet()
+        let dfnode = null, args_vals = null
+
+        if (in_obj.constructor === Mesh) {
+            if (in_obj.type === MESH_TRI) {
+                args_vals = this.args_for_tri_mesh(in_obj)
+                glsl_funcs.add("sdTriangle", DFFUNC_TRIANGLE)
+                glsl_funcs.add("triMesh", DFCALL_TRI)
+                dfnode = new DFNode(new Call_FuncMaker("triMesh"), null, args_vals, null, glsl_funcs)
+                dfnode.pass_first_arg_idx = true
+            }
+            else if (in_obj.type === MESH_QUAD) {
+                args_vals = this.args_for_quad_mesh(in_obj)
+            }
+        }
+        if (dfnode === null) {
+            glsl_funcs.add("sdPolygon", DFFUNC_PATH)
+            glsl_funcs.add("multiPath", DFFUNC_MULTI_PATH)
+            dfnode = new DFNode(new Call_FuncMaker("multiPath"), null, args_vals, null, glsl_funcs)
+            dfnode.pass_first_arg_idx = true
+        }
+        this.set_out_dfnode(dfnode)
+    }
 }
 
 function commaize(arr) {
@@ -883,6 +1010,8 @@ class NodeDFImage extends BaseDFNodeCls
 
         this.dist_func = new ParamFloat(node, "Distance\nFunction", "in_texi(0,coord).r", {show_code:true})
 
+        this.sorted_order = []
+        mixin_multi_reorder_control(node, this, this.sorted_order, this.in_texs)
     }
 
     run() {
@@ -893,7 +1022,7 @@ class NodeDFImage extends BaseDFNodeCls
 
         const value_need_in_tex = item.need_input_evaler("in_texi")
         if (value_need_in_tex) 
-            value_need_in_tex.dyn_set_obj(0) // just so that the test glsl generation won't complain
+            value_need_in_tex.dyn_set_obj(0) // placeholder for in_texi offset, just so that the test glsl generation won't complain
 
         // same idea as NodeDFCombine
         const emit_ctx = new GlslEmitContext()
@@ -905,9 +1034,14 @@ class NodeDFImage extends BaseDFNodeCls
         }
         assert(emit_ctx.inline_str !== null, this, 'unexpected expression null')
 
+        // order imges 
+        const sorted_imgs = []
+        for(let i of this.sorted_order)
+            sorted_imgs.push(imgs[i])
+
         const uniform_values = {}
         emit_ctx.set_uniform_vars_to_obj(uniform_values) // commit the variables to their current value to set in the output object
-        const dfnode = new DFNode(new Expr_FuncMaker(item, null, emit_ctx.uniform_decls, uniform_values, imgs), null, null, null, null)
+        const dfnode = new DFNode(new Expr_FuncMaker(item, null, emit_ctx.uniform_decls, uniform_values, sorted_imgs), null, null, null, null)
         dfnode.inline_tr = true
         this.set_out_dfnode(dfnode)
     }
