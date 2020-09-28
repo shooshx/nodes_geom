@@ -511,7 +511,9 @@ return length(max(d,0.0)) + min(max(d.x,d.y),0.0);`)
     }
 }
 
-const DFFUNC_TRIANGLE = `float sdTriangle(in vec2 p, in vec2 p0, in vec2 p1, in vec2 p2)
+
+const DFCALL_TRI = `
+float sdTriangle(in vec2 p, in vec2 p0, in vec2 p1, in vec2 p2)
 {
     vec2 e0 = p1-p0, e1 = p2-p1, e2 = p0-p2;
     vec2 v0 = p -p0, v1 = p -p1, v2 = p -p2;
@@ -524,10 +526,10 @@ const DFFUNC_TRIANGLE = `float sdTriangle(in vec2 p, in vec2 p0, in vec2 p1, in 
                      vec2(dot(pq2,pq2), s*(v2.x*e2.y-v2.y*e2.x)));
     return -sqrt(d.x)*sign(d.y);
 }
-`
-const DFCALL_TRI = `float triMesh(vec2 coord, int startIdx) {
+
+float triMesh(vec2 coord, int startIdx) {
     int countTri = int(get_arg(startIdx));
-    float d = 3.402823466e+38;
+    float d = 1e38;
     int idx = startIdx + 1;
     for(int i = 0; i < countTri; ++i) {
         d = min(d, sdTriangle(coord, vec2(get_arg(idx), get_arg(idx+1)), vec2(get_arg(idx+2), get_arg(idx+3)), vec2(get_arg(idx+4), get_arg(idx+5))));
@@ -536,9 +538,11 @@ const DFCALL_TRI = `float triMesh(vec2 coord, int startIdx) {
     return d;
 }`
 
-const DFFUNC_PATH = `float sdPolygon(in vec2 p, int count, int idx)
+
+const DFFUNC_MULTI_PATH = `
+float sdPolygon(in vec2 p, int count, int idx)
 {
-    float d = 3.402823466e+38;
+    float d = 1e38;
     float s = 1.0;
     int lastIdx = idx+(count-1)*2;
     vec2 vj = vec2(get_arg(lastIdx), get_arg(lastIdx+1));
@@ -559,8 +563,8 @@ const DFFUNC_PATH = `float sdPolygon(in vec2 p, int count, int idx)
     }
     return s*sqrt(d);
 }
-`
-const DFFUNC_MULTI_PATH = `float multiPath(vec2 coord, int startIdx) {
+
+float multiPath(vec2 coord, int startIdx) {
     int countPaths = int(get_arg(startIdx));
     float d = 3.402823466e+38;
     int idx = startIdx + 1;
@@ -571,9 +575,91 @@ const DFFUNC_MULTI_PATH = `float multiPath(vec2 coord, int startIdx) {
         idx += polyLen*2;
     }
     return d;
-}`
+}
+`
 
+const DFFUNC_MULTI_PATH_CURVE = `
 
+float multiPathWithCurves(vec2 p, int startIdx) {
+    int countPaths = int(get_arg(startIdx));
+    float d =  1e38;
+    int idx = startIdx + 1;
+    for(int i = 0; i < countPaths; ++i) {
+        int polyLen = int(get_arg(idx));
+        idx += 1;
+        // ------ inner function, inlined here since it needs to update idx
+
+        float inner_d = 1e38;
+        float s = 1.0, md;
+        //int lastIdx = idx+(polyLen-1)*2;
+        vec2 vj = vec2(get_arg(idx), get_arg(idx+1));
+        idx += 2;
+        vec2 vi;
+    
+        for(int i = 0; i < polyLen; ++i)
+        {
+            int isCurve = int(get_arg(idx));
+            idx += 1;
+            if (isCurve == 0) {
+                vi = vec2(get_arg(idx), get_arg(idx+1));
+                idx += 2;
+    
+                vec2 e = vj - vi;
+                vec2 w = p - vi;
+                vec2 b = w - e*clamp( dot(w,e)/dot(e,e), 0.0, 1.0 );
+                md = dot(b,b);
+    
+                bvec3 c = bvec3(p.y >= vi.y, p.y < vj.y, e.x*w.y > e.y*w.x);
+                //if (all(c) || all(not(c))) 
+                //    s*=-1.0;  
+            }
+            else {
+                vec2 prev_c = vec2(get_arg(idx), get_arg(idx+1));
+                vec2 cur_c = vec2(get_arg(idx+2), get_arg(idx+3));
+                vi = vec2(get_arg(idx+4), get_arg(idx+5));
+                idx += 6;
+                md = sdCubicBezier(p, vj, prev_c, cur_c, vi);
+                md = abs(md);
+            }
+    
+            inner_d = min(inner_d, md);
+            vj = vi;
+        }
+        float ret_d = s*sqrt(inner_d);
+
+        // ------
+        d = min(d, ret_d); // between polygons
+        
+    }
+    return d;
+}
+`
+
+class ArgsCurveAdder {
+    constructor(into_args) {
+        this.args = into_args
+        this.cur_moveTo = null
+    }
+    startPath(len) {
+        this.args.push(len)
+    }
+    moveTo(x, y) {
+        this.cur_moveTo = [x,y]
+        this.args.push(x, y)
+    }
+    lineTo(x, y) {
+        this.args.push(0, x, y)
+    }
+    bezierCurveTo(prev_cx, prev_cy, cur_cx, cur_cy, x, y) {
+        this.args.push(1, prev_cx, prev_cy, cur_cx, cur_cy, x, y)
+    }
+    closePath(real_line) {
+        dassert(this.cur_moveTo !== null, "nothing to close")
+        if (real_line)
+            this.args.push(0, this.cur_moveTo[0], this.cur_moveTo[1])
+        this.cur_moveTo = null
+    }
+}
 
 class NodeDFFromGeom extends BaseDFNodeCls 
 {
@@ -605,15 +691,36 @@ class NodeDFFromGeom extends BaseDFNodeCls
         return args        
     }
 
+    args_for_multipath(obj) {
+        const args = [], vtx = obj.effective_vtx_pos
+        args.push(obj.face_count()) 
+        for(let pri = 0; pri < obj.paths_ranges.length; pri += 3) {
+            let start_vidx = obj.paths_ranges[pri]*2
+            let end_vidx = obj.paths_ranges[pri+1]*2
+            args.push((end_vidx - start_vidx)/2)
+            for(let vidx = start_vidx; vidx < end_vidx; vidx += 2) {
+                args.push(vtx[vidx], vtx[vidx+1])
+            }
+        }
+        return args
+    }
+
+    args_for_multi_curves(obj) {
+        const args = []
+        args.push(obj.face_count()) 
+        obj.call_all_paths_commands(new ArgsCurveAdder(args))
+        return args
+    }
+
     run() {
         const in_obj = this.in_geom.get_const()
+        assert(in_obj !== null, this, "no input")
         const glsl_funcs = new FuncsSet()
         let dfnode = null, args_vals = null
 
         if (in_obj.constructor === Mesh) {
             if (in_obj.type === MESH_TRI) {
                 args_vals = this.args_for_tri_mesh(in_obj)
-                glsl_funcs.add("sdTriangle", DFFUNC_TRIANGLE)
                 glsl_funcs.add("triMesh", DFCALL_TRI)
                 dfnode = new DFNode(new Call_FuncMaker("triMesh"), null, args_vals, null, glsl_funcs)
                 dfnode.pass_first_arg_idx = true
@@ -622,8 +729,21 @@ class NodeDFFromGeom extends BaseDFNodeCls
                 args_vals = this.args_for_quad_mesh(in_obj)
             }
         }
+        else if (in_obj.constructor == MultiPath) {
+           // if (!in_obj.has_curves())
+           //     args_vals = this.args_for_multipath(in_obj)
+           // else 
+            {
+                glsl_funcs.add("sdCubicBezier", DFFUNC_BEZIER)
+                glsl_funcs.add("multiPathWithCurves", DFFUNC_MULTI_PATH_CURVE)
+                args_vals = this.args_for_multi_curves(in_obj)
+                dfnode = new DFNode(new Call_FuncMaker("multiPathWithCurves"), null, args_vals, null, glsl_funcs)
+                dfnode.pass_first_arg_idx = true
+            }
+        }
+        else 
+            assert(false, this, "unsupposedted input object")
         if (dfnode === null) {
-            glsl_funcs.add("sdPolygon", DFFUNC_PATH)
             glsl_funcs.add("multiPath", DFFUNC_MULTI_PATH)
             dfnode = new DFNode(new Call_FuncMaker("multiPath"), null, args_vals, null, glsl_funcs)
             dfnode.pass_first_arg_idx = true
@@ -1274,6 +1394,4 @@ class NodeMarchingSquares extends NodeCls
         return this.transform.dial.find_obj(ex, ey) || this.size.size_dial_find_obj(ex, ey)
     }
 }
-
-
 

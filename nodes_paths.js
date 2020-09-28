@@ -236,17 +236,30 @@ class MultiPath extends PObject
         for(let vidx = start_vidx + 2; vidx < end_vidx; vidx += 2) {
             let vx = vtx[vidx], vy = vtx[vidx+1]
             if (!this.is_curve(vidx))
-                obj.lineTo(vx, vy, vidx/2) // 'L'
+                obj.lineTo(vx, vy, vidx/2) // 'L', third arg for Clipper
             else 
                 obj.bezierCurveTo(prev_x+cfp[vidx], prev_y+cfp[vidx+1], vx+ctp[vidx], vy+ctp[vidx+1], vx, vy) // 'C'
             prev_x = vx; prev_y = vy
         }
         if (get_flag(this.paths_ranges[pri+2], PATH_CLOSED)) {
-            if (this.is_curve(start_vidx)) {
+            const is_curve = this.is_curve(start_vidx)
+            if (is_curve) {
                 let vx = vtx[start_vidx], vy = vtx[start_vidx+1]
                 obj.bezierCurveTo(prev_x+cfp[start_vidx], prev_y+cfp[start_vidx+1], vx+ctp[start_vidx], vy+ctp[start_vidx+1], vx, vy) //'C'
             }
-            obj.closePath() // 'Z'
+            obj.closePath(!is_curve) // 'Z' parameter is true if this is supposed to create a real line, for distance field
+        }
+    }
+
+    call_all_paths_commands(obj) {
+        if (this.paths !== null && this.paths.length*3 === this.paths_ranges.length) 
+            return
+
+        for(let pri = 0; pri < this.paths_ranges.length; pri += 3) {
+            let start_idx = this.paths_ranges[pri]
+            let end_idx = this.paths_ranges[pri+1]
+            obj.startPath(end_idx - start_idx)
+            this.call_path_commands(obj, pri)
         }
     }
 
@@ -275,6 +288,7 @@ class MultiPath extends PObject
         return jp;
     }
 
+    
     draw_poly(do_lines, do_fill, lines_color="#000") {
         this.ensure_paths_created()
         let cidx = 0
