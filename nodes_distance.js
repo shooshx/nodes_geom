@@ -580,6 +580,13 @@ float multiPath(vec2 coord, int startIdx) {
 
 const DFFUNC_MULTI_PATH_CURVE = `
 
+bool swichSign(vec2 p, vec2 vi, vec2 vj) {
+    vec2 e = vj - vi;
+    vec2 w = p - vi;
+    bvec3 c = bvec3(p.y >= vi.y, p.y < vj.y, e.x*w.y > e.y*w.x);
+    return (all(c) || all(not(c)));
+}
+
 float multiPathWithCurves(vec2 p, int startIdx) {
     int countPaths = int(get_arg(startIdx));
     float d =  1e38;
@@ -590,12 +597,15 @@ float multiPathWithCurves(vec2 p, int startIdx) {
         // ------ inner function, inlined here since it needs to update idx
 
         float inner_d = 1e38;
+
         float s = 1.0, md;
         //int lastIdx = idx+(polyLen-1)*2;
         vec2 vj = vec2(get_arg(idx), get_arg(idx+1));
         idx += 2;
         vec2 vi;
-    
+        int inters = 0;
+        //polyLen = 1;
+
         for(int i = 0; i < polyLen; ++i)
         {
             int isCurve = int(get_arg(idx));
@@ -618,14 +628,18 @@ float multiPathWithCurves(vec2 p, int startIdx) {
                 vec2 cur_c = vec2(get_arg(idx+2), get_arg(idx+3));
                 vi = vec2(get_arg(idx+4), get_arg(idx+5));
                 idx += 6;
-                md = sdCubicBezier(p, vj, prev_c, cur_c, vi);
-                md = abs(md);
+
+                md = cubic_bezier_dis(p, vj, prev_c, cur_c, vi);
+                inters += cubic_bezier_sign(p, vj, prev_c, cur_c, vi);                     
             }
     
             inner_d = min(inner_d, md);
+
             vj = vi;
         }
-        float ret_d = s*sqrt(inner_d);
+        float sb = ((inters % 2) == 0)?1.0:-1.0;
+
+        float ret_d = sb*sqrt(inner_d);
 
         // ------
         d = min(d, ret_d); // between polygons

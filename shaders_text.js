@@ -320,7 +320,7 @@ int solve_quartic(vec4 coeffs, inout vec4 s){
 //I'm solving a cubic equation to get the intersection count
 //of a ray from the current point to infinity and parallel to the x axis
 //Also i'm computing the intersection count with the tangent in the end points of the curve
-float cubic_bezier_sign(vec2 uv, vec2 p0, vec2 p1, vec2 p2, vec2 p3){
+int cubic_bezier_sign(vec2 uv, vec2 p0, vec2 p1, vec2 p2, vec2 p3){
 
 	float cu = (-p0.y + 3. * p1.y - 3. * p2.y + p3.y);
 	float qu = (3. * p0.y - 6. * p1.y + 3. * p2.y);
@@ -346,41 +346,14 @@ float cubic_bezier_sign(vec2 uv, vec2 p0, vec2 p1, vec2 p2, vec2 p3){
 			}
 		}
 	}
+	return n_ints;
 
-	vec2 tang1 = p0.xy - p1.xy;
-	vec2 tang2 = p2.xy - p3.xy;
-
-	vec2 nor1 = vec2(tang1.y,-tang1.x);
-	vec2 nor2 = vec2(tang2.y,-tang2.x);
-
-	if(p0.y < p1.y){
-		if((uv.y<=p0.y) && (dot(uv-p0.xy,nor1)<0.)){
-			n_ints++;
-		}
-	}
-	else{
-		if(!(uv.y<=p0.y) && !(dot(uv-p0.xy,nor1)<0.)){
-			n_ints++;
-		}
-	}
-
-	if(p2.y<p3.y){
-		if(!(uv.y<=p3.y) && dot(uv-p3.xy,nor2)<0.){
-			n_ints++;
-		}
-	}
-	else{
-		if((uv.y<=p3.y) && !(dot(uv-p3.xy,nor2)<0.)){
-			n_ints++;
-		}
-	}
-
-	if(n_ints==0 || n_ints==2 || n_ints==4){
+	/*if(n_ints==0 || n_ints==2 || n_ints==4){
 		return 1.;
 	}
 	else{
 		return -1.;
-	}
+	}*/
 }
 
 float cubic_bezier_dis(vec2 uv, vec2 p0, vec2 p1, vec2 p2, vec2 p3){
@@ -596,11 +569,11 @@ float cubic_bezier_dis(vec2 uv, vec2 p0, vec2 p1, vec2 p2, vec2 p3){
 }
 
 // p0, p3 real points, p1 point of p0, p2 point of p3
-float sdCubicBezier(vec2 uv, vec2 p0, vec2 p1, vec2 p2, vec2 p3)
+/*float sdCubicBezier(vec2 uv, vec2 p0, vec2 p1, vec2 p2, vec2 p3)
 {
 	float d0 = 1e38;
 	d0 = min(d0,cubic_bezier_dis(uv,p0,p1,p2,p3));
     float sgn = cubic_bezier_sign(uv,p0,p1,p2,p3);   
     return d0 * sgn; 
-}
+}*/
 `
