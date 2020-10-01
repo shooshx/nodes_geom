@@ -69,7 +69,6 @@ EXPRESSIONS
             BUG: not displayed immediately
             separate compile for shader
             path with straight and bezier
-            signed
         multiple circles from vertices
             init from combiner
     - more smooth combiners

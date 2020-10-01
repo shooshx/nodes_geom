@@ -1947,9 +1947,14 @@ class ListParam extends Parameter {
             func(this.get_value(vindex), vindex)
         }
     }
+    // called by ParamTable
     add_column_elems(column_elem) {
         this.elem_lst = []
         this.for_values((v, vindex)=>{ this.create_entry_elems(v, column_elem, vindex) })
+    }
+    // called by ParamTable
+    get_column_title() {
+        return this.label
     }
 
     create_entry_elems(v, parent, vindex) {
@@ -2186,6 +2191,7 @@ class ParamTable extends Parameter {
         this.elem_visible = true  // for when we don't want to render the table because it's not visible (Gradient with function)
         this.with_index_column = false
         this.with_column_sep = true
+        this.with_column_title = false // don't set this and with_index_column together
 
         this.sorted_order = sorted_order // list of the indices in the sorted order they are supposed to be displayed in
     }
@@ -2231,6 +2237,7 @@ class ParamTable extends Parameter {
     make_table() {
         this.elem_cols = []
         const column_clss = this.with_column_sep ? ["param_table_column", "param_table_col_line"] : "param_table_column"
+        // index column (1., 2. etc)
         if (this.with_index_column && this.list_params.length > 0) {
             let column = create_div(column_clss)
             const len = this.list_params[0].count()  // checkec abobe there's atleast one...
@@ -2255,11 +2262,21 @@ class ParamTable extends Parameter {
                 }
             }
 
+           // const columnWrap = create_div("param_table_col_wrap")
+            if (this.with_column_title)
+                add_column_title(column, lst_prm.get_column_title())
+            //columnWrap.appendChild(column)
             this.table_elem.appendChild(column)
             let grip = add_div(column, "param_table_grip")
             add_grip_handlers(grip, column)
         }
     }
+}
+
+function add_column_title(column, text) {
+    const e = create_div("param_table_col_title")
+    e.innerText = text
+    column.insertBefore(e, column.firstChild)
 }
 
 

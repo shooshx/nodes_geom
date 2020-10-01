@@ -370,9 +370,10 @@ input {
     border-radius: 3px;
     padding: 0 5px;
     width: calc( 100% - 5px);;
-    min-width: 100px;
+    /*min-width: 100px;*/ /* not really needed? makes the column cut if resized to be smaller*/ 
     overflow-x: hidden;
     box-sizing: border-box;   
+    outline: none; /* rid of chrome border when selected */
 }
 .param_list_selected_line {
     color: #ffff00
@@ -383,6 +384,17 @@ input {
     display: inline-block;
     padding: 0 4px 0 4px;
     vertical-align: bottom; /* make color inputs align with normal text inputs */
+}
+.param_table_col_wrap {
+    display: inline-block;
+}
+.param_table_col_title {
+    font-family: monospace;
+    font-size: 16px;
+    overflow-x: hidden;
+    height: 21px;
+    text-align: center;
+    color: #ababab;
 }
 .param_table_col_line {
     border-right: solid #aaa 1px;

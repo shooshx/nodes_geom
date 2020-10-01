@@ -253,6 +253,7 @@ class NodeManualGeom extends NodeCls
         this.add_pnts_btn = new ParamBool(node, "Add points", true, null)
         this.add_pnts_btn.display_as_btn(true)
         this.table = new ParamTable(node, "Point List")
+        this.table.with_column_title = true
         this.points = new ParamCoordList(node, "vtx_pos", this.table, this.selected_indices)
       //  this.dummy = new ParamFloatList(node, "Dummy", this.table, this.selected_indices)
         this.color = new ParamColorList(node, "vtx_color", this.table)
