@@ -145,7 +145,7 @@ function _load_program(sprog)
                 p.pset_dirty()
             }
             catch (e) {
-                console.warn("Failed load of parameter", p.label, "in node", sn.name)
+                console.warn("Failed load of parameter", p.label, "in node", sn.name, ':', e)
             }
         }
         //if (n.cls.post_load_hook)  moved below

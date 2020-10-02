@@ -440,9 +440,10 @@ class ParamSeparator extends Parameter {
 // not a real param, just a way to store objects with the params save/load mechanism
 // usually stores some other param depending on a SelectParam
 class ParamObjStore extends Parameter {
-    constructor(node, label, start_v) {
+    constructor(node, label, start_v, change_func=null) {
         super(node, label)
         this.v = start_v
+        this.change_func = change_func // to get load event
     }
     save() { return {v:this.v}}
     load(v) { this.v = v.v }
@@ -454,6 +455,9 @@ class ParamObjStore extends Parameter {
     st_get(k) {
         dassert(this.v[k] !== undefined, "Unknown store index " + k)
         return this.v[k]
+    }
+    st_get_all() {
+        return this.v
     }
 }
 
@@ -2091,11 +2095,13 @@ class ParamEditableValueList extends ListParam {
 
     external_update(text_elem, value, index) {
         let clss = "param_monospace param_lst_clickable"
-        let mark_sel;
-        if (this.selected_indices.includes_shifted !== undefined)
-            mark_sel = this.selected_indices.includes_shifted(index) // see Gradient points
-        else
-            mark_sel = this.selected_indices.includes(index)
+        let mark_sel = false;
+        if (this.selected_indices !== null) {
+            if (this.selected_indices.includes_shifted !== undefined)
+                mark_sel = this.selected_indices.includes_shifted(index) // see Gradient points
+            else
+                mark_sel = this.selected_indices.includes(index)
+        }
         if (mark_sel)
             clss += " param_list_selected_line"
         text_elem.classList = clss
@@ -2130,26 +2136,30 @@ class ParamEditableValueList extends ListParam {
         return text_elem
     }
 
-    add_elems(parent) {
-        super.add_elems(parent)
-        param_reg_for_dismiss(()=>{ 
+    reg_dismiss_edit_wrap() {
+        param_reg_for_dismiss(()=>{  // needs to be here since the list is reset every add_elem
             if (this.edit_wrap) { 
                 this.edit_wrap.parentNode.removeChild(this.edit_wrap);   
                 this.edit_wrap = null
             }
-        })    
+        })         
+    }
+
+    add_elems(parent) {
+        super.add_elems(parent) 
+        this.reg_dismiss_edit_wrap()
     }
 }
 
-class ParamCoordList extends ParamEditableValueList {
-    constructor(node, label, table, selected_indices) {
+window.ParamCoordList = class ParamCoordList extends ParamEditableValueList {
+    constructor(node, label, table, selected_indices=null) {
         super(node, label, table, TVtxArr, selected_indices, 2)
         this.pneed_normalize = false  // not really needed for coordinates but just for remembering    
     }
     to_string(v)  { return "(" + v[0].toFixed(3) + "," + v[1].toFixed(3) + ")" }
 }
 
-class ParamFloatList extends ParamEditableValueList {
+window.ParamFloatList = class ParamFloatList extends ParamEditableValueList {
     constructor(node, label, table, selected_indices, changed_func_to_node=null) {
         super(node, label, table, Float32Array, selected_indices, 1, changed_func_to_node)
         this.pneed_normalize = false
@@ -2871,3 +2881,76 @@ class ParamGroup extends Parameter
         fix_label_lengths(this.owner.parameters)
     }
 }
+
+class ParamMenuBtn extends Parameter 
+{
+    constructor(node, label, opts, make_elem_func, set_selected_func, cls_menu, cls_item) {
+        super(node, label)
+        this.opts = opts
+        this.make_elem_func = make_elem_func
+        this.set_selected_func = set_selected_func
+        this.cls_menu = cls_menu
+        this.cls_item = cls_item
+
+        this.menu_elem = null
+    }
+    save() { return null }
+    load(v) {}
+
+    add_elems(parent) {
+        this.line_elem = add_param_line(parent, this)
+        if (!this.is_sharing_line_elem()) 
+            add_param_label(this.line_elem, null) 
+        const dismiss_menu = ()=>{
+            if (this.menu_elem !== null) {
+                this.menu_elem.parentElement.removeChild(this.menu_elem)
+                this.menu_elem = null
+            }
+            ein.checked = false
+        }
+        const [ein,btn] = add_checkbox_btn(this.line_elem, this.label, false, (v)=>{
+            if (!v) {
+                dismiss_menu()
+                return
+            }
+            this.menu_elem = add_div(this.line_elem, this.cls_menu)
+            this.menu_elem.style.top = btn.offsetTop + btn.offsetHeight + 2 + "px"
+            this.menu_elem.style.left = btn.offsetLeft + "px"
+            let idx = 0;
+            for(let o of this.opts) {
+                const img_div = add_div(this.menu_elem, this.cls_item)
+                this.make_elem_func(o, img_div)
+                const midx = idx
+                myAddEventListener(img_div, "mousedown", ()=>{
+                    this.set_selected_func(o, midx)
+                    dismiss_menu()
+                })
+                ++idx;
+            }
+        })
+        // prevent two calls to dismiss when pressing the button
+        btn.addEventListener("mousedown", (ev)=>{ ev.stopPropagation() })
+        param_reg_for_dismiss(()=>{dismiss_menu()})
+    }
+}
+
+
+// not a proper combo-box, more line a combo-box of buttons, each with an image
+class ParamImageSelectBtn extends ParamMenuBtn
+{
+    constructor(node, label, opts, get_img_func, set_selected_func) {
+        super(node, label, opts, get_img_func, set_selected_func,
+              "param_img_menu", "param_img_item")
+    }
+}
+
+
+class ParamTextMenuBtn extends ParamMenuBtn
+{
+    constructor(node, label, opts, set_selected_func) {
+        super(node, label, opts, (opt, parent)=>{
+            parent.innerText = opt
+        }, set_selected_func, "param_text_menu", "param_text_item")
+    }
+}
+

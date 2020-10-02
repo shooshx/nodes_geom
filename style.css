@@ -295,6 +295,23 @@ input {
 .param_list_title {
     margin: 0 0 3px 0;
 }
+.param_list_body {
+    /*overflow-x: auto; this is bad if the popup editor is in the bottom line (makes y scroll)*/
+    padding-bottom: 5px; /* separate the table from the scrollbar if it appears*/
+}
+
+.param_list_body::-webkit-scrollbar {
+    height: 12px;
+}
+.param_list_body::-webkit-scrollbar-track {
+    background: #575757;   
+}
+.param_list_body::-webkit-scrollbar-thumb {
+    background-color: #828282;
+    border-radius: 20px;
+    border: 2px solid #575757;
+}
+
 /*.param_list_entry {
 }*/
 .param_list_row:nth-child(even) {
@@ -554,6 +571,25 @@ input {
     margin: 4px 4px 1px 4px;
     border: solid 1px #ccc;
     line-height: 0;
+}
+
+.param_text_menu {
+    position: absolute;
+    background-color: #656565;
+    padding: 3px 0;
+    border-radius: 4px;
+    border: solid 2px #7d7d7d;
+    color: #fff;
+    line-height: 140%;
+    white-space: nowrap;
+    z-index: 101;
+}
+.param_text_item {
+    padding: 0 7px;
+    display: block;
+}
+.param_text_item:hover {  
+    background-color: #888888;
 }
 
 .dlg {

@@ -701,53 +701,6 @@ function project_dist(cp, p1, p2) {
 }
 
 
-// not a proper combo-box, more line a combo-box of buttons, each with an image
-class ParamImageSelectBtn extends Parameter
-{
-    constructor(node, label, opts, get_img_func, set_selected_func) {
-        super(node, label)
-        this.opts = opts
-        this.get_img_func = get_img_func
-        this.menu_elem = null
-        this.set_selected_func = set_selected_func
-    }
-    save() { return null }
-    load(v) {}
-    add_elems(parent) {
-        this.line_elem = add_param_line(parent, this)
-        if (!this.is_sharing_line_elem()) 
-            add_param_label(this.line_elem, null) 
-        const dismiss_menu = ()=>{
-            if (this.menu_elem !== null) {
-                this.menu_elem.parentElement.removeChild(this.menu_elem)
-                this.menu_elem = null
-            }
-            ein.checked = false
-        }
-        const [ein,btn] = add_checkbox_btn(this.line_elem, this.label, false, (v)=>{
-            if (!v) {
-                dismiss_menu()
-                return
-            }
-            this.menu_elem = add_div(this.line_elem, "param_img_menu")
-
-            this.menu_elem.style.top = btn.offsetTop + btn.offsetHeight + 2 + "px"
-            this.menu_elem.style.left = btn.offsetLeft + "px"
-            for(let o of this.opts) {
-                const img_div = add_div(this.menu_elem, "param_img_item")
-                const img = this.get_img_func(o)
-                img_div.appendChild(img)
-                myAddEventListener(img_div, "mousedown", ()=>{
-                    this.set_selected_func(o)
-                    dismiss_menu()
-                })
-            }
-        })
-        // prevent two calls to dismiss when pressing the button
-        btn.addEventListener("mousedown", (ev)=>{ ev.stopPropagation() })
-        param_reg_for_dismiss(()=>{dismiss_menu()})
-    }
-}
 
 const GRADIENT_PRESETS = [
     [ {v:0, c:'#f00'}, {v:0.5, c:'#ff0'}, {v:1, c:'#0f0'}],
@@ -795,9 +748,11 @@ function checkers_rect(ctx, w, h, opt) {
 }
 
 const PRESET_RECT_SZ = 45
-function make_preset_img(pr) {
-    if (pr.img !== undefined)
-        return pr.img
+function make_preset_img(pr, parent) {
+    if (pr.img !== undefined) {
+        parent.appendChild(pr.img)
+        return
+    }
     ensure_scratch_canvas()
     scratch_canvas.width = PRESET_RECT_SZ
     scratch_canvas.height = PRESET_RECT_SZ
@@ -812,7 +767,7 @@ function make_preset_img(pr) {
     let img = new Image()
     img.src = url
     pr.img = img // cache
-    return img
+    parent.appendChild(pr.img)
 }
 
 

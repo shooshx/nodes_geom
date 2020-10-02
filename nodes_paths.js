@@ -520,7 +520,7 @@ class PathRangesList extends Parameter {
         // for simplicity, expand, remove and redo ranges
         let polys_index = [], polys = []
         for(let rpi = 0; rpi < this.lst.length; rpi += 3) {
-            let start_vidx = this.lst[rpi], end_vidx = this.lst[rpi+1]
+            let start_vidx = this.lst[rpi], end_vidx = this.lst[rpi+1] // not actually vidxs
             let poly = { flags: this.lst[rpi+2], count: end_vidx-start_vidx}
             polys.push(poly)
             for(let vidx = start_vidx; vidx < end_vidx; ++vidx)
@@ -540,6 +540,21 @@ class PathRangesList extends Parameter {
             }
         this.lst = new_lst
     }
+
+    // given the index of a point, find the index of the previous point in the same path
+    get_prev_point_in_path(idx) {
+        // it's possible to cache the result and this this in O(1) but not actually needed for now
+        for(let rpi = 0; rpi < this.lst.length; rpi += 3) {
+            const start_idx = this.lst[rpi], end_idx = this.lst[rpi+1]
+            if (idx >= start_idx && idx < end_idx) {
+                if (idx > start_idx)
+                    return idx-1
+                return end_idx-1
+            }
+        }
+        return null // index not found?
+    }
+
     add_elems(parent) {}
 }
 

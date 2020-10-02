@@ -175,6 +175,8 @@ function add_point_select_mixin(node_cls, selected_indices, points_param) {
                 return new PointSelectHandle(this.points, i, this)
             }
         }
+        if (node_cls.image_find_additional)
+            return node_cls.image_find_additional(ex, ey)
         return null
     }
     node_cls.move_selection = function(dx, dy) {
@@ -241,6 +243,39 @@ function add_point_select_mixin(node_cls, selected_indices, points_param) {
 }
 
 
+
+// stand-in for a node for the point_select mixing to handle the path control points that are offset of the geom points
+class DummyNodeCtrlPoints {
+    constructor(points_lst, ctrl_lst, prev_point, path_ranges) {
+        this.points_lst = points_lst
+        this.ctrl_lst = ctrl_lst
+        this.prev_point = prev_point
+        this.path_ranges = path_ranges // needed for finding the prev point in a closed path
+        this.selected_indices = [] // don't want to interfere with the points selection
+        add_point_select_mixin(this, this.selected_indices, this)
+    }
+
+    // this class also serves as an adapter, adapt the list of control points which are diffs from the main point to what the point_select mixin expects
+    count() {
+        return this.ctrl_lst.count()
+    }
+    get_value(vidx) {
+        const d = this.ctrl_lst.get_value(vidx)
+        if (d[0] == 0 && d[1] == 0)
+            return [null, null]
+        if (this.prev_point)
+            vidx = this.path_ranges.get_prev_point_in_path(vidx/2)*2 // 2 factor sice ranges want to deal with idx not vidx
+        const p = this.points_lst.get_value(vidx)
+        return [p[0]+d[0], p[1]+d[1]]
+    }
+    increment(idx, dp) {
+        this.ctrl_lst.increment(idx, dp)
+    }
+    reprint_all_lines() {
+    }
+}
+
+
 class NodeManualGeom extends NodeCls
 {
     static name() { return "Manual Geometry" }
@@ -249,14 +284,31 @@ class NodeManualGeom extends NodeCls
         this.selected_indices = [] // point indices. DO NOT RECREATE THIS. a reference of it goes to this.points
 
         this.out = new OutTerminal(node, "out_mesh")
+
+        // needs to be first so that load would load the added params
+        this.columns_store = new ParamObjStore(node, "col_store", {}, ()=>{
+            const dct = this.columns_store.st_get_all()
+            for(let name in dct) {
+                const v = dct[name]
+                this.add_additional_column(node, name, v.label, window[v.ctor], null, false)
+            }
+        })
         this.geom_type = new ParamSelect(node, "Type", 0, ["Mesh", "Paths"])
         this.add_pnts_btn = new ParamBool(node, "Add points", true, null)
         this.add_pnts_btn.display_as_btn(true)
+        this.add_col_btn = new ParamTextMenuBtn(node, "Add column", ["Curve Controls", "Normal"], (opt, sel_idx)=>{
+            if (sel_idx === 0 && this.cfp === null) {
+                this.add_additional_column(node, "cfp", "ctrl_from_prev", ParamCoordList, [0,0], true)
+                this.add_additional_column(node, "ctp", "ctrl_to_prev", ParamCoordList, [0,0], true)
+            }
+        })
+        this.add_col_btn.share_line_elem_from(this.add_pnts_btn)
         this.table = new ParamTable(node, "Point List")
         this.table.with_column_title = true
         this.points = new ParamCoordList(node, "vtx_pos", this.table, this.selected_indices)
       //  this.dummy = new ParamFloatList(node, "Dummy", this.table, this.selected_indices)
         this.color = new ParamColorList(node, "vtx_color", this.table)
+        this.cfp = this.ctp = null
         this.paths_ranges = new PathRangesList(node) // not shown
 
         // backwards compat
@@ -267,7 +319,34 @@ class NodeManualGeom extends NodeCls
         this.pnt_attrs = [this.color]  // Param objets of additional attributes of each point other than it's coordinate
 
         add_point_select_mixin(this, this.selected_indices, this.points)
+        this.cfp_select = this.ctp_select = null
     }
+
+    image_find_additional(ex, ey) {
+        if (this.cfp_select !== null) {
+            return this.cfp_select.image_find_obj(0,0,ex, ey) || this.ctp_select.image_find_obj(0,0,ex, ey)
+        }
+        return null
+    }
+
+    add_additional_column(node, var_name, label, ctor, def_val, from_ui) {
+        const prm = new ctor(node, label, this.table)
+        if (from_ui) { // don't need to do all these if we're just loading the params
+            this.table.remake_table()
+            for(let i = 0; i < this.points.count(); ++i)
+                prm.add(def_val)
+            prm.reg_dismiss_edit_wrap() // needed because if the param was just added, this param was not there when add_elem was called                
+        }
+        this[var_name] = prm
+        this.pnt_attrs.push(prm)
+        this.columns_store.st_set(var_name, {label:label, ctor:ctor.name})
+
+        if (var_name === "cfp")
+            this.cfp_select = new DummyNodeCtrlPoints(this.points, this.cfp, true, this.paths_ranges)
+        else if(var_name === "ctp")
+            this.ctp_select = new DummyNodeCtrlPoints(this.points, this.ctp, false, null)
+    }
+
     image_click(ex, ey) {
         if (!this.add_pnts_btn.v)
             return
