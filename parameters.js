@@ -373,7 +373,7 @@ function add_param_checkbox(line, label, value, set_func) {
     let etext = add_elem(line, 'label', 'param_checkbox_text')
     etext.setAttribute("for", ein.id)
     etext.innerText = label
-    return [ein, etext]
+    return [ein, etext, edisp]
 }
 function add_push_btn(parent, label, onclick, cls=null) {
     if (cls === null)
@@ -394,7 +394,7 @@ function add_checkbox_btn(parent, label, value, onchange) {
     let btn = add_elem(parent, 'label', 'param_btn')
     btn.setAttribute("for", ein.id)
     btn.innerText = label
-    return [ein, btn]
+    return [ein, btn, null] // null to be compat with add_param_checkbox
 }
 function add_combobox(parent, opts, sel_idx, onchange) {
     let se = add_elem(parent, 'select', ['param_select', 'param_input'])
@@ -504,14 +504,20 @@ class ParamBool extends Parameter {
     load(v) { this.v = v.v; this.call_change()  }
     add_elems(parent) {
         this.line_elem = add_param_line(parent, this)
+        let label_cls_add = null
         if (!this.is_sharing_line_elem()) 
-            add_param_label(this.line_elem, null) 
+            add_param_label(this.line_elem, null)
+        else if (!this.as_btn)
+            label_cls_add = "param_checkbox_inline"
+
         let add_func = this.as_btn ? add_checkbox_btn : add_param_checkbox
-        const [ein,label] = add_func(this.line_elem, this.label, this.v, (v) => {
+        const [ein,label,edisp] = add_func(this.line_elem, this.label, this.v, (v) => {
             this.v = v; 
             this.call_change()
             this.pset_dirty()
         })
+        if (label_cls_add)
+            edisp.classList.toggle(label_cls_add, true)
         this.elem_input = ein
         this.label_elem = label
     }
@@ -838,7 +844,7 @@ class ExpressionItem {
 
         let enable_slider_checkbox = (parent)=>{ 
             let sld_line = add_div(parent, 'prm_slider_ctx_line')
-            let [ein,etext] = add_param_checkbox(sld_line, "Slider", this.slider_conf.visible, (v)=>{ 
+            let [ein,etext,edisp] = add_param_checkbox(sld_line, "Slider", this.slider_conf.visible, (v)=>{ 
                 this.slider_conf.visible = v; 
                 this.display_slider(false)
                 toggle_en(v)
@@ -1096,7 +1102,7 @@ let CodeItemMixin = (superclass) => class extends superclass {
     populate_code_ctx_menu(ctx_menu) {
         const add_code_checkbox = (parent, dismiss_func)=>{
             let chk_line = add_div(parent, 'prm_slider_ctx_line')
-            let [ein,etext] = add_param_checkbox(chk_line, "Code", this.show_code, (v)=>{ 
+            let [ein,etext,edisp] = add_param_checkbox(chk_line, "Code", this.show_code, (v)=>{ 
                 this.set_show_code(v)
                 dismiss_func()
             })            
@@ -2382,7 +2388,7 @@ class Editor
             this.elem_wrapper.style.height = this.opt.dlg_rect_wrap.panel_rect.height + "px"
 
         if (opt.with_popout) {
-            const [ein,btn] = add_checkbox_btn(this.elem_wrapper, "[]", false, (v)=>{ 
+            const [ein,btn,_dummy] = add_checkbox_btn(this.elem_wrapper, "[]", false, (v)=>{ 
                 this.pop_out(v)
             })
             btn.classList.add("prm_code_popout_btn")
@@ -2908,7 +2914,7 @@ class ParamMenuBtn extends Parameter
             }
             ein.checked = false
         }
-        const [ein,btn] = add_checkbox_btn(this.line_elem, this.label, false, (v)=>{
+        const [ein,btn,_dummy] = add_checkbox_btn(this.line_elem, this.label, false, (v)=>{
             if (!v) {
                 dismiss_menu()
                 return

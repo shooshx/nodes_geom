@@ -63,8 +63,11 @@ class MultiPath extends PObject
 
 
     get_disp_params(disp_values) {
+        const scc = new DispParamBool(disp_values, "Show Curve Controls ", 'show_ctrls', true)
+        const sccp = new DispParamBool(disp_values, "Points", 'show_ctrls_pnts', true)
+        sccp.share_line_elem_from(scc)
         return [ new DispParamBool(disp_values, "Show Vertices", 'show_vtx', true),
-                 new DispParamBool(disp_values, "Show Curve Controls", 'show_ctrls', true),
+                 scc, sccp,
                  new DispParamBool(disp_values, "Show Lines", 'show_lines', true),
                  new DispParamBool(disp_values, "Show Faces", 'show_faces', true)
                 ]
@@ -328,18 +331,32 @@ class MultiPath extends PObject
         }
     }
 
-    draw_control_points() {
-        let ctp = this.eff_ctrl_to_prev, cfp = this.eff_ctrl_from_prev
+    draw_control_points(draw_points) {
+        const ctp = this.eff_ctrl_to_prev, cfp = this.eff_ctrl_from_prev
+        const radius = MESH_DISP.vtx_radius / image_view.viewport_zoom
         ctx_img.beginPath()
         this.foreach_line((vidx, prev_x, prev_y, vx, vy)=>{
             if (this.is_curve(vidx))
             {
-                let abs_cfp_x = prev_x+cfp[vidx], abs_cfp_y = prev_y+cfp[vidx+1]
-                let abs_ctp_x = vx+ctp[vidx], abs_ctp_y = vy+ctp[vidx+1]
+                const vcfp_x = cfp[vidx], vcfp_y = cfp[vidx+1]
+                const vctp_x = ctp[vidx], vctp_y = ctp[vidx+1]
+                const abs_cfp_x = prev_x+vcfp_x, abs_cfp_y = prev_y+vcfp_y
+                const abs_ctp_x = vx+vctp_x, abs_ctp_y = vy+vctp_y
                 ctx_img.moveTo(prev_x, prev_y)
                 ctx_img.lineTo(abs_cfp_x, abs_cfp_y)
                 ctx_img.moveTo(vx, vy)
                 ctx_img.lineTo(abs_ctp_x, abs_ctp_y)
+                
+                if (draw_points) {
+                    if (vcfp_x != 0 || vcfp_y != 0) {
+                        ctx_img.moveTo(abs_cfp_x + radius, abs_cfp_y)
+                        ctx_img.arc(abs_cfp_x, abs_cfp_y, radius, 0, 2*Math.PI)
+                    }
+                    if (vctp_x != 0 || vctp_y != 0) {
+                        ctx_img.moveTo(abs_ctp_x + radius, abs_ctp_y)
+                        ctx_img.arc(abs_ctp_x, abs_ctp_y, radius, 0, 2*Math.PI)
+                    }
+                }
             }
         })
         ctx_img.lineWidth = MESH_DISP.line_width/image_view.viewport_zoom
@@ -364,7 +381,7 @@ class MultiPath extends PObject
         if (disp_values.show_vtx) 
             Mesh.prototype.draw_vertices.call(this)
         if (disp_values.show_ctrls) 
-            this.draw_control_points()
+            this.draw_control_points(disp_values.show_ctrls_pnts)
     }
 
     draw_selection_m(m, select_vindices) {
