@@ -618,10 +618,12 @@ float multiPathWithCurves(vec2 p, int startIdx) {
                 vec2 w = p - vi;
                 vec2 b = w - e*clamp( dot(w,e)/dot(e,e), 0.0, 1.0 );
                 md = dot(b,b);
-    
-                bvec3 c = bvec3(p.y >= vi.y, p.y < vj.y, e.x*w.y > e.y*w.x);
-                //if (all(c) || all(not(c))) 
-                //    s*=-1.0;  
+
+                // intersect with a ray from p parallel to x axis
+                float t = w.y/e.y;
+                float u = t*e.x - w.x;
+                if (t >= 0.0 && t <= 1.0 && u < 0.0)
+                    ++inters;
             }
             else {
                 vec2 prev_c = vec2(get_arg(idx), get_arg(idx+1));
