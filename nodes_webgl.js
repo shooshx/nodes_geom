@@ -357,7 +357,7 @@ function createShader(gl, type, source) {
     }
 
     const errlog = gl.getShaderInfoLog(shader)
-    console.log(errlog);  // eslint-disable-line
+    console.log(errlog);
     gl.deleteShader(shader);
     const errlst = analyzeInfoLog(errlog)
     return [null, errlst];
@@ -405,6 +405,7 @@ function createProgram(gl, vtxSource, fragSource, attr_names, defines, flags=0) 
         prefixSrc += TEXTURES_ACCESS_CODE
     prefixSrc += "#line 1\n"
 
+    const startCompile = performance.now()
     const [vtxShader, vtxerr] = createShader(gl, gl.VERTEX_SHADER, prefixSrc + vtxSource);
     const [fragShader, fragerr] = createShader(gl, gl.FRAGMENT_SHADER, prefixSrc + fragSource);
     if (!vtxShader || !fragShader || !attr_names)
@@ -427,6 +428,10 @@ function createProgram(gl, vtxSource, fragSource, attr_names, defines, flags=0) 
     program.attrs = {}
     for(let attr_name of attr_names)
         program.attrs[attr_name] = gl.getAttribLocation(program, attr_name);
+
+    const elapsedCompile = performance.now() - startCompile
+    if (elapsedCompile > 1000)
+        console.log("shader compile took ", elapsedCompile)
 
     return [program, vtxerr, fragerr];
 }

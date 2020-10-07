@@ -255,9 +255,6 @@ class MultiPath extends PObject
     }
 
     call_all_paths_commands(obj) {
-        if (this.paths !== null && this.paths.length*3 === this.paths_ranges.length) 
-            return
-
         for(let pri = 0; pri < this.paths_ranges.length; pri += 3) {
             let start_idx = this.paths_ranges[pri]
             let end_idx = this.paths_ranges[pri+1]

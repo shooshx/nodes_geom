@@ -579,15 +579,8 @@ float multiPath(vec2 coord, int startIdx) {
 `
 
 const DFFUNC_MULTI_PATH_CURVE = `
-
-bool swichSign(vec2 p, vec2 vi, vec2 vj) {
-    vec2 e = vj - vi;
-    vec2 w = p - vi;
-    bvec3 c = bvec3(p.y >= vi.y, p.y < vj.y, e.x*w.y > e.y*w.x);
-    return (all(c) || all(not(c)));
-}
-
-float multiPathWithCurves(vec2 p, int startIdx) {
+float multiPathWithCurves(vec2 p, int startIdx) 
+{
     int countPaths = int(get_arg(startIdx));
     float d =  1e38;
     int idx = startIdx + 1;
@@ -599,12 +592,11 @@ float multiPathWithCurves(vec2 p, int startIdx) {
         float inner_d = 1e38;
 
         float s = 1.0, md;
-        //int lastIdx = idx+(polyLen-1)*2;
         vec2 vj = vec2(get_arg(idx), get_arg(idx+1));
         idx += 2;
         vec2 vi;
         int inters = 0;
-        //polyLen = 1;
+        //polyLen = 2;
 
         for(int i = 0; i < polyLen; ++i)
         {
@@ -636,14 +628,13 @@ float multiPathWithCurves(vec2 p, int startIdx) {
             }
     
             inner_d = min(inner_d, md);
-
             vj = vi;
         }
         float sb = ((inters % 2) == 0)?1.0:-1.0;
 
         float ret_d = sb*sqrt(inner_d);
 
-        // ------
+        // ------ 
         d = min(d, ret_d); // between polygons
         
     }
@@ -746,9 +737,9 @@ class NodeDFFromGeom extends BaseDFNodeCls
             }
         }
         else if (in_obj.constructor == MultiPath) {
-           // if (!in_obj.has_curves())
-           //     args_vals = this.args_for_multipath(in_obj)
-           // else 
+            if (!in_obj.has_curves())
+                args_vals = this.args_for_multipath(in_obj)
+            else 
             {
                 glsl_funcs.add("sdCubicBezier", DFFUNC_BEZIER)
                 glsl_funcs.add("multiPathWithCurves", DFFUNC_MULTI_PATH_CURVE)

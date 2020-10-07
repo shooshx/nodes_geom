@@ -436,7 +436,7 @@ async function run_nodes_tree(n)
         n.clear_dirty() // it finished running so it didn't throw and exception
     }
 
-    progress_io(n)
+    progress_io(n) // needs to be outside the dirty check since otherwise its output wouldn't move to the next node if we just change the display node after running
 }
 
 function clear_inputs_errors(prog) {
@@ -536,12 +536,11 @@ function eventWrapper(func, event_name, do_save=true) {
         }
         
         if (draw_request.draw) {
-            //console.log("-event-draw ", event_name)
-
             if (do_save)  // automatic events like onload shouldn't save since they are not user interaction
                 save_state()
 
-            let do_run = draw_request.do_run, clear_all = draw_request.clear_all
+            const do_run = draw_request.do_run, clear_all = draw_request.clear_all
+            //console.log("-event-draw ", event_name, " do-run=", do_run, "  clear=", clear_all)
             clear_draw_req()
             call_frame_draw(do_run, clear_all)
             clear_draw_req() // in case any run triggered a frame again (happens with shaders that are generated in run()

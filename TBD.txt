@@ -61,14 +61,17 @@ EXPRESSIONS
 - BUG? rendering with effective_vtx ?
 - BUG: func node without show_code?
 - BUG: if variable changes type, expression that depend on it need to be reparsed
+- BUG engine - if there's marked template display above real display, there's going to be redundany runs on every other "space" key
+     - since progress_io sets as dirty on the outputs of the template
+     - fix - instead of progress_io, fetch the inputs before run
 - distance fields
     - primitives
         half-plane
         polygons
         multi with bezier
-            BUG: not displayed immediately
-            separate compile for shader
-            path with straight and bezier
+            separate compile for shader, in worker thread?
+            setTimeout?
+        mesh of just vertices to circles
         multiple circles from vertices
             init from combiner
     - more smooth combiners
@@ -93,7 +96,9 @@ EXPRESSIONS
 - default(var, 1)
 - gradient
     sampler transform only x
-- noise, plasma as basic func
+- FuncNode
+    noise
+    fb_factory from existing image
 - Shader - BUG: auto transform param for mat3 uniform
 - render any geometry to texture
     extend point-gradient
@@ -124,7 +129,6 @@ NODES:
     - delete point from list control gui
     - ??? move them even after transform?
     - primitive quad, triangle, path - between the points? by selection?
-    - Path curve control points
     - point size
     - BUG - yellow line doesn't follow the selected point
     - make several versions of the arrays in the same object and a node to select version - instead of a modify node
