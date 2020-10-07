@@ -1018,6 +1018,7 @@ class NodeDFCombine extends BaseDFNodeCls
 
 class DFNodeForLoop extends DFNodeBase {
     constructor(child, tr_lst, combiner_maker, combiner_args, combiner_funcs) {
+        super()
         this.child = child
         this.tr = null
         this.inv_tr = null
@@ -1043,7 +1044,8 @@ class DFNodeForLoop extends DFNodeBase {
         dfstate.func_set.extend(this.combiner_funcs)
 
         const inv_tr = mat3.create()
-        const trs_start = dfstate.args_arr.length
+        let trs_start = dfstate.args_arr.length
+        dfstate.args_arr.push(this.tr_lst.length)
         for(let tr of this.tr_lst) {
             mat3.invert(inv_tr, tr)
             if (this.inv_tr !== null) // has a self transform as well?
@@ -1052,14 +1054,17 @@ class DFNodeForLoop extends DFNodeBase {
         }
 
         const in_coord_var = "in_coord" + dfstate.alloc_var()
+        const count_var = "in_count" + dfstate.alloc_var()
         let text = "float " + myvar + " = 999999.0;\n"  // TBD from combiner
         text += "vec2 " + in_coord_var + " = coord;\n"
-        text += "for(int i = 0; i < " + this.tr_lst.length + "; ++i) {\n"
+        text += "int " + count_var + " = int(get_arg(" + trs_start + "));"
+        trs_start++;
+        text += "for(int i = 0; i < " + count_var + "; ++i) {\n"
         text += "  int tr_idx = i*6 + " + trs_start + ";\n"
         text += "  mat3x2 tr = mat3x2(get_arg(tr_idx), get_arg(tr_idx+1), get_arg(tr_idx+2), get_arg(tr_idx+3), get_arg(tr_idx+4), get_arg(tr_idx+5));\n"
         text += "  coord = tr * vec3(" + in_coord_var + ", 1.0);\n"
         text += child_text
-        text += "  " + myvar + " = " + this.combiner_maker(args_strs, [myvar, child_var_name]) + ";\n"
+        text += "  " + myvar + " = " + this.combiner_maker.make_func(args_strs, [myvar, child_var_name]) + ";\n"
         text += "}\n"
 
         return [myvar, text]

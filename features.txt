@@ -112,3 +112,28 @@ Node: Field Combine
   - function can use variables from variables nodes. 
     The same variable name can't get more than one value in the same eventual unified distance field
   - function can use input distance field by with in_fields.0, in_fields.1 etc'
+
+Node: Field image
+- Turn input image or gradient into a distance field
+  - use in_texi(<index>, coord) to access the image. in_tex(coord) not supported here
+
+Node: Field From Geometry
+- Turn a mesh or multi-paths into a distance field
+  - bezier curves shader takes a long time to compile
+  - assumes paths are closed
+
+Node: Field Copy
+- Copy the same distance field multiple times
+  - into the positions of the vertices of the in_target mesh
+    use "in_target.vtx_pos" for instace in the transform parameters
+  - into a set number of instances accordin to "Count" parameter, which is enabled only if there isn't a mesh input
+    use "index" in the transform parameters to differenciate between the instances
+
+Node: Marchin squares
+- Trace some threshold iso-line of a distance field
+- One of two methods: 
+    - simple marching-squares - produces lots of vertices and tiny straight lines
+    - po-trace like inkscape is doing - produces few vertices and interpolated bezier curves
+- select the resolution of the distance field sampling - larger sampling produces more accurate result 
+- "Flip sign" parameter - needed if the trace produces an outside frame
+- control the position and orientation of the sampling area

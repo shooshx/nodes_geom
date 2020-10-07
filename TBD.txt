@@ -67,10 +67,6 @@ EXPRESSIONS
 - distance fields
     - primitives
         half-plane
-        polygons
-        multi with bezier
-            separate compile for shader, in worker thread?
-            setTimeout?
         mesh of just vertices to circles
         multiple circles from vertices
             init from combiner
