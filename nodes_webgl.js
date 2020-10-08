@@ -395,9 +395,37 @@ const TEX_STATE_EVALUATORS = { "in_tex":  (m,s)=>{ return new GlslTextEvaluator(
                                "in_texi":  (m,s)=>{ return new GlslTextEvaluator(m,s, "in_texi", [], TYPE_FUNCTION, in_texi_types ) }
                              }  // also takes index of texture
 
+function async_timeout(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+const SHADER_WAIT_GRAN = 10;
+const SHADER_WAIT_MAX = 10000;
 
+async function waitCompile(gl, program) {
+    if (ext_par_shader === null) 
+        return
+    let timeWaited = 0
+    let nextWait = 0 // first wait should be very short
+    let waitElem = null
+    while(timeWaited < SHADER_WAIT_MAX) {
+        const done = gl.getProgramParameter(program, ext_par_shader.COMPLETION_STATUS_KHR)
+        if (done)
+            break
+        if (waitElem === null && timeWaited > 500) {
+            waitElem = add_div(main_view, "shader_wait")
+            waitElem.innerText = "Compiling shader..."
+        }
+        await async_timeout(nextWait);
+        timeWaited += nextWait
+        nextWait = SHADER_WAIT_GRAN
+    }
+    if (waitElem !== null)
+        waitElem.parentElement.removeChild(waitElem)
+    if (timeWaited > 1000)
+        console.log("waited for shader ", timeWaited, "msec")
+}
 
-function createProgram(gl, vtxSource, fragSource, attr_names, defines, flags=0) {
+async function createProgram(gl, vtxSource, fragSource, attr_names, defines, flags=0) {
     let prefixSrc = "#version 300 es\nprecision mediump float;\n"
     for(let name in defines)
         prefixSrc += "#define " + name + " (" + defines[name] + ")\n"
@@ -417,6 +445,9 @@ function createProgram(gl, vtxSource, fragSource, attr_names, defines, flags=0) 
     gl.linkProgram(program);
     gl.deleteShader(vtxShader)  // mark for deletion once the program is deleted
     gl.deleteShader(fragShader) 
+
+    await waitCompile(gl, program)
+
     let success = gl.getProgramParameter(program, gl.LINK_STATUS);
     if (!success) {
         const errlog = gl.getProgramInfoLog(program)
@@ -454,7 +485,7 @@ function make_dummy_texture()
 }
 
 let g_dummy_texture = null
-let ext_col_float = null
+let ext_col_float = null, ext_par_shader = null
 function ensure_webgl() {
     if (gl !== null)    
         return
@@ -465,6 +496,8 @@ function ensure_webgl() {
     // for distance field render to float
     ext_col_float = gl.getExtension('EXT_color_buffer_float')
     dassert(ext_col_float !== null, "EXT_color_buffer_float unavailable")
+    // for quering the state of long shader compile (bezier curve for distance)
+    ext_par_shader = gl.getExtension('KHR_parallel_shader_compile')
 
     gl.my_fb = gl.createFramebuffer();
     gl.bindFramebuffer(gl.FRAMEBUFFER, gl.my_fb);
@@ -854,7 +887,7 @@ class NodeShader extends NodeCls
                     defines[def_name] = 1 // it's either defined or not defines
             }
             //console.log("~~ createprog")
-            const [_prog, vtxerr, fragerr] = createProgram(gl, this.vtx_text.v, this.frag_text.v, this.attr_names, defines, FLAG_WITH_TEXTURE_ACCESS);
+            const [_prog, vtxerr, fragerr] = await createProgram(gl, this.vtx_text.v, this.frag_text.v, this.attr_names, defines, FLAG_WITH_TEXTURE_ACCESS);
             this.program = _prog
             this.vtx_text.set_errors(vtxerr)
             this.frag_text.set_errors(fragerr)
@@ -959,7 +992,7 @@ async function renderTexToImgBitmap(tex_obj, sz_x, sz_y)
     gl.viewport(0, 0, canvas_webgl.width, canvas_webgl.height); // we just set this to the size from the texture
 
     if (render_teximg.mesh === null) {
-        const [_prog, vtxerr, fragerr] = createProgram(gl, render_teximg.vtx_src, render_teximg.frag_src, ['vtx_pos'], [], 0)
+        const [_prog, vtxerr, fragerr] = await createProgram(gl, render_teximg.vtx_src, render_teximg.frag_src, ['vtx_pos'], [], 0)
         render_teximg.program = _prog
         dassert(render_teximg.program !== null, "failed compile teximg")
 

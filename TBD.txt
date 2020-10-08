@@ -310,6 +310,9 @@ webflow?
 nice reference images:
 https://society6.com/product/gray-polygon-background_stretched-canvas
 
+simple game with nice image effects: https://greggman.github.io/pico-8-post-processing/nano-villager_html/?filter=default
+    from this guy: https://twitter.com/greggman
+
 VEX random attr video: https://www.youtube.com/watch?v=0qfBj15IoQM
 2D graphs: https://www.desmos.com/
 
