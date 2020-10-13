@@ -1340,6 +1340,13 @@ function find_node_obj(px, py, ex, ey, cvs_x, cvs_y) {
     return nodes_find_obj_shadow(cvs_x, cvs_y)
 }
 
+function ask_clear_program() {
+    message_box("Clear", "Are you sure you want\nto clear everything?", [{text: "Cancel"}, {text:"Clear", func:()=>{
+        clear_program()
+        draw_nodes()
+    }}])
+}
+
 
 function nodes_context_menu(px, py, wx, wy, cvs_x, cvs_y) {
     let obj = find_node_obj(px, py, wx, wy, cvs_x, cvs_y)
@@ -1360,7 +1367,7 @@ function nodes_context_menu(px, py, wx, wy, cvs_x, cvs_y) {
     if (node !== null)
         opt = [{text:"Delete Node", func:function() { program.delete_node(node, true)} }]
     else if (opt === null) {
-        opt = [{text:"Clear", func:()=>{ clear_program(); draw_nodes() } }, {text:"-"}]
+        opt = [{text:"Clear", func:ask_clear_program }, {text:"-"}]
         for(let c of nodes_classes) {
             if (c.group_name === undefined)
                 opt.push( {text: c.name(), func:function() { program.add_node(px, py, null, c); draw_nodes() } } )

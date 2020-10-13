@@ -64,14 +64,9 @@ EXPRESSIONS
 - BUG: if variable changes type, expression that depend on it need to be reparsed
 - BUG: geom union of quad and path both into subject?
 - BUG: rotate variable, changing slider when there's an invalid var doesn't clear the red error
-- BUG engine - if there's marked template display above real display, there's going to be redundany runs on every other "space" key
-     - since progress_io sets as dirty on the outputs of the template
-     - fix - instead of progress_io, fetch the inputs before run
-     - !!! same for vars
 - distance fields
     - primitives
         half-plane
-        mesh of just vertices to circles
         multiple circles from vertices
             init from combiner
     - more smooth combiners

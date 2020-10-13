@@ -654,6 +654,7 @@ function add_move_handlers(grip, movefunc, downfunc=null) {
     });
 }
 
+// an input dialog with input fields
 function fields_input_dlg(parent, caption, text, on_save_func)
 {
     let rect = {visible:true}
@@ -679,6 +680,25 @@ function input_dlg(parent, caption, text, on_save_func)
     name_input = add_elem(center_elem, "input", "dlg_text_input")
     name_input.type = "text"
     name_input.spellcheck = false
+}
+
+function message_box(title, text, opts) 
+{
+    const rect = {visible:true}
+    const close_action = ()=> { main_view.removeChild(dlg.elem)}
+    const dlg = create_dialog(main_view, title, false, rect, close_action)
+    const label = add_div(dlg.client, "dlg_label")
+    label.innerText = text
+    
+    const buttons = add_div(dlg.client, "dlg_buttons_group")
+    for(let opt of opts) {
+        const sb = add_push_btn(buttons, opt.text, ()=>{ 
+            if (opt.func)
+                opt.func()
+            close_action();
+        })
+        sb.classList.add("dlg_button")
+    }
 }
 
 function save_as(parent) {

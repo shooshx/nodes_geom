@@ -629,7 +629,7 @@ input {
     display: flex;
     flex-direction: row;
     justify-content: center;
-    margin: 12px 0 7px 0;
+    margin: 12px 10px 7px 10px;
 }
 .dlg_button {
     background-image: linear-gradient(to bottom, #989898, #848484);

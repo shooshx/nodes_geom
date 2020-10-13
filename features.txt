@@ -127,7 +127,7 @@ Node: Field From Geometry
 Node: Field Copy
 - Copy the same distance field multiple times
   - into the positions of the vertices of the in_target mesh
-    use "in_target.vtx_pos" for instace in the transform parameters
+    use "in_target.vtx_pos" or "in_target.vtx_radius" for instace in the transform parameters
   - into a set number of instances accordin to "Count" parameter, which is enabled only if there isn't a mesh input
     use "index" in the transform parameters to differenciate between the instances
 
