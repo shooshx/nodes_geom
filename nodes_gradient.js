@@ -144,6 +144,8 @@ class Gradient extends PObject
     }
 
     transform(m) { mat3.multiply(this.t_mat, m, this.t_mat) }
+    set_transform(m) { mat3.copy(this.t_mat, m) }
+    get_transform() { return this.t_mat }
 
     draw_line_points(pa, pb, line_color="#000") {
         let tpa = vec2.create(), tpb = vec2.create()
@@ -410,6 +412,11 @@ class LinearGradient extends Gradient {
         if (this.sample_tex)
             return // it should be appear to be possible to transform a sampler gradient
         super.transform(m)
+    }
+    set_transform(m) { 
+        if (this.sample_tex)
+            return
+        super.set_transform(m)
     }
 
     draw_selection_m(m, selected_indices) {

@@ -44,6 +44,7 @@ class ImageBase extends PObject
     set_smooth(v) { this.smooth = v }
 
     set_transform(m) { mat3.copy(this.t_mat, m) }
+    get_transform() { return this.t_mat }
     transform(m) { mat3.multiply(this.t_mat, m, this.t_mat) } 
 
     draw_image(img_impl, m) { // called from derived draw()

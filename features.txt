@@ -86,6 +86,8 @@ Node: Scatter
 Node: Group Objects
 
 Node: Function Fill
+- Create an image using an expression or GLSL code
+- Can get input from image, gradient and distance field
 - Sample texture with 
     - in_tex(coord) or in_tex(x,y) for texture 0 or
     - in_texi(i, coord) or in_tex(i,x,y) for texture 0 to 4

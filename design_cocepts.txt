@@ -18,6 +18,12 @@ Terminals
 - if a node needs a mutable copy of an object coming in an input, calls get_mutable and the object is cloned
 - The node keeps its output object as cache for future frames
 - bad idea: having enabled/disabled terminals. Disabled terminal still has an invisible connection to it
+New deal:
+- Not clearing input variables anymore before each run
+-   this is so that a node can really know if the input was dirty
+- Instead of running node and dispersing the output to all lines, Before run, the node collects its inputs
+- (normal objects) Output terminals has version, input check if what they have is the same as the last version produced by the output
+- (variables) the value of the variables is checked instead of a version, in order to avoid a multi-terminals
 
 Colors
 - when dealing with images, ranges is 0-255 to r,g,b,alphai and 0-1 to alpha, as sampled from images

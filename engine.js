@@ -371,6 +371,8 @@ function var_run_nodes_tree(n)
             var_run_nodes_tree(line.from_term.owner)
         }
     }
+    //n.cls.vars_in.clear()
+    collect_terminal(n.cls.vars_in)
     n.cls.nresolve_variables()
 
     if (n.nkind == KIND_OBJ)  // normal objects node, don't need to do anything more, will be run after dirty analysis
@@ -380,32 +382,33 @@ function var_run_nodes_tree(n)
     // variable producing node
     const this_dirty = n.has_anything_dirty() || !n.has_cached_output()
     if (this_dirty) {
+        collect_inputs(n, KIND_VARS) // vars input into this vars node
         n.cls.var_run()
     }
-    progress_io(n)
+    //progress_io(n)
     n.clear_dirty()  // this makes it so later in the real run, we won't get to this node
      // it needs to be after progress_io so that the VarBox dirty would propogate as false
 }
 
-function progress_io(n)
-{
-    // distribute outputs to all connected inputs so that all references of an object will be known
-    //   still need to do that even if not dirty since inputs are cleared
-    for(let out_t of n.outputs) {  
-        for(let line of out_t.lines) {
-            let obj = line.from_term.get_const()
-            assert(obj !== null, n.cls, "No output")
-            line.to_term.set(obj)
-            //console.log("TERM-SET from ", line.from_term.name, ":", line.from_term.owner.name, "  TO  ", line.to_term.name, ":", line.to_term.owner.name)
-        }
-    }
-    // clear all inputs of the node that just ran just to be safe (they don't take up references)
-    for(let inp_t of n.inputs) {
-        for(let line of inp_t.lines) {
-            line.to_term.clear()
-        }
+
+function collect_terminal(in_t) {
+    for(let line of in_t.lines) {
+        let obj = line.from_term.get_const()
+        assert(obj !== null, line.from_term.owner.cls, "No output")
+        line.to_term.intr_set(obj, line.from_term.get_cur_uver())
     }
 }
+
+function collect_inputs(n, of_kind)
+{
+    for(let in_t of n.inputs) {
+        if (in_t.kind !== of_kind)
+            continue
+        collect_terminal(in_t)
+    }
+}
+
+
 
 function isPromise(x) {
     return Boolean(x && typeof x.then === 'function')
@@ -417,6 +420,7 @@ async function run_nodes_tree(n)
     if (n._visited)
         return
     n._visited = true
+
     if (n._node_dirty) {
         // all inputs    
         for(let inp_t of n.inputs) {  
@@ -426,31 +430,32 @@ async function run_nodes_tree(n)
             }
         }
         // clear outputs of what's just going to run to make sure it updated its output
-        // otherwise it can have something there from a previous iteration
+        // otherwise it can have something there from a previous iteration (which will stay there in case of an error)
         for(let out_t of n.outputs) {
             out_t.clear()
         }
+        collect_inputs(n, KIND_OBJ)
         const r = n.cls.run()
         if (isPromise(r))
             await r
         n.clear_dirty() // it finished running so it didn't throw and exception
     }
 
-    progress_io(n) // needs to be outside the dirty check since otherwise its output wouldn't move to the next node if we just change the display node after running
+    //progress_io(n, n_dirty) // needs to be outside the dirty check since otherwise its output wouldn't move to the next node if we just change the display node after running
 }
 
 function clear_inputs_errors(prog) {
     let had_errors = false
     for(let n of prog.nodes) {
         // but we need to clear them all so there won't be leftovers from last run
-        for(let t of n.inputs)
-            t.clear() 
+     //   for(let t of n.inputs)  disabled, see progress_io
+     //       t.clear() 
         // also clear errors
         had_errors |= (n.cls.get_error() !== null)
         n.cls.clear_error()
     }
     if (had_errors)
-        draw_nodes()
+        draw_nodes() // show error in node view
 }
 
 function do_clear_all(prog) {

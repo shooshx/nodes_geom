@@ -43,16 +43,28 @@ class VarsInTerminal extends InTerminal
         draw_curve(ctx, pnts)
     }
 
-    set(obj) {
+    intr_set(obj, uver) {
         assert(obj.constructor === VariablesBox, this.owner.cls, "Unexpected object type")
+        let any_dirty = false
         for(let name in obj.vb) {
-            assert(this.my_vsb.vb[name] === undefined, this.owner.cls, "Variable of this name already exists here")
+            // TBD assert(this.my_vsb.vb[name] === undefined, this.owner.cls, "Variable of this name already exists here")
+
             // every node input term has its own clone of the VarBox so that it could keep track of if its dirty or not
             // and so that the original (incoming) VarBox dirty flag could be cleared after the node is done running
-            const vb = clone(obj.vb[name])
-            this.my_vsb.vb[name] = vb
+            if (this.my_vsb.vb[name] === undefined || !vb_equals(obj.vb[name], this.my_vsb.vb[name])) {
+                const vb = clone(obj.vb[name])
+                vb.vis_dirty = true
+                this.my_vsb.vb[name] = vb
+                any_dirty = true
+            }
         }
-        //this.tset_dirty(true)
+        // if this function is called, the var node attach was ran so we assume that's because something changed in it
+        // VarNode doesn'd do object caching so it's a safe assumption
+        this.tset_dirty(any_dirty)
+    }
+
+    is_dirty() {
+        return this.dirty
     }
 
     // every time a node that has in variables is run:
@@ -66,6 +78,20 @@ class VarsInTerminal extends InTerminal
     empty() {
         return this.my_vsb.empty
     }
+}
+
+// compare VarBoxs
+function vb_equals(a, b) {
+    if (a.type !== b.type)
+        return false
+    switch(a.type) {
+    case TYPE_BOOL:
+    case TYPE_NUM: return a.v === b.v
+    case TYPE_VEC2: return vec2.equals(a.v, b.v)
+    case TYPE_VEC3: return vec3.equals(a.v, b.v)
+    case TYPE_VEC4: return vec4.equals(a.v, b.v)
+    }
+    throw new Error("VarBox unknown type in vb_equals")
 }
 
 class VarBox {

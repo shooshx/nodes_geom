@@ -55,15 +55,19 @@ EXPRESSIONS
 - BUG: display_slider shouldn't call peval() - happens every add_elems
 
 ****** CURRENT AGENDA ******
+- !!! "Are you sure" before clear
 - Copy
     - with existing vtx_transform, face_transform
     - in features.txt
 - BUG? rendering with effective_vtx ?
 - BUG: func node without show_code?
 - BUG: if variable changes type, expression that depend on it need to be reparsed
+- BUG: geom union of quad and path both into subject?
+- BUG: rotate variable, changing slider when there's an invalid var doesn't clear the red error
 - BUG engine - if there's marked template display above real display, there's going to be redundany runs on every other "space" key
      - since progress_io sets as dirty on the outputs of the template
      - fix - instead of progress_io, fetch the inputs before run
+     - !!! same for vars
 - distance fields
     - primitives
         half-plane
@@ -300,6 +304,8 @@ demo idea
 - stars https://codepen.io/AzazelN28/pen/zvXZQw
 - square that explodes to triangles and reassembles to circle
     - expr create array of all the coords of the triangle and interpolate
+- Video to traced outline to triangulation to rainbow coloring.
+    - ideas from video
 
 https://two.js.org/examples/
 

@@ -476,15 +476,17 @@ class InTerminal extends Terminal {
         // and the dirtyness did not propogate down
         //   unset when cleaning the entire node
         this.dirty = true
+        this.last_uver_seen = null
     }
-    set(v) {
-        assert(this.h === null || this.h.is_null(), this.owner.cls, "too many lines connected to input " + this.name)
-
+    intr_set(v, uver) {
+        assert(this.lines.length <= 1, this.owner.cls, "too many lines connected to input " + this.name)
+        const dirty = (this.last_uver_seen === null || uver === null || uver !== this.last_uver_seen)
+        this.last_uver_seen = uver
         if (v.constructor === PHandle || v.constructor === PWeakHandle)
             this.h = new PWeakHandle(v.p) // copy ctor
         else            
             this.h = new PWeakHandle(v)
-        this.tset_dirty(true)  // see desing_concepts
+        this.tset_dirty(dirty)  // see design_concepts
     }    
     get_const() {
         if (this.h === null)
@@ -504,15 +506,29 @@ class InTerminal extends Terminal {
     }
     force_set(v) { // generated object into internal nodes
         this.clear()
-        this.set(v)
+        this.intr_set(v, null)
     }
     tset_dirty(v) {
         this.dirty = v
     }
     is_dirty() {
-        return this.dirty
+        if (this.dirty)
+            return true
+
+        assert(this.lines.length <= 1, this.owner.cls, "too many lines connected to input " + this.name)
+        if (this.lines.length > 0) {
+            const from_uver = this.lines[0].from_term.get_cur_uver()
+            const to_uver = this.last_uver_seen
+            if (from_uver === null || to_uver === null || from_uver !== to_uver)
+                return true;
+        }
+        return false
+    }
+    get_last_seen_uver() {
+        return this.last_uver_seen;
     }
 }
+
 
 // outputs are by default owning because they are going to need this object
 // as a cache for the next frame
@@ -520,6 +536,8 @@ class OutTerminal extends Terminal {
     constructor(in_node, name, conn_ev=null) {
         super(name, in_node, false, conn_ev)
         this.h = null
+        this.cur_ver = 1 
+        // incremented every set()
     }
     set(v) {
         // and also save a wear-ref to it so that display would work 
@@ -527,6 +545,7 @@ class OutTerminal extends Terminal {
             this.h = new PHandle(v.p) // copy ctor
         else            
             this.h = new PHandle(v)
+        ++this.cur_ver;    
     }
     get_const() {
         if (this.h === null)
@@ -542,6 +561,9 @@ class OutTerminal extends Terminal {
         if (this.h !== null)
             this.h.clear()
     }
+    get_cur_uver() {
+        return this.tuid + "_" + this.cur_ver
+    }
 }
 
 const TERM_MULTI_HWIDTH = 30
@@ -553,6 +575,7 @@ class InAttachMulti {
         this.is_input = owner_term.is_input // needed by Line ctor
         //this.owner = owner_term.owner
         this.h = null
+        this.last_uver_seen = null
     }
     get_attachee() {
         return this.owner_term
@@ -566,16 +589,18 @@ class InAttachMulti {
     center_offset() {
         return this.owner_term.xoffset
     }
-    set(v) {
+    intr_set(v, uver) {
+        const dirty = (this.last_uver_seen === null || uver !== this.last_uver_seen) // dirty also if the incoming and prev are null
+        this.last_uver_seen = uver
         if (v.constructor === PHandle || v.constructor === PWeakHandle)
             this.h = new PWeakHandle(v.p) // copy ctor
         else            
             this.h = new PWeakHandle(v)
-        this.tset_dirty(true)
+        this.tset_dirty(dirty)  //  this is needed to give the correct is_dirty indication to the node if it queries about it
     }
     force_set(v) { // generated object into internal nodes
         this.clear()
-        this.set(v)
+        this.intr_set(v, null)
     }
     get_const() {
         if (this.h === null)
@@ -627,7 +652,16 @@ class InTerminalMulti extends TerminalBase
         this.dirty = v
     }
     is_dirty() {
-        return this.dirty
+        if (this.dirty)
+            return true
+
+        for(let line of this.lines) {
+            const from_uver = line.from_term.get_cur_uver()
+            const to_uver = line.to_term.last_uver_seen // the attachment
+            if (from_uver === null || to_uver === null || from_uver !== to_uver)
+                return true;
+        }
+        return false
     }
 
     get_input_consts() {

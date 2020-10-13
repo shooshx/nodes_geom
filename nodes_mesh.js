@@ -1685,12 +1685,27 @@ class NodeTransform extends NodeCls
         this.in = new InTerminal(node, "input")
         this.out = new OutTerminal(node, "output")
         this.transform = new ParamTransform(node, "transform")
+        
+        this.cached_obj = null
+        this.cached_initial_tr = mat3.create() // if there's a cached obj, this is the transform it stated with when it was first cached
     }
     run() {
         assert(this.transform.is_valid(), this, "invalid transform")
-        // TBD mutate only if not identity
-        let obj = this.in.get_mutable()
-        assert(obj, this, "missing input")
+        let obj = null
+        // if the input didn't change and it supports setting the transform, we don't need to clone it again
+        if (!this.in.is_dirty() && this.cached_obj !== null && this.cached_obj.set_transform !== undefined) {
+            obj = this.cached_obj
+            obj.set_transform(this.cached_initial_tr)
+        }
+        else {
+            obj = this.in.get_mutable()
+            assert(obj, this, "missing input")
+            if (obj.set_transform !== undefined) {
+                console.assert(obj.get_transform !== undefined)
+                this.cached_obj = obj
+                mat3.copy(this.cached_initial_tr, obj.get_transform())
+            } 
+        }
         obj.transform(this.transform.v)
         this.out.set(obj)
     }

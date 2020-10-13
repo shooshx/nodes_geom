@@ -141,6 +141,15 @@ class DistanceField extends PObject
         mat3.multiply(this.dfnode.tr, m, this.dfnode.tr)
         mat3.invert(this.dfnode.inv_tr, this.dfnode.tr)
     }
+    set_transform(m) { 
+        this.dfnode.tr = null
+        this.transform(m)
+    }
+    get_transform() {
+        if (this.dfnode.tr === null)
+            return mat3.create()
+        return this.dfnode.tr;
+    }
 
     ensure_prog() {
         if (this.p_prog !== null)
@@ -753,8 +762,9 @@ class NodeDFFromGeom extends BaseDFNodeCls
         if (dfnode === null) {
             glsl_funcs.add("multiPath", DFFUNC_MULTI_PATH)
             dfnode = new DFNode(new Call_FuncMaker("multiPath"), null, args_vals, null, glsl_funcs)
-            dfnode.pass_first_arg_idx = true
+            dfnode.pass_first_arg_idx = true            
         }
+        dfnode.inline_tr = true
         this.set_out_dfnode(dfnode)
     }
 }
