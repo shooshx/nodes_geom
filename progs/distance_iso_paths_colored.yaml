@@ -1,0 +1,240 @@
+nodes:
+  '1':
+    params:
+      Shape:
+        sel_str: Circle
+      Radius:
+        e_v: 0.25
+        se_cv: return 0.25
+      Size:
+        e_x: 0.5
+        e_y: 0.30000000000000004
+        se_cv: 'return vec2(0.5, 0.3)'
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: field_primitive_1
+    cls_name: Field Primitive
+    x: -2131
+    y: 564
+    disp_param: {}
+  '2':
+    params:
+      Shape:
+        sel_str: Circle
+      Radius:
+        e_v: 0.31300000000000006
+        se_cv: return 0.25
+      Size:
+        e_x: 0.5
+        e_y: 0.30000000000000004
+        se_cv: 'return vec2(0.5, 0.3)'
+      Transform:
+        e_tx: 0.36000000000000004
+        e_ty: 0.29100000000000004
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: field_primitive_2
+    cls_name: Field Primitive
+    x: -1918
+    y: 634
+    disp_param: {}
+  '3':
+    params:
+      Operator:
+        sel_str: Smooth-min
+      Radius:
+        e_v: 0.09500000000000003
+        se_cv: return 0.25
+      "Distance\nFunction":
+        se_v: length(coord) - 1
+        show_code: true
+        se_cv: return length(coord) - 1
+      OrderInputs:
+        sorted_order: [0, 1]
+    name: field_combine_1
+    cls_name: Field Combine
+    x: -1998
+    y: 715
+    disp_param: {}
+  '6':
+    params:
+      Algorithm:
+        sel_str: Po-Trace
+      First Iso:
+        e_v: 0.08300000000000002
+        se_cv: return 0
+      Iso Count:
+        e_v: 8
+        se_cv: return 1
+      Iso Step:
+        e_v: -0.021094151773801584
+        se_cv: return 0.2
+      Resolution:
+        x: 200
+        y: 200
+      Size:
+        e_x: 2
+        e_y: 2
+        se_cv: 'return vec2(2, 2)'
+      Flip sign:
+        v: true
+      Transform:
+        e_tx: 0.027700000000000006
+        e_ty: 0.05500000000000001
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: marching_squares_1
+    cls_name: Marching Squares
+    x: -2015
+    y: 825
+    disp_param:
+      show_ctrls: false
+      show_ctrls_pnts: false
+      show_vtx: false
+      show_lines: true
+      show_faces: true
+  '8':
+    params:
+      npt:
+        v:
+          '0': color
+          '1': radius
+          '2': normal
+          '3': fill
+          '4': transform
+      Bind To:
+        sel_str: Faces
+      Type:
+        sel_str: Color
+      Edit code:
+        v: true
+      Name:
+        v: color
+      Color:
+        hex: '#CCCCCC'
+        show_code: true
+        se_cv: |-
+          r = in_obj.face_index * 20
+          return rgb(r,r,204)
+          #return in_src
+      Float:
+        e_v: 0
+        se_cv: return 0
+      Float2:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      Select:
+        e_v: true
+        se_cv: return true
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: set_attribute_1
+    cls_name: Set Attribute
+    x: -1974
+    y: 959
+    disp_param:
+      show_ctrls: false
+      show_ctrls_pnts: true
+      show_vtx: false
+      show_lines: true
+      show_faces: true
+  '10':
+    params:
+      Type:
+        sel_str: Linear
+      Method:
+        sel_str: Stops
+      Point 1:
+        e_x: 0.031100000000000006
+        e_y: 0.23900000000000002
+        se_cv: 'return vec2(-0.5, 0)'
+      Radius 1:
+        e_v: 0.1
+        se_cv: return 0.1
+      Point 2:
+        e_x: 0.5
+        e_y: 0
+        se_cv: 'return vec2(0.5, 0)'
+      Radius 2:
+        e_v: 0.7
+        se_cv: return 0.7
+      Spread:
+        sel_str: Pad
+      f(t)=:
+        hex: '#CCCCCC'
+        show_code: true
+        se_cv: 'return rgb(255, 128, 0.0) + rgb(t, t, t)*255'
+      Sample Num:
+        e_v: 10
+        se_cv: return 10
+      Add stops:
+        v: true
+      Value:
+        lst: [0, 0.43916189670562744, 1]
+      Color:
+        lst: [255, 0, 0, 255, 255, 255, 0, 255, 0, 255, 0, 255]
+      Resolution:
+        e_v: 128
+        se_cv: return 128
+      Smooth:
+        v: false
+    name: gradient_1
+    cls_name: Gradient
+    x: -1811
+    y: 854
+    disp_param:
+      show_fill: true
+lines:
+  - from_name: out_field
+    from_id: 1
+    to_name: in_fields
+    to_id: 3
+    uid: 4
+  - from_name: out_field
+    from_id: 2
+    to_name: in_fields
+    to_id: 3
+    uid: 5
+  - from_name: out_field
+    from_id: 3
+    to_name: in_field
+    to_id: 6
+    uid: 7
+  - from_name: out_paths
+    from_id: 6
+    to_name: in_obj
+    to_id: 8
+    uid: 9
+next_node_id: 12
+names_idx_s:
+  Field Primitive: 2
+  Field Combine: 1
+  Marching Squares: 1
+  Set Attribute: 1
+  Gradient: 1
+display_node_id: 8
+tdisp_node_ids: []
+input_node_ids: []
+nodes_view:
+  pan_x: 2298
+  pan_y: -588
+decor: []

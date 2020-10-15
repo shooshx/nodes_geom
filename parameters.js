@@ -823,8 +823,10 @@ class ExpressionItem {
     {
         if (this.slider_conf.visible && (this.slider == null || is_first)) {
             this.slider = add_param_slider(this.param_line, this.slider_conf.min, this.slider_conf.max, null, this.prop_type, (v)=>{
-                if (this.set_to_const(v)) // might not have changed (with int)
+                if (this.set_to_const(v)) { // might not have changed (with int)
+                    this.in_param.call_change()
                     this.in_param.pset_dirty() 
+                }
             })
             this.peval_self() // TBD(lazy) this will set the slider position and enablement (but not do pset_dirty since nothing changed)
         }
@@ -1114,7 +1116,7 @@ let CodeItemMixin = (superclass) => class extends superclass {
 // used by single-value params that have expression and code ability
 class ParamBaseExpr extends CodeItemMixin(Parameter)
 {
-    constructor(node, label, start_v, ed_type, conf) {
+    constructor(node, label, start_v, ed_type, conf, change_func=null) {
         super(node, label, conf)
         dassert(start_v !== undefined, "start value should not be undefined");
         //this.v = start_v  // numerical value in case of const
@@ -1125,6 +1127,7 @@ class ParamBaseExpr extends CodeItemMixin(Parameter)
         
         const code_expr = new ExpressionItem(this, "v", ed_type,  (v)=>{ if (this.show_code) this.v = v }, null, {allowed:false})
         this.make_code_item(code_expr, start_v)
+        this.change_func = change_func // set change_func after peval so that it won't be called in this initial peval (and the one in the code item), before all the other params were created (it will be called after load)
     }
 
     non_code_peval_self() {
@@ -1179,16 +1182,16 @@ class ParamBaseExpr extends CodeItemMixin(Parameter)
 
 
 class ParamFloat extends ParamBaseExpr {
-    constructor(node, label, start_v, conf=null) {
-        super(node, label, start_v, ED_FLOAT, conf)
+    constructor(node, label, start_v, conf=null, change_func=null) {
+        super(node, label, start_v, ED_FLOAT, conf, change_func)
     }
     gl_set_value(loc) {
         gl.uniform1f(loc, this.get_value())
     }    
 }
 class ParamInt extends ParamBaseExpr {
-    constructor(node, label, start_v, conf=null) {
-        super(node, label, start_v, ED_INT, conf)
+    constructor(node, label, start_v, conf=null, change_func=null) {
+        super(node, label, start_v, ED_INT, conf, change_func)
         this.item.set_prop = (v)=>{ this.v = round_or_null(v)  }
     }
     gl_set_value(loc) {

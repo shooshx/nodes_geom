@@ -55,7 +55,6 @@ EXPRESSIONS
 - BUG: display_slider shouldn't call peval() - happens every add_elems
 
 ****** CURRENT AGENDA ******
-- !!! "Are you sure" before clear
 - Copy
     - with existing vtx_transform, face_transform
     - in features.txt
@@ -64,6 +63,7 @@ EXPRESSIONS
 - BUG: if variable changes type, expression that depend on it need to be reparsed
 - BUG: geom union of quad and path both into subject?
 - BUG: rotate variable, changing slider when there's an invalid var doesn't clear the red error
+- BUG: inputs remain after disconnect
 - distance fields
     - primitives
         half-plane
@@ -73,6 +73,10 @@ EXPRESSIONS
     - cache make_frag_text and don't generate it every time
     - marching sqares
         multiple iso lines, with value attached, color with gradient
+        - expr in step depending on index
+        - sample a point in a gradient according to the index
+        - strange thing that happens with flip-sign not checked and face color - middle colors not visible (marching)
+        - index 0 should always be the first-iso
     - moving, bounding walls
         - for walls - variable from object, anything from the object, x,y,bbox,transform,attrbiture
 - manual geom create quads

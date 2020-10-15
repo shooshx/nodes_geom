@@ -44,6 +44,7 @@ Node: Set Attribute
 - Set attribute name, type and object to bind to (vertices or faces)
 - types: float, vec2 (normal), color (vec4), image-fill, transform
 - Sample color value from an image or gradient
+    - face attribute from image is sampled at the middle of the face
 - Calculate value according to vertex or face position
 - Expression possibilites:
     - Any attribute that already exists the input bound objects (in_obj.vtx_pos.x, in_obj.face_color.r)
@@ -132,10 +133,15 @@ Node: Field Copy
     use "index" in the transform parameters to differenciate between the instances
 
 Node: Marchin squares
-- Trace some threshold iso-line of a distance field
+- Trace some thresholds iso-lines of a distance field
 - One of two methods: 
     - simple marching-squares - produces lots of vertices and tiny straight lines
     - po-trace like inkscape is doing - produces few vertices and interpolated bezier curves
 - select the resolution of the distance field sampling - larger sampling produces more accurate result 
 - "Flip sign" parameter - needed if the trace produces an outside frame
 - control the position and orientation of the sampling area
+- Trace multiple iso-lines by setting Iso-Count to more than 1 and setting Iso-Step
+    - negative step goes inside, positive goes outside
+- The created MultiPath has the property "face_index" to identify the iso lines. Use this property in SetAttr to set color 
+  to the created faces. Examples for SetAttr:
+    - Bind To: Faces, Color: return rgb(in_obj.face_index * 20, in_obj.face_index * 30,255)

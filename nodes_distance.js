@@ -1207,10 +1207,14 @@ class NodeMarchingSquares extends NodeCls
         this.out = new OutTerminal(node, "out_paths")
 
         this.alg = new ParamSelect(node, "Algorithm", 0, ["Square Marching", "Po-Trace"])
-        this.thresh = new ParamFloat(node, "Threshold", 0, {enabled:true, min:-1, max:1})
+        this.thresh = new ParamFloat(node, "First Iso", 0, {enabled:true, min:-1, max:1})
+        this.count = new ParamInt(node, "Iso Count", 1, {enabled:true, min:1, max:20}, (v)=>{
+            this.step.set_enable(v > 1)
+        })
+        this.step = new ParamFloat(node, "Iso Step", 0.2, {enabled:true, min:-0.4, max:0.4})
         this.res = new ParamVec2Int(node, "Resolution", 256, 256)
         this.size = new ParamVec2(node, "Size", 2, 2)
-        this.flip_sign = new ParamBool(node, "Flip sign", false)
+        this.flip_sign = new ParamBool(node, "Flip sign", true)
         this.transform = new ParamTransform(node, "Transform")
     }
 
@@ -1254,19 +1258,19 @@ class NodeMarchingSquares extends NodeCls
         return values
     }
 
-    run_square_march(values, thresh, width, height) {
+    run_square_march(values, threshs, width, height) {
         //const contours = d3.contours().size([width, height]).thresholds([this.thresh.v])(values);
         const gen = d3.contours()
         gen.size([width, height])
         gen.smooth(true) // without this it's just steps
-        const cont = gen.contour(values, thresh)
+        const cont = gen.thresholds(threshs)(values)
         // returns a list of multipaths
         return cont
     }
 
-    square_march(values, thresh, width, height, sx, sy, tr) 
+    square_march(values, threshs, width, height, sx, sy, tr) 
     {
-        const cont = this.run_square_march(values, thresh, width, height)
+        const conts = this.run_square_march(values, threshs, width, height)
 
         const v = vec2.create()
         function tr_p(out, p) {
@@ -1275,21 +1279,27 @@ class NodeMarchingSquares extends NodeCls
             vec2.transformMat3(out, out, tr)
         }
 
-        const vtx = [], ranges = []
-        for(let paths of cont.coordinates) {
-            for(let path of paths) { // can have 1 or two paths if there's an outside when the value is negative inside
-                const start_at = vtx.length/2
-                for(let point of path) {
-                    tr_p(v, point)
-                    vtx.push(v[0], v[1])
+        const vtx = [], ranges = [], face_idx = []
+        let cont_idx = 0
+        for(let cont of conts) {
+            for(let paths of cont.coordinates) {
+                for(let path of paths) { // can have 1 or two paths if there's an outside when the value is negative inside
+                    const start_at = vtx.length/2
+                    for(let point of path) {
+                        tr_p(v, point)
+                        vtx.push(v[0], v[1])
+                    }
+                    ranges.push(start_at, vtx.length/2, PATH_CLOSED)
+                    face_idx.push(cont_idx)
                 }
-                ranges.push(start_at, vtx.length/2, PATH_CLOSED)
             }
+            ++cont_idx
         }
 
         const obj = new MultiPath()
         obj.set('vtx_pos', new TVtxArr(vtx), 2)
         obj.paths_ranges = ranges
+        obj.set('face_index', new Uint32Array(face_idx), 1)
         return obj
     }
 
@@ -1301,7 +1311,7 @@ class NodeMarchingSquares extends NodeCls
             vec2.transformMat3(out, out, tr)
         }
 
-        const vtx = [], ranges = [], ctp = [], cfp = []
+        const vtx = [], ranges = [], ctp = [], cfp = [], face_idx = []
         const t = vec2.create(), tc = vec2.create()  // scratchpads for transformed points
         for(let path of paths) {
             const c = path.curve
@@ -1330,53 +1340,65 @@ class NodeMarchingSquares extends NodeCls
                     assert(false, this, "unexpected tag")
             }
             ranges.push(startIdx, vtx.length /2, PATH_CLOSED)
+            face_idx.push(path.cont_index)
         }
 
         const obj = new MultiPath()
         obj.set('vtx_pos', new TVtxArr(vtx), 2)
         obj.set('ctrl_to_prev',   new TVtxArr(ctp), 2)
         obj.set('ctrl_from_prev', new TVtxArr(cfp), 2)
+        obj.set('face_index', new Uint32Array(face_idx), 1)
         obj.paths_ranges = ranges
         return obj        
     }
 
-    potrace(values, thresh, width, height, sx, sy, tr) {
-        const arr = new Int8Array(width * height)
+    potrace(values, threshs, width, height, sx, sy, tr) {
+        const arr = new Uint8Array(width * height)
         const len = width * height
+        const thresh_len = threshs.length
+        for(let i = 0; i < len; ++i) {
+            const in_v = values[i]
+            let out_v = threshs.length // in case of not finding anything below
+            for(let j = 0; j < thresh_len; ++j) {
+                const t = threshs[j]
+                if (in_v < t) {
+                    out_v = j
+                    break
+                }
+            }
+            // TBD possible optimization for linear thresholds
+            arr[i] = out_v
+        }
+     /*   const thresh = threshs[0]
         for(let i = 0; i < len; ++i)
             arr[i] = (values[i] < thresh) ? 0 : 1
-        Potrace.setBm(arr, width, height)
-        const paths = Potrace.process()
+*/
+        let all_paths = []
+        for(let i in threshs) {
+            Potrace.setBm(arr, width, height, parseInt(i)+1)
+            const paths = Potrace.process()
+            for(let p of paths) {
+                p.cont_index = i
+                all_paths.push(p)
+            }
+            Potrace.clear()
+        }
         //const svg = Potrace.getSVG(0.1, 'curve')
         //console.log(svg)
         //console.log(paths)
-        Potrace.clear()
 
-        return this.potrace_res_to_obj(paths, width, height, sx, sy, tr)
+        return this.potrace_res_to_obj(all_paths, width, height, sx, sy, tr)
     }
 
-    // the idea with this is that instead of the simple tracing potrace does, feed it the output of square marching
-    // but the result is worse than any one of them so don't really need this
-    march_then_potrace(values, thresh, width, height, sx, sy, tr)
-    {
-        const cont = this.run_square_march(values, thresh, width, height)
 
-        // convert to the input potrace expects
-        const po_paths = []
-        for(let paths of cont.coordinates) {
-            for(let path of paths) { // can have 1 or two paths if there's an outside when the value is negative inside
-                const po_path = []
-                for(let point of path) {
-                    po_path.push({x:point[0], y:point[1]})
-                }
-                po_paths.push({pt:po_path, len:po_path.length})
-            }
+
+    make_thresholds(sign) {
+        let ret = []
+        for(let i = 0; i < this.count.v; ++i) {
+            ret.push((this.thresh.v + i * this.step.v)*sign)
         }
-
-        const pathlist = Potrace.do_processPath(po_paths)
-        Potrace.clear()
-
-        return this.potrace_res_to_obj(pathlist, width, height, sx, sy, tr)
+        ret = ret.sort((a, b)=>{ return a - b});
+        return ret
     }
 
     async run() {
@@ -1394,11 +1416,11 @@ class NodeMarchingSquares extends NodeCls
         else
             values = this.values_test_func(width, height, sx, sy, tr, sign)
 
-        let obj, thresh = this.thresh.v * sign
+        let obj, threshs = this.make_thresholds(sign)
         if (this.alg.sel_idx === 0)
-            obj = this.square_march(values, thresh, width, height, sx, sy, tr)
+            obj = this.square_march(values, threshs, width, height, sx, sy, tr)
         else if (this.alg.sel_idx === 1)
-            obj = this.potrace(values, thresh, width, height, sx, sy, tr)
+            obj = this.potrace(values, threshs, width, height, sx, sy, tr)
      
 
         this.out.set(obj)
