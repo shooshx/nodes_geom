@@ -41,6 +41,7 @@ class Gradient extends PObject
         this.via_svg = false
         this.svg = null  // image object
         this.svg_of_rect = null // the pmin,pmax points of the rect this svg was generated with
+        this.sample_tex = false
     }
     add_stop(value, color) {
         this.stops.push({value:value,color:color})
@@ -312,12 +313,24 @@ class GradientPixelsAdapter {
     constructor(for_obj, grd_obj, is_fb) {
         this.pixels = null
         this.obj = grd_obj
+
+        if (grd_obj.sample_tex) {
+            this.bbox = new BBox(SAMPLER_COORDS[0].x, SAMPLER_COORDS[0].y, SAMPLER_COORDS[1].x, SAMPLER_TEX_HEIGHT_SZ) // need to have some width
+            this.w_width = this.bbox.width()   
+            this.w_height = this.bbox.height()
+            this.px_width = grd_obj.tex_res
+            this.px_height = SAMPLER_TEX_HEIGHT_PX
+            this.dest_tmat = null
+            this.draw_scale = [this.px_width / this.w_width, this.px_height / this.w_height]
+            return
+        }
+
         this.bbox = for_obj.get_bbox() // in abstract coords
         this.w_width = this.bbox.width()   
         this.w_height = this.bbox.height()
 
         if (!is_fb) { // either size is coming from the texture destination or we're drawing on the viewport so the size is coming from the viewport
-            this.px_width = Math.round(this.w_width * image_view.viewport_zoom)
+            this.px_width = Math.round(this.w_width * image_view.viewport_zoom)  // TBD this is very problematic, if the viewport right now is somewhere else
             this.px_height = Math.round(this.w_height * image_view.viewport_zoom)
             this.draw_scale = [image_view.viewport_zoom, image_view.viewport_zoom]
             this.dest_tmat = null
@@ -388,12 +401,15 @@ class GradientPixelsAdapter {
     }
 }
 
+const SAMPLER_TEX_HEIGHT_PX = 10
+const SAMPLER_TEX_HEIGHT_SZ = 0.2
 
 class LinearGradient extends Gradient {
     static name() { return "Linear Gradient" }
     constructor(x1,y1, x2,y2, tex_res, tex_smooth, sample_tex) {
         if (sample_tex) {
-            x1 = -1; y1 = 0; x2 = 1; y2 = 0;
+            x1 = SAMPLER_COORDS[0].x; y1 = SAMPLER_COORDS[0].y; 
+            x2 = SAMPLER_COORDS[1].x; y2 = SAMPLER_COORDS[1].y;
         }
         super(x1,y1, x2, y2, tex_smooth)
         this.tex_res = tex_res // only relevant for Sample tex
@@ -401,7 +417,7 @@ class LinearGradient extends Gradient {
         this.ctx_create_func = function() { return ctx_img.createLinearGradient(x1,y1, x2,y2) }
 
         this.tex_obj_cache = null
-        this.sample_tex = sample_tex  // means the texture is going to be a 1d sample range and not an actual image
+        this.sample_tex = sample_tex  // bool means the texture is going to be a 1d sample range and not an actual image
     }
     destructor() {
         if (this.tex_obj_cache !== null)
@@ -441,9 +457,8 @@ class LinearGradient extends Gradient {
             return this.tex_obj_cache // caller should do bind
         }
         // draw canvas
-        const HEIGHT = 10
         canvas_img_shadow.width = this.tex_res
-        canvas_img_shadow.height = HEIGHT
+        canvas_img_shadow.height = SAMPLER_TEX_HEIGHT_PX
 
         const grd = ctx_img_shadow.createLinearGradient(0,0, this.tex_res,0)
         this.add_stops(grd)
@@ -452,11 +467,11 @@ class LinearGradient extends Gradient {
         ctx_img_shadow.beginPath()
         // can't use x+w since if there's a transform, we actuall draw a rotated rect
         ctx_img_shadow.moveTo(0,0); ctx_img_shadow.lineTo(this.tex_res, 0)
-        ctx_img_shadow.lineTo(this.tex_res, HEIGHT); ctx_img_shadow.lineTo(0, HEIGHT)
+        ctx_img_shadow.lineTo(this.tex_res, SAMPLER_TEX_HEIGHT_PX); ctx_img_shadow.lineTo(0, SAMPLER_TEX_HEIGHT_PX)
         ctx_img_shadow.fill()
-        //const im = ctx_img_shadow.getImageData(0, 0, resolution, HEIGHT)
+        //const im = ctx_img_shadow.getImageData(0, 0, resolution, SAMPLER_TEX_HEIGHT_PX)
      
-        let tex = generateTexture(this.tex_res, HEIGHT, canvas_img_shadow, this.tex_smooth, this.spread, 'pad')
+        let tex = generateTexture(this.tex_res, SAMPLER_TEX_HEIGHT_PX, canvas_img_shadow, this.tex_smooth, this.spread, 'pad')
         tex.t_mat = mat3.create()  // identity transform
 
         this.tex_obj_cache = tex
@@ -802,6 +817,8 @@ class DummyVec2Param {
     increment() {}
 }
 
+const SAMPLER_COORDS = [new DummyVec2Param(0,0), new DummyVec2Param(1,0)]
+
 class NodeGradient extends NodeCls
 {
     static name() { return "Gradient" }
@@ -825,8 +842,8 @@ class NodeGradient extends NodeCls
             // set points adapter
             if (sel_idx == 0)
                 this.points_adapter = new Linear_GradPointsAdapterParam(this.p1, this.p2, this.values, this)
-            else if (sel_idx == 2)
-                this.points_adapter = new Linear_GradPointsAdapterParam(new DummyVec2Param(-1,0), new DummyVec2Param(1,0), this.values, this)
+            else if (sel_idx == 2) //Sample
+                this.points_adapter = new Linear_GradPointsAdapterParam(SAMPLER_COORDS[0], SAMPLER_COORDS[1], this.values, this)
             else
                 this.points_adapter = new Radial_GradPointsAdapterParam(this.p1, this.r1, this.p2, this.r2, this.values, this)
             this.selected_indices.includes_shifted = function(v) { return this.includes(v + NODE_POINT_LST_OFFSET) } // used for yellow mark of the selected point
@@ -863,7 +880,7 @@ class NodeGradient extends NodeCls
         this.colors = new ParamColorList(node, "Color", this.table)
 
         // for generating texture
-        this.tex_resolution = new ParamInt(node, "Resolution", 128, [8,128])
+        this.tex_resolution = new ParamInt(node, "Resolution", 128, [8,128]) // only for sampler
         this.tex_smooth = new ParamBool(node, "Smooth", false)
 
         this.load_preset(GRADIENT_PRESETS[0])
@@ -979,7 +996,7 @@ class NodeGradient extends NodeCls
         this.colors.clear()
         let samples = [] // array of [stop-val, color]
 
-        if (value_need_t == null) { // doesn't depend on t
+        if (value_need_t === null) { // doesn't depend on t
             const c = this.func.dyn_eval()
             samples.push({v:0, c:vec2col(c)})
         }

@@ -300,8 +300,8 @@ function add_param_slider(line, min_val, max_val, start_value, type, set_func) {
     const thumb = add_div(center, "slider_thumb")
     const cfg = { min_val: min_val, max_val: max_val, v: null } // v is always in normal units
     const set_len = (len)=>{
-        thumb.style.left = len + "px"
-        fill.style.width = len + "px"
+        thumb.style.left = len * 100 + "%"
+        fill.style.width = len * 100 + "%"
     }
     const r01_to_range = (v)=>{
         return v*(cfg.max_val - cfg.min_val) + cfg.min_val
@@ -319,12 +319,11 @@ function add_param_slider(line, min_val, max_val, start_value, type, set_func) {
             return
         }
         thumb.classList.toggle('slider_thumb_disabled', false)
-        const crect = center.getBoundingClientRect()
         cfg.v = value
         let norm_v = range_to_r01(value)
         norm_v = clamp(0, norm_v, 1)
         // cfg.v can be outside [min,max] right now but for display, we clamp it for the thump positioning to no go overboard
-        set_len(norm_v * crect.width)
+        set_len(norm_v)
     }    
     update(start_value)
 

@@ -43,8 +43,10 @@ Node: Set Attribute
 - Set an attribute of vertices or faces of gemortry to a constant, sampled or calculated value
 - Set attribute name, type and object to bind to (vertices or faces)
 - types: float, vec2 (normal), color (vec4), image-fill, transform
-- Sample color value from an image or gradient
+- Sample color value from an image or gradient using in_src in expression
     - face attribute from image is sampled at the middle of the face
+    - use in_src.at(x, y) to sample the input image/gradient anywhere. y is optional, default=0
+       - useful for sampling Gradient that is in "Sample" mode using some vertex/face attribute, see Marching Squares
 - Calculate value according to vertex or face position
 - Expression possibilites:
     - Any attribute that already exists the input bound objects (in_obj.vtx_pos.x, in_obj.face_color.r)
@@ -132,7 +134,7 @@ Node: Field Copy
   - into a set number of instances accordin to "Count" parameter, which is enabled only if there isn't a mesh input
     use "index" in the transform parameters to differenciate between the instances
 
-Node: Marchin squares
+Node: Marchin Squares
 - Trace some thresholds iso-lines of a distance field
 - One of two methods: 
     - simple marching-squares - produces lots of vertices and tiny straight lines
@@ -142,6 +144,8 @@ Node: Marchin squares
 - control the position and orientation of the sampling area
 - Trace multiple iso-lines by setting Iso-Count to more than 1 and setting Iso-Step
     - negative step goes inside, positive goes outside
-- The created MultiPath has the property "face_index" to identify the iso lines. Use this property in SetAttr to set color 
+    - Step can be an expression that depend on "index"
+- The created MultiPath has the property "face_index" and "face_indexf" to identify the iso lines. Use this property in SetAttr to set color 
+    - face_index is an integer count, face_indexf is normalized to the range of [0,1]
   to the created faces. Examples for SetAttr:
     - Bind To: Faces, Color: return rgb(in_obj.face_index * 20, in_obj.face_index * 30,255)

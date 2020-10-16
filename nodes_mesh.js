@@ -461,7 +461,7 @@ class ObjSubscriptEvaluator extends EvaluatorBase {
 
     eval() {
         if (this.subscript === null) {
-            eassert(this.objref.obj._get_as_vec !== undefined, "Missing subscript")
+            eassert(this.objref.obj._get_as_vec !== undefined, "Missing _get_as_vec")
             return this.objref.obj._get_as_vec()
         }
         eassert(this.objref.obj !== null, "object not set")
@@ -469,18 +469,33 @@ class ObjSubscriptEvaluator extends EvaluatorBase {
         eassert(v !== undefined, "subscript not found " + this.subscript)        
         return v
     }
+    eval_func(argvals) {
+        eassert(this.type = TYPE_FUNCTION, "eval_func to not a function")
+        eassert(this.objref.obj._call_at !== undefined, "Missing _call_at")
+        return this.objref.obj._call_at(...argvals)
+    }
+    obj_vec_type() { 
+        if (this.objref.obj === null)
+            throw new UndecidedTypeErr()
+        else {
+            eassert(this.objref.obj._get_num_elem !== undefined, "Missing _get_num_elem")
+            const num_elems = this.objref.obj._get_num_elem()
+            return type_from_numelems(num_elems)
+        }
+    }
     check_type() {
         if (this.subscript === null) { // need to wait for obj
-            if (this.objref.obj === null)
-                throw new UndecidedTypeErr()
-            else {
-                const v = this.objref.obj._get_as_vec()
-                this.type = type_from_numelems(v.length)
-            }
+            this.type = this.obj_vec_type()
         }
+        else if (this.subscript === "at")
+            this.type = TYPE_FUNCTION
         else
             this.type = TYPE_NUM
         return this.type
+    }
+
+    func_ret_type() {
+        return this.obj_vec_type()
     }
 }
 
@@ -729,7 +744,18 @@ class NodeSetAttr extends NodeCls
         let samp_vtx = (this.bind_to.sel_idx == 0)
         //let face_sz = mesh.face_size()
         let vtxi = 0, idxi = 0
-        let expr_input = { r:0, g:0, b:0, alpha:0, _get_as_vec: function() { return vec4.fromValues(this.r, this.g, this.b, this.alpha)} }
+        let expr_input = { r:0, g:0, b:0, alpha:0, 
+            _get_num_elem: function() { return 4 },
+            _get_as_vec: function() { return vec4.fromValues(this.r, this.g, this.b, this.alpha)},
+            _call_at: function() {
+                eassert(arguments.length >= 1 && arguments.length <= 2, "Wrong number of arguments in call to at()")
+                const x = arguments[0], y = (arguments.length > 1) ? arguments[1] : 0
+                const v = vec2.fromValues(x, y)
+                vec2.transformMat3(v, v, transform)
+                const pidx = (Math.round(v[1]) * w + Math.round(v[0]) ) * 4
+                return vec4.fromValues(pixels[pidx], pixels[pidx+1], pixels[pidx+2], pixels[pidx+3])
+            }
+        }
         value_need_src.dyn_set_obj(expr_input)
 
         for(let i = 0, pi = 0; pi < prop.length; ++i, pi += prop.elem_sz) 
@@ -759,7 +785,7 @@ class NodeSetAttr extends NodeCls
                 expr_input.r = expr_input.g = expr_input.b = expr_input.alpha = 0
             }
             else {
-                let pidx = (y*w + x)*4
+                const pidx = (y*w + x)*4
                 expr_input.r = pixels[pidx]
                 expr_input.g = pixels[pidx+1]
                 expr_input.b = pixels[pidx+2]

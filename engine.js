@@ -226,6 +226,7 @@ class Program {
         } catch(e) {}
         line.from_term.lines.splice(line.from_term.lines.indexOf(line), 1)
         line.to_term.lines.splice(line.to_term.lines.indexOf(line), 1)
+        line.to_term.clear()
         line.to_term.tset_dirty(true)
 
         const pos = this.lines.indexOf(line)

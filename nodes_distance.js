@@ -1206,6 +1206,8 @@ class NodeMarchingSquares extends NodeCls
         this.in_df_obj = new InTerminal(node, "in_field")
         this.out = new OutTerminal(node, "out_paths")
 
+        node.set_state_evaluators({"index":  (m,s)=>{ return new ObjSingleEvaluator(m,s) }})
+
         this.alg = new ParamSelect(node, "Algorithm", 0, ["Square Marching", "Po-Trace"])
         this.thresh = new ParamFloat(node, "First Iso", 0, {enabled:true, min:-1, max:1})
         this.count = new ParamInt(node, "Iso Count", 1, {enabled:true, min:1, max:20}, (v)=>{
@@ -1259,11 +1261,15 @@ class NodeMarchingSquares extends NodeCls
     }
 
     run_square_march(values, threshs, width, height) {
+        const thresh_vals = []
+        for(let e of threshs)
+            thresh_vals.push(e.thresh)
+
         //const contours = d3.contours().size([width, height]).thresholds([this.thresh.v])(values);
         const gen = d3.contours()
         gen.size([width, height])
         gen.smooth(true) // without this it's just steps
-        const cont = gen.thresholds(threshs)(values)
+        const cont = gen.thresholds(thresh_vals)(values)
         // returns a list of multipaths
         return cont
     }
@@ -1290,20 +1296,24 @@ class NodeMarchingSquares extends NodeCls
                         vtx.push(v[0], v[1])
                     }
                     ranges.push(start_at, vtx.length/2, PATH_CLOSED)
-                    face_idx.push(cont_idx)
+                    face_idx.push(threshs[cont_idx].index)
                 }
             }
             ++cont_idx
         }
+        const face_idxf = [] // fraction between 0-1 of the index
+        for(let idx of face_idx)
+            face_idxf.push(idx / (threshs.length-1))
 
         const obj = new MultiPath()
         obj.set('vtx_pos', new TVtxArr(vtx), 2)
         obj.paths_ranges = ranges
         obj.set('face_index', new Uint32Array(face_idx), 1)
+        obj.set('face_indexf', new Float32Array(face_idxf), 1)
         return obj
     }
 
-    potrace_res_to_obj(paths, width, height, sx, sy, tr) 
+    potrace_res_to_obj(paths, width, height, sx, sy, tr, count_threshs) 
     {
         function tr_p(out, p) {
             out[0] = (p.x-0.5) / (width-1) * sx - (sx/2)
@@ -1343,11 +1353,16 @@ class NodeMarchingSquares extends NodeCls
             face_idx.push(path.cont_index)
         }
 
+        const face_idxf = [] // fraction between 0-1 of the index
+        for(let idx of face_idx)
+            face_idxf.push(idx / (count_threshs-1))
+
         const obj = new MultiPath()
         obj.set('vtx_pos', new TVtxArr(vtx), 2)
         obj.set('ctrl_to_prev',   new TVtxArr(ctp), 2)
         obj.set('ctrl_from_prev', new TVtxArr(cfp), 2)
         obj.set('face_index', new Uint32Array(face_idx), 1)
+        obj.set('face_indexf', new Float32Array(face_idxf), 1)
         obj.paths_ranges = ranges
         return obj        
     }
@@ -1360,7 +1375,7 @@ class NodeMarchingSquares extends NodeCls
             const in_v = values[i]
             let out_v = threshs.length // in case of not finding anything below
             for(let j = 0; j < thresh_len; ++j) {
-                const t = threshs[j]
+                const t = threshs[j].thresh
                 if (in_v < t) {
                     out_v = j
                     break
@@ -1378,7 +1393,7 @@ class NodeMarchingSquares extends NodeCls
             Potrace.setBm(arr, width, height, parseInt(i)+1)
             const paths = Potrace.process()
             for(let p of paths) {
-                p.cont_index = i
+                p.cont_index = threshs[parseInt(i)].index
                 all_paths.push(p)
             }
             Potrace.clear()
@@ -1387,17 +1402,26 @@ class NodeMarchingSquares extends NodeCls
         //console.log(svg)
         //console.log(paths)
 
-        return this.potrace_res_to_obj(all_paths, width, height, sx, sy, tr)
+        return this.potrace_res_to_obj(all_paths, width, height, sx, sy, tr, threshs.length)
     }
 
 
 
     make_thresholds(sign) {
+        const value_need_index = this.step.need_input_evaler("index")
+        let index_wrap = [0]
+        if (value_need_index !== null)
+            value_need_index.dyn_set_obj(index_wrap)
         let ret = []
+        let step = this.step.v
         for(let i = 0; i < this.count.v; ++i) {
-            ret.push((this.thresh.v + i * this.step.v)*sign)
+            if (value_need_index !== null) {
+                index_wrap[0] = i
+                step = this.step.dyn_eval()
+            }
+            ret.push({thresh:(this.thresh.v + i * step)*sign, index:i})
         }
-        ret = ret.sort((a, b)=>{ return a - b});
+        ret = ret.sort((a, b)=>{ return a.thresh - b.thresh});
         return ret
     }
 

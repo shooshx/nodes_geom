@@ -34,6 +34,7 @@ class TypeErr extends ExprErr {
     constructor(msg) { super(msg) }
 }
 
+// thrown when the type of the object is really undecided, can depend on input terminal for instance
 class UndecidedTypeErr extends Error {
     constructor() { super("undecided-type") }
 }
@@ -985,7 +986,12 @@ class FuncObjCallNode extends NodeBase
         this.func_name = func_name
     }
     eval() { 
-        eassert(false, "not-implemented yet: func node") 
+        let argvals = []
+        for(let arg of this.arg_nodes)
+            argvals.push(arg.eval())
+            
+        eassert(this.func_node.eval_func !== undefined, "func node without eval_func")
+        return this.func_node.eval_func(argvals)
     }
     check_type() { 
         if (this.type !== null) 
@@ -1400,6 +1406,9 @@ class SubscriptNode extends NodeBase
         return sv
     }
     check_type() {
+        const wrapped = this.wrapNode.check_type()
+        if (wrapped !== TYPE_VEC2 && wrapped !== TYPE_VEC3 && wrapped !== TYPE_VEC4)
+            throw new TypeErr("Can't take subscript of something that's not a vector: " + typename(wrapped))
         this.type = TYPE_NUM
         return TYPE_NUM
     }
