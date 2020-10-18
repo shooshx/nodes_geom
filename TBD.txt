@@ -65,17 +65,9 @@ EXPRESSIONS
 - distance fields
     - primitives
         half-plane
-        multiple circles from vertices
-            init from combiner
-    - more smooth combiners
-    - cache make_frag_text and don't generate it every time
-    - marching sqares
-        multiple iso lines, with value attached, color with gradient
-        - expr in step depending on index
-        - strange thing that happens with flip-sign not checked and face color - middle colors not visible (marching)
     - moving, bounding walls
         - for walls - variable from object, anything from the object, x,y,bbox,transform,attrbiture
-- manual geom create quads
+- manual geom create quads mesh
 - balls that know their end color
     - Animation
     - box2d
@@ -235,17 +227,10 @@ NODES:
 - plane deform
     https://www.iquilezles.org/www/articles/deform/deform.htm
 - marching squares/triangles
-    with adjucency like in video?  https://youtu.be/lctXaT9pxA0?t=370   
-        smoothmin function for blending shapes
-        3d primitives functions https://www.iquilezles.org/www/articles/distfunctions/distfunctions.htm
-        2d https://www.iquilezles.org/www/articles/distfunctions2d/distfunctions2d.htm
-    ray marching
-        https://adrianb.io/2016/10/01/raymarching.html#:~:text=Raymarching%20is%20a%20fairly%20new,the%20camera's%20field%20of%20vision.
-    impl
-        https://github.com/d3/d3-contour     
-        https://github.com/RaumZeit/MarchingSquares.js
-        https://github.com/sakri/MarchingSquaresJS - no, canvas based
-        circle blobs: http://jamie-wong.com/2014/08/19/metaballs-and-marching-squares/
+    misfeature: multiple iso lines, with value attached, color with gradient
+    - strange thing that happens with flip-sign not checked and face color - middle colors not visible (marching)
+- Distance fields: 
+    - (performance) cache make_frag_text and don't generate it every time
 
 - Anim: Accumulate geometry every N frames
 - Anim: object feedback - from specific frame, every N frame, from N frames in the past (delay line)
@@ -302,6 +287,7 @@ demo idea
     - expr create array of all the coords of the triangle and interpolate
 - Video to traced outline to triangulation to rainbow coloring.
     - ideas from video
+- something with penrose tiling?
 
 https://two.js.org/examples/
 

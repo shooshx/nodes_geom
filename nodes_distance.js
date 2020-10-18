@@ -1,6 +1,17 @@
 "use strict"
 
-// https://www.math3d.org/
+// cool smoothmin in 3d video https://youtu.be/lctXaT9pxA0?t=370   
+// meatballs: http://jamie-wong.com/2014/08/19/metaballs-and-marching-squares/
+// 3d graph calculator for seeing distance fields in 3d https://www.math3d.org/
+// d3 marching squares (used): https://github.com/d3/d3-contour
+// rendering based marching squares (not used) https://github.com/sakri/MarchingSquaresJS
+// another img (not used) https://github.com/RaumZeit/MarchingSquares.js
+// article about ray marching in 3d: https://adrianb.io/2016/10/01/raymarching.html#:~:text=Raymarching%20is%20a%20fairly%20new,the%20camera's%20field%20of%20vision.
+// shaders for 2d primitives: https://www.iquilezles.org/www/articles/distfunctions2d/distfunctions2d.htm
+// smoothmin: https://www.iquilezles.org/www/articles/smin/smin.htm\
+// 3d primitives: https://www.iquilezles.org/www/articles/distfunctions/distfunctions.htm
+
+
 
 const DISTANCE_VTX_TEXT = `
 in vec4 vtx_pos;
@@ -414,7 +425,10 @@ class DFNode extends DFNodeBase {
 class FuncMaker
 {
     make_func(args_strs, child_vars, dfstate) {
-        dassert(false, "unimplemented")
+        dassert(false, "unimplemented make_func")
+    }
+    get_init_val() { // for combiner in copy, start value for repeated composition
+        dassert(false, "unimplemented get_init_val")
     }
 }
 
@@ -488,7 +502,7 @@ class NodeDFPrimitive extends BaseDFNodeCls
         case 0: 
             add("circle", ["radius"], [this.radius.get_value()], "return sqrt(p.x*p.x + p.y*p.y) - radius;")
             break
-        case 1: // used for blobs with added level of 1
+        case 1: // used for blobs with added level of 1 - http://jamie-wong.com/2014/08/19/metaballs-and-marching-squares/
             add("inv_circle", ["radius"],  [this.radius.get_value()], "return sqrt((radius*radius) / (p.x*p.x + p.y*p.y));")
             break
         case 2:
@@ -784,9 +798,10 @@ function commaize_pre(arr) {
 
 // take a binary function like min(a,b) and make a chain to handle any number of arguments
 class BinaryToMulti_FuncMaker extends FuncMaker {
-    constructor(func_name) {
+    constructor(func_name, init_val) {
         super()
         this.func_name = func_name
+        this.init_val = init_val
     }// binary_func_to_multi
 
     make_func(args_strs, child_vars, dfstate) {
@@ -800,35 +815,63 @@ class BinaryToMulti_FuncMaker extends FuncMaker {
         ret += ')'.repeat(len-1)
         return ret
     }
+    get_init_val() {
+        return this.init_val
+    }
 }
 
 class MultiSum_FuncMaker extends FuncMaker {
     make_func(args_strs, child_vars, dfstate) {
         return "(" + child_vars.join(" + ") + ")"
     }
+    get_init_val() {
+        return 0
+    }
 }
 
+// https://www.iquilezles.org/www/articles/smin/smin.htm
 // TBD code dup
 const poly_smin = `float poly_smin(float k, float d1, float d2) {
     float h = clamp( 0.5 + 0.5*(d2-d1)/k, 0.0, 1.0 );
     return mix( d2, d1, h ) - k*h*(1.0-h); 
 }
 `
-
+const exp_smin = `float exp_smin(float k, float a, float b) {
+    k = 1.0/k;
+    float res = exp2( -k*a ) + exp2( -k*b );
+    return -log2( res )/k;
+}
+`
+//doesn't actually work
+const pow_smin = `float pow_smin(float k, float a, float b) {
+    a = pow( a, k ); b = pow( b, k );
+    return pow( (a*b)/(a+b), 1.0/k );
+}
+`
 
 function make_combiner(op_sel_idx, radius)
 {
     let func_maker = null, func_set = new FuncsSet(), args=[]
 
     switch (op_sel_idx) {
-    case 0: func_maker = new BinaryToMulti_FuncMaker("min"); break;
-    case 1: func_maker = new BinaryToMulti_FuncMaker("max"); break;
+    case 0: func_maker = new BinaryToMulti_FuncMaker("min", 1e38); break;
+    case 1: func_maker = new BinaryToMulti_FuncMaker("max", 0); break;
     case 2: func_maker = new MultiSum_FuncMaker(); break;
     case 3: 
-        func_maker = new BinaryToMulti_FuncMaker('poly_smin'); 
+        func_maker = new BinaryToMulti_FuncMaker('poly_smin', 1e38); 
         func_set.add('poly_smin', poly_smin)
         args.push(radius)
         break;
+    case 4: 
+        func_maker = new BinaryToMulti_FuncMaker('exp_smin', 1e38); 
+        func_set.add('exp_smin', exp_smin)
+        args.push(radius)
+        break;
+  /*  case 5: 
+        func_maker = new BinaryToMulti_FuncMaker('pow_smin', 1e38); 
+        func_set.add('pow_smin', pow_smin)
+        args.push(radius)
+        break;                */
     default: assert(false, this, "unexpected operator")
     }
     return [func_maker, func_set, args]
@@ -959,9 +1002,9 @@ class NodeDFCombine extends BaseDFNodeCls
         // in_fields is an array accessed with in_fields.0 - static index
         // since making it a function is not so simple, need to select one of N variables
 
-        this.op = new ParamSelect(node, "Operator", 0, ["Min (union)", "Max (intersect)", "Sum", "Smooth-min", "Function"], (sel_idx)=>{
-            this.radius.set_visible(sel_idx === 3)
-            this.dist_func.set_visible(sel_idx === 4)
+        this.op = new ParamSelect(node, "Operator", 0, ["Min (union)", "Max (intersect)", "Sum", "Smooth-min (poly)", "Smooth-min (exp)", "Function"], (sel_idx)=>{
+            this.radius.set_visible(sel_idx === 3 || sel_idx === 4)
+            this.dist_func.set_visible(sel_idx === 5)
         })
         this.radius = new ParamFloat(node, "Radius", 0.25, {enabled:true})
         this.dist_func = new ParamFloat(node, "Distance\nFunction", "length(coord) - 1", {show_code:true})
@@ -1004,7 +1047,7 @@ class NodeDFCombine extends BaseDFNodeCls
 
     run() {
         const objs = this.in_df_objs.get_input_consts()
-        if (this.op.sel_idx !== 4) // function doesn't need to have inputs
+        if (this.op.sel_idx !== 5) // function doesn't need to have inputs
             assert(objs.length > 0, this, "No inputs")
         const children = []
         for(let i = 0; i < objs.length; ++i) {
@@ -1014,7 +1057,7 @@ class NodeDFCombine extends BaseDFNodeCls
         }
        
         let dfnode
-        if (this.op.sel_idx !== 4) {
+        if (this.op.sel_idx !== 5) {
             const [func_maker, func_set, args] = make_combiner(this.op.sel_idx, this.radius.get_value())
             dfnode = new DFNode(func_maker, null, args, children, func_set)
         }
@@ -1065,7 +1108,7 @@ class DFNodeForLoop extends DFNodeBase {
 
         const in_coord_var = "in_coord" + dfstate.alloc_var()
         const count_var = "in_count" + dfstate.alloc_var()
-        let text = "float " + myvar + " = 999999.0;\n"  // TBD from combiner
+        let text = "float " + myvar + " = " + asFloatStr(this.combiner_maker.get_init_val()) + ";\n"  // TBD from combiner
         text += "vec2 " + in_coord_var + " = coord;\n"
         text += "int " + count_var + " = int(get_arg(" + trs_start + "));"
         trs_start++;
