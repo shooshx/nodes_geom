@@ -39,8 +39,7 @@ function _resize_img_panel(w, h, x, y) {
     if (h !== null) {
         canvas_image.height = h // Assumes image canvas takes the whole height
     }
-    image_panel.style.top = x + "px"
-    image_panel.style.left = y + "px"
+
     image_view.resize_redraw()
 }
 function _resize_edit_panel(w, h, x, y) {
@@ -97,6 +96,7 @@ function page_onload()
     setup_vert_splitter(main_view, image_splitter, _resize_img_panel, _resize_edit_panel)
     setup_horz_splitter(edit_panel, edit_splitter, _resize_edit_param, _resize_nodes_panel)
     create_top_menu(main_view)
+    create_anim_bar()
     
     panel_mouse_control(nodes_view, canvas_nodes)
     panel_mouse_control(image_view, canvas_image)
@@ -707,6 +707,55 @@ async function do_frame_draw(do_run, clear_all)
         }                
     }    
 
+}
+
+class Animation {
+    constructor() {
+        this.frame_num = 0;
+        //this.frame_time = 0;
+        this.run = false;
+        this.pre_draw_handlers = []
+        this.vars_box = new VariablesBox()
+        this.frame_num_box = new VarBox()
+        this.frame_num_box.vbset(0, TYPE_NUM)
+        this.vars_box.add("frame_num", this.frame_num_box)
+
+    }
+    rewind() {
+        this.frame_num = 0
+        const did_run = this.run
+        this.run = false
+        if (!did_run)
+            window.requestAnimationFrame(anim_frame)
+    }
+    start() {
+        this.run = true
+        window.requestAnimationFrame(anim_frame)
+    }
+    pause() {
+        this.run = false
+    }
+    reg_pre_draw(func) {
+        this.pre_draw_handlers.push(func)
+    }
+    notify_pre_draw() {
+        this.frame_num_box.vbset(this.frame_num, TYPE_NUM)
+        for(let handler of this.pre_draw_handlers)
+            handler(this.frame_num, this.run)        
+    }
+}
+
+var g_anim = new Animation()
+
+function anim_frame()
+{
+    g_anim.notify_pre_draw()
+
+    call_frame_draw(true, false)
+    if (!g_anim.run)
+        return
+    ++g_anim.frame_num;
+    window.requestAnimationFrame(anim_frame)
 }
 
 

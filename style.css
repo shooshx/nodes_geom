@@ -913,3 +913,60 @@ input {
     left: 0;
     right: 0;    
 }
+
+.anim_bar {
+    position: absolute;
+    bottom: 0;
+    height: 35px;
+    width: 100%;
+    background-color: #848484;
+    border-top: 2px solid #dddddd;
+    box-sizing: content-box;
+}
+
+.anim_btn {
+    display: inline-block;
+    border: 2px solid #444444;
+    background-color: #aaaaaa; 
+    background-repeat: no-repeat;   
+    border-radius: 5px;    
+    height: 27px;
+}
+
+.anim_btn:hover {
+    background-color: #bbbbbb;    
+}
+.anim_btn:active {
+    background-color: #cccccc;    
+}
+.anim_back_btn {
+    background-image: url(img/back_anim.png);
+    background-position: 4px 0;
+    width: 43px;
+    margin: 2px 0px 4px 10px;
+}
+
+.anim_play_btn {
+    background-image: url(img/play_anim.png);
+    background-position: 6px 0;
+    width: 60px;
+    margin: 2px 10px 4px 7px;
+}
+.param_checkbox_input:checked + .anim_play_btn {
+    background-image: url(img/pause_anim.png);
+}
+
+.anim_frame_disp {
+    font-family: monospace;
+    display: inline-block;
+    width: 50px;
+    text-align: right;
+    vertical-align: top;
+    line-height: 20px;
+    color: #ffffff;
+    font-size: 18px;
+    border: 2px solid #444444;
+    border-radius: 4px;
+    padding: 2px 5px;
+    margin: 4px 0;
+}

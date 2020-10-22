@@ -847,5 +847,37 @@ function dismiss_top_menus() {
 
 
 
+function create_anim_bar()
+{
+    main_view.style.bottom = "35px"
+    const anim_bar = add_div(body, "anim_bar")
+    const back_btn = add_div(anim_bar, ["anim_btn", "anim_back_btn"])
+    myAddEventListener(back_btn, "click", function() {
+         g_anim.rewind()
+    })
+
+    const play_in = add_elem(anim_bar, 'input', 'param_checkbox_input')
+    play_in.type = 'checkbox'
+    play_in.id = 'play_btn_check'
+    const play_btn = add_elem(anim_bar, 'label', ["anim_btn", 'anim_play_btn'])
+    play_btn.setAttribute("for", play_in.id)
+    
+    myAddEventListener(play_in, 'change', function() { 
+        if (play_in.checked)
+            g_anim.start()
+        else
+            g_anim.pause()
+    })
+
+    const frame_disp = add_div(anim_bar, "anim_frame_disp")
+    frame_disp.innerText = "0"
+    g_anim.reg_pre_draw( (frame_num, running)=>{
+        frame_disp.innerText = frame_num
+        if (!running)
+            play_in.checked = false
+    })
+
+}
+
 
 

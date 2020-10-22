@@ -99,6 +99,10 @@ Node: Function Fill
     - return coord.x
     - return in_texi(1, coord).r  with texture 1 being an image, a gradient or distance field (which can have negative values)
 
+Node Boolean Operation
+- Perform boolean operations between paths and meshs: union, intersect, subtract, xor
+- Doesn't support bezier curves intersection
+- Winding of the paths should be the same, otherwise the result may be wrong
 
 Distance fields
 ---------------

@@ -957,7 +957,9 @@ class ExpressionItem {
             // go over the variables in the expr and set values to them
             for(let vename in this.variable_evaluators) {
                 const ve = this.variable_evaluators[vename]
-                const from_in = in_vars_box.vb[ve.varname]  // VariablesBox
+                let from_in = in_vars_box.lookup(ve.varname)  // VariablesBox
+                if (from_in === undefined)
+                    from_in = g_anim.vars_box.lookup(ve.varname) // for frame_num
                 if (from_in === undefined) {
                     // resolve can be allowed to fail if this is not a active expression
                     if (this.eis_active()) // maybe don't need to do anything for it if it's not active?

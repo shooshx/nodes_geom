@@ -60,11 +60,9 @@ EXPRESSIONS
     - in features.txt
 - BUG? rendering with effective_vtx ?
 - BUG: func node without show_code?
-- BUG: geom union of quad and path both into subject?
 - BUG: rotate variable, changing slider when there's an invalid var doesn't clear the red error
 - distance fields
-    - primitives
-        half-plane
+    - repeat
     - moving, bounding walls
         - for walls - variable from object, anything from the object, x,y,bbox,transform,attrbiture
 - manual geom create quads mesh
@@ -126,6 +124,8 @@ NODES:
     - unifies vertices?
     - divide line to sub lines, curves
     -  unify sublines into a single line? = different node
+- reverse windings
+    - show windings
 - delete geom by expr
 - polyline fill
     UI for closing and starting a new poly, bugs with this
@@ -213,7 +213,7 @@ NODES:
     - paths to triangles https://css-tricks.com/rendering-svg-paths-in-webgl/
 - BoolOp
     - do operation on local surroundings of the smaller (or selected) bbox for better performance
-    - with just vertices (include/exclude vertex)
+    - with just vertices object (no lines) (include/exclude vertex)
     - faster with C++ clipper?
 - Offset-Path
     - bug with oversizing divided square - lighten doesn't get rid of first point of merge
@@ -230,7 +230,9 @@ NODES:
     misfeature: multiple iso lines, with value attached, color with gradient
     - strange thing that happens with flip-sign not checked and face color - middle colors not visible (marching)
 - Distance fields: 
+    - better shader that extends to infinity
     - (performance) cache make_frag_text and don't generate it every time
+    - primitives: half plane?
 
 - Anim: Accumulate geometry every N frames
 - Anim: object feedback - from specific frame, every N frame, from N frames in the past (delay line)
@@ -326,6 +328,7 @@ Name?
 - 2dini?
 - picodini
 - flow something
+    glowflow
 
 get ideas from
     https://www.reddit.com/r/InternetIsBeautiful/
@@ -338,7 +341,12 @@ Minify:
 icons
     https://tablericons.com/
 
+
 Pratt parser in rust: https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
 
 Write-About
 - difference in radial gradient between canvas and svg (opposite circles), browsers difference
+
+Links
+- 3D Distance field: https://stephaneginier.com/archive/editSDF/
+   - same guy - SculptGL: https://stephaneginier.com/sculptgl/

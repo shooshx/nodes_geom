@@ -118,6 +118,9 @@ class VariablesBox extends PObject
         this.vb = {} // map variable name to VarBox where type is of TYPE_xxx
         this.empty = true
     }
+    lookup(name) {
+        return this.vb[name]
+    }
 
     add(name, vb) {
         this.vb[name] = vb
