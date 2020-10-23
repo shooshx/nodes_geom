@@ -391,15 +391,17 @@ function var_run_nodes_tree(n)
      // it needs to be after progress_io so that the VarBox dirty would propogate as false
 }
 
-
+function collect_line(line) {
+    const obj = line.from_term.get_const()
+    assert(obj !== null, line.from_term.owner.cls, "No output from node " + line.from_term.owner.name)
+    line.to_term.intr_set(obj, line.from_term.get_cur_uver())
+}
 function collect_terminal(in_t) {
+    // go over all lines coming into this input terminal
     for(let line of in_t.lines) {
-        let obj = line.from_term.get_const()
-        assert(obj !== null, line.from_term.owner.cls, "No output")
-        line.to_term.intr_set(obj, line.from_term.get_cur_uver())
+        collect_line(line)
     }
 }
-
 function collect_inputs(n, of_kind)
 {
     for(let in_t of n.inputs) {
@@ -423,10 +425,17 @@ async function run_nodes_tree(n)
     n._visited = true
 
     if (n._node_dirty) {
+        const node_picking_lines = n.cls.is_picking_lines()
         // all inputs    
         for(let inp_t of n.inputs) {  
             // all lines going into an input
-            for(let line of inp_t.lines) {
+            if (inp_t.kind !== KIND_OBJ)
+                continue
+            let run_lines = inp_t.lines
+            if (node_picking_lines)
+                run_lines = n.cls.pick_lines(inp_t)
+            
+            for(let line of run_lines) {
                 await run_nodes_tree(line.from_term.owner)
             }
         }
@@ -435,7 +444,8 @@ async function run_nodes_tree(n)
         for(let out_t of n.outputs) {
             out_t.clear()
         }
-        collect_inputs(n, KIND_OBJ)
+        if (!node_picking_lines) // a node that's picking lines, also does its own collect
+            collect_inputs(n, KIND_OBJ)
         const r = n.cls.run()
         if (isPromise(r))
             await r
@@ -484,6 +494,7 @@ function clear_nodes_status(prog) {
 function mark_dirty_tree(n) {
     if (n._node_dirty !== null) // already been here
         return n._node_dirty
+    n._node_dirty = false // mark visited
     // all inputs
     for(let inp_t of n.inputs) {  
         // all lines going into an input
@@ -735,6 +746,13 @@ class Animation {
     pause() {
         this.run = false
     }
+    set_frame_num(num) {
+        if (this.run)
+            return
+        this.frame_num = num
+        window.requestAnimationFrame(anim_frame)
+    }
+
     reg_pre_draw(func) {
         this.pre_draw_handlers.push(func)
     }
@@ -791,6 +809,9 @@ const nodes_classes = [
         NodeDFCopy,
         NodeDFImage,
         NodeMarchingSquares
+    ]},
+    { group_name: "Flow", nodes: [
+        NodePickOne
     ]},
     NodeSetAttr, 
     NodeTransform,

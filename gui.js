@@ -869,12 +869,19 @@ function create_anim_bar()
             g_anim.pause()
     })
 
-    const frame_disp = add_div(anim_bar, "anim_frame_disp")
-    frame_disp.innerText = "0"
+    const frame_disp = add_elem(anim_bar, 'input', "anim_frame_disp")
+    frame_disp.type = 'text'
+    frame_disp.spellcheck = false
+    frame_disp.value = "0"
+
     g_anim.reg_pre_draw( (frame_num, running)=>{
-        frame_disp.innerText = frame_num
+        frame_disp.value = frame_num
         if (!running)
             play_in.checked = false
+    })
+    myAddEventListener(frame_disp, 'input', function() {
+        const num = parseInt(frame_disp.value)
+        g_anim.set_frame_num(num)
     })
 
 }

@@ -1086,6 +1086,8 @@ class NodeCls {
     cclear_dirty() {} // clear the dirty things in a NodeCls that are not exposed to the outside via proxies (used in variable)
 
     is_internal_dirty() { return false } // for nodes with internal nodes
+    is_picking_lines() { return false } // should the engine run and collect all inputs before run(), if not the node decides which inputs to run using select_lines
+    pick_lines() { assert(false, this, "not selecting lines") }
 
     nresolve_variables() {
         try {

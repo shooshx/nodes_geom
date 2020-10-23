@@ -919,7 +919,7 @@ input {
     bottom: 0;
     height: 35px;
     width: 100%;
-    background-color: #848484;
+    background-color: #312F31;
     border-top: 2px solid #dddddd;
     box-sizing: content-box;
 }
@@ -927,17 +927,17 @@ input {
 .anim_btn {
     display: inline-block;
     border: 2px solid #444444;
-    background-color: #aaaaaa; 
+    background-color: #707070; 
     background-repeat: no-repeat;   
     border-radius: 5px;    
     height: 27px;
 }
 
 .anim_btn:hover {
-    background-color: #bbbbbb;    
+    background-color: #808080;    
 }
 .anim_btn:active {
-    background-color: #cccccc;    
+    background-color: #8080d0;    
 }
 .anim_back_btn {
     background-image: url(img/back_anim.png);
@@ -965,8 +965,10 @@ input {
     line-height: 20px;
     color: #ffffff;
     font-size: 18px;
-    border: 2px solid #444444;
+    border: solid 1px #888;
     border-radius: 4px;
     padding: 2px 5px;
     margin: 4px 0;
+    background-color: #555;
+    outline: none; /* edit highlight in chrome */
 }

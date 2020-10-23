@@ -260,6 +260,8 @@ function add_upload_btn(parent, cls, text, change_func) {
 }
 
 function formatType(value, type) {
+    if (value == true || value == false)
+        return value // hack for when FloatParam gets a bool in SetAttr, TBD fix this
     if (type == ED_FLOAT || type == ED_FLOAT_OUT_ONLY)
         return toFixedMag(value)
     if (type == ED_INT)
