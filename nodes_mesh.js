@@ -544,9 +544,9 @@ class MeshPropEvaluator extends EvaluatorBase
             return // don't need an update 
         eassert(this.meshref.obj !== null, "unexpected null object")
         if (this.param_bind_to.sel_idx == 0) // vertices  TBD this is not invalidated if bind_to changes
-            eassert(this.attrname.startsWith("vtx_"), "bind to Vertices can only sample vertex attribute")
+            eassert(this.attrname.startsWith("vtx_"), "bind to Vertices can only sample vertex attribute: " + this.attrname)
         else if (this.param_bind_to.sel_idx == 1) // faces
-            eassert(this.attrname.startsWith("face_"), "bind to Faces can only sample face attribute")
+            eassert(this.attrname.startsWith("face_"), "bind to Faces can only sample face attribute: " + this.attrname)
         let attr = this.meshref.obj.arrs[this.attrname]
         if (attr === undefined && this.meshref.obj.computed_prop !== undefined)
             attr = this.meshref.obj.computed_prop(this.attrname)
@@ -1252,7 +1252,9 @@ class NodeGeomMerge extends NodeCls
     run() {
         const meshes = this.in_m.get_input_consts()
         if (meshes.length == 0) {
-            this.out.set(new Mesh())
+            const r = new Mesh()
+            new_mesh.type = MESH_POINTS
+            this.out.set(r)
             return
         }
         let r = null
@@ -1902,8 +1904,9 @@ class NodeRandomPoints extends NodeCls
             vtx = vtx_in
         }
       
-        let ret = new Mesh()
+        const ret = new Mesh()
         ret.set("vtx_pos", new TVtxArr(vtx), 2)
+        ret.type = MESH_POINTS
         this.out_mesh.set(ret)
         
         //console.log("Scatter: ", vtx.length, "  ", timer.elapsed(), "msec")

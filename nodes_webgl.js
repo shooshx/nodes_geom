@@ -1033,7 +1033,7 @@ class TerminalProxy extends Terminal
         this.lines = wterm.lines // not sure if needed...
         this.is_input = wterm.is_input
         copy_members(wterm, this, wterm, ["set", "get_const", "get_mutable", "clear", "tset_dirty", "is_dirty", 
-                                          "get_input_consts", "intr_set"])
+                                          "get_input_consts", "intr_set", "get_cur_uver"])
 
         copy_members(wterm, this, this, ["draw_path"])
             

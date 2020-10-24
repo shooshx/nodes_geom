@@ -153,3 +153,4 @@ Node: Marchin Squares
     - face_index is an integer count, face_indexf is normalized to the range of [0,1]
   to the created faces. Examples for SetAttr:
     - Bind To: Faces, Color: return rgb(in_obj.face_index * 20, in_obj.face_index * 30,255)
+    - in_src is gradient in sample mode, Bind To: Faces, Color: return in_src.at(in_obj.face_indexf) 

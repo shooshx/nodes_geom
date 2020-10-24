@@ -304,8 +304,12 @@ class DistanceField extends PObject
 }
 
 function asFloatStr(v) {
-    if (Number.isInteger(v))
-        return v + ".0"
+    if (Number.isInteger(v)) {
+        const sv = v + ".0"
+        if (sv.includes('e'))
+            return "" + v  // avoid adding .0 that messes the exponent
+        return sv
+    }
     return "" + v
 }
 
@@ -1332,14 +1336,16 @@ class NodeMarchingSquares extends NodeCls
         let cont_idx = 0
         for(let cont of conts) {
             for(let paths of cont.coordinates) {
+                let extra_flag = 0
                 for(let path of paths) { // can have 1 or two paths if there's an outside when the value is negative inside
                     const start_at = vtx.length/2
                     for(let point of path) {
                         tr_p(v, point)
                         vtx.push(v[0], v[1])
                     }
-                    ranges.push(start_at, vtx.length/2, PATH_CLOSED)
+                    ranges.push(start_at, vtx.length/2, PATH_CLOSED | extra_flag)
                     face_idx.push(threshs[cont_idx].index)
+                    extra_flag = PATH_CONTINUE_PREV // more than 1 path here means there's holes
                 }
             }
             ++cont_idx

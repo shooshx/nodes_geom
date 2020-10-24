@@ -956,6 +956,12 @@ input {
     background-image: url(img/pause_anim.png);
 }
 
+.anim_frame_disp_wrap {
+    display: inline-block;
+    vertical-align: top;
+    position: relative;
+}
+
 .anim_frame_disp {
     font-family: monospace;
     display: inline-block;
@@ -968,7 +974,16 @@ input {
     border: solid 1px #888;
     border-radius: 4px;
     padding: 2px 5px;
-    margin: 4px 0;
+    margin: 5px 0;
     background-color: #555;
     outline: none; /* edit highlight in chrome */
+}
+
+.anim_fn_hover_box {
+    left: -20px;
+    top: -26px;
+}
+
+.anim_frame_disp:hover + .anim_fn_hover_box {
+    display: initial;
 }

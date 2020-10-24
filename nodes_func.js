@@ -75,6 +75,8 @@ class ParamProxy extends Parameter {
         this.wrap = wrap
         if (this.wrap.my_expr_items !== undefined)
             this.my_expr_items = this.wrap.my_expr_items // make resolve_variables work
+        if (this.wrap.post_load_hook !== undefined)
+            this.post_load_hook = ()=>{ this.wrap.post_load_hook() }
     }
     save() { return this.wrap.save() }
     load(v) { this.wrap.load(v) }
@@ -246,6 +248,7 @@ class NodeFuncFill extends BaseNodeShaderParcel
         this.proxies_group = new ParamGroup(node, "Uniforms")
 
         this.order_table = new ParamProxy(node, this.shader_node.cls.order_table, "Tex Order")
+        this._tex_order = new ParamProxy(node, this.shader_node.cls.order, "order") // proxy so that save would reach it
 
 
         this.shader_node.cls.vtx_text.set_text(FUNC_VERT_SRC)

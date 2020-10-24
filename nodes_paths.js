@@ -1,6 +1,7 @@
 "use strict"
 
 const PATH_CLOSED = 1
+const PATH_CONTINUE_PREV = 2  //means that there shouldn't be a new beingPath for this range, that it continues the previous path (it's a hole)
 
 function get_flag(v, f) {
     return (v & f) == f
@@ -269,8 +270,13 @@ class MultiPath extends PObject
             return
 
         this.paths = []
+        let jp = null
         for(let pri = 0; pri < this.paths_ranges.length; pri += 3) {
-            let jp = new Path2D()
+            const flags = this.paths_ranges[pri+2]
+            if (!get_flag(flags, PATH_CONTINUE_PREV))
+                jp = new Path2D()
+            else
+                dassert(jp !== null, "continue-prev must have previous path")
             this.call_path_commands(jp, pri)
             this.paths.push(jp)
         }

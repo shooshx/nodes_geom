@@ -61,10 +61,17 @@ EXPRESSIONS
 - BUG? rendering with effective_vtx ?
 - BUG: func node without show_code?
 - BUG: rotate variable, changing slider when there's an invalid var doesn't clear the red error
+- Animation
+    - show vector with optional disp params
+    - scale radius
+    - zoom continues integration
+    - single step
+- bouncing blobs
+    - gradient problem
+    - BUG: iso-lines with the same color, even when there's only 1 line
+    - BUG: gradient when there is only 1 iso-line
 - distance fields
-    - repeat
-    - moving, bounding walls
-        - for walls - variable from object, anything from the object, x,y,bbox,transform,attrbiture
+    - repeat on axis
 - manual geom create quads mesh
 - balls that know their end color
     - Animation

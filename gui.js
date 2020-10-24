@@ -869,7 +869,8 @@ function create_anim_bar()
             g_anim.pause()
     })
 
-    const frame_disp = add_elem(anim_bar, 'input', "anim_frame_disp")
+    const frame_disp_wrap = add_div(anim_bar, 'anim_frame_disp_wrap') // needed for the tooltip
+    const frame_disp = add_elem(frame_disp_wrap, 'input', "anim_frame_disp")
     frame_disp.type = 'text'
     frame_disp.spellcheck = false
     frame_disp.value = "0"
@@ -884,6 +885,8 @@ function create_anim_bar()
         g_anim.set_frame_num(num)
     })
 
+    const edit_hover = add_div(frame_disp_wrap, ["hover_box", "anim_fn_hover_box"])
+    edit_hover.innerText = "frame_num"
 }
 
 

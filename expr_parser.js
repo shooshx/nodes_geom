@@ -659,6 +659,11 @@ function myrand(seed) {
     r /= 2147483647
     return r;
 }
+function randvec2(seed) {
+    var r = myrand(seed) * 2.0 * Math.PI;
+    return vec2.fromValues(Math.cos(r), Math.sin(r))
+}
+
 function fit(v, oldmin, oldmax, newmin, newmax) {
     eassert((oldmin < oldmax) == (newmin < newmax), "mismatch order of arguments in fit()")
     if (v > oldmax)
@@ -685,7 +690,7 @@ function degrees(v) { return v*180/Math.PI }
 function radians(v) { return v*Math.PI/180 }
 function fit01(v, nmin, nmax) { return fit(v, 0, 1, nmin, nmax) }
 function fit11(v, nmin, nmax) { return fit(v, -1, 1, nmin, nmax) }
-function ifelse(v, vt, vf) { return v?vt:vf }
+//function ifelse(v, vt, vf) { return v?vt:vf }
 
 function make_float(v) { return +v }
 function make_vec2(x, y) { return vec2.fromValues(x, y) }
@@ -769,6 +774,7 @@ const func_defs = {
     'min': new FuncDef(Math.min, -2), 'max': new FuncDef(Math.max, -2), 'clamp': new FuncDef(glsl_clamp, 3), // negative means atleast
     'smoothstep' : new FuncDef(smoothstep, 3),
     'rand': new FuncDef(myrand, 1),
+    'randvec2': new FuncDef(randvec2, 1, [TYPE_NUM], TYPE_VEC2),
     'fit': new FuncDef(fit, 5), 'fit01': new FuncDef(fit01, 3), 'fit11': new FuncDef(fit11, 3),
     'degrees': new FuncDef(degrees, 1), 'radians': new FuncDef(radians, 1),
  //   'ifelse': new FuncDef(ifelse, 3),
