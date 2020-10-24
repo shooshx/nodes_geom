@@ -4,6 +4,7 @@ body {
     box-sizing: border-box;
     font-family: Verdana;
     user-select: none;
+    overflow: hidden;
 }
 input {
     font-family: Verdana;

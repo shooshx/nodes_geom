@@ -1088,6 +1088,7 @@ class NodeCls {
     is_internal_dirty() { return false } // for nodes with internal nodes
     is_picking_lines() { return false } // should the engine run and collect all inputs before run(), if not the node decides which inputs to run using select_lines
     pick_lines() { assert(false, this, "not selecting lines") }
+    should_clear_out_before_run() { return true }
 
     nresolve_variables() {
         try {

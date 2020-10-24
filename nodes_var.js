@@ -223,8 +223,8 @@ class NodeVariable extends NodeCls
         this.var_out.set(vsb)
     }
 
-    cclear_dirty() {
-        this.vb.vis_dirty = false;
+    cclear_dirty() {  // c for cls
+        this.vb.vclear_dirty();
     }
 
     move_action(e) {

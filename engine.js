@@ -441,9 +441,10 @@ async function run_nodes_tree(n)
         }
         // clear outputs of what's just going to run to make sure it updated its output
         // otherwise it can have something there from a previous iteration (which will stay there in case of an error)
-        for(let out_t of n.outputs) {
-            out_t.clear()
-        }
+        if (n.cls.should_clear_out_before_run()) // disabled for NodeChangeFilter so that it won't create new versions when there's no change
+            for(let out_t of n.outputs) {
+                out_t.clear()
+            }
         if (!node_picking_lines) // a node that's picking lines, also does its own collect
             collect_inputs(n, KIND_OBJ)
         const r = n.cls.run()
@@ -498,6 +499,7 @@ function mark_dirty_tree(n) {
     // all inputs
     for(let inp_t of n.inputs) {  
         // all lines going into an input
+        // TBD  - only OBJ, only picked lines
         for(let line of inp_t.lines) {
             // if any of the higher nodes is dirty, we're dirty as well
             if (mark_dirty_tree(line.from_term.owner)) {
@@ -770,6 +772,7 @@ function anim_frame()
     g_anim.notify_pre_draw()
 
     call_frame_draw(true, false)
+    g_anim.frame_num_box.vclear_dirty() // clean it like node variables are cleaned
     if (!g_anim.run)
         return
     ++g_anim.frame_num;
@@ -811,7 +814,8 @@ const nodes_classes = [
         NodeMarchingSquares
     ]},
     { group_name: "Flow", nodes: [
-        NodePickOne
+        NodePickOne,
+        NodeChangeFilter
     ]},
     NodeSetAttr, 
     NodeTransform,
