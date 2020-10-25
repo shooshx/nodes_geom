@@ -1321,6 +1321,16 @@ class NodeMarchingSquares extends NodeCls
         return cont
     }
 
+    make_face_idxf(face_idx, th_length) {
+        if (th_length == 1)
+            return new Array(face_idx.length).fill(0)
+        // fraction between 0-1 of the index            
+        const face_idxf = [] // fraction between 0-1 of the index
+        for(let idx of face_idx)
+            face_idxf.push(idx / (th_length-1))  
+        return face_idxf      
+    }
+
     square_march(values, threshs, width, height, sx, sy, tr) 
     {
         const conts = this.run_square_march(values, threshs, width, height)
@@ -1350,9 +1360,7 @@ class NodeMarchingSquares extends NodeCls
             }
             ++cont_idx
         }
-        const face_idxf = [] // fraction between 0-1 of the index
-        for(let idx of face_idx)
-            face_idxf.push(idx / (threshs.length-1))
+        const face_idxf = this.make_face_idxf(face_idx, threshs.length)
 
         const obj = new MultiPath()
         obj.set('vtx_pos', new TVtxArr(vtx), 2)
@@ -1398,13 +1406,11 @@ class NodeMarchingSquares extends NodeCls
                 else
                     assert(false, this, "unexpected tag")
             }
-            ranges.push(startIdx, vtx.length /2, PATH_CLOSED)
+            ranges.push(startIdx, vtx.length /2, PATH_CLOSED | path.flag)
             face_idx.push(path.cont_index)
         }
 
-        const face_idxf = [] // fraction between 0-1 of the index
-        for(let idx of face_idx)
-            face_idxf.push(idx / (count_threshs-1))
+        const face_idxf = this.make_face_idxf(face_idx, count_threshs)
 
         const obj = new MultiPath()
         obj.set('vtx_pos', new TVtxArr(vtx), 2)
@@ -1441,9 +1447,12 @@ class NodeMarchingSquares extends NodeCls
         for(let i in threshs) {
             Potrace.setBm(arr, width, height, parseInt(i)+1)
             const paths = Potrace.process()
+            let flag = 0
             for(let p of paths) {
                 p.cont_index = threshs[parseInt(i)].index
+                p.flag = flag
                 all_paths.push(p)
+                flag = PATH_CONTINUE_PREV
             }
             Potrace.clear()
         }
@@ -1476,7 +1485,7 @@ class NodeMarchingSquares extends NodeCls
 
     async run() {
         const df = this.in_df_obj.get_const()
-        assert(df !== null || df.constructor !== DistanceField, this, "Missing input distance field")
+        assert(df !== null && df.constructor === DistanceField, this, "Missing input distance field")
 
         const width = this.res.x, height = this.res.y
         const sx = this.size.x, sy = this.size.y

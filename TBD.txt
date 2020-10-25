@@ -70,8 +70,8 @@ EXPRESSIONS
 - bouncing blobs
     - gradient problem
     - BUG: iso-lines with the same color, even when there's only 1 line - fixed path
-         but now there are duplicate paths?
-    - BUG: gradient when there is only 1 iso-line
+         in potrace
+         controls take the color of face if no lines
 - Mesh,Path attribute radius should be in world coordinates
 - distance fields
     - repeat on axis

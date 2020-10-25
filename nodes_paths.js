@@ -269,16 +269,30 @@ class MultiPath extends PObject
         if (this.paths !== null && this.paths.length*3 === this.paths_ranges.length) 
             return
 
+        // sample face_color here since the number of Path2D can be different from the number of faces in the array (due to holes)
+        const fcol = this.arrs.face_color
+        const do_fill = fcol !== undefined
+        let cidx = 0
+
         this.paths = []
         let jp = null
         for(let pri = 0; pri < this.paths_ranges.length; pri += 3) {
             const flags = this.paths_ranges[pri+2]
-            if (!get_flag(flags, PATH_CONTINUE_PREV))
+            const continue_prev = get_flag(flags, PATH_CONTINUE_PREV)
+            let col = null
+            if (do_fill) {
+                col = "rgba(" + fcol[cidx] + "," + fcol[cidx+1] + "," + fcol[cidx+2] + "," + (fcol[cidx+3]/255) + ")"
+                cidx += 4            
+            }
+            if (!continue_prev) {
                 jp = new Path2D()
+                jp.face_color = col  // take just the color of the first face, ignore the potential case that the other faces can have a different color
+            }
             else
                 dassert(jp !== null, "continue-prev must have previous path")
             this.call_path_commands(jp, pri)
-            this.paths.push(jp)
+            if (!continue_prev)
+                this.paths.push(jp)
         }
     }
 
@@ -297,18 +311,14 @@ class MultiPath extends PObject
     
     draw_poly(do_lines, do_fill, lines_color="#000") {
         this.ensure_paths_created()
-        let cidx = 0
-        let fcol = this.arrs.face_color
-        do_fill = do_fill && (fcol !== undefined)
+
         let line_width = 1 / image_view.viewport_zoom
         for(let p of this.paths) {
-            if (do_fill) {
-                let col = "rgba(" + fcol[cidx] + "," + fcol[cidx+1] + "," + fcol[cidx+2] + "," + (fcol[cidx+3]/255) + ")"
-                cidx += 4
-                ctx_img.fillStyle = col
+            if (do_fill && p.face_color !== null) {
+                ctx_img.fillStyle = p.face_color
                 ctx_img.fill(p)
                 ctx_img.lineWidth = line_width
-                ctx_img.strokeStyle = col
+                ctx_img.strokeStyle = p.face_color
                 ctx_img.stroke(p) // fill antialiasing gaps
             }
             if (do_lines) {
@@ -334,9 +344,10 @@ class MultiPath extends PObject
         }
     }
 
-    draw_control_points(draw_points) {
+    draw_control_points(draw_points, lines_color="#000") {
         const ctp = this.eff_ctrl_to_prev, cfp = this.eff_ctrl_from_prev
         const radius = MESH_DISP.vtx_radius / image_view.viewport_zoom
+        ctx_img.strokeStyle = lines_color
         ctx_img.beginPath()
         this.foreach_line((vidx, prev_x, prev_y, vx, vy)=>{
             if (this.is_curve(vidx))
