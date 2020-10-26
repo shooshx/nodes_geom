@@ -114,10 +114,12 @@ class Mesh extends PObject
 
     // API
     get_disp_params(disp_values) {
-        return [ new DispParamBool(disp_values, "Show Vertices", 'show_vtx', true),
-                 new DispParamBool(disp_values, "Show Lines", 'show_lines', true),
-                 new DispParamBool(disp_values, "Show Faces", 'show_faces', true)
-                ]
+        const d =  [ new DispParamBool(disp_values, "Show Vertices", 'show_vtx', true) ]
+        if (this.arrs.idx !== undefined && this.arrs.idx !== null && this.arrs.idx.length > 0)
+            d.push(new DispParamBool(disp_values, "Show Lines", 'show_lines', true))
+        if (this.arrs.face_color !== undefined || this.arrs.face_fill !== undefined)
+            d.push(new DispParamBool(disp_values, "Show Faces", 'show_faces', true))
+        return d
     }
 
     invalidate_pos() {

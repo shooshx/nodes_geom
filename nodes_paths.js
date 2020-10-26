@@ -46,7 +46,9 @@ class MultiPath extends PObject
         this.meta[name] = { num_elems: num_elems,
                             need_normalize: need_normalize }
                            
-        if (name == "vtx_pos" || name == "ctrl_to_prev" || name == "ctrl_from_prev" || name == "face_transform" || name == "vtx_transform")
+        if (name == "vtx_pos" || name == "ctrl_to_prev" || name == "ctrl_from_prev" || 
+            name == "face_color" || // saved with the path
+            name == "face_transform" || name == "vtx_transform")
             this.invalidate_pos()
     }
 
@@ -63,15 +65,18 @@ class MultiPath extends PObject
     }
 
 
-    get_disp_params(disp_values) {
-        const scc = new DispParamBool(disp_values, "Show Curve Controls ", 'show_ctrls', true)
-        const sccp = new DispParamBool(disp_values, "Points", 'show_ctrls_pnts', true)
-        sccp.share_line_elem_from(scc)
-        return [ new DispParamBool(disp_values, "Show Vertices", 'show_vtx', true),
-                 scc, sccp,
-                 new DispParamBool(disp_values, "Show Lines", 'show_lines', true),
-                 new DispParamBool(disp_values, "Show Faces", 'show_faces', true)
-                ]
+    get_disp_params(disp_values) {        
+        const d = [new DispParamBool(disp_values, "Show Vertices", 'show_vtx', true), 
+                   new DispParamBool(disp_values, "Show Lines", 'show_lines', true),]
+        if (this.has_curves()) {
+            const scc = new DispParamBool(disp_values, "Show Curve Controls ", 'show_ctrls', true)
+            const sccp = new DispParamBool(disp_values, "Points", 'show_ctrls_pnts', true)
+            sccp.share_line_elem_from(scc)
+            d.push(scc, sccp)
+        }
+        if (this.arrs.face_color !== undefined)
+            d.push(new DispParamBool(disp_values, "Show Faces", 'show_faces', true))
+        return d
     }
 
     // API
