@@ -1055,6 +1055,19 @@ class Node {
     terminal_alias(name, terminal) {
         this.terminal_aliases[name] = terminal
     }
+    rename_param(prm, name) {
+        const exname = null
+        for(let name in parameters) {
+            if (this.parameters[name] === prm) {
+                exname = name
+                break
+            }
+        }
+        if (exname !== null) {
+            delete this.parameters[exname]
+            this.parameters[name] = prm
+        }
+    }
 }
 
 

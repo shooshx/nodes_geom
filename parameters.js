@@ -27,6 +27,7 @@ class Parameter
         this.label = text
         if (this.label_elem !== null) // can be null if we call this before displaying elements
             this.label_elem.innerText = text
+        this.owner.rename_param(this, text)
     }
     set_enable(v) {
         if (this.enable == v)
@@ -276,7 +277,7 @@ const ED_FLOAT_OUT_ONLY=3  // when parsing ParamFloat, don't pass it throu parse
 const ED_COLOR_EXPR=4 // used for expression type check
 const ED_VEC2=5 // for code expression type check
 
-function add_param_edit(line, value, type, set_func, cls=null) {
+function add_param_edit(line, value, type, set_func, cls=null, enter_func=null) {
     let e = document.createElement('input')
     if (cls === null)
         cls = "param_editbox"
@@ -288,6 +289,13 @@ function add_param_edit(line, value, type, set_func, cls=null) {
     myAddEventListener(e, "input", function() { 
         set_func( (type == ED_FLOAT)? parseFloat(e.value) : e.value); 
     })
+    if (enter_func !== null) {
+        myAddEventListener(e, "keyup", function(e) {
+            if (e.keyCode === 13) {
+                enter_func()
+            }
+        })
+    }
     /*if (is_float) {
         myAddEventListener(e, "mousedown", function(ev) {
             console.log("~~", ev.buttons, ev.button)
@@ -1907,7 +1915,7 @@ function cull_list(lst) {
 }
 
 class ListParam extends Parameter {
-    constructor(node, label, values_per_entry, in_table, lst_type) {
+    constructor(node, label, values_per_entry, in_table, lst_type, def_val=null) {
         super(node, label)
         //this.elem_prm = elem_prm
         this.values_per_entry = values_per_entry
@@ -1915,7 +1923,9 @@ class ListParam extends Parameter {
         this.lst = new lst_type()  // flat list
         this.elem_lst = null
         this.table = in_table
-        this.column = in_table.register(this)  // columns are vertical, rows are horizontal
+        this.column_key = in_table.register(this)  // columns are vertical, rows are horizontal
+        this.def_val = (def_val !== null) ? def_val : get_default_value(label, values_per_entry) // kept here since it's the best place to keep it although it's not used by the class
+        this.allow_title_edit = false
     }
     add_elems(parent) {}
     save() { return {lst:this.lst} }
@@ -1924,6 +1934,10 @@ class ListParam extends Parameter {
             this.lst = v.lst
         else
             this.lst = new this.lst_type(v.lst) 
+    }
+
+    get_def_val() {
+        return this.def_val
     }
 
     add(v) { // for multiple lists in a table, needs to be called in the right order of the columns
@@ -1943,7 +1957,7 @@ class ListParam extends Parameter {
         this.pset_dirty(this.table === null) // if we're in a table, don't draw yet since not all the columns are set
 
         let vindex = (this.lst.length - this.values_per_entry)
-        let col_elem = this.table.get_column_elem(this.column)
+        let col_elem = this.table.get_column_elem(this.column_key)
         if (col_elem !== null) // might not be displayed
             this.create_entry_elems(v, col_elem, vindex)
     }
@@ -1971,6 +1985,9 @@ class ListParam extends Parameter {
     // called by ParamTable
     get_column_title() {
         return this.label
+    }
+    set_column_title(v) {
+        this.label = v
     }
 
     create_entry_elems(v, parent, vindex) {
@@ -2139,22 +2156,23 @@ class ParamEditableValueList extends ListParam {
                     this.external_update(text_elem, get_cur_val(text_elem.p_lst_index), text_elem.p_lst_index) 
                     if (this.changed_func_to_node) // redo_sort in Gradient
                         this.changed_func_to_node()
-                }, "param_lst_edit_popup_input")
+                }, "param_lst_edit_popup_input", ()=>{ // Enter handler
+                    this.dismiss_edit_wrap()
+                })
             }
             stop_propogation_on("mousedown", this.edit_wrap)
-            // !!!TBD Enter dismiss
             text_elem.parentNode.insertBefore(this.edit_wrap, text_elem.nextSibling) // re-parent
         })
         return text_elem
     }
-
+    dismiss_edit_wrap() {
+        if (this.edit_wrap === null)
+            return
+        this.edit_wrap.parentNode.removeChild(this.edit_wrap);   
+        this.edit_wrap = null
+    }
     reg_dismiss_edit_wrap() {
-        param_reg_for_dismiss(()=>{  // needs to be here since the list is reset every add_elem
-            if (this.edit_wrap) { 
-                this.edit_wrap.parentNode.removeChild(this.edit_wrap);   
-                this.edit_wrap = null
-            }
-        })         
+        param_reg_for_dismiss(()=>{ this.dismiss_edit_wrap() }) // needs to be here since the list is reset every add_elem
     }
 
     add_elems(parent) {
@@ -2185,9 +2203,9 @@ function uint8arr_to_color(arr) {
 function color_to_uint8arr(c) {
     return [c.r, c.g, c.b, c.alphai]
 }
-class ParamColorList extends ListParam {
-    constructor(node, label, table, arr_type=TColorArr) {
-        super(node, label, 4, table, TColorArr)
+window.ParamColorList = class ParamColorList extends ListParam {
+    constructor(node, label, table) {
+        super(node, label, 4, table, TColorArr, DEFAULT_VTX_COLOR.arr)
         this.pneed_normalize = true
     }
     external_update(elem,value,index) { 
@@ -2208,7 +2226,7 @@ class ParamColorList extends ListParam {
 class ParamTable extends Parameter {
     constructor(node, label, sorted_order=null) {
         super(node, label)
-        this.list_params = []  // registered ListParams
+        this.list_params = {}  // registered ListParams, this is a map and not a list so that keys are allocated using next_key to facilitate erase without shifting
         this.elem_cols = null
         this.elem_visible = true  // for when we don't want to render the table because it's not visible (Gradient with function)
         this.with_index_column = false
@@ -2216,17 +2234,26 @@ class ParamTable extends Parameter {
         this.with_column_title = false // don't set this and with_index_column together
 
         this.sorted_order = sorted_order // list of the indices in the sorted order they are supposed to be displayed in
+        this.title_edit_wrap = null // the div that wraps the edit input for the editable titles
+        this.next_key = 0  // used for indexing columns
     }
     register(list_param) {
-        this.list_params.push(list_param)
-        return this.list_params.length - 1
+        const mykey = this.next_key++
+        this.list_params[mykey] = list_param
+        return mykey
     }
-    get_column_elem(column) {
+    get_column_elem(column_key) {
         if (this.elem_cols === null || !this.visible)
             return null
-        console.assert(column < this.elem_cols.length, "column index too high")
-        return this.elem_cols[column]
+        console.assert(this.list_params[column_key] !== undefined, "column index too high")
+        return this.elem_cols[column_key]
     }
+    del_column(column_key) {
+        delete this.list_params[column_key]
+        if (this.elem_cols !== null)
+            delete this.elem_cols[column_key]
+    }
+
     save() { return null }
     load(v) { } 
 
@@ -2247,6 +2274,7 @@ class ParamTable extends Parameter {
             return
 
         this.make_table()
+        this.reg_dismiss_title_edit()
     }
 
     remake_table() {
@@ -2257,20 +2285,21 @@ class ParamTable extends Parameter {
     }
 
     make_table() {
-        this.elem_cols = []
+        this.elem_cols = {} // keys are the same as in list_params
         const column_clss = this.with_column_sep ? ["param_table_column", "param_table_col_line"] : "param_table_column"
         // index column (1., 2. etc)
-        if (this.with_index_column && this.list_params.length > 0) {
+        if (this.with_index_column && Object.keys(this.list_params).length > 0) {
             let column = create_div(column_clss)
-            const len = this.list_params[0].count()  // checkec abobe there's atleast one...
+            const len = Object.values(this.list_params)[0].count()  // checked above there's atleast one...
             for(let i = 0; i < len; ++i)
                 add_div(column, 'param_lst_order_idx').innerText = i + "."
             this.table_elem.appendChild(column)
         }
         
-        for(let lst_prm of this.list_params) {
+        for(let lst_prm_key in this.list_params) {
+            const lst_prm = this.list_params[lst_prm_key]
             let column = create_div(column_clss)
-            this.elem_cols.push(column)
+            this.elem_cols[lst_prm_key] = column
             lst_prm.add_column_elems(column)
 
             if (this.sorted_order !== null) { // sort by the given order if needed
@@ -2286,20 +2315,48 @@ class ParamTable extends Parameter {
 
            // const columnWrap = create_div("param_table_col_wrap")
             if (this.with_column_title)
-                add_column_title(column, lst_prm.get_column_title())
+                this.add_column_title(column, lst_prm)
             //columnWrap.appendChild(column)
             this.table_elem.appendChild(column)
             let grip = add_div(column, "param_table_grip")
             add_grip_handlers(grip, column)
         }
     }
+
+    add_column_title(column, lst_prm) {
+        const e = create_div("param_table_col_title")
+        e.innerText = lst_prm.get_column_title()
+        column.insertBefore(e, column.firstChild)
+    
+        if (!lst_prm.allow_title_edit)
+            return        
+        myAddEventListener(e, "click", ()=>{ // title edit
+            if (this.title_edit_wrap !== null)
+                this.title_edit_wrap.parentNode.removeChild(this.title_edit_wrap)
+            this.title_edit_wrap = create_div("param_table_title_edit_wrap")
+            add_param_edit(this.title_edit_wrap, lst_prm.get_column_title(), ED_STR, (v)=>{
+                lst_prm.set_column_title(v)
+                e.innerText = v  // directly change it instead of remaking the table
+                this.pset_dirty()
+            }, "param_table_title_edit_input", ()=>{ // enter handler
+                this.dismiss_title_edit() //
+            })
+            this.title_edit_wrap.style.width = e.getBoundingClientRect().width + "px"
+            stop_propogation_on("mousedown", this.title_edit_wrap) // allow user to click the edit box to edit
+            column.insertBefore(this.title_edit_wrap, e.nextSibling)
+        })
+    }
+    dismiss_title_edit() {
+        if (this.title_edit_wrap === null)
+            return
+        this.title_edit_wrap.parentNode.removeChild(this.title_edit_wrap);   
+        this.title_edit_wrap = null
+    }
+    reg_dismiss_title_edit() {
+        param_reg_for_dismiss(()=>{ this.dismiss_title_edit() })
+    }
 }
 
-function add_column_title(column, text) {
-    const e = create_div("param_table_col_title")
-    e.innerText = text
-    column.insertBefore(e, column.firstChild)
-}
 
 
 function add_grip_handlers(grip, cell) {

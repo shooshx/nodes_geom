@@ -16,9 +16,11 @@ Node: Geom Primitive
 - Base size and Transform
 
 Node: Manual Geometry
-- Create a collection of vertices (Mesh) or closed straight-line paths
+- Create a collection of vertices (Mesh) or closed paths
 - Control color of every vertex
 - Input exact coordinates by clicking the coordinate in the table
+- Add custom vertex properties using the "Add Column" button and change the name of the property by clicking their name in the title of the table
+    - Add bezier control points columns to path objects, change their initial value from 0,0 by editing the numbers and then drag the points in the viewport
 
 Node: Gradient
 - Create linear, radial and sampler gradient

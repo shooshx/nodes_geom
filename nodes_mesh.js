@@ -275,6 +275,30 @@ class DummyNodeCtrlPoints {
     }
 }
 
+class ParamColumnInfoStore extends Parameter {
+    constructor(node, label, change_func=null) {
+        super(node, label)
+        this.v = []
+        this.loaded_v = null
+        this.change_func = change_func // to get load event
+    }
+    save() { 
+        const sv = []
+        for(let obj of this.v) {
+            sv.push({label: obj.label, ctor: obj.constructor.name})
+        }
+        return {v:sv}
+    }
+    load(v) { 
+        this.loaded_v = v.v
+    }
+    add_elems(parent) {}
+    sl_add(v) {
+        this.v.push(v)
+        this.pset_dirty() 
+    }
+}
+
 
 class NodeManualGeom extends NodeCls
 {
@@ -282,24 +306,38 @@ class NodeManualGeom extends NodeCls
     constructor(node) {
         super(node)
         this.selected_indices = [] // point indices. DO NOT RECREATE THIS. a reference of it goes to this.points
+        this.pnt_attrs = []  // Param objets of additional attributes of each point other than it's coordinate
 
         this.out = new OutTerminal(node, "out_mesh")
 
         // needs to be first so that load would load the added params
-        this.columns_store = new ParamObjStore(node, "col_store", {}, ()=>{
-            const dct = this.columns_store.st_get_all()
-            for(let name in dct) {
-                const v = dct[name]
-                this.add_additional_column(node, name, v.label, window[v.ctor], null, false)
+        this.columns_store = new ParamColumnInfoStore(node, "col_store", ()=>{
+            if (this.columns_store.loaded_v === null) // only initial load is interesting
+                return
+            // if we're loading, remove the default added color param, it will be be added by the loaded data if it's needed
+            node.remove_param(this.color)
+            this.table.del_column(this.color.column_key)
+            this.color = null   
+            // clear everything since we're loading all from loaded_v
+            this.columns_store.v.length = 0
+            this.pnt_attrs.length = 0
+
+            const lst = this.columns_store.loaded_v
+            for(let loaded_v of lst) {             
+                this.add_additional_column(node, loaded_v.label, window[loaded_v.ctor], false)
             }
+            this.columns_store.loaded_v = null
         })
         this.geom_type = new ParamSelect(node, "Type", 0, ["Mesh", "Paths"])
         this.add_pnts_btn = new ParamBool(node, "Add points", true, null)
         this.add_pnts_btn.display_as_btn(true)
-        this.add_col_btn = new ParamTextMenuBtn(node, "Add column", ["Curve Controls", "Normal"], (opt, sel_idx)=>{
+        this.add_col_btn = new ParamTextMenuBtn(node, "Add Column", ["Curve Controls", "Vec2"], (opt, sel_idx)=>{
             if (sel_idx === 0 && this.cfp === null) {
-                this.add_additional_column(node, "cfp", "ctrl_from_prev", ParamCoordList, [0,0], true)
-                this.add_additional_column(node, "ctp", "ctrl_to_prev", ParamCoordList, [0,0], true)
+                this.add_additional_column(node, "ctrl_from_prev", ParamCoordList, true)
+                this.add_additional_column(node, "ctrl_to_prev", ParamCoordList, true)
+            }
+            else if (sel_idx === 1) {
+                this.add_additional_column(node, "normal", ParamCoordList, true)
             }
         })
         this.add_col_btn.share_line_elem_from(this.add_pnts_btn)
@@ -307,7 +345,11 @@ class NodeManualGeom extends NodeCls
         this.table.with_column_title = true
         this.points = new ParamCoordList(node, "vtx_pos", this.table, this.selected_indices)
       //  this.dummy = new ParamFloatList(node, "Dummy", this.table, this.selected_indices)
-        this.color = new ParamColorList(node, "vtx_color", this.table)
+      //  this.color = new ParamColorList(node, "vtx_color", this.table)
+        this.color = this.add_additional_column(node, "vtx_color", ParamColorList, false)
+
+      //  this.columns_store.loaded_v = [{label:"vtx_color", ctor:"ParamColorList"}]
+
         this.cfp = this.ctp = null
         this.paths_ranges = new PathRangesList(node) // not shown
 
@@ -316,7 +358,6 @@ class NodeManualGeom extends NodeCls
         node.param_alias("Point Color", this.color)
 
         // TBD user able to add columns
-        this.pnt_attrs = [this.color]  // Param objets of additional attributes of each point other than it's coordinate
 
         add_point_select_mixin(this, this.selected_indices, this.points)
         this.cfp_select = this.ctp_select = null
@@ -329,22 +370,26 @@ class NodeManualGeom extends NodeCls
         return null
     }
 
-    add_additional_column(node, var_name, label, ctor, def_val, from_ui) {
+    add_additional_column(node, label, ctor, from_ui) {
         const prm = new ctor(node, label, this.table)
+        prm.allow_title_edit = true
+
         if (from_ui) { // don't need to do all these if we're just loading the params
             this.table.remake_table()
+            const def_val = prm.get_def_val()
             for(let i = 0; i < this.points.count(); ++i)
                 prm.add(def_val)
-            prm.reg_dismiss_edit_wrap() // needed because if the param was just added, this param was not there when add_elem was called                
+            prm.reg_dismiss_edit_wrap() // needed because if the param was just added, this param was not there when add_elem was not called                
         }
-        this[var_name] = prm
+        //this[var_name] = prm
         this.pnt_attrs.push(prm)
-        this.columns_store.st_set(var_name, {label:label, ctor:ctor.name})
+        this.columns_store.sl_add(prm)
 
-        if (var_name === "cfp")
+        if (label === "ctrl_from_prev")
             this.cfp_select = new DummyNodeCtrlPoints(this.points, this.cfp, true, this.paths_ranges)
-        else if(var_name === "ctp")
+        else if(label === "ctrl_to_prev")
             this.ctp_select = new DummyNodeCtrlPoints(this.points, this.ctp, false, null)
+        return prm
     }
 
     image_click(ex, ey) {
@@ -353,7 +398,7 @@ class NodeManualGeom extends NodeCls
         let ti = image_view.epnt_to_model(ex, ey)
         this.points.add(ti)
         for(let attr_param of this.pnt_attrs) {
-            attr_param.add(get_default_value(attr_param.label, attr_param.values_per_entry))
+            attr_param.add(attr_param.get_def_val())
         }
 
         this.paths_ranges.add_default() // do this anyway just to keep it simple, not much of an overhead

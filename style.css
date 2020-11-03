@@ -41,7 +41,7 @@ input {
     background-color: #312F31;
     color: #fff;  
     overflow-y: auto;  
-    overflow-x: hidden; /* image name goes outside */
+    /*overflow-x: hidden; /* image name goes outside, manual geom needs more room to grow */
     white-space: nowrap;
 }
 
@@ -351,6 +351,19 @@ input {
     z-index: 2; /* needs to be above the table param_table_grip so that its cursor won't show */
     padding: 5px;
     border-radius: 4px;    
+}
+
+.param_table_title_edit_wrap {
+    position: absolute;
+    top: -2px;
+}
+.param_table_title_edit_input {
+    height: 20px;
+    width: calc( 100% - 12px );
+    margin: 0;
+    text-align: center;
+    font-family: monospace;
+    font-size: 16px;
 }
 
 .param_lst_order_cell {
