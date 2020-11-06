@@ -169,20 +169,37 @@ function param_reg_for_dismiss(callback) {
     g_params_popups.push(callback)
 }
 
+// this is used to identify when the param-set is changed so it needs to be re-displayed
+function get_param_list_labels_key(params) {
+    let ret = ""
+    for(let p of params)
+        ret += p.label + "_"
+    return ret
+}
 // display_values is held per-node and is a map of string to value
 // disp_params is produced by the object and holds how to display the params and it's default value
 //  TBD don't really need to do this every frame
+var g_prev_disp_node = null, g_prev_param_labels_key = null
 function show_display_params(obj, disp_node) {
     let params = null
     if (disp_node && obj)
         params = obj.get_disp_params(disp_node.display_values) // sets defaults if needed
-    let div_display_params = clear_elem_byid('div_display_params')
-    if (obj === null || params === null || disp_node === null || disp_node !== selected_node)
+
+    if (obj === null || params === null || disp_node === null || disp_node !== selected_node) {
+        clear_elem_byid('div_display_params')
+        g_prev_disp_node = null
         return
+    }
+    const labels_key = get_param_list_labels_key(params)
+    if (disp_node === g_prev_disp_node && labels_key === g_prev_param_labels_key)
+        return // same thing as before, don't need to recreate it. This is needed so that the scale ParamFloat there would be recreated while it is edited
+    const div_display_params = clear_elem_byid('div_display_params')
     for(let p of params) {
         if (p !== null && p.add_elems) // the params of a group is an aggregate of it's members, it's not going to have that. FrameBuffer has null disp_params
             p.add_elems(div_display_params)
     }
+    g_prev_disp_node = disp_node
+    g_prev_param_labels_key = labels_key
 }
 
 function create_elem(elem_type, cls) {
@@ -345,8 +362,8 @@ function add_param_slider(line, min_val, max_val, start_value, type, set_func) {
         if (new_v == cfg.v)
             return
         cfg.v = new_v
-        set_len(norm_v * crect.width)
-        set_func(cfg.v)        
+        //set_len(norm_v)
+        set_func(cfg.v)  // eventually calls update so the above is set_len is not needed
     })
 
 
@@ -782,12 +799,17 @@ class ExpressionItem {
         eassert(se !== null && se !== undefined, "unexpected null string-expr")
         this.se = se // might be a plain number as well
         this.eclear_error()
-        let state_access = this.in_param.owner.state_access  // all nodes should have this
-        if (state_access === null) {
-            // if the NodeCls was going to call this it should have done it before creating any Params. We need it now
-            // for variables parsing so we create it on demand
-            state_access = this.in_param.owner.set_state_evaluators([])
+        let state_access = null
+        if (this.in_param.owner !== null) {
+            state_access = this.in_param.owner.state_access  // all nodes should have this
+            if (state_access === null) {
+                // if the NodeCls was going to call this it should have done it before creating any Params. We need it now
+                // for variables parsing so we create it on demand
+                state_access = this.in_param.owner.set_state_evaluators([])
+            }
         }
+        else  // disp_params have this null
+            state_access = new StateAccess([]) 
 
         let state_access_need_inputs = null
         try {
@@ -811,7 +833,6 @@ class ExpressionItem {
             state_access.need_inputs = null
             state_access.score = EXPR_CONST
         }
-        this.in_param.call_change() // need to do this even if it's not const for glsl in FuncFill
  
         if (this.expr_score == EXPR_CONST) { // depends on anything?
             if (this.do_set_prop(ExprParser.do_eval(this.e)))  // returns false if it's the same value
@@ -825,6 +846,9 @@ class ExpressionItem {
             }
             this.in_param.pset_dirty() // TBD maybe expression didn't change?
         }      
+
+        // needs to be after we possibly did set_prop so it gets the current value
+        this.in_param.call_change() // need to do this even if it's not const for glsl in FuncFill
     }
 
 
@@ -1044,7 +1068,14 @@ class EditBoxEditor {
 let CodeItemMixin = (superclass) => class extends superclass {
     constructor(node, label, conf) {
         super(node, label)
-        this.show_code = (conf !== null && conf.show_code === true) ? true : false  // show code or show line
+        this.allowed_code = true
+        if (conf !== null && conf.allowed_code === false) {
+            this.allowed_code = false
+            this.show_code = false
+        }
+        else {
+            this.show_code = (conf !== null && conf.show_code === true) ? true : false  // show code or show line editbox
+        }
         // dlg_rect - position and size of dialog, panel_rect - size of editor in panel
         // needs extra indirection so that Editor set into into on popout (saves pos and size of dialog)
         this.dlg_rect_wrap = {dlg_rect: null, panel_rect: null} 
@@ -1068,6 +1099,8 @@ let CodeItemMixin = (superclass) => class extends superclass {
     }
 
     add_code_elem() {
+        if (!this.allowed_code)
+            return
         this.code_line = add_param_line(this.line_elem, this)
         elem_set_visible(this.code_line, this.show_code)
         add_param_label(this.code_line, this.label)
@@ -1113,6 +1146,8 @@ let CodeItemMixin = (superclass) => class extends superclass {
 
     
     populate_code_ctx_menu(ctx_menu) {
+        if (!this.allowed_code)
+            return
         const add_code_checkbox = (parent, dismiss_func)=>{
             let chk_line = add_div(parent, 'prm_slider_ctx_line')
             let [ein,etext,edisp] = add_param_checkbox(chk_line, "Code", this.show_code, (v)=>{ 
@@ -1167,6 +1202,8 @@ class ParamBaseExpr extends CodeItemMixin(Parameter)
         this.label_elem = add_param_label(this.single_line, this.label)
         const single_elem = this.item.add_editbox(this.single_line, true)
 
+        if (this.is_sharing_line_elem() && this.allowed_code) //  if it's sharing a line, clearly it wasn't meant to be code
+            throw new Error("param that shares line doesn't work with allowed_code")
         this.add_code_elem()
     }
 
@@ -1211,6 +1248,22 @@ class ParamInt extends ParamBaseExpr {
 }
 
 
+class DispParamFloat extends ParamFloat {
+    constructor(disp_values, label, prop_name, start_v) {
+        const slider_values = disp_values[prop_name + "_slider"]
+        let conf = { allowed_code:false }
+        if (slider_values !== undefined)
+            conf = {...conf, ...slider_values}
+        const real_start_v = toFixedMag(get_default(disp_values, prop_name, start_v))  // avoid long float tail
+        super(null, label, real_start_v, conf, (v)=>{
+            disp_values[prop_name] = v
+            // reference the slider_conf object and not just copy it so that changes to it made by the ui be saved even if this function is not called
+            disp_values[prop_name + "_slider"] = this.item.slider_conf
+            trigger_frame_draw()
+        })
+    }
+    pset_dirty() {} // this override is needed to avoid draw triggers that mess with the controls
+}
 
 
 class ParamVec2 extends CodeItemMixin(Parameter) {

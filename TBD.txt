@@ -63,9 +63,8 @@ EXPRESSIONS
 - BUG: rotate variable, changing slider when there's an invalid var doesn't clear the red error
 - BUG: bool value warninig on load of anim_bouncing_blobs2.yaml
 - Animation
-    - show vector with optional disp params
     - scale radius
-    - single step
+    - single step button
     - separate canvas to each shader-node
 - bouncing blobs
 - Mesh,Path attribute radius should be in world coordinates

@@ -39,6 +39,8 @@ class MultiPath extends PObject
         this.effective_vtx_pos = null
         this.eff_ctrl_to_prev = null
         this.eff_ctrl_from_prev = null
+
+        this.forVec2Arrs = Mesh.prototype.forVec2Arrs // needed when calling Mesh draw_vertices with this
     }
     set(name, arr, num_elems, need_normalize=false) {
         name = normalize_attr_name(name)
@@ -76,6 +78,12 @@ class MultiPath extends PObject
         }
         if (this.arrs.face_color !== undefined)
             d.push(new DispParamBool(disp_values, "Show Faces", 'show_faces', true))
+        this.forVec2Arrs((name, arr)=>{
+            const b = new DispParamBool(disp_values, "Show " + name, 'show_' + name, true)
+            const sc = new DispParamFloat(disp_values, "Scale", "scale_" + name, 1.0)
+            sc.share_line_elem_from(b)
+            d.push(b, sc)
+        })            
         return d
     }
 
@@ -398,7 +406,7 @@ class MultiPath extends PObject
         if (disp_values.show_lines || disp_values.show_faces)
             this.draw_poly(disp_values.show_lines, disp_values.show_faces)
         if (disp_values.show_vtx) 
-            Mesh.prototype.draw_vertices.call(this)
+            Mesh.prototype.draw_vertices.call(this, "#000", true, disp_values)
         if (disp_values.show_ctrls) 
             this.draw_control_points(disp_values.show_ctrls_pnts)
     }

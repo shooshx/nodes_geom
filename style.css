@@ -880,6 +880,14 @@ input {
     box-sizing: border-box;
 }
 
+#div_display_params > .param_line {
+    height: 20px;
+}
+#div_display_params > .param_line > .param_editbox {
+    height: 20px;
+    background-color: rgb(85, 85, 85, 50%);
+}
+
 .hover_box {
     display: none;
     background-color: #543e04;

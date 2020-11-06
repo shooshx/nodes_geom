@@ -337,7 +337,7 @@ class NodeManualGeom extends NodeCls
                 this.add_additional_column(node, "ctrl_to_prev", ParamCoordList, true)
             }
             else if (sel_idx === 1) {
-                this.add_additional_column(node, "normal", ParamCoordList, true)
+                this.add_additional_column(node, "vtx_normal", ParamCoordList, true)
             }
         })
         this.add_col_btn.share_line_elem_from(this.add_pnts_btn)

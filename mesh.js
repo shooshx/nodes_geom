@@ -112,6 +112,17 @@ class Mesh extends PObject
         }
     }
 
+    forVec2Arrs(func) {
+        for(let name in this.arrs) {
+            if (!name.startsWith('vtx_') || name === "vtx_pos")
+                continue
+            const arr = this.arrs[name]
+            if (this.meta[name].num_elems !== 2)
+                continue
+            func(name, arr)
+        }        
+    }
+
     // API
     get_disp_params(disp_values) {
         const d =  [ new DispParamBool(disp_values, "Show Vertices", 'show_vtx', true) ]
@@ -119,8 +130,17 @@ class Mesh extends PObject
             d.push(new DispParamBool(disp_values, "Show Lines", 'show_lines', true))
         if (this.arrs.face_color !== undefined || this.arrs.face_fill !== undefined)
             d.push(new DispParamBool(disp_values, "Show Faces", 'show_faces', true))
+        this.forVec2Arrs((name, arr)=>{
+            const b = new DispParamBool(disp_values, "Show " + name, 'show_' + name, true)
+            const sc = new DispParamFloat(disp_values, "Scale", "scale_" + name, 1.0)
+            sc.share_line_elem_from(b)
+            d.push(b, sc)
+
+        })
         return d
     }
+
+
 
     invalidate_pos() {
         this.tcache.vtx_pos = null  // invalidate
@@ -329,7 +349,7 @@ class Mesh extends PObject
         ctx_img.restore()
     }
 
-    draw_vertices(lines_color="#000", do_fill=true) 
+    draw_vertices(lines_color="#000", do_fill=true, disp_params=null) 
     {
         let vtx = this.effective_vtx_pos
         if (vtx === null)
@@ -368,18 +388,23 @@ class Mesh extends PObject
         ctx_img.strokeStyle = lines_color
         ctx_img.stroke()       
 
-        if (this.arrs.vtx_normal !== undefined) {
-            let norm = this.arrs.vtx_normal
-            dassert(norm.length == this.arrs.vtx_pos.length, "unexpected size of vtx_normal")
-            ctx_img.beginPath();
-            for(let vi=0; vi < vtx.length; vi += 2) {
-                ctx_img.moveTo(vtx[vi], vtx[vi+1])
-                ctx_img.lineTo(vtx[vi] + norm[vi], vtx[vi+1] + norm[vi+1])
-            }
-            ctx_img.lineWidth = MESH_DISP.line_width/image_view.viewport_zoom
-            ctx_img.strokeStyle = "#ff0000"
-            ctx_img.stroke()
-        }        
+        if (disp_params !== null)
+        {
+            this.forVec2Arrs((name, arr)=>{
+                if (!disp_params["show_" + name])
+                    return
+                const scale = disp_params["scale_" + name]
+                dassert(arr.length == this.arrs.vtx_pos.length, "unexpected size of attribute " + name)
+                ctx_img.beginPath();
+                for(let vi=0; vi < vtx.length; vi += 2) {
+                    ctx_img.moveTo(vtx[vi], vtx[vi+1])
+                    ctx_img.lineTo(vtx[vi] + arr[vi] * scale, vtx[vi+1] + arr[vi+1] * scale)
+                }
+                ctx_img.lineWidth = MESH_DISP.line_width/image_view.viewport_zoom
+                ctx_img.strokeStyle = "#ff0000"
+                ctx_img.stroke()
+            })
+        }
     }
 
     ensure_paths_created() {
@@ -554,7 +579,7 @@ class Mesh extends PObject
         if (disp_values.show_lines)
             this.draw_poly_stroke()
         if (disp_values.show_vtx)
-            this.draw_vertices()
+            this.draw_vertices("#000", true, disp_values)
     }
 
     draw_selection_m(m, select_indices) {
