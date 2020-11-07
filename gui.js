@@ -749,7 +749,7 @@ function export_prog() {
 function import_prog(file) {
     console.log("import!", file)
     let reader = new FileReader();
-    reader.onload = function(e) {
+    myAddEventListener(reader, "load", function(e) {
         try {
             const obj = jsyaml.safeLoad(e.target.result)
             load_prog_obj(obj)
@@ -758,10 +758,10 @@ function import_prog(file) {
             console.error(e)
             return
         }
-    }
-    reader.onerror = function(e) {
+    })
+    myAddEventListener(reader, "error", function(e) {
         console.error(e)
-    }
+    })
     reader.readAsText(file)
 }
 

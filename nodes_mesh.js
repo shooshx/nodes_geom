@@ -1561,9 +1561,9 @@ class ParamInputOrderList extends ListParam
         if (this.loaded_order === null)
             return
         for(let n of this.loaded_order) {
-            //console.assert(n >= 0 && n < this.sorted_d.length)
-            if (n >= 0 && n < this.sorted_d.length)
-                return
+            console.assert(n >= 0 && n < this.sorted_d.length) // when does this happen?
+            //if (!(n >= 0 && n < this.sorted_d.length))
+            //    return
             new_d.push(this.sorted_d[n])
         }
         this.sorted_d = new_d

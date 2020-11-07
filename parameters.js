@@ -173,7 +173,8 @@ function param_reg_for_dismiss(callback) {
 function get_param_list_labels_key(params) {
     let ret = ""
     for(let p of params)
-        ret += p.label + "_"
+        if (p !== null)
+            ret += p.label + "_"
     return ret
 }
 // display_values is held per-node and is a map of string to value
@@ -184,7 +185,7 @@ function show_display_params(obj, disp_node) {
     let params = null
     if (disp_node && obj)
         params = obj.get_disp_params(disp_node.display_values) // sets defaults if needed
-
+    // params can have nulls or objects that don't have disp_params
     if (obj === null || params === null || disp_node === null || disp_node !== selected_node) {
         clear_elem_byid('div_display_params')
         g_prev_disp_node = null
