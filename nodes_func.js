@@ -165,7 +165,7 @@ class GlslEmitContext {
             func_body += glsl_type_name(this.locals_defs[name]) + " " + name + ";\n"
         
 
-        return text.replace('$FUNCS$', this.add_funcs.to_text())
+        return text.replace('$FUNCS$', (this.add_funcs === null)?"":this.add_funcs.to_text())
                    .replace('$UNIFORM_DEFS$', this.uniform_decls.join('\n')) // from variables
                    .replace(/\$EXPR\$/g, func_body + this.inline_str)
                    .replace('$EXPR_VEC_RET$', this.vec_expr_type)

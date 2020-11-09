@@ -31,3 +31,13 @@ Colors
     - ParamColor scales its values before doing gl.uniform
     - mesh attributes use need_normalize
     - shader coder expects to get values in [0-1]
+
+Webgl bad idea: canvas for every NodeShader
+- textures created in one NodeShader can't be used by the other
+  - move textures using createBitmap costly for no reason
+- likely will not produce a significant speed boost on top of avoiding canvas size change
+Webgl greedy resize - every change to width and height causes a performance degradation so to avoid it I don't resize every time
+- resize only to enlarge
+- keep track of the max size in a frame and don't allow the canvas to remain any larger to avoid getting stuck on a huge canvas when it's not needed
+- when getting the pixels, need to use the y offset since textures in frame buffer are mounted at the bottom left corner and createImageBitmap origin is top left
+- don't do that yet to 2d canvas like canvas_img_shadow since it may not be needed

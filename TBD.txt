@@ -62,10 +62,10 @@ EXPRESSIONS
 - BUG: func node without show_code?
 - BUG: rotate variable, changing slider when there's an invalid var doesn't clear the red error
 - BUG: bool value warninig on load of anim_bouncing_blobs2.yaml
+- BUG: right click on terminal doesn't have a menu
 - Animation
     - scale radius
-    - single step button
-    - separate canvas to each shader-node
+    - single step button - smaller panel
 - bouncing blobs
 - Mesh,Path attribute radius should be in world coordinates
 - distance fields
@@ -296,8 +296,13 @@ demo idea
 - Video to traced outline to triangulation to rainbow coloring.
     - ideas from video
 - something with penrose tiling?
+- fractal tree with infinite zoom animation
 
 https://two.js.org/examples/
+https://ptsjs.org/demo/?name=create.delaunay
+https://zimjs.com/cat/generator.html
+List of APIS:
+    https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API
 
 nice visualizations: https://bost.ocks.org/mike/algorithms/
 d3: https://github.com/d3/d3/wiki/Gallery

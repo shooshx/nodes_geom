@@ -613,7 +613,8 @@ class Mesh extends PObject
                 //console.log("++",this.glbufs[name].buf_id)
                 this.meta[name].made_glbuf = false
             }
-            if (this.meta[name] !== null && this.meta[name] !== undefined && !this.meta[name].made_glbuf) {
+            dassert(this.meta[name] !== null && this.meta[name] !== undefined, "Missing meta for array " + name)
+            if (!this.meta[name].made_glbuf) {
                 let data_from = (name == "vtx_pos") ? this.tcache : this.arrs
                 let bind_point = (name == 'idx') ? gl.ELEMENT_ARRAY_BUFFER : gl.ARRAY_BUFFER
                     

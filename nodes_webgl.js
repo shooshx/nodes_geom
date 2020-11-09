@@ -121,20 +121,20 @@ class FrameBuffer extends ImageBase
         return this.pixels
     }
 
-    async pre_draw_x(m, disp_values) { // old way to do it with always get_pixels
+/*    async pre_draw_x(m, disp_values) { // old way to do it with always get_pixels
         if (this.imgBitmap === null) {
             gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.tex_obj, 0);
             //console.assert(gl.checkFramebufferStatus(gl.FRAMEBUFFER) == gl.FRAMEBUFFER_COMPLETE) //slows things down
 
             // get the pixels from webgl
-            let pixels = this.get_pixels()
+            let pixels = this.get_pixels(xxx)
             dassert(pixels !== null, "Image is empty")
             let pixelsc = new Uint8ClampedArray(pixels)
             let img_data = new ImageData(pixelsc, this.tex_obj.width, this.tex_obj.height)
 
             this.imgBitmap = await createImageBitmap(img_data)
         }        
-    }
+    }*/
 
     async pre_draw(m, disp_values) {
         if (this.tex_obj.width === 0 || this.tex_obj.height === 0)
@@ -257,7 +257,7 @@ class NodeCreateFrameBuffer extends NodeCls
         
         const sz = this.size.get_value()
         const res = this.resolution.get_value()
-        const ret = new FrameBufferFactory(res[0], res[0], sz[0], sz[1], this.smoothImage.get_value(), this.tex_edge.get_sel_name(), "rgba");
+        const ret = new FrameBufferFactory(res[0], res[1], sz[0], sz[1], this.smoothImage.get_value(), this.tex_edge.get_sel_name(), "rgba");
         ret.transform(this.transform.v)
 
         this.out_tex.set(ret)
@@ -403,13 +403,13 @@ const SHADER_WAIT_GRAN = 10;
 const SHADER_WAIT_MAX = 10000;
 
 async function waitCompile(gl, program) {
-    if (ext_par_shader === null) 
+    if (gl.ext_par_shader === null) 
         return
     let timeWaited = 0
     let nextWait = 0 // first wait should be very short
     let waitElem = null
     while(timeWaited < SHADER_WAIT_MAX) {
-        const done = gl.getProgramParameter(program, ext_par_shader.COMPLETION_STATUS_KHR)
+        const done = gl.getProgramParameter(program, gl.ext_par_shader.COMPLETION_STATUS_KHR)
         if (done)
             break
         if (waitElem === null && timeWaited > 500) {
@@ -440,7 +440,7 @@ async function createProgram(gl, vtxSource, fragSource, attr_names, defines, fla
     if (!vtxShader || !fragShader || !attr_names)
         return [null, vtxerr, fragerr] // TBD integrate error message
 
-    let program = gl.createProgram();
+    const program = gl.createProgram();
     gl.attachShader(program, vtxShader);
     gl.attachShader(program, fragShader);
     gl.linkProgram(program);
@@ -485,35 +485,28 @@ function make_dummy_texture()
     return t
 }
 
-let g_dummy_texture = null
-let ext_col_float = null, ext_par_shader = null
+
+
 function ensure_webgl() {
     if (gl !== null)    
         return
     gl = canvas_webgl.getContext("webgl2");
     if (!gl) {
+        console.error("Failed creating webgl2 context")
         return;
     }
+
     // for distance field render to float
-    ext_col_float = gl.getExtension('EXT_color_buffer_float')
-    dassert(ext_col_float !== null, "EXT_color_buffer_float unavailable")
+    gl.ext_col_float = gl.getExtension('EXT_color_buffer_float')
+    dassert(gl.ext_col_float !== null, "EXT_color_buffer_float unavailable")
     // for quering the state of long shader compile (bezier curve for distance)
-    ext_par_shader = gl.getExtension('KHR_parallel_shader_compile')
+    gl.ext_par_shader = gl.getExtension('KHR_parallel_shader_compile')
 
     gl.my_fb = gl.createFramebuffer();
     gl.bindFramebuffer(gl.FRAMEBUFFER, gl.my_fb);
 
     // dummy texture
-    g_dummy_texture = make_dummy_texture()
-
-
-    // create a depth renderbuffer
-   // gl.my_depthBuffer = gl.createRenderbuffer();
-   // gl.bindRenderbuffer(gl.RENDERBUFFER, gl.my_depthBuffer);
-    
-        // make a depth buffer and the same size as the targetTexture
-       // gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, canvas_image.width, canvas_image.height);
-       // gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, gl.my_depthBuffer);
+    gl.dummy_texture = make_dummy_texture(gl)
 }
 
 
@@ -831,7 +824,7 @@ class NodeShader extends NodeCls
         const ident = mat3.create()
         for(let ti of empty_indices) {
             gl.activeTexture(gl.TEXTURE0 + ti)
-            gl.bindTexture(gl.TEXTURE_2D, g_dummy_texture);
+            gl.bindTexture(gl.TEXTURE_2D, gl.dummy_texture);
             const texParam = this.param_of_uniform('_u_in_tex_' + ti, true)
             texParam.modify(ti, false)
             const texMat = this.param_of_uniform('_u_tex_tmat_' + ti, true)
@@ -844,7 +837,7 @@ class NodeShader extends NodeCls
         // restore state to default state to avoid texture leak and easier bug finding
         for(let ti = 0; ti < texs.length; ++ti) {
             gl.activeTexture(gl.TEXTURE0 + ti)
-            gl.bindTexture(gl.TEXTURE_2D, g_dummy_texture);
+            gl.bindTexture(gl.TEXTURE_2D, gl.dummy_texture);
         }
         gl.activeTexture(gl.TEXTURE0);
     }
@@ -905,12 +898,9 @@ class NodeShader extends NodeCls
 
         // draw
         gl.bindFramebuffer(gl.FRAMEBUFFER, gl.my_fb);
-        if (canvas_webgl.width !== fb.width() || canvas_webgl.height !== fb.height()) {
-            // this takes time 
-            canvas_webgl.width = fb.width()
-            canvas_webgl.height = fb.height()
-        }
-        gl.viewport(0, 0, canvas_webgl.width, canvas_webgl.height);
+        canvas_webgl.sresize(fb.width(),  fb.height())
+
+        gl.viewport(0, 0, fb.width(), fb.height());
 
         gl.useProgram(this.program);
 
@@ -961,6 +951,46 @@ class NodeShader extends NodeCls
     }
 }
 
+// make is so that resizes that make it smaller, don't actually do anything
+// but don't accumilate size indefinitely, get the max of a single frame and set to that
+function instrument_canvas_resize(c)
+{
+    // the maximum size of the last frame. the canvas should not remain larger than this
+    c.last_canvas_max = {w:0, h:0}
+    c.req_size = {w:0, h:0}
+    // avoid carring unnecessarily large canvas for a long time
+    c.reset_to_latest_max = function() {
+        if (c.last_canvas_max.w > 0 && c.last_canvas_max.h > 0 &&  // don't change to 0
+            (c.width > c.last_canvas_max.w || c.height > c.last_canvas_max.h))
+        {
+            c.width = c.last_canvas_max.w
+            c.height = c.last_canvas_max.h
+        }
+
+        c.last_canvas_max.w = 0
+        c.last_canvas_max.h = 0
+    }
+
+    c.sresize = function(w, h) { // s for smart
+        if (c.width < w)
+            c.width = w
+        if (c.height < h)
+            c.height = h
+        c.req_size.w = w // last requested size
+        c.req_size.h = h
+        // max of this frame
+        if (w > c.last_canvas_max.w)
+            c.last_canvas_max.w = w
+        if (h > c.last_canvas_max.h)
+            c.last_canvas_max.h = h
+    }
+
+    c.y_offset = function() {
+        return c.height - c.req_size.h
+    }
+
+}
+
 const render_teximg = {
     mesh: null, program:null,
     vtx_src:`
@@ -985,12 +1015,12 @@ async function renderTexToImgBitmap(tex_obj, sz_x, sz_y)
 {
     // render to actual canvas
     dassert(tex_obj.width !== undefined && tex_obj.height !== undefined, "Missing dimentions of tex")
-    if (canvas_webgl.width !== tex_obj.width || canvas_webgl.height !== tex_obj.height) {
-        canvas_webgl.width = tex_obj.width
-        canvas_webgl.height = tex_obj.height
-    }
+    dassert(tex_obj.width > 0 && tex_obj.height > 0, "dimentions is 0")
+    canvas_webgl.sresize(tex_obj.width, tex_obj.height)
+
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.viewport(0, 0, canvas_webgl.width, canvas_webgl.height); // we just set this to the size from the texture
+    // since canvas may be bigger than viewport, need to set the viewport to the upper left corner, so y is no 0
+    gl.viewport(0, 0, tex_obj.width, tex_obj.height); // we just set this to the size from the texture
 
     if (render_teximg.mesh === null) {
         const [_prog, vtxerr, fragerr] = await createProgram(gl, render_teximg.vtx_src, render_teximg.frag_src, ['vtx_pos'], [], 0)
@@ -1012,7 +1042,7 @@ async function renderTexToImgBitmap(tex_obj, sz_x, sz_y)
     const transform = mat3.create()
     render_teximg.mesh.gl_draw(transform, render_teximg.program.attrs)
 
-    const imgBitmap = await createImageBitmap(canvas_webgl)
+    const imgBitmap = await createImageBitmap(canvas_webgl, 0, canvas_webgl.y_offset(), tex_obj.width, tex_obj.height)
     gl.bindTexture(gl.TEXTURE_2D, null);
     return imgBitmap
 }

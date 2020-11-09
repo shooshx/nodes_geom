@@ -93,6 +93,7 @@ function page_onload()
         console.error("failed load " + e)
     }
     
+    instrument_canvas_resize(canvas_webgl)
     setup_vert_splitter(main_view, image_splitter, _resize_img_panel, _resize_edit_panel)
     setup_horz_splitter(edit_panel, edit_splitter, _resize_edit_param, _resize_nodes_panel)
     create_top_menu(main_view)
@@ -619,6 +620,7 @@ async function do_frame_draw(do_run, clear_all)
     let run_root_nodes = new Set()
     let disp_obj = null
 
+    canvas_webgl.reset_to_latest_max()
     if (program.display_node === null) { 
         show_display_params(null, null) // remove what's shown
     }
