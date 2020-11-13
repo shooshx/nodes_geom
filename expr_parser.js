@@ -31,7 +31,7 @@ class ExprErr extends Error {
     }
 }
 class TypeErr extends ExprErr {
-    constructor(msg) { super(msg) }
+    constructor(msg, line_num=null) { super(msg, line_num) }
 }
 
 // thrown when the type of the object is really undecided, can depend on input terminal for instance
@@ -51,7 +51,9 @@ function eassert(cond, msg, line_num=null) {
 class NodeBase {
     constructor() {
         this.type = null
+        this.line = g_lineNum
     }
+    
     clear_types_cache() { // should implemet recursion
         this.type = null
     }
@@ -306,10 +308,9 @@ function op_str(op) {
     }
 }
 
-function is_bool_op(op) {
+function is_order_op(op) {
     return op == OPERATOR_LESS || op == OPERATOR_LESS_EQ ||  
-           op == OPERATOR_GREATER || op == OPERATOR_GREATER_EQ || 
-           op == OPERATOR_EQ || op == OPERATOR_NEQ
+           op == OPERATOR_GREATER || op == OPERATOR_GREATER_EQ 
 }
 function is_logic_op(op) {
     return op == OPERATOR_LOGIC_AND || op == OPERATOR_LOGIC_OR
@@ -334,14 +335,19 @@ class BinaryOpNode extends NodeBase {
         if (this.type === null) {
             let t1 = this.left.check_type(), t2 = this.right.check_type()
             this.t1 = t1; this.t2 = t2
-            if (is_bool_op(this.op)) { // only between numbers, not supporting vectors of booleans
+            if (is_order_op(this.op)) { // only between numbers, not supporting vectors of booleans
                 if (t1 !== TYPE_NUM || t2 !== TYPE_NUM)
-                    throw new TypeErr("boolean operator " + op_str(op) + " expects numbers")
+                    throw new TypeErr("boolean operator " + op_str(this.op) + " expects numbers", this.line)
+                this.type = TYPE_BOOL
+            }
+            else if (this.op == OPERATOR_EQ || this.op == OPERATOR_NEQ) {
+                if (t1 !== t2)
+                    throw new TypeErr("Equality op of different types " + typename(t1) + ", " + typename(t2), this.line)
                 this.type = TYPE_BOOL
             }
             else if (is_logic_op(this.op)) {
                 if (t1 !== TYPE_BOOL || t2 !== TYPE_BOOL)
-                    throw new TypeErr("logic operator " + op_str(op) + " expected booleans")
+                    throw new TypeErr("logic operator " + op_str(this.op) + " expected booleans", this.line)
                 this.type = TYPE_BOOL
             }
             else {

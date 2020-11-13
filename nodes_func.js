@@ -296,7 +296,7 @@ class NodeFuncFill extends BaseNodeShaderParcel
         }
         if (this.active_param.show_code && this.active_item.e !== null) {
             if (this.active_item.elast_error !== null) {
-                assert(false, this, "Expression error")
+                assert(false, this, "Expression error " + this.active_item.elast_error.msg)
             }
             try {
                 // returns the function text
