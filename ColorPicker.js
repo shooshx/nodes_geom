@@ -19,7 +19,7 @@ function addSiblingAfter(elem, txt) {
     return ne
 }
 
-function HSVtoRGB(h, s, v, into) {
+function HSVtoRGBx(h, s, v, into) {
     let r, g, b, i, f, p, q, t;
 
     i = Math.floor(h * 6);
@@ -44,7 +44,7 @@ function HSVtoRGB(h, s, v, into) {
 }
 
 
-function RGBtoHSV(r, g, b, into) {
+function RGBtoHSVx(r, g, b, into) {
     r = r / 255;
     g = g / 255;
     b = b / 255;
@@ -72,6 +72,39 @@ function RGBtoHSV(r, g, b, into) {
     into.v = v
     into.is_gray = is_gray;
 }
+
+// https://stackoverflow.com/questions/17242144/javascript-convert-hsb-hsv-color-to-rgb-accurately/54024653#54024653
+// input ranges [0-1] on all, output [0-255]
+function HSVtoRGB(h,s,v, into) 
+{              
+    h *= 360                
+    let f= (n,k=(n+h/60)%6) => v - v*s*Math.max( Math.min(k,4-k,1), 0);     
+    //return [f(5),f(3),f(1)];     
+    if (!into)
+        into = {}      
+    into.r = Math.round(f(5)*255)
+    into.g = Math.round(f(3)*255)
+    into.b = Math.round(f(1)*255)
+    return into
+}   
+// input range [0-255], output [0-1]
+function RGBtoHSV(r,g,b, into) {
+    r = r / 255;
+    g = g / 255;
+    b = b / 255;
+
+    let v=Math.max(r,g,b), c=v-Math.min(r,g,b);
+    let h= c && ((v==r) ? (g-b)/c : ((v==g) ? 2+(b-r)/c : 4+(r-g)/c)); 
+    //return [60*(h<0?h+6:h), v&&c/v, v];
+    if (!into)
+        into = {}      
+    into.h = 60*(h<0?h+6:h)/360
+    into.s = v&&c/v
+    into.v = v
+    into.is_gray = (r == g) && (g == b)
+    return into
+}
+
 
 // from https://github.com/jmthompson2015/colors/blob/47a1d08d41c03ad2219459155d82bd7d9fcf0bfc/model/ColorUtilities.js
 function HSLtoRGB(h0, s0, l0, into) {
@@ -605,7 +638,7 @@ return { create_as_child:create_as_child,
          get_checkers_image:get_checkers_image, 
          CHECKERS: CHECKERS,
          get_presets:()=>{ return GLOBAL_PRESETS }, set_presets:(v)=>{ GLOBAL_PRESETS=v},
-         HSVtoRGB: HSVtoRGB, HSLtoRGB:HSLtoRGB }
+         HSVtoRGB: HSVtoRGB, RGBtoHSV: RGBtoHSV, HSLtoRGB:HSLtoRGB }
 
 })();
 

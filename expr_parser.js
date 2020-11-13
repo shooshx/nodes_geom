@@ -769,6 +769,21 @@ function smoothmin(k, d1, d2) {
     eassert(false, "not-implemented")
 }
 
+// input and outputs are in range [0,1]
+// https://stackoverflow.com/questions/17242144/javascript-convert-hsb-hsv-color-to-rgb-accurately/54024653#54024653
+function rgb2hsv(va) {
+    let r=va[0], g=va[1], b=va[2]
+    let v=Math.max(r,g,b), c=v-Math.min(r,g,b);
+    let h= c && ((v==r) ? (g-b)/c : ((v==g) ? 2+(b-r)/c : 4+(r-g)/c)); 
+    return [60*(h<0?h+6:h)/360, v&&c/v, v];
+}
+function hsv2rgb(va) {
+    let h = va[0]*360, s = va[1], v = va[2]
+    let f= (n,k=(n+h/60)%6) => v - v*s*Math.max( Math.min(k,4-k,1), 0);     
+    return [f(5),f(3),f(1)];   
+}
+
+
 const func_defs = {
     'cos': new FuncDef(Math.cos, 1), 'sin': new FuncDef(Math.sin, 1), 'tan': new FuncDef(Math.tan, 1),
     'acos': new FuncDef(Math.acos, 1), 'asin': new FuncDef(Math.acos, 1), 'atan': new FuncDef(Math.atan, 1), 'atan2': new FuncDef(Math.atan2, 2),
@@ -789,6 +804,7 @@ const func_defs = {
     'normalize': new FuncDef(normalize_lookup, 1, FUNC_TYPE_LOOKUP, null),
     'hsl' : new FuncDef(hsl, 3, [TYPE_NUM, TYPE_NUM, TYPE_NUM], TYPE_VEC3), 
     'hsla' : new FuncDef(hsla, 4, [TYPE_NUM, TYPE_NUM, TYPE_NUM, TYPE_NUM],TYPE_VEC4),
+    'rgb2hsv' : new FuncDef(rgb2hsv, 1, [TYPE_VEC3], TYPE_VEC3), 'hsv2rgb' : new FuncDef(hsv2rgb, 1, [TYPE_VEC3], TYPE_VEC3),
     'plasma' : new FuncDef(plasma, [1,3], [TYPE_VEC2, TYPE_NUM, TYPE_VEC2] , TYPE_NUM),
     'smoothmin' : new FuncDef(smoothmin, -3, [TYPE_NUM, TYPE_NUM, TYPE_NUM], TYPE_NUM)
 
@@ -834,11 +850,31 @@ float plasma(vec2 coord, float time) { return plasma(coord, time, vec2(0.0, 0.0)
 float plasma(vec2 coord) { return plasma(coord, 20000.0, vec2(0.0, 0.0)); }
     `),
     'smoothmin': new AddGlslFunc(`
-    float smoothmin(float k, float d1, float d2) {
-        float h = clamp( 0.5 + 0.5*(d2-d1)/k, 0.0, 1.0 );
-        return mix( d2, d1, h ) - k*h*(1.0-h); 
-    }
+float smoothmin(float k, float d1, float d2) {
+    float h = clamp( 0.5 + 0.5*(d2-d1)/k, 0.0, 1.0 );
+    return mix( d2, d1, h ) - k*h*(1.0-h); 
+}
+    `),
+    'rgb2hsv': new AddGlslFunc(`
+vec3 rgb2hsv(vec3 c) {
+    vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+    vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+    vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+
+    float d = q.x - min(q.w, q.y);
+    float e = 1.0e-10;
+    return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+}
+    `),
+    'hsv2rgb': new AddGlslFunc(`
+vec3 hsv2rgb(vec3 c)
+{
+    vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+}  
     `)
+    
 }
 
 // given a function f that takes num and a list of vecs, apply f individually on the components of f

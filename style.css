@@ -1009,3 +1009,12 @@ input {
 .anim_frame_disp:hover + .anim_fn_hover_box {
     display: initial;
 }
+
+.anim_fps_disp { 
+    display: inline-block;
+    color: #a0a0a0;
+    vertical-align: top;
+    line-height: 36px;
+    font-size: 14px;
+    margin-left: 15px;
+}

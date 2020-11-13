@@ -24,32 +24,6 @@ nodes:
     x: -2609
     y: 858
     disp_param: {}
-  '2':
-    params:
-      Resolution:
-        x: 962
-        y: 962
-      Size:
-        e_x: 2
-        e_y: 2
-        se_cv: 'return vec2(2, 2)'
-      Smooth Scaling:
-        v: false
-      Texture Edge:
-        sel_str: Pad
-      Transform:
-        e_tx: 0
-        e_ty: 0
-        e_r: 0
-        e_pvx: 0
-        e_pvy: 0
-        e_sx: 1
-        e_sy: 1
-    name: create_pixel_buffer_1
-    cls_name: Create Pixel-Buffer
-    x: -1990
-    y: 1139
-    disp_param: {}
   '3':
     params:
       Type:
@@ -65,14 +39,15 @@ nodes:
         show_code: true
         se_cv: 'return rgb(coord.x, coord.y, 1.0)'
       "GLSL\nCode":
-        dlg_rect: null
-        text: "\n\nivec2 toTexelCoord(vec2 coord) {\n    vec2 fc = (_u_tex_tmat_0 * vec3(coord, 1.0)).xy;\n    ivec2 tsz = textureSize(_u_in_tex_0, 0);\n    ivec2 c = ivec2(fc * vec2(tsz));\n    return c;\n}\n\nivec2 around[] = ivec2[]( ivec2(-1,-1), ivec2(0,-1), ivec2(1,-1),\n\t\t\t     ivec2(-1,0), ivec2(1,0),\n\t\t\t     ivec2(-1,1), ivec2(0,1), ivec2(1,1) );\n\nvec3 rgb2hsv(vec3 c)\n{\n    vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);\n    vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));\n    vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));\n\n    float d = q.x - min(q.w, q.y);\n    float e = 1.0e-10;\n    return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);\n}\n\nvec3 hsv2rgb(vec3 c)\n{\n    vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);\n    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);\n    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);\n}\n\n\nvec3 hsv_stretch(vec3 c) \n{\n    vec3 hc = rgb2hsv(c);\n    hc.g = 1.0;\n    hc.b = 1.0;\n    return hsv2rgb(hc);\n}\n\nvoid main() {\n    \n    //ivec2 c = toTexelCoord(v_coord) + ivec2(0,0);\n    //outColor = texelFetch(_u_in_tex_0, c, 0);\n    \n    int nei = 0;\n    vec3 new_col = vec3(0.0);\n\tfor(int i = 0; i < 8; ++i)\n\t{\n\t    ivec2 cr = toTexelCoord(v_coord) + around[i];\n\t\tvec4 c = texelFetch(_u_in_tex_0, cr, 0);\n\t\tif (c.a != 0.0)\n\t\t{\n\t\t\t++nei;\n\t\t\tnew_col += c.rgb;\n\t\t}\n\t}\n\tnew_col /= float(nei);\n\tnew_col = hsv_stretch(new_col);\n\t\n    ivec2 cr = toTexelCoord(v_coord) + ivec2(0,0);\n    vec4 myv = texelFetch(_u_in_tex_0, cr, 0);\t\n    \n    if (myv.a == 0.0)\n    {\n        if (nei == 3)\n            outColor = vec4(new_col, 1.0);\n        else\n            outColor = vec4(0); // stay dead\n    }\n    else\n    {\n    \tif (nei == 2 || nei == 3)\n\t\t\toutColor = vec4(new_col, 1.0);\n\t\telse\n\t\t\toutColor = vec4(0); // die\n    }\n}\n"
+        text: "\n\nivec2 toTexelCoord(vec2 coord) {\n    vec2 fc = (_u_tex_tmat_0 * vec3(coord, 1.0)).xy;\n    ivec2 tsz = textureSize(_u_in_tex_0, 0);\n    ivec2 c = ivec2(fc * vec2(tsz));\n    return c;\n}\n\nivec2 around[] = ivec2[]( ivec2(-1,-1), ivec2(0,-1), ivec2(1,-1),\n\t\t\t     ivec2(-1,0), ivec2(1,0),\n\t\t\t     ivec2(-1,1), ivec2(0,1), ivec2(1,1) );\n\nvec3 rgb2hsv(vec3 c)\n{\n    vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);\n    vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));\n    vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));\n\n    float d = q.x - min(q.w, q.y);\n    float e = 1.0e-10;\n    return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);\n}\n\nvec3 hsv2rgb(vec3 c)\n{\n    vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);\n    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);\n    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);\n}\n\n// avoid grayish colors\nvec3 hsv_stretch(vec3 c) \n{\n    vec3 hc = rgb2hsv(c);\n    hc.g = 1.0;\n    hc.b = 1.0;\n    return hsv2rgb(hc);\n}\n\nvoid main() {\n    \n    int nei = 0;\n    vec3 new_col = vec3(0.0);\n\tfor(int i = 0; i < 8; ++i)\n\t{\n\t    ivec2 cr = toTexelCoord(v_coord) + around[i];\n\t\tvec4 c = texelFetch(_u_in_tex_0, cr, 0);\n\t\tif (c.a != 0.0)\n\t\t{\n\t\t\t++nei;\n\t\t\tnew_col += c.rgb;\n\t\t}\n\t}\n\tnew_col /= float(nei);\n\tnew_col = hsv_stretch(new_col);\n\t\n    ivec2 cr = toTexelCoord(v_coord) + ivec2(0,0);\n    vec4 myv = texelFetch(_u_in_tex_0, cr, 0);\t\n    \n    if (myv.a == 0.0)\n    {\n        if (nei == 3)\n            outColor = vec4(new_col, 1.0);\n        else\n            outColor = vec4(0); // stay dead\n    }\n    else\n    {\n    \tif (nei == 2 || nei == 3)\n\t\t\toutColor = vec4(new_col, 1.0);\n\t\telse\n\t\t\toutColor = vec4(0); // die\n    }\n}\n"
+        panel_rect:
+          height: 284
       order:
         sorted_order: [0]
     name: life_integrate
     cls_name: Function Fill
-    x: -2226
-    y: 1245
+    x: -2251
+    y: 1260
     disp_param: {}
   '5':
     params:
@@ -127,7 +102,6 @@ nodes:
               return rgba(0,0,0,0) 
           return c
       "GLSL\nCode":
-        dlg_rect: null
         text: |
           void main() {
               outColor = vec4(1.0, v_coord.x, 0.0, 1.0);    
@@ -136,7 +110,7 @@ nodes:
         sorted_order: [0]
     name: white to transparent
     cls_name: Function Fill
-    x: -2562
+    x: -2560
     y: 946
     disp_param: {}
   '14':
@@ -153,8 +127,8 @@ nodes:
       Texture Edge:
         sel_str: Pad
       Transform:
-        e_tx: -0.032663677089376425
-        e_ty: -0.053497757817032324
+        e_tx: 0
+        e_ty: 0
         e_r: 0
         e_pvx: 0
         e_pvy: 0
@@ -182,9 +156,9 @@ nodes:
           r = rand(coord.x)
           return rgb(coord.x, coord.y, 1.0)
       "GLSL\nCode":
-        dlg_rect: null
         text: |
 
+          // https://stackoverflow.com/questions/4200224/random-noise-functions-for-glsl
           uint hash(uint x) {
               x += ( x << 10u );
               x ^= ( x >>  6u );
@@ -193,11 +167,8 @@ nodes:
               x += ( x << 15u );
               return x;
           }
-          // Compound versions of the hashing algorithm I whipped together.
-          uint hash( uvec2 v ) { return hash( v.x ^ hash(v.y)                         ); }
-          uint hash( uvec3 v ) { return hash( v.x ^ hash(v.y) ^ hash(v.z)             ); }
-          uint hash( uvec4 v ) { return hash( v.x ^ hash(v.y) ^ hash(v.z) ^ hash(v.w) ); }
 
+          uint hash( uvec2 v ) { return hash( v.x ^ hash(v.y)   ); }
 
           // Construct a float with half-open range [0:1] using low 23 bits.
           // All zeroes yields 0.0, all ones yields the next smallest representable value below 1.0.
@@ -213,10 +184,7 @@ nodes:
           }
 
           // Pseudo-random value in half-open range [0:1].
-          float random( float x ) { return floatConstruct(hash(floatBitsToUint(x))); }
           float random( vec2  v ) { return floatConstruct(hash(floatBitsToUint(v))); }
-          float random( vec3  v ) { return floatConstruct(hash(floatBitsToUint(v))); }
-          float random( vec4  v ) { return floatConstruct(hash(floatBitsToUint(v))); }
 
           vec3 hsv2rgb(vec3 c)
           {
@@ -226,28 +194,56 @@ nodes:
           }
 
 
-
           void main() {
-              vec3 c = hsv2rgb(vec3(random(v_coord), 1.0, 1.0) );//random(v_coord.y), random(v_coord.x*2.), random(v_coord.y*2.));
+              vec3 c = hsv2rgb(vec3(random(v_coord), 1.0, 1.0) );
             
               float alpha = 1.0;
               if (random(v_coord*0.5) < 0.5)
                   alpha = 0.0;
               outColor = vec4(c, alpha);    
           }
+        dlg_rect:
+          left: null
+          top: null
+          width: 622
+          height: 688
+          visible: false
+        panel_rect:
+          height: 296
       order:
         sorted_order: []
     name: random pixels
     cls_name: Function Fill
-    x: -2270
-    y: 941
+    x: -2235
+    y: 965
+    disp_param: {}
+  '28':
+    params:
+      Resolution:
+        x: 900
+        y: 900
+      Size:
+        e_x: 2
+        e_y: 2
+        se_cv: 'return vec2(2, 2)'
+      Smooth Scaling:
+        v: false
+      Texture Edge:
+        sel_str: Pad
+      Transform:
+        e_tx: 0.0025100000000000005
+        se_ty: '-0.080'
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: create_pixel_buffer_4
+    cls_name: Create Pixel-Buffer
+    x: -2002
+    y: 877
     disp_param: {}
 lines:
-  - from_name: out_tex
-    from_id: 2
-    to_name: in_fb
-    to_id: 3
-    uid: 4
   - from_name: out
     from_id: 5
     to_name: in
@@ -274,26 +270,34 @@ lines:
     to_id: 12
     uid: 21
   - from_name: out_tex
-    from_id: 14
+    from_id: 28
     to_name: in_fb
     to_id: 23
-    uid: 24
+    uid: 29
   - from_name: out_texture
     from_id: 23
     to_name: in_multi
     to_id: 5
-    uid: 25
-next_node_id: 26
+    uid: 31
+  - from_name: out_tex
+    from_id: 28
+    to_name: in_fb
+    to_id: 3
+    uid: 32
+next_node_id: 33
 names_idx_s:
   Load Image: 1
-  Create Pixel-Buffer: 3
+  Create Pixel-Buffer: 4
   Function Fill: 3
   Pick One: 1
   Change Filter: 1
+  Geom Primitive: 1
+  Manual Geometry: 1
 display_node_id: 5
-tdisp_node_ids: []
+tdisp_node_ids:
+  - 3
 input_node_ids: []
 nodes_view:
-  pan_x: 2605
-  pan_y: -781
+  pan_x: 2654
+  pan_y: -784
 decor: []

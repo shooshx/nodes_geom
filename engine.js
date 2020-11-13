@@ -734,7 +734,8 @@ class Animation {
         this.frame_num_box = new VarBox()
         this.frame_num_box.vbset(0, TYPE_NUM)
         this.vars_box.add("frame_num", this.frame_num_box)
-
+        this.start_time = null
+        this.frame_time = 0
     }
     rewind() {
         this.frame_num = 0
@@ -745,12 +746,13 @@ class Animation {
     }
     start() {
         this.run = true
+        this.start_time = performance.now()
         window.requestAnimationFrame(anim_frame)
     }
     pause() {
         this.run = false
     }
-    set_frame_num(num) {
+    set_frame_num(num) { //from UI
         if (this.run)
             return
         this.frame_num = num
@@ -763,7 +765,7 @@ class Animation {
     notify_pre_draw() {
         this.frame_num_box.vbset(this.frame_num, TYPE_NUM)
         for(let handler of this.pre_draw_handlers)
-            handler(this.frame_num, this.run)        
+            handler(this.frame_num, this.frame_time, this.run)        
     }
 }
 
@@ -771,6 +773,7 @@ var g_anim = new Animation()
 
 function anim_frame()
 {
+    g_anim.frame_time = performance.now() - g_anim.start_time
     g_anim.notify_pre_draw()
 
     call_frame_draw(true, false)

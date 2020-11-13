@@ -2618,7 +2618,7 @@ class ParamTextBlock extends Parameter
         this.dlg = null
 
         this.text_input = null
-        this.wrap_dlg_rect = {dlg_rect:null, panel_rect:null} // state of the dialog display
+        this.dlg_rect_wrap = {dlg_rect:null, panel_rect:null} // state of the dialog display
         this.v = start_v
         this.change_func = change_func
         node.register_rename_observer((name)=>{
@@ -2626,10 +2626,20 @@ class ParamTextBlock extends Parameter
         })
         this.editor = null
         this.last_errors = null
-        this.dlg_rect = null
     }
-    save() { return { dlg_rect: this.dlg_rect, text:this.v } }
-    load(v) { this.v = v.text; this.dlg_rect = v.dlg_rect;  } // dlg_rect saved only if text is saved
+    save() { 
+        const r = { text:this.v }
+        if (this.dlg_rect_wrap.dlg_rect !== null)
+            r.dlg_rect = this.dlg_rect_wrap.dlg_rect
+        if (this.dlg_rect_wrap.panel_rect !== null)
+            r.panel_rect = this.dlg_rect_wrap.panel_rect     
+        return r 
+    }
+    load(v) { 
+        this.v = v.text; 
+        this.dlg_rect_wrap.dlg_rect = v.dlg_rect || null
+        this.dlg_rect_wrap.panel_rect = v.panel_rect || null 
+    } // dlg_rect saved only if text is saved
     
     title() { return this.owner.name + " - " + this.label.replace('\n', ' ') }
 
@@ -2652,7 +2662,7 @@ class ParamTextBlock extends Parameter
             this.v = v
             this.pset_dirty(); 
             this.call_change() 
-        }, {lang:"glsl", dlg_title:this.title(), dlg_rect_wrap:this.wrap_dlg_rect, with_popout:true});
+        }, {lang:"glsl", dlg_title:this.title(), dlg_rect_wrap:this.dlg_rect_wrap, with_popout:true});
         this.editor.set_errors(this.last_errors) 
     }
 
