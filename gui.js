@@ -543,31 +543,31 @@ function setup_key_bindings()
 
 function create_dialog(parent, title, resizable, rect, visible_changed, size_changed=null)
 {
-    let dlg = add_div(parent, "dlg")
+    const dlg = add_div(parent, "dlg")
     if (!rect)
         rect = {left:null, top:null, width:null, height:null, visible:false}
     dlg.style.display = 'none'
 
-    let title_line = add_div(dlg, "dlg_title")
+    const title_line = add_div(dlg, "dlg_title")
     title_line.innerText = title
-    let close_btn = add_div(title_line, "dlg_close_btn")
+    const close_btn = add_div(title_line, "dlg_close_btn")
     myAddEventListener(close_btn, 'click', () => {
         rect.visible = false
         if (visible_changed)
             visible_changed(rect.visible)
         repos()
     })
-    let client = add_div(dlg, "dlg_client")
+    const client = add_div(dlg, "dlg_client")
 
-    let set_visible = (v) => {
+    const set_visible = (v) => {
         rect.visible = v;
         repos()
     }
-    let set_title = (v) => {
+    const set_title = (v) => {
         title_line.innerText = v
     }
 
-    let repos = () => {
+    const repos = () => {
         if (rect.left) {
             dlg.style.left = rect.left + "px"
             dlg.style.top =  rect.top + "px"
@@ -582,13 +582,27 @@ function create_dialog(parent, title, resizable, rect, visible_changed, size_cha
     }
     repos()
 
-    let move_func = (dx, dy) => {
-        let curstyle = window.getComputedStyle(dlg)
-        rect.left = parseInt(curstyle.left) + dx
-        rect.top = parseInt(curstyle.top) + dy
+    const move_coord_limited = (rect, curstyle, name, d, max_v) => {
+        if (rect[name] === null || rect[name] === undefined || isNaN(rect[name]))
+            rect[name] = parseInt(curstyle[name])
+        const track_name = "track_" + name
+        if (rect[track_name] === null || rect[track_name] === undefined || isNaN(rect[track_name]))
+            rect[track_name] = rect[name]
+        rect[track_name] = rect[track_name] + d  // tracking the mouse even if it goes negative
+        rect[name] = Math.min(Math.max(rect[track_name], 0), max_v)
+    }
+
+    const move_func = (dx, dy) => {
+        const curstyle = window.getComputedStyle(dlg)
+        move_coord_limited(rect, curstyle, "left", dx, window.innerWidth - 40)       
+        move_coord_limited(rect, curstyle, "top", dy, window.innerHeight - 40)
         repos()
     }
-    add_move_handlers(title_line, move_func)
+    const start_move_func = ()=>{
+        rect.track_top = null
+        rect.track_left = null
+    }
+    add_move_handlers(title_line, move_func, start_move_func)
 
 
     if (resizable) {

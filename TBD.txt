@@ -63,7 +63,6 @@ EXPRESSIONS
 - BUG: rotate variable, changing slider when there's an invalid var doesn't clear the red error
 - BUG: bool value warninig on load of anim_bouncing_blobs2.yaml
 - BUG: right click on terminal doesn't have a menu
-- BUG: editor can go out of the window
 - BUG: editor should color comments in gray
 - FIX - pan and zoom not allowed to run
 - Animation
