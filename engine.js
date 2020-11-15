@@ -807,6 +807,7 @@ const nodes_classes = [
         NodeShader,
         NodePointGradFill,
         NodeFuncFill,
+        NodeImageProc,
         NodeGradient,
         NodePixelsToVertices,
     ]},

@@ -180,6 +180,7 @@ class TerminalBase {
         this.tuid = null // set in add_node
         this.kind = KIND_OBJ
         this.color = "#aaa"
+        this.tvisible = true // inheriting Node can set to false and set something to the terminal
 
         this.xoffset = null // will be set again in Node
         this.connection_event = conn_ev
@@ -237,7 +238,9 @@ class TerminalBase {
         return this.lines.length > 0
     }
 
-    draw(force=false) {
+    draw(force=false) { // force needed for drawing the vars terminal when just hovering a line
+        if (!this.tvisible)
+            return
         ctx_nodes.beginPath();
         this.draw_path(ctx_nodes, force)
         ctx_nodes.fillStyle = this.color
@@ -829,14 +832,14 @@ class Node {
             return;
         let count = 0
         for(let t of lst)
-            if (t.kind == KIND_OBJ)
+            if (t.kind == KIND_OBJ && t.tvisible)
                 ++count
 
         const step = (this.width - TERM_MARGIN_X*2) / (count - 1)
         let cidx = 0
         for(let i = 0; i < lst.length; ++i) {
             let term = lst[i]
-            if (term.kind != KIND_OBJ)
+            if (term.kind != KIND_OBJ || !term.tvisible)
                 continue
             if (term.xoffset === null) {
                 if (count == 1)

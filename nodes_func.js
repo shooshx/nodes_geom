@@ -263,6 +263,10 @@ class NodeFuncFill extends BaseNodeShaderParcel
         this.param_proxies = []
     }
 
+    get_sorted_order() {
+        return this.shader_node.cls.sorted_order
+    }
+
     remove_param_proxies(do_update=true) {
         for(let p of this.param_proxies)
             this.node.remove_param(p)
@@ -361,6 +365,38 @@ class NodeFuncFill extends BaseNodeShaderParcel
 
 }
 
+
+class NodeImageProc extends NodeFuncFill
+{
+    static name() { return "Image Process" }
+    constructor(node) 
+    {
+        super(node)
+        this.in_texs.xoffset = node.width / 2
+        this.in_fb.tvisible = false
+    }
+
+    async run() {
+        const in_texs = this.in_texs.get_input_consts()
+        assert(in_texs.length !== 0, this, "no input image")
+        let in_tex
+        if (this.tex0_is_gradient.get_value() && this.type.sel_idx === 0) {
+            assert(in_texs.length >= 2, this, "second input required (since first input is gradient)")
+            in_tex = in_texs[this.get_sorted_order()[1]]
+            assert(in_tex instanceof ImageBase, this, "second input needs to be an image")
+        }
+        else {
+            in_tex = in_texs[this.get_sorted_order()[0]]
+            assert(in_tex instanceof ImageBase, this, "first input needs to be an image")
+        }
+
+        const fb = new FrameBufferFactory(in_tex.width(), in_tex.height(), in_tex.sz_x, in_tex.sz_y, in_tex.smooth, in_tex.edge, in_tex.type)
+        fb.set_transform(in_tex.t_mat)
+        this.in_fb.force_set(fb)
+
+        await super.run()
+    }
+}
 
 // Perlin noise: https://github.com/stegu/webgl-noise/tree/master/src
 

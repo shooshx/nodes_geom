@@ -39,15 +39,31 @@ nodes:
         show_code: true
         se_cv: 'return rgb(coord.x, coord.y, 1.0)'
       "GLSL\nCode":
-        text: "\n\nivec2 toTexelCoord(vec2 coord) {\n    vec2 fc = (_u_tex_tmat_0 * vec3(coord, 1.0)).xy;\n    ivec2 tsz = textureSize(_u_in_tex_0, 0);\n    ivec2 c = ivec2(fc * vec2(tsz));\n    return c;\n}\n\nivec2 around[] = ivec2[]( ivec2(-1,-1), ivec2(0,-1), ivec2(1,-1),\n\t\t\t     ivec2(-1,0), ivec2(1,0),\n\t\t\t     ivec2(-1,1), ivec2(0,1), ivec2(1,1) );\n\nvec3 rgb2hsv(vec3 c)\n{\n    vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);\n    vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));\n    vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));\n\n    float d = q.x - min(q.w, q.y);\n    float e = 1.0e-10;\n    return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);\n}\n\nvec3 hsv2rgb(vec3 c)\n{\n    vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);\n    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);\n    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);\n}\n\n// avoid grayish colors\nvec3 hsv_stretch(vec3 c) \n{\n    vec3 hc = rgb2hsv(c);\n    hc.g = 1.0;\n    hc.b = 1.0;\n    return hsv2rgb(hc);\n}\n\nvoid main() {\n    \n    int nei = 0;\n    vec3 new_col = vec3(0.0);\n\tfor(int i = 0; i < 8; ++i)\n\t{\n\t    ivec2 cr = toTexelCoord(v_coord) + around[i];\n\t\tvec4 c = texelFetch(_u_in_tex_0, cr, 0);\n\t\tif (c.a != 0.0)\n\t\t{\n\t\t\t++nei;\n\t\t\tnew_col += c.rgb;\n\t\t}\n\t}\n\tnew_col /= float(nei);\n\tnew_col = hsv_stretch(new_col);\n\t\n    ivec2 cr = toTexelCoord(v_coord) + ivec2(0,0);\n    vec4 myv = texelFetch(_u_in_tex_0, cr, 0);\t\n    \n    if (myv.a == 0.0)\n    {\n        if (nei == 3)\n            outColor = vec4(new_col, 1.0);\n        else\n            outColor = vec4(0); // stay dead\n    }\n    else\n    {\n    \tif (nei == 2 || nei == 3)\n\t\t\toutColor = vec4(new_col, 1.0);\n\t\telse\n\t\t\toutColor = vec4(0); // die\n    }\n}\n"
+        text: "\n\nivec2 toTexelCoord(vec2 coord) {\n    vec2 fc = (_u_tex_tmat_0 * vec3(coord, 1.0)).xy;\n    ivec2 tsz = textureSize(_u_in_tex_0, 0);\n    ivec2 c = ivec2(fc * vec2(tsz));\n    return c;\n}\n\nvec3 rgb2hsv(vec3 c)\n{\n    vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);\n    vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));\n    vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));\n\n    float d = q.x - min(q.w, q.y);\n    float e = 1.0e-10;\n    return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);\n}\n\nvec3 hsv2rgb(vec3 c)\n{\n    vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);\n    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);\n    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);\n}\n\n// avoid grayish colors\nvec3 hsv_stretch(vec3 c) \n{\n    vec3 hc = rgb2hsv(c);\n    hc.g = 1.0;  // saturation\n    //hc.b = 1.0;  // value\n    return hsv2rgb(hc);\n}\n\nivec2 around[] = ivec2[]( ivec2(-1,-1), ivec2(0,-1), ivec2(1,-1),\n\t\t\t     ivec2(-1,0), ivec2(1,0),\n\t\t\t     ivec2(-1,1), ivec2(0,1), ivec2(1,1) );\n\nuniform float fade_c;\n\nvoid main() {\n    \n    int nei = 0;\n    vec3 new_col = vec3(0.0);\n\tfor(int i = 0; i < 8; ++i)\n\t{\n\t    ivec2 cr = toTexelCoord(v_coord) + around[i];\n\t\tvec4 c = texelFetch(_u_in_tex_0, cr, 0);\n\t\tif (c.a == 1.0)\n\t\t{\n\t\t\t++nei;\n\t\t\tnew_col += c.rgb;\n\t\t}\n\t}\n\tnew_col /= float(nei);\n\tnew_col = hsv_stretch(new_col);\n\t\n    ivec2 cr = toTexelCoord(v_coord) + ivec2(0,0);\n    vec4 myv = texelFetch(_u_in_tex_0, cr, 0);\t\n    \n    if (myv.a != 1.0)\n    {\n        if (nei == 3)\n            outColor = vec4(new_col, 1.0);\n        else\n            outColor = vec4(myv.rgb, myv.a*fade_c); // stay dead\n    }\n    else\n    {\n    \tif (nei == 2 || nei == 3)\n\t\t\toutColor = vec4(new_col, 1.0);\n\t\telse\n\t\t\toutColor = vec4(myv.rgb, myv.a*fade_c); // die\n    }\n}\n"
+        dlg_rect:
+          left: 716
+          top: 0
+          width: 808
+          height: 886
+          visible: false
+          track_top: 0
+          track_left: 716
         panel_rect:
           height: 284
       order:
         sorted_order: [0]
+      fade_c:
+        e_v: 0
+        sldcfg_v:
+          min: 0
+          max: 0.99
+          visible: true
+          allowed: true
+        se_cv: return 0
     name: life_integrate
     cls_name: Function Fill
-    x: -2251
-    y: 1260
+    x: -2254
+    y: 1264
     disp_param: {}
   '5':
     params:
@@ -203,19 +219,20 @@ nodes:
               outColor = vec4(c, alpha);    
           }
         dlg_rect:
-          left: null
-          top: null
+          left: 475
+          top: 174
           width: 622
           height: 688
           visible: false
+          track_top: 174
         panel_rect:
           height: 296
       order:
         sorted_order: []
     name: random pixels
     cls_name: Function Fill
-    x: -2235
-    y: 965
+    x: -2221
+    y: 969
     disp_param: {}
   '28':
     params:
@@ -284,11 +301,11 @@ lines:
     to_name: in_fb
     to_id: 3
     uid: 32
-next_node_id: 33
+next_node_id: 35
 names_idx_s:
   Load Image: 1
   Create Pixel-Buffer: 4
-  Function Fill: 3
+  Function Fill: 5
   Pick One: 1
   Change Filter: 1
   Geom Primitive: 1
@@ -298,6 +315,6 @@ tdisp_node_ids:
   - 3
 input_node_ids: []
 nodes_view:
-  pan_x: 2654
-  pan_y: -784
+  pan_x: 2701
+  pan_y: -773
 decor: []

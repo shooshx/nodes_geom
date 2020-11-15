@@ -278,6 +278,7 @@ class NodeCreateFrameBuffer extends NodeCls
 
 function generateTexture(width, height, source, smooth, spread_x, spread_y)
 {
+    dassert(width > 0 && height > 0, "canvas size can't be 0")
     const tex = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, source);
@@ -1063,7 +1064,7 @@ class TerminalProxy extends Terminal
         this.lines = wterm.lines // not sure if needed...
         this.is_input = wterm.is_input
         copy_members(wterm, this, wterm, ["set", "get_const", "get_mutable", "clear", "tset_dirty", "is_dirty", 
-                                          "get_input_consts", "intr_set", "get_cur_uver"])
+                                          "get_input_consts", "intr_set", "get_cur_uver", "force_set"])
 
         copy_members(wterm, this, this, ["draw_path"])
             

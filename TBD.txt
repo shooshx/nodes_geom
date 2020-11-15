@@ -65,23 +65,36 @@ EXPRESSIONS
 - BUG: right click on terminal doesn't have a menu
 - BUG: editor should color comments in gray
 - FIX - pan and zoom not allowed to run
+   - changes in init image transform don't propogate???
 - Animation
     - engine - dirty controlled by selected input in pick_one
-    - scale radius
+    - disp-params scale radius
     - single step button - smaller panel
+    - full bar
+    - restart from frame 0 every change
 - game of life
     Image process node
        - like func
        - fb taken from image
        - transform from image
-    Random image node   
-    texelFetch coords
-    size of frame-buffer
-    size of texture
-    changes in init image transform don't propogate???
+    Random image node - expr func?
+    texelFetch coords - expr func?
+    size of frame-buffer to uniform
 - Mesh,Path attribute radius should be in world coordinates
 - distance fields
     - repeat on axis
+- Node - Two cog-wheels drawing - Spirograph
+    - change inner speed
+    - if inner is a wheel, inner pen needs only radius?
+    - with more than 1 wheel?
+    - with something that is not a wheel? Lemon, triangle of 3 sides of circle
+    - detect close
+    - color by distance
+    - https://www.desmos.com/calculator/b6l9e3gggj
+      https://nathanfriend.io/inspirograph/
+    - Build with Box2D something with pen that creates geometry like in https://miro.medium.com/max/360/1*bOul3NV7qVKeH11HkUqGiA.jpeg
+- Function of f(t) for creating geometry
+
 - manual geom create quads mesh
 - balls that know their end color
     - Animation
