@@ -141,7 +141,7 @@ class FrameBuffer extends ImageBase
             return // happens when an file image was not loaded yet
         // cached for the same of PImage which needs to only generate this once and reuses the output object
         if (this.imgBitmap === null)
-            this.imgBitmap = await renderTexToImgBitmap(this.tex_obj, this.sz_x, this.sz_y)
+            this.imgBitmap = await renderTexToImgBitmap(this.tex_obj)
     }
 
     draw(m, disp_values) {
@@ -849,6 +849,7 @@ class NodeShader extends NodeCls
         assert(this.last_uniforms_err === null, this, this.last_uniforms_err)
         const fb_factory = this.in_fb.get_const()  // FrameBufferFactory object
         assert(fb_factory !== null, this, "missing input FrameBuffer factory")
+        assert(fb_factory.width() !== 0 && fb_factory.height() !== 0, this, "frame buffer has zero size")
         assert(fb_factory.create_tex !== undefined, this, "Expected FrameBuffer factory object")
         const fb = fb_factory.create_tex()
         assert(fb !== null, this, "missing input texture")
@@ -1012,7 +1013,7 @@ void main() {
 }
     `
 }
-async function renderTexToImgBitmap(tex_obj, sz_x, sz_y)
+async function renderTexToImgBitmap(tex_obj)
 {
     // render to actual canvas
     dassert(tex_obj.width !== undefined && tex_obj.height !== undefined, "Missing dimentions of tex")
@@ -1028,7 +1029,7 @@ async function renderTexToImgBitmap(tex_obj, sz_x, sz_y)
         render_teximg.program = _prog
         dassert(render_teximg.program !== null, "failed compile teximg")
 
-        render_teximg.mesh = make_mesh_quadtri(sz_x, sz_y)
+        render_teximg.mesh = make_mesh_quadtri(1,1)
     }
     gl.useProgram(render_teximg.program);
     // no need to set value to uTex since default 0 is ok

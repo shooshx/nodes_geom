@@ -66,6 +66,9 @@ EXPRESSIONS
 - BUG: editor should color comments in gray
 - FIX - pan and zoom not allowed to run
    - changes in init image transform don't propogate???
+- BUG that causes white stripes   
+   - BUG load image not arriving in time?
+   - BUG fit to size with reset view doesn't arrive at native resolution
 - Animation
     - engine - dirty controlled by selected input in pick_one
     - disp-params scale radius
