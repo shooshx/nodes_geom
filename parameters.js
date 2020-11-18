@@ -862,7 +862,8 @@ class ExpressionItem {
                     this.in_param.pset_dirty() 
                 }
             })
-            this.peval_self() // TBD(lazy) this will set the slider position and enablement (but not do pset_dirty since nothing changed)
+            this.slider.update(this.get_prop())
+           // this.peval_self() // TBD(lazy) this will set the slider position and enablement (but not do pset_dirty since nothing changed)
         }
         else if (!this.slider_conf.visible && this.slider != null) {
             this.slider.elem.parentNode.removeChild(this.slider.elem)
@@ -913,7 +914,7 @@ class ExpressionItem {
         if (this.override_create_elem === null) {
             this.editor = new EditBoxEditor(add_param_edit(line, this.se, ED_STR, str_change_callback))
             if (this.slider_conf.allowed)
-                this.display_slider(line, true)
+                this.display_slider(true)
         }
         else {            
             this.editor = this.override_create_elem(line, this.se, str_change_callback, this.in_param.label.replace('\n', ' '))
@@ -928,9 +929,11 @@ class ExpressionItem {
         return this.editor
     }
     set_to_const(v) { // return true if value actually changed
+        this.eclear_error()  // when moving slider clear any error that might have been there before
         this.e = ExprParser.make_num_node(v)
         this.se = formatType(v, this.prop_type)
         this.need_inputs = null
+        this.variable_evaluators = {} // need for forget about the previous expression
         if (this.editor !== null)
             this.editor.set_value(this.se)
         return this.do_set_prop(v) // in color, need it the picker style to not be italic

@@ -620,6 +620,7 @@ async function do_frame_draw(do_run, clear_all)
     let run_root_nodes = new Set()
     let disp_obj = null
 
+    fps_counter_update()
     canvas_webgl.reset_to_latest_max()
     if (program.display_node === null) { 
         show_display_params(null, null) // remove what's shown
@@ -773,7 +774,7 @@ var g_anim = new Animation()
 
 function anim_frame()
 {
-    g_anim.frame_time = performance.now() - g_anim.start_time
+    //g_anim.frame_time = performance.now() - g_anim.start_time
     g_anim.notify_pre_draw()
 
     call_frame_draw(true, false)

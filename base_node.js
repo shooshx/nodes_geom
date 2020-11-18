@@ -1375,10 +1375,12 @@ function nodes_context_menu(px, py, wx, wy, cvs_x, cvs_y) {
     if (obj != null) {
         if (obj.constructor === Node)
             node = obj
-        else if (obj.constructor === NodeFlagProxy)
+        else if (obj.constructor === NodeFlagProxy)  // display,template flags
             node = obj.node
         else if (obj.constructor === NameInput)
             obj = null // treat it like we pressed the background
+        else if (obj instanceof TerminalBase)
+            node = obj.owner
         else if (obj.ctx_menu_opts !== undefined)
             opt = obj.ctx_menu_opts()
         else

@@ -51,6 +51,11 @@ class NodeChangeFilter extends NodeCls
         this.in = new InTerminal(node, "in")
         this.out = new OutTerminal(node, "out")
 
+        // make this node pass-through
+        // this can be unchecked if we want any parameter change to cause an animation frame (but not panning which doesn't do run in any case)
+        this.enabled = new ParamBool(node, "Filter Enabled", true, (v)=>{
+            this.change_expr.enabled = v;
+        })
         // the value of this expr is not used, only the fact that the value changes
         this.change_expr = new ParamInt(node, "Change Expr", "frame_num", {show_code:true})
     }
@@ -58,7 +63,7 @@ class NodeChangeFilter extends NodeCls
     should_clear_out_before_run() { return false }
 
     run() {
-        if (this.out.get_const() !== null && !this.change_expr.pis_dirty())
+        if (this.enabled.get_value() && this.out.get_const() !== null && !this.change_expr.pis_dirty())
             return
         const obj = this.in.get_const()
         this.out.set(obj)

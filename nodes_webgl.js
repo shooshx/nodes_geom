@@ -236,7 +236,7 @@ class NodeCreateFrameBuffer extends NodeCls
         }
         this.zoom_fit = new ParamButton(node, "Fit resolution to viewport", res_fit)
         const size_fit = ()=>{
-            const sx = (image_view.rect.right - image_view.rect.left) / image_view.viewport_zoom
+            const sx = (image_view.rect.right - image_view.rect.left) / image_view.viewport_zoom // sample viewport when node is created
             const sy = (image_view.rect.bottom - image_view.rect.top) / image_view.viewport_zoom
             this.size.modify(vec2.fromValues(sx, sy))
 

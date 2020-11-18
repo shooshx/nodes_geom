@@ -29,6 +29,7 @@ class HException(Exception):
         self.msg = msg
 
 def check_need_update():
+    return False
     out_modified = os.stat(JS_OUT).st_mtime
     for cpp in CPP_SOURCES + CPP_HEADERS:
         if not os.path.exists(cpp):

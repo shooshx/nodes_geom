@@ -160,7 +160,7 @@ class ImageView extends ViewBase
 
     pan_redraw() {
         calc_img_viewport()
-        trigger_frame_draw(true) // false)  needs to be true for texturs to redraw
+        trigger_frame_draw(false) // false since we don't want animation to advance when zooming and panning
     }
     resize_redraw() {
         this.pan_redraw()
@@ -860,6 +860,7 @@ function dismiss_top_menus() {
 }
 
 
+var fps_disp = null
 
 function create_anim_bar()
 {
@@ -897,28 +898,30 @@ function create_anim_bar()
     const edit_hover = add_div(frame_disp_wrap, ["hover_box", "anim_fn_hover_box"])
     edit_hover.innerText = "frame_num"
 
-    const fps_disp = add_div(anim_bar, 'anim_fps_disp')
+    fps_disp = add_div(anim_bar, 'anim_fps_disp')
     fps_disp.innerText = "0"
 
-    let frame_count = 0  // since last print    
-    let last_update_time = 0
     g_anim.reg_pre_draw( (frame_num, frame_time, running)=>{
-        const dt = frame_time - last_update_time 
-        if (dt < 0) // it was restarted so we have something old
-            last_update_time = frame_time
-        else if (dt > 500) {
-            const fps = frame_count / (dt / 1000)
-            fps_disp.innerText = fps.toFixed(1) + " fps"
-            last_update_time = frame_time
-            frame_count = 0
-            //console.log("erm ", last_update_time, " ", frame_count)
-        }
-        ++frame_count
         frame_disp.value = frame_num
         if (!running)
             play_in.checked = false
     })
 }
 
+let frame_count = 0  // since last print    
+let last_update_time = 0
 
+function fps_counter_update()
+{
+    const frame_time = performance.now()
+    const dt = frame_time - last_update_time 
+    if (dt > 500) {
+        const fps = frame_count / (dt / 1000)
+        fps_disp.innerText = fps.toFixed(1) + " fps"
+        last_update_time = frame_time
+        frame_count = 0
+        //console.log("erm ", last_update_time, " ", frame_count)
+    }
+    ++frame_count
+}
 
