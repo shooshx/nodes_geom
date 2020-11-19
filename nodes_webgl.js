@@ -692,7 +692,7 @@ class NodeShader extends NodeCls
         // want to keep the surviving ones around so they won't be reset
         const del_non_existing = (from_cont)=> {
             for(let ename in from_cont) {
-                if (new_unified[ename] === undefined || new_unified[ename].type !== from_cont[ename].type) {
+                if (new_unified[ename] === undefined || new_unified[ename].type !== from_cont[ename].uniform_type) {
                     this.node.remove_param(from_cont[ename].param)
                     delete from_cont[ename]
                 }
@@ -726,6 +726,7 @@ class NodeShader extends NodeCls
                 this.defines[new_name] = p
             else                
                 this.uniforms[new_name] = p
+            p.uniform_type = nu.type
             p.param.set_group(in_group)
         }
         // both groups need to update since we might have removed something from the other group

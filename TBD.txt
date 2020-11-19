@@ -52,7 +52,6 @@ EXPRESSIONS
 - colors [0-1] everywhere (set attr)
 - SetAttr with null return to do nothing like in fill
     -none value for function
-- BUG: display_slider shouldn't call peval() - happens every add_elems
 
 ****** CURRENT AGENDA ******
 - Copy
@@ -61,13 +60,17 @@ EXPRESSIONS
 - BUG? rendering with effective_vtx ?
 - BUG: func node without show_code?
 - BUG: bool value warninig on load of anim_bouncing_blobs2.yaml
+- BUG: uniform parser get uniforms in comments
 - Animation
     - engine - dirty controlled by selected input in pick_one
     - disp-params scale radius
     - single step button - smaller panel
     - full bar
     - restart from frame 0 every change
+    - Separate Program of animation control
+        control speed, visibility
 - game of life
+    !!! variable for bool
     Random image node - expr func?
     texelFetch coords - expr func?
     size of frame-buffer to uniform

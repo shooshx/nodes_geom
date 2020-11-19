@@ -374,6 +374,7 @@ class NodeImageProc extends NodeFuncFill
         super(node)
         this.in_texs.xoffset = node.width / 2
         this.in_fb.tvisible = false
+        this.tex0_is_gradient.modify(false)
     }
 
     async run() {
