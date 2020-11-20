@@ -163,17 +163,31 @@ input {
 
 .param_line {
     display: flex;
-    flex-grow: 1; /* if it's part of a flex */
+    flex-grow: 1;  /* if it's part of a flex, grows in the param_multi_line */
     padding: 5px 0 0 0;
     align-items: center;
     position: relative;  /* for error messages to appear relative to its line */
+    min-height: 26px;  /* make height standard for all lines so that it would depend on if it's a checkbox or not */
 }
 .param_line_group {
     display: block; /* override the display flex from the parent .param_line */
 }
-/*.param_multi_line {*/
-    /*padding: 5px 0 0 0; interferes with ParamBaseExpr */
-/*}*/
+.param_multi_line {
+}
+.param_multi_line_shared {
+    display: flex;   /* don't want to change the normal multi-line since that would mess Transform */
+    align-items: center;
+}
+
+.param_multi_line_shared > .param_line:first-child {
+    flex-grow: 0;  /* don't want the first child to take up more space that it needs*/
+}
+
+/* the second label in a shared line */
+.param_multi_line_shared .param_label_pre {
+    width: initial; /* don't need so much spacing as in the first labels column */
+    margin-left: 30px; /* what we need is margin */
+}
 
 .param_block {
     padding: 5px 0 5px 0;
@@ -272,7 +286,7 @@ input {
 .param_checkbox_disp {
     width: 17px;
     height: 17px;
-    margin: 0 4px 0 2px;
+    margin: 1px 4px 0 2px;
     vertical-align: middle;
 }
 .param_checkbox_input + .param_checkbox_disp {
@@ -453,6 +467,12 @@ input {
     width: 40px;
 }
 
+.prm_ctx_bexpr_line {
+    display: flex;
+    align-items: center;
+    margin: 0 4px 0 5px;
+}
+
 #canvas_webgl{ 
     border: solid 1px;
     display: none; /* TEMP */
@@ -514,7 +534,7 @@ input {
     height: 25px;
     line-height: 24px;
     color: #fff;
-    margin: 0 0 0 3px;
+    margin: 1px 5px 0 3px;;
     padding: 0 10px 0 10px;
     min-width: 70px;    
 }
@@ -880,10 +900,11 @@ input {
     box-sizing: border-box;
 }
 
-#div_display_params > .param_line {
+#div_display_params .param_line {
     height: 20px;
+    min-height: initial;
 }
-#div_display_params > .param_line > .param_editbox {
+#div_display_params .param_line > .param_editbox {
     height: 20px;
     background-color: rgb(85, 85, 85, 50%);
 }

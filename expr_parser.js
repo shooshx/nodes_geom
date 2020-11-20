@@ -1966,7 +1966,13 @@ function do_to_glsl(node, emit_ctx, opt=null) {
     return ret
 }
 
-return {parse:eparse, make_num_node:make_num_node, check_type:check_type, clear_types_cache:clear_types_cache, do_eval:do_eval, do_to_glsl:do_to_glsl}
+return {parse:eparse, 
+       make_num_node:make_num_node, 
+       check_type:check_type, 
+       clear_types_cache:clear_types_cache, 
+       do_eval:do_eval, 
+       do_to_glsl:do_to_glsl
+    }
 })()
 
 

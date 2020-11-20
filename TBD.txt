@@ -61,6 +61,8 @@ EXPRESSIONS
 - BUG: func node without show_code?
 - BUG: bool value warninig on load of anim_bouncing_blobs2.yaml
 - BUG: uniform parser get uniforms in comments
+- BUG: pressing on node name doesn't work
+- BUG: Yaml doesn't save glsl as text block (game of life)
 - Animation
     - engine - dirty controlled by selected input in pick_one
     - disp-params scale radius
@@ -70,7 +72,6 @@ EXPRESSIONS
     - Separate Program of animation control
         control speed, visibility
 - game of life
-    !!! variable for bool
     Random image node - expr func?
     texelFetch coords - expr func?
     size of frame-buffer to uniform
@@ -96,7 +97,7 @@ EXPRESSIONS
     - matter.js - https://brm.io/matter-js/
     - flow control
     - anim - some frames are not displayed?
-- BoolParam from code (from variable)
+- BoolParam 
     fix in SetAttr fill from ParamFloat to ParamBool with code
 - Mandelbrot
     change power

@@ -174,13 +174,14 @@ class NodeVariable extends NodeCls
         node.nkind = KIND_VARS
         this.var_out = new VarOutTerminal(node, "variable_out")
         // TBD show code
-        this.type = new ParamSelect(node, "Type", 0, ['Float', 'Integer', 'Float2', 'Float2-Mouse', 'Color'], (sel_idx)=>{ // TBD Transform, Function
+        this.type = new ParamSelect(node, "Type", 0, ['Float', 'Integer', 'Float2', 'Float2-Mouse', 'Color', 'Bool'], (sel_idx)=>{ // TBD Transform, Function
             this.expr_float.set_visible(sel_idx == 0)
             this.expr_int.set_visible(sel_idx == 1)
             this.expr_vec2.set_visible(sel_idx == 2)
             this.expr_vec2_mouse.set_visible(sel_idx == 3)
             this.mouseState.set_visible(sel_idx == 3)
             this.expr_color.set_visible(sel_idx == 4)
+            this.expr_bool.set_visible(sel_idx == 5)
 
             const prev = node.can_input
             node.can_input = sel_idx == 3
@@ -201,6 +202,7 @@ class NodeVariable extends NodeCls
         this.expr_color = new ParamColor(node, "Color", "#cccccc")
         this.expr_vec2_mouse = new ParamVec2(node, "Mouse Coord", 0, 0) // want a different one since we don't want to mess with expr_vec2 being in code or not
         this.expr_vec2_mouse.set_enable(false)  // user never edits it directly
+        this.expr_bool = new ParamBool(node, "Bool", false)
         this.mouseState = new ParamSelect(node, "Sample At", 0, ["Mouse left down", "Mouse move"])
 
         node.register_rename_observer((newname)=>{this.name.modify(newname)})
@@ -219,6 +221,7 @@ class NodeVariable extends NodeCls
         case 2: this.vb.vbset(this.expr_vec2.get_value(), TYPE_VEC2); break;
         case 3: this.vb.vbset(this.expr_vec2_mouse.get_value(), TYPE_VEC2); break;
         case 4: this.vb.vbset(color_to_uint8arr(this.expr_color.v), TYPE_VEC4); break;
+        case 5: this.vb.vbset(this.expr_bool.get_value(), TYPE_BOOL); break;
         }
         this.var_out.set(vsb)
     }

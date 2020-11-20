@@ -329,7 +329,7 @@ class NodeManualGeom extends NodeCls
             this.columns_store.loaded_v = null
         })
         this.geom_type = new ParamSelect(node, "Type", 0, ["Mesh", "Paths"])
-        this.add_pnts_btn = new ParamBool(node, "Add points", true, null)
+        this.add_pnts_btn = new ParamBool(node, "Add points", true, null, {allow_expr:false})
         this.add_pnts_btn.display_as_btn(true)
         this.add_col_btn = new ParamTextMenuBtn(node, "Add Column", ["Curve Controls", "Vec2"], (opt, sel_idx)=>{
             if (sel_idx === 0 && this.cfp === null) {
@@ -488,6 +488,8 @@ class ObjSingleEvaluator extends EvaluatorBase {
         return this.objref.obj[0]
     }
     check_type() {
+        if (this.objref.obj === null)
+            throw new UndecidedTypeErr()
         return TYPE_NUM
     }
 }
@@ -707,7 +709,7 @@ class NodeSetAttr extends NodeCls
             const prm = this.param_of_index[this.attr_type.sel_idx]
             if (prm.set_show_code)
                 prm.set_show_code(v)
-        })
+        }, {allow_expr:false})
         this.edit_code.share_line_elem_from(this.attr_type)
 
         this.attr_name = new ParamStr(node, "Name", "color", (v)=>{
@@ -716,7 +718,7 @@ class NodeSetAttr extends NodeCls
         this.expr_color = new ParamColor(node, "Color", [DEFAULT_VTX_COLOR.hex, DEFAULT_VTX_COLOR.rgb])
         this.expr_float = new ParamFloat(node, "Float", 0)
         this.expr_vec2 = new ParamVec2(node, "Float2", 0, 0, true)
-        this.expr_bool = new ParamFloat(node, "Select", "true")  
+        this.expr_bool = new ParamFloat(node, "Select", "1.0")  
         this.expr_transform = new ParamTransform(node, "Transform")
 
         this.param_of_index = [this.expr_color, this.expr_float, this.expr_vec2, this.expr_bool, this.expr_transform]

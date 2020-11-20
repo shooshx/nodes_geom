@@ -714,6 +714,7 @@ function wrapText(context, text, x, center_y, maxWidth, lineHeight) {
 const EXPR_CONST = 0  // didn't lookup anything
 const EXPR_NEED_INPUT = 1  //  looked up a value that does change depend on input
 const EXPR_NEED_VAR = 2  // looked up a variable
+const EXPR_GLSL_ONLY = 4 // Is this an exression that's supposed to get to_glsl() only and never eval()?
 
 class StateAccess {
     constructor(state_evaluators) {
@@ -756,7 +757,9 @@ class StateAccess {
         let evaluator_factory = this.state_evaluators[varname] // as specified by the node_cls
         if (evaluator_factory !== undefined) {
             let e = evaluator_factory(top_level, sp.slice(1))
-            this.score |= EXPR_NEED_INPUT // TBD depend on evaluator?
+            this.score |= EXPR_NEED_INPUT // base flag that needs to be there always when there's an evaluator
+            if (e.additional_score_flags !== undefined)
+                this.score |= e.additional_score_flags() // used for adding EXPR_GLSL_ONLY
             e.line_num = line_num
             return e
         }

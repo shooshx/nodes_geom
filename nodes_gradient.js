@@ -872,7 +872,7 @@ class NodeGradient extends NodeCls
         const presets_btn = new ParamImageSelectBtn(node, "Presets", GRADIENT_PRESETS, make_preset_img, (pr)=>{this.load_preset(pr)})
         this.add_stops_btn = new ParamBool(node, "Add stops", true, (v)=>{
             this.print_stops()
-        })
+        }, {allow_expr:false})
         this.add_stops_btn.display_as_btn(true)
         this.add_stops_btn.share_line_elem_from(presets_btn)
         this.table = new ParamTable(node, "Stops", this.sorted_order)
@@ -880,8 +880,8 @@ class NodeGradient extends NodeCls
         this.colors = new ParamColorList(node, "Color", this.table)
 
         // for generating texture
-        this.tex_resolution = new ParamInt(node, "Resolution", 128, [8,128]) // only for sampler
-        this.tex_smooth = new ParamBool(node, "Smooth", false)
+        this.tex_resolution = new ParamInt(node, "Tex Resolution", 128, [8,128]) // only for sampler
+        this.tex_smooth = new ParamBool(node, "Tex Smooth", false)
 
         this.load_preset(GRADIENT_PRESETS[0])
         

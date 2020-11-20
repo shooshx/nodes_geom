@@ -229,9 +229,18 @@ function add_div(parent, cls) {
 function add_param_line(parent, param=null, cls='param_line') { 
     if (param !== null) {
         if (param.is_sharing_line_elem()) {
+            let e;
             if (param.shares_line_from.shared_line_elem !== undefined)
-                return param.shares_line_from.shared_line_elem  // if it's a multiline, the param defines what it wants to share
-            return param.shares_line_from.line_elem
+                e = param.shares_line_from.shared_line_elem  // if it's a multiline, the param defines what it wants to share
+            else
+                e = param.shares_line_from.line_elem
+            // if adding to a multi-line, mark it as shared so that it could flex
+            // ignore adding a multi-line in a multi-line
+            if (e.classList.contains("param_multi_line") && cls !== "param_multi_line") {
+                e.classList.add("param_multi_line_shared")
+                e = add_div(e, "param_line") // multi-line should only include param_lines children (due to top padding and good measure)
+            }
+            return e
         }
         // line_elem of the group may be null if the group is not displayed since it's an internal node    
         if (param.group_param !== null && param.group_param.line_elem !== null)
@@ -294,6 +303,7 @@ const ED_STR=2
 const ED_FLOAT_OUT_ONLY=3  // when parsing ParamFloat, don't pass it throu parseFloat because it's an expression
 const ED_COLOR_EXPR=4 // used for expression type check
 const ED_VEC2=5 // for code expression type check
+const ED_BOOL=6
 
 function add_param_edit(line, value, type, set_func, cls=null, enter_func=null) {
     let e = document.createElement('input')
@@ -519,26 +529,90 @@ class ParamStr extends Parameter {
 }
 
 class ParamBool extends Parameter {
-    constructor(node, label, start_v, change_func) {
+    constructor(node, label, start_v, change_func=null, opt=null) {
         super(node, label)
         this.v = start_v
         this.change_func = change_func
         this.as_btn = false
         this.elem_input = null
+        this.opt = opt || {allow_expr:true, expr_visible:false} // allow_expr:bool, expr_visible:bool
+        if (this.opt.allow_expr) {
+            this.make_checkbox_ctx_menu()
+            this.item = new ExpressionItem(this, "v", ED_BOOL, (v)=>{ this.v = (v == null)?null:(v > 0) }, ()=>{ return this.v?1:0 }, {allowed:false})
+            this.item.set_eactive(this.opt.expr_visible)
+            if (this.opt.expr_visible) {
+                this.item.peval("" + start_v)
+            }
+        }
+        else {
+            this.ctx_menu = null
+            this.item = null
+        }
+        this.checkbox_line = null
+        this.expr_line = null
+    }
+
+    set_show_expr(v) {
+        if (v === this.opt.expr_visible)
+            return
+        this.opt.expr_visible = v
+        if (this.single_line !== null) { // displayed?
+            elem_set_visible(this.checkbox_line, !v)
+            elem_set_visible(this.expr_line, v)
+        }
+        this.item.set_eactive(v)
+
+        if (v)  // in case it's a const, set this.v to a value from the right source
+            this.item.peval_self()
+        else
+            this.non_code_peval_self()
+        this.pset_dirty()
+    }
+
+    non_code_peval_self() {
+        this.v = this.elem_input.checked
+    }
+
+    make_checkbox_ctx_menu() {
+        this.ctx_menu = new CustomContextMenu() // for checkbox elem
+        const add_expr_checkbox = (parent, dismiss_func)=>{
+            const ec_line = add_div(parent, 'prm_ctx_bexpr_line')
+            let [ein,etext,edisp] = add_param_checkbox(ec_line, "Expression", this.opt.expr_visible, (v)=>{ 
+                this.set_show_expr(v)
+                dismiss_func()
+            })
+        }
+        this.ctx_menu.add_to_context_menu(add_expr_checkbox)
     }
     display_as_btn(v) { this.as_btn = v }
-    save() { return {v:this.v} }
-    load(v) { this.v = v.v; this.call_change()  }
+    save() { 
+        const d =  {v:this.v, expr_visible:this.opt.expr_visible}
+        if (this.item !== null)
+            this.item.save_to(d)
+        return d
+    }
+    load(v) { 
+        this.v = v.v; 
+        this.opt.expr_visible = v.expr_visible
+        if (this.opt.allow_expr && this.item !== null) {
+            this.item.load(v)
+            this.item.set_eactive(this.opt.expr_visible)
+        }
+        this.call_change()  
+    }
     add_elems(parent) {
-        this.line_elem = add_param_line(parent, this)
+        this.line_elem = add_param_multiline(parent, this)
+        this.checkbox_line = add_param_line(this.line_elem, this)
+        elem_set_visible(this.checkbox_line, !this.opt.expr_visible)
+
         let label_cls_add = null
         if (!this.is_sharing_line_elem()) 
-            add_param_label(this.line_elem, null)
+            add_param_label(this.checkbox_line, null)
         else if (!this.as_btn)
-            label_cls_add = "param_checkbox_inline"
+            label_cls_add = "param_checkbox_inline" // for margin
 
         let add_func = this.as_btn ? add_checkbox_btn : add_param_checkbox
-        const [ein,label,edisp] = add_func(this.line_elem, this.label, this.v, (v) => {
+        const [ein,label,edisp] = add_func(this.checkbox_line, this.label, this.v, (v) => {
             this.v = v; 
             this.call_change()
             this.pset_dirty()
@@ -547,6 +621,16 @@ class ParamBool extends Parameter {
             edisp.classList.toggle(label_cls_add, true)
         this.elem_input = ein
         this.label_elem = label
+
+        // ----- expr elements ------
+        if (this.opt.allow_expr) {
+            this.expr_line = add_param_line(this.line_elem, this)
+            elem_set_visible(this.expr_line, this.opt.expr_visible)        
+            add_param_label(this.expr_line, this.label)
+            const code_elem = this.item.add_editbox(this.expr_line, true)
+
+            this.ctx_menu.add_context_menu(this.line_elem)
+        }
     }
     modify(v) {
         if (v === this.v)
@@ -574,7 +658,8 @@ function get_default(m, k, d) {
 
 class DispParamBool extends ParamBool {
     constructor(disp_values, label, prop_name, start_v) {
-        super(null, label, get_default(disp_values, prop_name, start_v), (v)=>{disp_values[prop_name]=v; trigger_frame_draw()})
+        super(null, label, get_default(disp_values, prop_name, start_v), 
+              (v)=>{disp_values[prop_name]=v; trigger_frame_draw()},{allow_expr:false, expr_visible:false})
     }
     pset_dirty() {} // this override is needed to avoid draw triggers that mess with the controls
 }
@@ -696,6 +781,7 @@ class ExpressionItem {
         // changed for code/non-code expression distinction. expr might be visible but the param might not be
         // used for knowing if the expression must be resolved
         this.eactive = true  
+        this.last_resolve_varbox = null
     }
     set_eactive(v) {
         this.eactive = v
@@ -789,6 +875,8 @@ class ExpressionItem {
             eassert(this.etype === TYPE_VEC3 || this.etype === TYPE_VEC4, "Wrong type, expected a vec3/4, got " + typename(this.etype))
         else if (this.prop_type == ED_VEC2)
             eassert(this.etype === TYPE_VEC2, "Wrong type, expected vec2, got " + typename(this.etype))
+        else if (this.prop_type == ED_BOOL)
+            eassert(this.etype == TYPE_BOOL || this.etype == TYPE_NUM, "Wrong type, expected bool or number, got " + typename(this.etype))
         else
             eassert(this.etype === TYPE_NUM, "Wrong type, expected a number, got " + typename(this.etype)) 
     }
@@ -821,6 +909,8 @@ class ExpressionItem {
             this.expr_score = state_access.score  // score determines if the expression depends on anything
             this.etype_undecided = false
             this.etype_depend_var = false
+            // if it contains reference to variables try to resolve them now, before type-check
+            this.eresolve_evaluators(this.last_resolve_varbox, true) // can fail, we'll have another chance before run
             this.do_check_type()
         }
         catch(ex) { // TBD better show the error somewhere
@@ -834,18 +924,25 @@ class ExpressionItem {
             state_access.need_inputs = null
             state_access.score = EXPR_CONST
         }
- 
+
         if (this.expr_score == EXPR_CONST) { // depends on anything?
             if (this.do_set_prop(ExprParser.do_eval(this.e)))  // returns false if it's the same value
                 this.in_param.pset_dirty() 
             this.need_inputs = null
         }
         else {
-            this.do_set_prop(null) // it's dynamic so best if it doesn't have a proper value from before
+            // if it depends on external input, don't do anything since eval would throw
+            // if etype_depend_var is true it means we're still dependent on a variable that's not in the last box (maybe last-box is null), eval would throw
+            if (this.etype_undecided || this.etype_depend_var)
+                this.do_set_prop(null)
+            else { // it depends only in variables do can try to eval (will succeed if all variables are there)
+                if ((this.expr_score & EXPR_GLSL_ONLY) == 0) // don't want to eval expression that is glsl only
+                    this.do_set_prop(ExprParser.do_eval(this.e))
+            }
+            this.in_param.pset_dirty() // TBD maybe expression didn't change?           
             if ((this.expr_score & EXPR_NEED_INPUT) != 0) {
                 this.need_inputs = state_access_need_inputs
             }
-            this.in_param.pset_dirty() // TBD maybe expression didn't change?
         }      
 
         // needs to be after we possibly did set_prop so it gets the current value
@@ -987,27 +1084,38 @@ class ExpressionItem {
         return this.elast_error.msg
     }
 
+    // assign the evaluators from the current expression values according to the given box or the global box
+    eresolve_evaluators(in_vars_box, allow_not_found) {
+        let vis_dirty = false
+        // go over the variables in the expr and set values to them
+        for(let vename in this.variable_evaluators) 
+        {
+            const ve = this.variable_evaluators[vename]
+            let from_in = undefined
+            if (in_vars_box !== null)
+                from_in = in_vars_box.lookup(ve.varname)  // VariablesBox
+            if (from_in === undefined)
+                from_in = g_anim.vars_box.lookup(ve.varname) // for frame_num
+            if (from_in === undefined) {
+                if (allow_not_found) // when called from peval it may not be able to resolve since the variables are not there yet
+                    continue
+                throw new ExprErr("Unknown variable " + ve.varname, ve.line_num) // TBD add what line                
+            }
+            ve.var_box = from_in
+            vis_dirty = vis_dirty || from_in.vis_dirty
+        }
+        return vis_dirty
+    }
+
     eresolve_variables(in_vars_box) {
+        this.last_resolve_varbox = in_vars_box
         if ((this.expr_score & EXPR_NEED_VAR) == 0)
             return
+        if (!this.eis_active())
+            return // if it's not the active param, don't need to do anything, when its getting activate it's going to get peval and resolve
+                   // also, resolve can be allowed to fail if this is not a active expression
         try {
-            let vis_dirty = false
-            // go over the variables in the expr and set values to them
-            for(let vename in this.variable_evaluators) {
-                const ve = this.variable_evaluators[vename]
-                let from_in = in_vars_box.lookup(ve.varname)  // VariablesBox
-                if (from_in === undefined)
-                    from_in = g_anim.vars_box.lookup(ve.varname) // for frame_num
-                if (from_in === undefined) {
-                    // resolve can be allowed to fail if this is not a active expression
-                    if (this.eis_active()) // maybe don't need to do anything for it if it's not active?
-                        throw new ExprErr("Unknown variable " + ve.varname, ve.line_num) // TBD add what line
-                    else
-                        return
-                }
-                ve.var_box = from_in
-                vis_dirty = vis_dirty || from_in.vis_dirty
-            }
+            const vis_dirty = this.eresolve_evaluators(in_vars_box, false) // should not fail, failure means the node fails
             // if ov (old-v) is null, don't even bother checking if it's dirty since we need to eval anyway
             // this can happen when peval() is called (sometimes not even for parsing new expr)
             const ov = this.get_prop()
@@ -1027,6 +1135,7 @@ class ExpressionItem {
                 if (this.do_set_prop(ExprParser.do_eval(this.e), false)) // don't do slider-update since we know the it's non-const expr and slider need to remain transparent
                     this.in_param.pset_dirty()
             }
+            this.in_param.call_change()
         }
         catch(ex) {
             this.eset_error(ex)
@@ -1083,8 +1192,10 @@ let CodeItemMixin = (superclass) => class extends superclass {
         // dlg_rect - position and size of dialog, panel_rect - size of editor in panel
         // needs extra indirection so that Editor set into into on popout (saves pos and size of dialog)
         this.dlg_rect_wrap = {dlg_rect: null, panel_rect: null} 
+        
     }
 
+    // called from derived constructor
     make_code_item(code_expr, start_v) {
         this.code_item = code_expr
         this.code_item.prop_name_ser = "cv"
@@ -1096,10 +1207,11 @@ let CodeItemMixin = (superclass) => class extends superclass {
         this.populate_code_ctx_menu(this.code_item.ctx_menu)
         // initial code string, done even if code is not selected since this is the only place we can do this initialization
         this.code_item.peval("return " + start_v)  
+        this.do_set_eactives()
 
         this.code_line = null
         this.single_line = null  // set in the subclass add_elems
-        this.show_code_callback = null        
+        this.show_code_callback = null    
     }
 
     add_code_elem() {
@@ -1125,7 +1237,13 @@ let CodeItemMixin = (superclass) => class extends superclass {
         this.show_code = v.show_code || false; 
         this.dlg_rect_wrap.dlg_rect = v.dlg_rect || null
         this.dlg_rect_wrap.panel_rect = v.panel_rect || null
-        this.code_item.load(v) 
+        this.code_item.load(v)
+        this.do_set_eactives()
+    }
+
+    do_set_eactives() {
+        this.code_item.set_eactive(this.show_code)
+        this.non_code_eactive(!this.show_code) 
     }
 
     set_show_code(v) {
@@ -1136,15 +1254,14 @@ let CodeItemMixin = (superclass) => class extends superclass {
             elem_set_visible(this.single_line, !v)
             elem_set_visible(this.code_line, v)
         }
-        this.code_item.set_eactive(v)
-        this.non_code_eactive(!v) 
+        this.do_set_eactives()
 
         if (v)  // in case it's a const, set this.v to a value from the right source
             this.code_item.peval_self()
         else
             this.non_code_peval_self()
         if (this.show_code_callback)
-            this.show_code_callback(v)  // for updating SetAttr param checkbox
+            this.show_code_callback(v)  // for updating SetAttr param external checkbox
         this.pset_dirty() 
     }
 

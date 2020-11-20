@@ -373,7 +373,7 @@ function var_run_nodes_tree(n)
             var_run_nodes_tree(line.from_term.owner)
         }
     }
-    //n.cls.vars_in.clear()
+    n.cls.vars_in.clear()  /* without this variables names from previous runs stick around */
     collect_terminal(n.cls.vars_in)
     n.cls.nresolve_variables()
 

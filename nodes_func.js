@@ -128,6 +128,9 @@ class GlslTextEvaluator extends EvaluatorBase {
     to_glsl(emit_ctx) {
         return this.name
     }
+    additional_score_flags() {
+        return EXPR_GLSL_ONLY
+    }
 }
 
 function glsl_type_name(t) {
