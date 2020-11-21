@@ -528,6 +528,16 @@ class ParamStr extends Parameter {
     }
 }
 
+function normalize_bool_opt(opt) {
+    if (opt === null)
+        return {allow_expr:true, expr_visible:false}
+    if (opt.allow_expr === undefined)
+        opt.allow_expr = true
+    if (opt.expr_visible === undefined)
+        opt.expr_visible = false
+    return opt
+}
+
 class ParamBool extends Parameter {
     constructor(node, label, start_v, change_func=null, opt=null) {
         super(node, label)
@@ -535,10 +545,19 @@ class ParamBool extends Parameter {
         this.change_func = change_func
         this.as_btn = false
         this.elem_input = null
-        this.opt = opt || {allow_expr:true, expr_visible:false} // allow_expr:bool, expr_visible:bool
+        this.opt = normalize_bool_opt(opt)
+
         if (this.opt.allow_expr) {
             this.make_checkbox_ctx_menu()
-            this.item = new ExpressionItem(this, "v", ED_BOOL, (v)=>{ this.v = (v == null)?null:(v > 0) }, ()=>{ return this.v?1:0 }, {allowed:false})
+            this.item = new ExpressionItem(this, "v", ED_BOOL, 
+                (v)=>{ 
+                    if (this.opt.expr_visible) {
+                        this.v = (v == null)?null:(v > 0)
+                    }
+                }, 
+                ()=>{ return this.v?1:0 }, 
+                {allowed:false})
+
             this.item.set_eactive(this.opt.expr_visible)
             if (this.opt.expr_visible) {
                 this.item.peval("" + start_v)
@@ -586,14 +605,17 @@ class ParamBool extends Parameter {
     }
     display_as_btn(v) { this.as_btn = v }
     save() { 
-        const d =  {v:this.v, expr_visible:this.opt.expr_visible}
+        const d =  {v:this.v}
+        if (this.opt.expr_visible)
+            d.expr_visible = true
         if (this.item !== null)
             this.item.save_to(d)
         return d
     }
     load(v) { 
         this.v = v.v; 
-        this.opt.expr_visible = v.expr_visible
+        this.opt.expr_visible = v.expr_visible || false
+        this.opt = normalize_bool_opt(this.opt) // Temp fix
         if (this.opt.allow_expr && this.item !== null) {
             this.item.load(v)
             this.item.set_eactive(this.opt.expr_visible)
@@ -2593,6 +2615,10 @@ class Editor
                 return
             change_func(this.editor.getValue())
         }), "editor-change")
+
+        this.editor.on("paste", (e)=>{
+            e.text = e.text.replace(/\t/g, "    ") // don't want tabs in there since they don't behave well in Yaml output
+        })
 
         this.err_elem = add_div(ed_elem, "prm_text_err")
         this.err_elem.style.display = "none"
