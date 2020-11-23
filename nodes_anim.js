@@ -24,14 +24,25 @@ class NodePickOne extends NodeCls
         assert(of_terminal === this.in_m, this, "Unexpected terminal in pick_lines")
         assert(this.in_m.lines.length > 0, this, "No inputs")
         const pick = this.pick_expr.get_value()
-        assert(pick < this.in_m.lines.length, this, "Index out of range " + pick)
+        assert(pick >= -1 && pick < this.in_m.lines.length, this, "Index out of range " + pick)
+        if (pick === -1) {
+            assert(this.out.get_const() !== null, this, "pick result is -1 but no previous output exists")
+            this.last_line_picked = null
+            return []
+        }
         const idx = this.sorted_order[pick]
         const line = this.in_m.lines[idx]
         this.last_line_picked = line
         return [line]
     }
 
+    should_clear_out_before_run() {
+        return this.last_line_picked !== null
+    }
+
     run() {
+        if (this.last_line_picked === null)
+            return  // keep the previous result
         const line = this.last_line_picked
         this.last_line_picked = null 
         collect_line(line) // manual collect, just the input we want

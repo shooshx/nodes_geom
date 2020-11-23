@@ -156,3 +156,11 @@ Node: Marchin Squares
   to the created faces. Examples for SetAttr:
     - Bind To: Faces, Color: return rgb(in_obj.face_index * 20, in_obj.face_index * 30,255)
     - in_src is gradient in sample mode, Bind To: Faces, Color: return in_src.at(in_obj.face_indexf) 
+
+
+Animation
+---------
+Node: Pick One
+- Gets multiple inputs and selects one of the inputs according to an expression returning integer
+- It's possible to rearrange the inputs
+- Expression can return -1 to keep the previously outputted object (and not update to the lates object from any input)

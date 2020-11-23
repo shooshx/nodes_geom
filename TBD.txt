@@ -63,18 +63,17 @@ EXPRESSIONS
 - BUG: uniform parser get uniforms in comments
 - Animation
     - engine - dirty controlled by selected input in pick_one
-    - disp-params scale radius
     - single step button - smaller panel
     - full bar
     - restart from frame 0 every change
     - Separate Program of animation control
         control speed, visibility
-    - node- capture object at frame
 - game of life
     Random image node - expr func?
     texelFetch coords - expr func?
     size of frame-buffer to uniform
 - Mesh,Path attribute radius should be in world coordinates
+   - disp-params scale radius
 - distance fields
     - repeat on axis
 - Node - Two cog-wheels drawing - Spirograph
@@ -91,11 +90,8 @@ EXPRESSIONS
 
 - manual geom create quads mesh
 - balls that know their end color
-    - Animation
     - box2d
     - matter.js - https://brm.io/matter-js/
-    - flow control
-    - anim - some frames are not displayed?
 - BoolParam 
     fix in SetAttr fill from ParamFloat to ParamBool with code
 - Mandelbrot
@@ -119,6 +115,11 @@ EXPRESSIONS
      - transform manual geom
      - transform image?
 
+
+On-Image-UI
+- checkbox
+- button?
+- slider that's a box with color bar and text inside like in Box2D C++ testbed
 
 NODES:
 - frame buffer
@@ -232,7 +233,9 @@ NODES:
     - For loop?
 - physics
     - Box2D
+        https://github.com/flyover/box2d.ts
     - 3D - https://schteppe.github.io/cannon.js/
+    - https://github.com/liabru/matter-js
 - SVG in WebGL?
     - paths to triangles https://css-tricks.com/rendering-svg-paths-in-webgl/
 - BoolOp
