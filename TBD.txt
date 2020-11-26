@@ -86,6 +86,10 @@ EXPRESSIONS
     - https://www.desmos.com/calculator/b6l9e3gggj
       https://nathanfriend.io/inspirograph/
     - Build with Box2D something with pen that creates geometry like in https://miro.medium.com/max/360/1*bOul3NV7qVKeH11HkUqGiA.jpeg
+    - with physics - https://www.reddit.com/r/oddlysatisfying/comments/k01xnl/irregular_geometry_is_also_satisfying/
+        http://www.jamesnolangandy.com/
+        https://www.youtube.com/watch?v=aBIc0dE5EI0&ab_channel=Tastemade
+        Harmonograph
 - Function of f(t) for creating geometry
 
 - manual geom create quads mesh

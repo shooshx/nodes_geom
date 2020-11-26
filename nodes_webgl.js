@@ -27,6 +27,7 @@ function draw_rect(top_left, bottom_right, m, tmat, line_color)
 
 class ImageBase extends PObject
 {
+    static name() { return "Image" }
     constructor(sz_x, sz_y, smooth) {
         super()
         this.t_mat = mat3.create() 

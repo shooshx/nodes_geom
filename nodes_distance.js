@@ -128,6 +128,7 @@ class DummyNodePlaceholder {
 
 class DistanceField extends PObject 
 {
+    static name() { return "Field" }
     constructor(dfnode) {
         super()
         this.t_mat = mat3.create()

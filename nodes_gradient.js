@@ -28,6 +28,7 @@ const NODE_POINT_LST_OFFSET = 4
 
 class Gradient extends PObject 
 {
+    static name() { return "Gradient" }
     constructor(x1,y1, x2,y2, tex_smooth) {
         super()
         this.p1 = vec2.fromValues(x1,y1) // point at v=0

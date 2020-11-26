@@ -824,6 +824,10 @@ const nodes_classes = [
         NodePickOne,
         NodeChangeFilter
     ]},
+    { group_name: "Physics", nodes: [
+        NodeB2Body,
+        NodeB2World
+    ]},
     NodeSetAttr, 
     NodeTransform,
     NodeGroupObjects,
