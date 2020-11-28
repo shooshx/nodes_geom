@@ -1725,7 +1725,7 @@ function toFixedMag(f) {
 
 
 class ParamTransform extends Parameter {
-    constructor(node, label, start_values={}) {
+    constructor(node, label, start_values={}, opts=null) {
         super(node, label)
         this.translate = [0,0] // coords here are not vec2.fromValues since they need to be nullable
         this.rotate = 0
@@ -1733,6 +1733,7 @@ class ParamTransform extends Parameter {
         this.v = mat3.create()
         this.rotate_pivot = [0,0]
         
+        this.b2_style = (opts !== null && opts.b2_style === true) ? true : false
         this.elems = {tx:null, ty:null, r:null, sx:null, sy:null, pvx:null, pvy:null }
         this.dial = new TransformDial(this)
         
@@ -1776,7 +1777,8 @@ class ParamTransform extends Parameter {
     calc_mat() {
         mat3.identity(this.v)
         mat3.translate(this.v, this.v, this.translate)
-          mat3.translate(this.v, this.v, this.rotate_pivot)
+        if (!this.b2_style)
+            mat3.translate(this.v, this.v, this.rotate_pivot)
         mat3.rotate(this.v, this.v, glm.toRadian(this.rotate))
           mat3.translate(this.v, this.v, vec2.fromValues(-this.rotate_pivot[0],-this.rotate_pivot[1]))
         mat3.scale(this.v, this.v, this.scale)
@@ -1830,9 +1832,11 @@ class ParamTransform extends Parameter {
         add_param_label(line_pv, "Pivot")
         this.item_pvx.add_editbox(line_pv); this.item_pvy.add_editbox(line_pv)
 
-        let line_s = add_param_line(this.line_elem)
-        add_param_label(line_s, "Scale")
-        this.item_sx.add_editbox(line_s); this.item_sy.add_editbox(line_s)
+        if (!this.b2_style) {
+            let line_s = add_param_line(this.line_elem)
+            add_param_label(line_s, "Scale")
+            this.item_sx.add_editbox(line_s); this.item_sy.add_editbox(line_s)
+        }
     }
     move(dx, dy) {
         this.item_tx.set_to_const(this.translate[0] + dx); 
@@ -1856,10 +1860,11 @@ class ParamTransform extends Parameter {
         //if (obj === null)
        //     return // might be it's not connected so it doesn't have output - not used
         // this was replaced with pivot thing. TBD - button for starting pivot should be the center of the bbox instead of 0,0
-        let center = vec2.clone(this.rotate_pivot)
+        let center = vec2.clone(this.translate)
 
-        center[0] += this.translate[0]
-        center[1] += this.translate[1]
+        if (!this.b2_style)
+            center[0] += this.rotate_pivot[0]
+            center[1] += this.rotate_pivot[1]
         vec2.transformMat3(center, center, m) // to canvas coords
 
         this.dial.set_center(center[0], center[1])

@@ -36,16 +36,32 @@ class B2Body {
     }
 }
 
-class B2Defs extends PObject 
+class B2Def extends PObject 
 {
     constructor() {
         super()
         this.bodies = []  // list of B2Body
         this.joints = []
+
+        this.p_draw_world_cache = null // not copied on clone
+        this.p_draw_debug = null
+    }
+
+    ensure_world_cache() {
+        if (this.p_draw_world_cache !== null)
+            return
+        this.p_draw_world_cache = createWorld(this, [0,0]) // create world just for callding DebugDraw
+        this.p_draw_debug = new CanvasDebugDraw(ctx_img);
+        this.p_draw_world_cache.obj.SetDebugDraw(this.p_draw_debug);        
     }
 
     draw_m(m, disp_values) {
-
+        this.ensure_world_cache()
+        this.p_draw_debug.SetFlags(b2.DrawFlags.e_shapeBit)
+        ctx_img.lineWidth = 1.0/image_view.viewport_zoom
+        this.p_draw_world_cache.obj.DebugDraw()
+    }
+    draw_template_m(m) {
     }
 }
 
@@ -55,23 +71,28 @@ class B2World extends PObject
         super()
         this.obj = null
         this.bodies = []
-        this.draw_debug = null
+        this.p_draw_debug = null
     }
 
     draw_m(m, disp_values) {
-        if (this.draw_debug === null) {
-            this.draw_debug = new CanvasDebugDraw(ctx_img);
-            this.obj.SetDebugDraw(this.draw_debug);
+        if (this.p_draw_debug === null) {
+            this.p_draw_debug = new CanvasDebugDraw(ctx_img);
+            this.obj.SetDebugDraw(this.p_draw_debug);
         }
-        this.draw_debug.SetFlags(b2.DrawFlags.e_shapeBit)
+        this.p_draw_debug.SetFlags(b2.DrawFlags.e_shapeBit)
         ctx_img.lineWidth = 1.0/image_view.viewport_zoom
         this.obj.DebugDraw()
     }
+    draw_template_m(m) {
+    }
+
 }
+ 
+
 
 class NodeB2Body extends NodeCls
 {
-    static name() { return "Body" }
+    static name() { return "Physics Body" }
     constructor(node) {
         super(node)
         //this.in_obj = new InTerminal(node, "in_obj")
@@ -80,75 +101,148 @@ class NodeB2Body extends NodeCls
         this.type = new ParamSelect(node, "Type", 0, [["Static", b2.staticBody], ["Kynematic", b2.kinematicBody], ["Dynamic",b2.dynamicBody]],(sel_idx)=>{
         })
         this.shape = new ParamSelect(node, "Shape", 0, ["Box", "Circle"],(sel_idx)=>{
-            this.size.set_visible(sel_idx == 0)
+            this.size.set_visible(sel_idx === 0)
+            this.radius.set_visible(sel_idx === 1)
         })
-        this.size = new ParamVec2(node, "Size(m)", 1, 1)
-        this.position = new ParamVec2(node, "Position(m)", 0, 0);
-        this.angle = new ParamFloat(node, "Angle", 0, {min:0, max:360})
+        this.size = new ParamVec2(node, "Size(m)", 0.5, 0.5)
+        this.radius = new ParamFloat(node, "Radius(m)", 0.5)
+       // this.position = new ParamVec2(node, "Position(m)", 0, 0);
+       // this.angle = new ParamFloat(node, "Angle", 0, {min:0, max:360})
         this.density = new ParamFloat(node, "Density(kg)", 1)
-    }
+        this.restit = new ParamFloat(node, "Restitution", 0.1, {min:0, max:1})
+        this.friction = new ParamFloat(node, "Friction", 0.1, {min:0, max:1})
 
+        this.transform = new ParamTransform(node, "Transform", {}, {b2_style:true})
+    }
+    
     run() {
         const b = new B2Body()
         b.def = new b2.BodyDef()
         b.def.type = this.type.get_sel_val()
-        b.def.position.Set(this.position.x, this.position.y)
-        b.def.angle = glm.toRadian(this.angle.v)
+        b.def.position.Set(this.transform.translate[0], this.transform.translate[1])
+        b.def.angle = glm.toRadian(this.transform.rotate)
 
         let s = null
         if (this.shape.sel_idx === 0) {  // box
             s = new b2.PolygonShape()
-            s.SetAsBox(this.size.x, this.size.y);
+            s.SetAsBox(this.size.x * 0.5, this.size.y * 0.5, new b2.Vec2(-this.transform.rotate_pivot[0], -this.transform.rotate_pivot[1]), 0)
         }
+        else if (this.shape.sel_idx === 1) { // circle 
+            s = new b2.CircleShape()
+            s.m_radius = this.radius.v
+        }
+        else
+            assert(false, node, "not supported")
 
         const f = new B2Fixture()
         f.def = new b2.FixtureDef()
         f.def.shape = s
         f.def.density = this.density.v
+        f.def.restitution = this.restit.v
+        f.def.friction = this.friction.v
         b.fixtures.push(f)
         
-        const ret = new B2Defs()
+        const ret = new B2Def()
         ret.bodies.push(b)
         this.out.set(ret)
     }
+
+    draw_selection(m) {
+        this.transform.draw_dial_at_obj(null, m)
+        if (this.size.pis_visible())
+            this.size.size_dial_draw(this.transform.v, m)
+    }
+
+    image_find_obj(vx, vy, ex, ey) {
+        let hit = this.transform.dial.find_obj(ex, ey)
+        if (hit)
+            return hit
+        if (this.size.pis_visible()) {
+            hit = this.size.size_dial_find_obj(ex, ey)
+            if (hit)
+                return hit
+        }
+        return null
+    }
 }
 
-class NodeB2World extends NodeCls
+function createWorld(def, gravity) 
 {
-    static name() { return "World" }
+    const w = new B2World()
+    w.obj = new b2.World(new b2.Vec2(gravity[0], gravity[1]))
+
+    for(let body of def.bodies) {
+        const mb = new B2Body() // don't want to change the input one
+        w.bodies.push(mb)
+        mb.def = body.def
+        mb.obj = w.obj.CreateBody(mb.def)
+        for(let fixt of body.fixtures) {
+            const mf = new B2Fixture()
+            mb.fixtures.push(mf)
+            mf.def = fixt.def
+            mf.obj = mb.obj.CreateFixture(mf.def)                    
+        }
+    }
+    return w
+}
+
+// merge several bodies definition to one scene
+class NodeB2Merge extends NodeCls
+{
+    static name() { return "Physics Merge" }
     constructor(node) {
         super(node)
 
-        this.in_defs = new InTerminalMulti(node, "b2_defs")
-        this.out = new OutTerminal(node, "b2_world")
-
-        this.gravity = new ParamVec2(node, "Gravity", 0, -9.8)
+        this.in_defs = new InTerminalMulti(node, "b2_in_defs")
+        this.out = new OutTerminal(node, "b2_defs")
     }
 
     run() {
         const in_defs = this.in_defs.get_input_consts()
-        assert(in_defs.length > 0, this, "No input defs")
 
-        const w = new B2World()
-        w.obj = new b2.World(new b2.Vec2(this.gravity.x, this.gravity.y))
-
+        const udef = new B2Def();
         for(let def of in_defs) {
-            for(let body of def.bodies) {
-                const mb = new B2Body() // don't want to change the input one
-                w.bodies.push(mb)
-                mb.def = body.def
-                mb.obj = w.obj.CreateBody(mb.def)
-                for(let fixt of body.fixtures) {
-                    const mf = new B2Fixture()
-                    mb.fixtures.push(mf)
-                    mf.def = fixt.def
-                    mf.obj = mb.obj.CreateFixture(mf.def)                    
-                }
-            }
+            udef.bodies.push(...def.bodies)
+            udef.joints.push(...def.joints)
         }
+        this.out.set(udef)
+    }
+}
+
+
+class NodeB2Sim extends NodeCls
+{
+    static name() { return "Physics Simulator" }
+    constructor(node) {
+        super(node)
+
+        // returns the same world object it got
+        this.in = new InTerminal(node, "b2_in") // defs or world from prev frame
+        this.out = new OutTerminal(node, "b2_world")
+
+        this.gravity = new ParamVec2(node, "Gravity", 0, 9.8)
+
+    }
+
+    run() {
+        const inobj = this.in.get_const()
+        assert(inobj !== null, this, "no input")
+        let w = inobj
+        if (inobj.constructor === B2Def) // first frame
+            w = createWorld(inobj, this.gravity.get_value())
+        else
+            assert(inobj.constructor === B2World, this, "input not a defs or world")
+
+        const timeStep = 1.0 / 60.0
+        const velocityIterations = 6
+        const positionIterations = 2
+        w.obj.Step(timeStep, velocityIterations, positionIterations)
+        
         this.out.set(w)
     }
 }
+
+
 
 
 // from https://github.com/flyover/box2d.ts/blob/master/testbed/draw.ts

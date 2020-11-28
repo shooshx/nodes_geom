@@ -91,7 +91,8 @@ EXPRESSIONS
         https://www.youtube.com/watch?v=aBIc0dE5EI0&ab_channel=Tastemade
         Harmonograph
 - Function of f(t) for creating geometry
-
+- time program
+- camera program
 - manual geom create quads mesh
 - balls that know their end color
     - box2d

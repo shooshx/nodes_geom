@@ -826,7 +826,8 @@ const nodes_classes = [
     ]},
     { group_name: "Physics", nodes: [
         NodeB2Body,
-        NodeB2World
+        NodeB2Merge,
+        NodeB2Sim
     ]},
     NodeSetAttr, 
     NodeTransform,
