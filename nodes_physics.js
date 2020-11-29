@@ -113,6 +113,10 @@ class NodeB2Body extends NodeCls
         this.friction = new ParamFloat(node, "Friction", 0.1, {min:0, max:1})
 
         this.transform = new ParamTransform(node, "Transform", {}, {b2_style:true})
+
+        this.radius_dial = new PointDial((dx,dy)=>{
+            this.radius.increment(dx)
+        })
     }
     
     run() {
@@ -123,13 +127,14 @@ class NodeB2Body extends NodeCls
         b.def.angle = glm.toRadian(this.transform.rotate)
 
         let s = null
+        const pivot = new b2.Vec2(-this.transform.rotate_pivot[0], -this.transform.rotate_pivot[1])
         if (this.shape.sel_idx === 0) {  // box
             s = new b2.PolygonShape()
-            s.SetAsBox(this.size.x * 0.5, this.size.y * 0.5, new b2.Vec2(-this.transform.rotate_pivot[0], -this.transform.rotate_pivot[1]), 0)
+            s.SetAsBox(this.size.x * 0.5, this.size.y * 0.5, pivot, 0)
         }
         else if (this.shape.sel_idx === 1) { // circle 
-            s = new b2.CircleShape()
-            s.m_radius = this.radius.v
+            s = new b2.CircleShape(this.radius.v)
+            s.Set(pivot)
         }
         else
             assert(false, node, "not supported")
@@ -151,14 +156,22 @@ class NodeB2Body extends NodeCls
         this.transform.draw_dial_at_obj(null, m)
         if (this.size.pis_visible())
             this.size.size_dial_draw(this.transform.v, m)
+        if (this.radius.pis_visible())
+            this.radius_dial.draw(this.radius.v, 0, this.transform.v, m)
+
     }
 
-    image_find_obj(vx, vy, ex, ey) {
-        let hit = this.transform.dial.find_obj(ex, ey)
+    image_find_obj(e) {
+        if (this.radius.pis_visible()) { // radius before transform since they may overlap
+            const hit = this.radius_dial.find_obj(e)
+            if (hit)
+                return hit
+        }
+        let hit = this.transform.dial.find_obj(e)
         if (hit)
             return hit
         if (this.size.pis_visible()) {
-            hit = this.size.size_dial_find_obj(ex, ey)
+            hit = this.size.size_dial_find_obj(e)
             if (hit)
                 return hit
         }

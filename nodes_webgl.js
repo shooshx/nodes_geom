@@ -272,8 +272,8 @@ class NodeCreateFrameBuffer extends NodeCls
         this.size.size_dial_draw(this.transform.v, m)
         tex.draw_border(m)
     }    
-    image_find_obj(vx, vy, ex, ey) {
-        return this.transform.dial.find_obj(ex, ey) || this.size.size_dial_find_obj(ex, ey)
+    image_find_obj(e) {
+        return this.transform.dial.find_obj(e) || this.size.size_dial_find_obj(e)
     }
 }
 

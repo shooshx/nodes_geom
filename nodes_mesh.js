@@ -128,12 +128,12 @@ class NodeGeomPrimitive extends NodeCls
         if (this.shape.sel_idx == 4)
             this.inner_dial.draw(this.inner_point.x*this.size.x/2, this.inner_point.y*this.size.y/2, this.transform.v, m)
     }    
-    image_find_obj(vx, vy, ex, ey) {
-        let hit = this.transform.dial.find_obj(ex, ey) || this.size.size_dial_find_obj(ex, ey)
+    image_find_obj(e) {
+        let hit = this.transform.dial.find_obj(e) || this.size.size_dial_find_obj(e)
         if (hit)
             return hit
         if (this.shape.sel_idx == 4)
-            return this.inner_dial.find_obj(ex, ey)
+            return this.inner_dial.find_obj(e)
         return null
     }
 }
@@ -154,7 +154,7 @@ class PointSelectHandle
         trigger_frame_draw(false)
     }
     mouseup() {}
-    mousemove(dx,dy, vx,vy, ex,ey) {
+    mousemove(dx,dy, ev) {
         this.ofnode.move_selection(dx, dy)
     }
 }
@@ -163,8 +163,8 @@ class PointSelectHandle
 function add_point_select_mixin(node_cls, selected_indices, points_param) {
 
     // API
-    node_cls.image_find_obj = function(vx, vy, ex, ey) {
-        let [x,y] = image_view.epnt_to_model(ex, ey)
+    node_cls.image_find_obj = function(e) {
+        let [x,y] = image_view.epnt_to_model(e.ex, e.ey)
         let r = Math.max(7, MESH_DISP.vtx_radius) / image_view.viewport_zoom // if the disp radius gets lower, we still want it at reasonable value
         let len = points_param.count()
         for(let i = 0; i < len; ++i) {
@@ -176,7 +176,7 @@ function add_point_select_mixin(node_cls, selected_indices, points_param) {
             }
         }
         if (node_cls.image_find_additional)
-            return node_cls.image_find_additional(ex, ey)
+            return node_cls.image_find_additional(e.ex, e.ey)
         return null
     }
     node_cls.move_selection = function(dx, dy) {
@@ -363,9 +363,9 @@ class NodeManualGeom extends NodeCls
         this.cfp_select = this.ctp_select = null
     }
 
-    image_find_additional(ex, ey) {
+    image_find_additional(e) {
         if (this.cfp_select !== null) {
-            return this.cfp_select.image_find_obj(0,0,ex, ey) || this.ctp_select.image_find_obj(0,0,ex, ey)
+            return this.cfp_select.image_find_obj(e) || this.ctp_select.image_find_obj(e)
         }
         return null
     }
@@ -1793,8 +1793,8 @@ class NodeTransform extends NodeCls
         this.transform.draw_dial_at_obj(out, m)
         out.draw_border(m)
     }    
-    image_find_obj(vx, vy, ex, ey) {
-        return this.transform.dial.find_obj(ex, ey)
+    image_find_obj(e) {
+        return this.transform.dial.find_obj(e)
     }
 }
 

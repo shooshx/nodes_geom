@@ -1368,7 +1368,13 @@ class ParamBaseExpr extends CodeItemMixin(Parameter)
             return // code item should not be modified since that would erase the code
         if (this.item.set_to_const(v) && dirtyify)
             this.pset_dirty()
-    } 
+    }
+    increment(dv) {
+        if (this.show_code)
+            return
+        this.item.set_to_const(this.v + dv)
+        this.pset_dirty() 
+    }
 }
 
 
@@ -1525,10 +1531,10 @@ class ParamVec2 extends CodeItemMixin(Parameter) {
             this.size_dial = new SizeDial(this)
         this.size_dial.draw(transform_v, m)
     }
-    size_dial_find_obj(ex, ey) {
+    size_dial_find_obj(e) {
         if (this.size_dial === null)
             return // it is first drawn, then clicked
-        return this.size_dial.find_obj(ex, ey)
+        return this.size_dial.find_obj(e)
     }
 
 }
@@ -1941,8 +1947,8 @@ class PointDial {
         closed_line(ctx_img, rect_coords(this.zc))
         double_line(ctx_img)
     }
-    find_obj(ex, ey) {
-        if (this.zc === null || !rect_hit(ex, ey, this.zc)) 
+    find_obj(ev) {
+        if (this.zc === null || !rect_hit(ev.ex, ev.ey, this.zc)) 
             return null
         const start_ctx = this.on_start_drag()
         return new DialMoveHandle(null, true, true, (dx, dy, e)=>{
@@ -1996,13 +2002,13 @@ class DialMoveHandle {
     }
     mousedown() {}
     mouseup() {}
-    mousemove(dx,dy, vx,vy, ex,ey, cvx, cvy, e) {
+    mousemove(dx,dy, ev) {
         dx /= image_view.viewport_zoom
         dy /= image_view.viewport_zoom        
         if (this.param !== null)
             this.param.move(this.do_x ? dx : 0, this.do_y ? dy: 0)
         else
-            this.callback(this.do_x ? dx : 0, this.do_y ? dy: 0, e)
+            this.callback(this.do_x ? dx : 0, this.do_y ? dy: 0, ev)
         trigger_frame_draw(true)
     }
 }
@@ -2012,13 +2018,13 @@ class DialRotHandle {
         this.param = param
         this.cx = cx; this.cy = cy
     }
-    mousedown(e, vx,vy, ex,ey) {
-        this.prev_angle = Math.atan2(ey-this.cy, ex-this.cx) * 180 / Math.PI
+    mousedown(e) {
+        this.prev_angle = Math.atan2(e.ey-this.cy, e.ex-this.cx) * 180 / Math.PI
         //console.log("start-angle", this.start_angle, this.cx, this.cy, '--', vx, vy)
     }
     mouseup() {}
-    mousemove(dx,dy, vx,vy, ex,ey) {
-        let angle = Math.atan2(ey-this.cy, ex-this.cx) * 180 / Math.PI
+    mousemove(dx,dy, e) {
+        let angle = Math.atan2(e.ey-this.cy, e.ex-this.cx) * 180 / Math.PI
         let d_angle = angle - this.prev_angle
         if (d_angle > 180) d_angle -= 360
         if (d_angle < -180) d_angle += 360
@@ -2071,16 +2077,16 @@ class TransformDial {
     }
 
     // called from image_find_obj
-    find_obj(ex, ey) { // event coords
-        let mv = this.mv, uab = this.uab, rab = this.rab, rot=this.rot
+    find_obj(e) { // event coords
+        const mv = this.mv, uab = this.uab, rab = this.rab, rot = this.rot, ex = e.ex, ey = e.ey
         if (rect_hit(ex, ey, mv))
             return new DialMoveHandle(this.param, true, true)
         if (ex >= uab.x && ex <= uab.x+uab.bw && ey >= uab.y-uab.th && ey <= uab.y)
             return new DialMoveHandle(this.param, false, true)
         if (ex >= rab.x && ex < rab.x+rab.th && ey >= rab.y && ey <= rab.y+rab.bw)
             return new DialMoveHandle(this.param, true, false)
-        let tcx = ex-this.cx, tcy = ey-this.cy
-        let de = Math.sqrt(tcx*tcx + tcy*tcy), ang = Math.atan2(ey-this.cy, ex-this.cx)
+        const tcx = ex-this.cx, tcy = ey-this.cy
+        const de = Math.sqrt(tcx*tcx + tcy*tcy), ang = Math.atan2(ey-this.cy, ex-this.cx)
         if (de >= rot.r0 && de <= rot.r1 && ang >= rot.a0 && ang <= rot.a1)
             return new DialRotHandle(this.param, this.cx, this.cy)
         return null

@@ -169,9 +169,9 @@ class ImageView extends ViewBase
         if (selected_node !== null)
             selected_node.cls.image_click(x, y)
     }
-    find_obj(vx, vy, ex, ey) {
+    find_obj(e) {
         if (selected_node !== null)
-            return selected_node.cls.image_find_obj(vx, vy, ex, ey)
+            return selected_node.cls.image_find_obj(e)
         return null
     }
     check_rect_select() {
@@ -190,7 +190,7 @@ class ImageView extends ViewBase
             return selected_node.cls.clear_selection()        
     }
 
-    context_menu(px, py, wx, wy) {
+    context_menu(e) {
         let opt = []
         if (selected_node !== null) {
             let sel_obj_name = selected_node.cls.selected_obj_name()
@@ -199,7 +199,7 @@ class ImageView extends ViewBase
         }
         opt.push({text:"Reset view", func:function() { image_view.reset_view() }})
         
-        this.last_ctx_menu = open_context_menu(opt, wx, wy, main_view, ()=>{ this.dismiss_ctx_menu() } )    
+        this.last_ctx_menu = open_context_menu(opt, e.ex, e.ey, main_view, ()=>{ this.dismiss_ctx_menu() } )    
         return this.last_ctx_menu
     }
 
@@ -245,11 +245,12 @@ function panel_mouse_control(view, canvas)
             down_x = e.pageX; down_y = e.pageY
             let vx=view.view_x(e.pageX), vy=view.view_y(e.pageY)
             const cvs_x = e.pageX - view.rect.left, cvs_y = e.pageY - view.rect.top
-            hit = view.find_obj(vx, vy, e.pageX, e.pageY, cvs_x, cvs_y);
+            const ev = { vx:vx, vy:vy, ex:e.pageX, ey: e.pageY, cvs_x:cvs_x, cvs_y:cvs_y, e:e }
+            hit = view.find_obj(ev);
             if (hit != null && hit.mousedown !== undefined) {
                 //console.log("hit ", hit)
                 // passing e to potentiall stop propogation
-                hit.mousedown(e, vx, vy, e.pageX, e.pageY) 
+                hit.mousedown(ev)
                 return
             }
             did_move = false
@@ -304,12 +305,15 @@ function panel_mouse_control(view, canvas)
         }
         else if (hit !== null && hit.mousemove !== undefined) {
             let cvs_x = e.pageX - view.rect.left, cvs_y = e.pageY - view.rect.top
-            hit.mousemove(dx, dy, view.view_x(e.pageX), view.view_y(e.pageY), e.pageX, e.pageY, cvs_x, cvs_y, e)
+            const ev = {vx:view.view_x(e.pageX), vy:view.view_y(e.pageY), ex:e.pageX, ey:e.pageY, cvs_x:cvs_x, cvs_y:cvs_y,
+                        shiftKey: e.shiftKey}
+            hit.mousemove(dx, dy, ev)
         }
         
         if (view.hover !== undefined) {
             let cvs_x = e.pageX - view.rect.left, cvs_y = e.pageY - view.rect.top // relative to canvas
-            view.hover(0,0, e.pageX, e.pageY, cvs_x, cvs_y)
+            const ev = {vx:0, vy:0, ex:e.pageX, ey:e.pageY, cvs_x:cvs_x, cvs_y:cvs_y}
+            view.hover(ev)
         }
 
         if (node_capture || is_point_in_rect(e.pageX, e.pageY, view.rect) && e.target === canvas_image) {
@@ -321,7 +325,8 @@ function panel_mouse_control(view, canvas)
     myAddEventListener(canvas, "contextmenu", function(e) {
         view.dismiss_ctx_menu()
         const cvs_x = e.pageX - view.rect.left, cvs_y = e.pageY - view.rect.top // relative to canvas
-        let ctx = view.context_menu(view.view_x(e.pageX), view.view_y(e.pageY), e.pageX, e.pageY, cvs_x, cvs_y)
+        const ev = { vx:view.view_x(e.pageX), vy:view.view_y(e.pageY), ex:e.pageX, ey:e.pageY, cvs_x:cvs_x, cvs_y:cvs_y }
+        let ctx = view.context_menu(ev)
         if (ctx !== null)
             e.preventDefault()
         return false;
@@ -516,8 +521,8 @@ class NameInput
         this.node = node
         this.elem = null
     }
-    mousedown(e) {
-        e.stopPropagation() // don't want it to dismiss the NameInput we just opened
+    mousedown(ev) {
+        ev.e.stopPropagation() // don't want it to dismiss the NameInput we just opened
         pop_nodes_text_input(this.node.namex(), this.node.namey(), this.node.name, (v)=>{
             this.node.set_name(v)
         });

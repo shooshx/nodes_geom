@@ -526,12 +526,12 @@ return length(max(d,0.0)) + min(max(d.x,d.y),0.0);`)
         if (this.need_size())
             this.size.size_dial_draw(this.transform.v, m)
     }    
-    image_find_obj(vx, vy, ex, ey) {
-        let hit = this.transform.dial.find_obj(ex, ey) 
+    image_find_obj(e) {
+        let hit = this.transform.dial.find_obj(e) 
         if (hit)
             return hit
         if (this.need_size()) {
-            hit = this.size.size_dial_find_obj(ex, ey)
+            hit = this.size.size_dial_find_obj(e)
             if (hit)
                 return hit
         }
@@ -1517,8 +1517,8 @@ class NodeMarchingSquares extends NodeCls
         const top_left = vec2.fromValues(-sx/2, -sy/2), bottom_right = vec2.fromValues(sx/2, sy/2)
         draw_rect(top_left, bottom_right, m, this.transform.v, "#000")
     }    
-    image_find_obj(vx, vy, ex, ey) {
-        return this.transform.dial.find_obj(ex, ey) || this.size.size_dial_find_obj(ex, ey)
+    image_find_obj(e) {
+        return this.transform.dial.find_obj(e) || this.size.size_dial_find_obj(e)
     }
 }
 

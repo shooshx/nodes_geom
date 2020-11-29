@@ -61,6 +61,13 @@ EXPRESSIONS
 - BUG: func node without show_code?
 - BUG: bool value warninig on load of anim_bouncing_blobs2.yaml
 - BUG: uniform parser get uniforms in comments
+- Box2D
+    - joints
+    - template
+    - show point of pivot
+    - move pivot
+    - velocity for kinematic
+    - selevt object with mouse on image canvas
 - Animation
     - engine - dirty controlled by selected input in pick_one
     - single step button - smaller panel
@@ -212,6 +219,7 @@ NODES:
     for loop?
     webgl point sprites
 - Gradient
+    gradient from sample line
     SetAttr resolution depends on image_view.viewport_zoom in GradientPixelsAdapter
     Atari rolling gradient effect
     in stroke (line),

@@ -256,8 +256,8 @@ class TerminalBase {
         ctx_nd_shadow.fill()        
     }
     
-    mousemove(dx, dy, px, py, ex, ey, cvs_x, cvs_y) {
-        let linkto = find_node_obj(px, py, ex, ey, cvs_x, cvs_y)
+    mousemove(dx, dy, e) {
+        let linkto = find_node_obj(e)
         this.line_pending = null
         draw_nodes()
         if (linkto === this) { // should not connect to itself
@@ -274,7 +274,7 @@ class TerminalBase {
             !this.gender_match(linkto) || this.is_connected_to(linkto)) 
         {
             // free line
-            connector_line(this.center_x(), this.center_y(), 0, px, py, 0, true, null, this.kind)
+            connector_line(this.center_x(), this.center_y(), 0, e.vx, e.vy, 0, true, null, this.kind)
         }
         else {
             this.line_pending = new Line(this.get_attachment(), linkto.get_attachment())
@@ -1216,8 +1216,8 @@ class NV_TextNote
         return [{text:"Delete Text", func:()=>{ program.delete_decor(this, true)} }]       
     }
 
-    mousedown(e) {
-        e.stopPropagation() // don't want it to dismiss the NameInput we just opened
+    mousedown(ev) {
+        ev.e.stopPropagation() // don't want it to dismiss the NameInput we just opened
         const ti = pop_nodes_text_input(this.px(), this.py(), this.text, (v)=>{
             this.set_text(v)
             this.measure()
@@ -1308,12 +1308,12 @@ class NodeFlagProxy
     }
 }
 
-function nodes_find_obj_shadow(cvs_x, cvs_y) {
-    if (cvs_x < 0 || cvs_y < 0 || cvs_x > canvas_nd_shadow.width || cvs_y > canvas_nd_shadow.height)
+function nodes_find_obj_shadow(e) {
+    if (e.cvs_x < 0 || e.cvs_y < 0 || e.cvs_x > canvas_nd_shadow.width || e.cvs_y > canvas_nd_shadow.height)
         return null
 
     // TBD cache the data, don't sample each time
-    let shadow_col = ctx_nd_shadow.getImageData(cvs_x, cvs_y, 1, 1).data
+    let shadow_col = ctx_nd_shadow.getImageData(e.cvs_x, e.cvs_y, 1, 1).data
     let shadow_val = new Uint32Array(shadow_col.buffer)[0]
     let obj_id = uid_from_color(shadow_val)
     //console.log("obj",obj_id)
@@ -1327,7 +1327,8 @@ function nodes_find_obj_shadow(cvs_x, cvs_y) {
     return null
 }
 
-function find_node_obj(px, py, ex, ey, cvs_x, cvs_y) {
+function find_node_obj(e) {
+    const px = e.vx, py = e.vy
     for(let n of program.nodes) {
         // in this node (including terminals and name input) ?
         if (px < n.tx || px > n.tx + n.twidth || py < n.ty || py >  n.ty + n.theight) {
@@ -1360,7 +1361,7 @@ function find_node_obj(px, py, ex, ey, cvs_x, cvs_y) {
         }
     }
 
-    return nodes_find_obj_shadow(cvs_x, cvs_y)
+    return nodes_find_obj_shadow(e)
 }
 
 function ask_clear_program() {
@@ -1371,8 +1372,8 @@ function ask_clear_program() {
 }
 
 
-function nodes_context_menu(px, py, wx, wy, cvs_x, cvs_y) {
-    let obj = find_node_obj(px, py, wx, wy, cvs_x, cvs_y)
+function nodes_context_menu(e) {
+    let obj = find_node_obj(e)
     
     let opt = null, node = null;
     if (obj != null) {
@@ -1395,27 +1396,27 @@ function nodes_context_menu(px, py, wx, wy, cvs_x, cvs_y) {
         opt = [{text:"Clear", func:ask_clear_program }, {text:"-"}]
         for(let c of nodes_classes) {
             if (c.group_name === undefined)
-                opt.push( {text: c.name(), func:function() { program.add_node(px, py, null, c); draw_nodes() } } )
+                opt.push( {text: c.name(), func:function() { program.add_node(e.vx, e.vy, null, c); draw_nodes() } } )
             else {
                 const nodes = []
                 for(let cn of c.nodes)
-                    nodes.push( {text: cn.name(), func:function() { program.add_node(px, py, null, cn); draw_nodes() } } )
+                    nodes.push( {text: cn.name(), func:function() { program.add_node(e.vx, e.vy, null, cn); draw_nodes() } } )
                 opt.push( {text: c.group_name, sub_opts: nodes })
             }
         }
-        opt.push({text:"-"}, {text:"Text Note", func:()=>{ program.nodes_add_decor(new NV_TextNote(px, py, "text")); draw_nodes() }})
+        opt.push({text:"-"}, {text:"Text Note", func:()=>{ program.nodes_add_decor(new NV_TextNote(e.vx, e.vy, "text")); draw_nodes() }})
     }
     
-    nodes_view.last_ctx_menu = open_context_menu(opt, wx, wy, main_view, ()=>{nodes_view.dismiss_ctx_menu()})    
+    nodes_view.last_ctx_menu = open_context_menu(opt, e.ex, e.ey, main_view, ()=>{nodes_view.dismiss_ctx_menu()})    
     return nodes_view.last_ctx_menu
 }
 
 let last_nodes_hover_obj = null
-function nodes_hover(px_, py_, wx, wy, cvs_x, cvs_y) {
-    let obj = nodes_find_obj_shadow(cvs_x, cvs_y)
+function nodes_hover(e) {
+    let obj = nodes_find_obj_shadow(e)
     if (obj !== null && obj.hover !== undefined) {
         if (obj !== last_nodes_hover_obj)
-            obj.hover(wx, wy)
+            obj.hover(e.ex, e.ey)
     }
     else {        
         hover_box.style.display = "none"
