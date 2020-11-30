@@ -826,6 +826,7 @@ const nodes_classes = [
     ]},
     { group_name: "Physics", nodes: [
         NodeB2Body,
+        NodeB2Joint,
         NodeB2Merge,
         NodeB2Sim
     ]},

@@ -65,9 +65,11 @@ EXPRESSIONS
     - joints
     - template
     - show point of pivot
-    - move pivot
     - velocity for kinematic
-    - selevt object with mouse on image canvas
+    - select object with mouse on image canvas
+    - change display shape
+    - disp-params
+    - pen
 - Animation
     - engine - dirty controlled by selected input in pick_one
     - single step button - smaller panel

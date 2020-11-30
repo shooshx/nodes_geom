@@ -245,7 +245,7 @@ function panel_mouse_control(view, canvas)
             down_x = e.pageX; down_y = e.pageY
             let vx=view.view_x(e.pageX), vy=view.view_y(e.pageY)
             const cvs_x = e.pageX - view.rect.left, cvs_y = e.pageY - view.rect.top
-            const ev = { vx:vx, vy:vy, ex:e.pageX, ey: e.pageY, cvs_x:cvs_x, cvs_y:cvs_y, e:e }
+            const ev = { vx:vx, vy:vy, ex:e.pageX, ey: e.pageY, cvs_x:cvs_x, cvs_y:cvs_y, e:e, ctrlKey:e.ctrlKey }
             hit = view.find_obj(ev);
             if (hit != null && hit.mousedown !== undefined) {
                 //console.log("hit ", hit)
@@ -306,7 +306,7 @@ function panel_mouse_control(view, canvas)
         else if (hit !== null && hit.mousemove !== undefined) {
             let cvs_x = e.pageX - view.rect.left, cvs_y = e.pageY - view.rect.top
             const ev = {vx:view.view_x(e.pageX), vy:view.view_y(e.pageY), ex:e.pageX, ey:e.pageY, cvs_x:cvs_x, cvs_y:cvs_y,
-                        shiftKey: e.shiftKey}
+                        shiftKey: e.shiftKey, ctrlKey:e.ctrlKey}
             hit.mousemove(dx, dy, ev)
         }
         

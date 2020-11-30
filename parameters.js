@@ -1806,6 +1806,11 @@ class ParamTransform extends Parameter {
             return;
         let dv = v - this.rotate_pivot[vind]; 
         this.rotate_pivot[vind] = v
+
+        if (this.b2_style) {
+            this.calc_mat() // b2 objects don't need counter translate
+            return
+        }
         
         let dp = vec2.create()
         dp[vind] = -dv
@@ -1815,12 +1820,11 @@ class ParamTransform extends Parameter {
         mat3.rotate(tt, tt, glm.toRadian(this.rotate))
         dp[vind] = -dp[vind]
         mat3.translate(tt, tt, dp)
-        //mat3.invert(tt, tt)
+
         let dt = vec2.create()
         vec2.transformMat3(dt, dt, tt)
         this.item_tx.set_to_const(this.translate[0] + dt[0]) // TBD does extra calc_mats
         this.item_ty.set_to_const(this.translate[1] + dt[1])
-        //this.repaint_elems()
         this.calc_mat()
     }
     add_elems(parent) { 
@@ -1848,6 +1852,19 @@ class ParamTransform extends Parameter {
         this.item_tx.set_to_const(this.translate[0] + dx); 
         this.item_ty.set_to_const(this.translate[1] + dy); 
     }
+    move_pivot(dx, dy) {
+        let v
+        if (this.b2_style)
+            v = vec2.fromValues(-dx, -dy)
+        else
+            v = vec2.fromValues(dx, dy)
+        const rt = mat3.create()
+        mat3.rotate(rt, rt, glm.toRadian(-this.rotate))
+        vec2.transformMat3(v, v, rt)
+
+        this.item_pvx.set_to_const(this.rotate_pivot[0] + v[0]); 
+        this.item_pvy.set_to_const(this.rotate_pivot[1] + v[1]); 
+    }
     set_translate(x, y) {
         this.item_tx.set_to_const(x); 
         this.item_ty.set_to_const(y); 
@@ -1868,9 +1885,10 @@ class ParamTransform extends Parameter {
         // this was replaced with pivot thing. TBD - button for starting pivot should be the center of the bbox instead of 0,0
         let center = vec2.clone(this.translate)
 
-        if (!this.b2_style)
+        if (!this.b2_style) {
             center[0] += this.rotate_pivot[0]
             center[1] += this.rotate_pivot[1]
+        }
         vec2.transformMat3(center, center, m) // to canvas coords
 
         this.dial.set_center(center[0], center[1])
@@ -1935,6 +1953,8 @@ class PointDial {
         this.zc = null
     }
     draw(x, y, obj_t_mat, m) {
+        if (obj_t_mat === null)
+            obj_t_mat = mat3.create()
         this.obj_t_mat = obj_t_mat
         let p = vec2.fromValues(x, y)
         vec2.transformMat3(p, p, obj_t_mat)
@@ -2004,11 +2024,19 @@ class DialMoveHandle {
     mouseup() {}
     mousemove(dx,dy, ev) {
         dx /= image_view.viewport_zoom
-        dy /= image_view.viewport_zoom        
-        if (this.param !== null)
-            this.param.move(this.do_x ? dx : 0, this.do_y ? dy: 0)
+        dy /= image_view.viewport_zoom
+        if (!this.do_x)
+            dx = 0
+        if (!this.do_y)
+            dy = 0
+        if (this.param !== null) {
+            if (ev.ctrlKey)
+                this.param.move_pivot(dx, dy)
+            else
+                this.param.move(dx, dy)
+        }
         else
-            this.callback(this.do_x ? dx : 0, this.do_y ? dy: 0, ev)
+            this.callback(dx, dy, ev)
         trigger_frame_draw(true)
     }
 }

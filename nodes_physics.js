@@ -33,6 +33,17 @@ class B2Body {
         this.def = null
         this.fixtures = []
         this.obj = null
+        this.index = null // temporary for building the world
+    }
+}
+
+class B2Joint {
+    constructor() {
+        this.def = null
+        this.body_refA = null // B2Body objects
+        this.body_refB = null
+        this.init_call = null // function to call for initializing the joint with the two real bodies
+        this.obj = null
     }
 }
 
@@ -41,7 +52,7 @@ class B2Def extends PObject
     constructor() {
         super()
         this.bodies = []  // list of B2Body
-        this.joints = []
+        this.joints = []  // list of B2Joint
 
         this.p_draw_world_cache = null // not copied on clone
         this.p_draw_debug = null
@@ -179,12 +190,91 @@ class NodeB2Body extends NodeCls
     }
 }
 
+function isSingleBody(def) {
+    return def.bodies.length === 1 && def.joints.length === 0
+}
+
+class NodeB2Joint extends NodeCls
+{
+    static name() { return "Physics Joint" }
+    constructor(node) {
+        super(node)
+
+        this.inA = new InTerminal(node, "in_bodyA")
+        this.inB = new InTerminal(node, "in_bodyB")
+        this.out = new OutTerminal(node, "b2_defs")
+
+        this.type = new ParamSelect(node, "Type", 0, ["Revolute", "Distance", ],(sel_idx)=>{
+            this.enableMotor.set_visible(sel_idx === 0)
+            this.motorSpeed.set_visible(sel_idx === 0)
+        })
+
+        this.anchor = new ParamVec2(node, "Anchor", 0, 0)
+        this.enableMotor = new ParamBool(node, "Motor", false, (v)=>{
+            this.motorSpeed.set_enable(v)
+        })
+        this.motorSpeed = new ParamFloat(node, "Motor Speed(r/s)", 0.5, {min:0, max:12})
+
+        this.anchor_dial = new PointDial((dx,dy)=>{
+            this.anchor.increment(vec2.fromValues(dx, dy))
+        })
+    }
+
+    run() {
+        const defsA = this.inA.get_const()
+        const defsB = this.inB.get_const()
+        assert(defsA !== undefined && defsB !== undefined, this, "Missing input")
+        assert(defsA.constructor === B2Def || !isSingleBody(defsA), this, "bodyA is not a physics body")
+        assert(defsB.constructor === B2Def || !isSingleBody(defsB), this, "bodyB is not a physics body")
+
+        const j = new B2Joint()
+        j.body_refA = defsA.bodies[0]
+        j.body_refB = defsB.bodies[0]
+        if (this.type.sel_idx === 0) {
+            j.def = new b2.RevoluteJointDef()
+            j.init_call = (bodyA, bodyB)=>{
+                j.def.Initialize(bodyA, bodyB, new b2.Vec2(this.anchor.x, this.anchor.y))
+            }
+            j.def.motorSpeed = this.motorSpeed.get_value();
+            j.def.enableMotor = this.enableMotor.get_value();
+            j.def.maxMotorTorque = 1000
+        }
+        else 
+            assert(false, this, "Unexpected type")
+
+        const ret = new B2Def()
+        ret.bodies.push(j.body_refA, j.body_refB)
+        ret.joints.push(j)
+        this.out.set(ret)
+    }
+
+    draw_selection(m) {
+        if (this.anchor.pis_visible())
+            this.anchor_dial.draw(this.anchor.x, this.anchor.y, null, m)
+    }
+    image_find_obj(e) {
+        if (this.anchor.pis_visible()) {
+            const hit = this.anchor_dial.find_obj(e)
+            if (hit)
+                return hit
+        }
+        return null
+    }
+}
+
 function createWorld(def, gravity) 
 {
     const w = new B2World()
     w.obj = new b2.World(new b2.Vec2(gravity[0], gravity[1]))
+    let index_gen = 0
+
+    for(let body of def.bodies)
+        body.index = null
 
     for(let body of def.bodies) {
+        if (body.index !== null) // can happen if the same body was added more than once through multiple paths
+            continue // don't allow it to participate more than once since that complicates stuff
+        body.index  = index_gen++ // this is the index of the new B2Body in w.bodies, for reference by joints
         const mb = new B2Body() // don't want to change the input one
         w.bodies.push(mb)
         mb.def = body.def
@@ -196,6 +286,20 @@ function createWorld(def, gravity)
             mf.obj = mb.obj.CreateFixture(mf.def)                    
         }
     }
+
+    for(let joint of def.joints) {
+        dassert(joint.body_refA.index !== null && joint.body_refB.index !== null, "bodies not in world?") // sanity
+        const mj = new B2Joint()
+        mj.def = joint.def
+        mj.body_refA = w.bodies[joint.body_refA.index]
+        mj.body_refB = w.bodies[joint.body_refB.index]
+        joint.init_call(mj.body_refA.obj, mj.body_refB.obj)
+        mj.obj = w.obj.CreateJoint(mj.def)
+        // bodies of this world stay referenced by this joint in the input world but that doesn't really matter since if it gets to
+        // another world it will get reinited here
+    }
+
+
     return w
 }
 
