@@ -1015,13 +1015,15 @@ class Node {
     has_cached_output() {
         return this.outputs[0].get_const() !== null
     }
-    has_anything_dirty() {
-        if (this.self_dirty || this.cls.is_internal_dirty())
+    has_anything_dirty() { // checks if the node wants to run
+        if (this.cls.is_dirty_override)
+            return this.cls.is_dirty_override() // anim change filter
+        if (this.self_dirty || this.cls.is_internal_dirty()) // shader
             return true
         for(let p of this.parameters)
             if (p.pis_dirty())
                 return true
-        // terminals get dirty when something is connected or disconnected from them. That's it.
+        // terminals get dirty when something is connected or disconnected from them or when the input object changes
         for(let t of this.inputs)
             if (t.is_dirty())
                 return true

@@ -377,7 +377,7 @@ function var_run_nodes_tree(n)
     collect_terminal(n.cls.vars_in)
     n.cls.nresolve_variables()
 
-    if (n.nkind == KIND_OBJ)  // normal objects node, don't need to do anything more, will be run after dirty analysis
+    if (n.nkind === KIND_OBJ)  // normal objects node, don't need to do anything more, will be run after dirty analysis
         return
 
     n._visited = true  // don't want to do progress_io on it again
@@ -497,11 +497,18 @@ function mark_dirty_tree(n) {
     if (n._node_dirty !== null) // already been here
         return n._node_dirty
     n._node_dirty = false // mark visited
+
+    const node_picking_lines = n.cls.is_picking_lines()
     // all inputs
     for(let inp_t of n.inputs) {  
         // all lines going into an input
         // TBD  - only OBJ, only picked lines
-        for(let line of inp_t.lines) {
+        if (inp_t.kind !== KIND_OBJ) // var terminal was already done with
+            continue
+        let run_lines = inp_t.lines
+        if (node_picking_lines)
+            run_lines = n.cls.pick_lines(inp_t)            
+        for(let line of run_lines) {
             // if any of the higher nodes is dirty, we're dirty as well
             if (mark_dirty_tree(line.from_term.owner)) {
                 n._node_dirty = true
@@ -693,6 +700,7 @@ async function do_frame_draw(do_run, clear_all)
     // all syncronouse from here on (don't want to clear the canvas and then leave for a promise, that would cause fliker)
     ctx_img.fillStyle = '#fff'
     ctx_img.fillRect(0, 0, canvas_image.width, canvas_image.height)
+    phy_reset_current_worlds() // draw of the world re-adds only the active ones
 
     if (disp_obj !== null) {
         try {

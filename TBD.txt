@@ -63,12 +63,15 @@ EXPRESSIONS
 - BUG: uniform parser get uniforms in comments
 - Box2D
     - joints
+    - change parameters during sim
     - template
     - show point of pivot
     - velocity for kinematic
     - select object with mouse on image canvas
+    - test several worlds running at the same time
     - change display shape
     - disp-params
+    - snap to middle point, edges, corner, edge-width
     - pen
 - Animation
     - engine - dirty controlled by selected input in pick_one

@@ -29,21 +29,23 @@ class B2Fixture {
 }
 
 class B2Body {
-    constructor() {
+    constructor(cnode_id) {
         this.def = null
         this.fixtures = []
         this.obj = null
+        this.cnode_id = cnode_id // create node unique-id
         this.index = null // temporary for building the world
     }
 }
 
 class B2Joint {
-    constructor() {
+    constructor(cnode_id) {
         this.def = null
         this.body_refA = null // B2Body objects
         this.body_refB = null
         this.init_call = null // function to call for initializing the joint with the two real bodies
         this.obj = null
+        this.cnode_id = cnode_id
     }
 }
 
@@ -83,9 +85,15 @@ class B2World extends PObject
         this.obj = null
         this.bodies = []
         this.p_draw_debug = null
+        // map cnode_id of the creator node to the object it created in the context of this world
+        // this is done like this so that the same def can go to different worlds
+        // used by online params
+        this.cnode_to_obj = {} 
     }
 
     draw_m(m, disp_values) {
+        g_current_worlds.push(this)
+
         if (this.p_draw_debug === null) {
             this.p_draw_debug = new CanvasDebugDraw(ctx_img);
             this.obj.SetDebugDraw(this.p_draw_debug);
@@ -97,6 +105,10 @@ class B2World extends PObject
     draw_template_m(m) {
     }
 
+    clone() {
+        assert(false, this, "World object can't be cloned")
+        // due to the b2 objects and multiple refs to the same objects
+    }
 }
  
 
@@ -131,7 +143,7 @@ class NodeB2Body extends NodeCls
     }
     
     run() {
-        const b = new B2Body()
+        const b = new B2Body(this.node.id)
         b.def = new b2.BodyDef()
         b.def.type = this.type.get_sel_val()
         b.def.position.Set(this.transform.translate[0], this.transform.translate[1])
@@ -194,6 +206,25 @@ function isSingleBody(def) {
     return def.bodies.length === 1 && def.joints.length === 0
 }
 
+function make_phy_caller(obj_func_name, node_id) {
+    return function(v) {
+        for(let w of g_current_worlds) {
+            const obj = w.cnode_to_obj[node_id]
+            if (obj === undefined)
+                return
+            console.log("setting ", v)
+            obj.obj[obj_func_name](v)
+        }
+    }
+}
+
+class PhyParamFloat extends ParamFloat
+{
+    constructor(node, label, start_v, conf, obj_func_name) {
+        super(node, label, start_v, conf, make_phy_caller(obj_func_name, node.id))
+    }
+}
+
 class NodeB2Joint extends NodeCls
 {
     static name() { return "Physics Joint" }
@@ -213,7 +244,8 @@ class NodeB2Joint extends NodeCls
         this.enableMotor = new ParamBool(node, "Motor", false, (v)=>{
             this.motorSpeed.set_enable(v)
         })
-        this.motorSpeed = new ParamFloat(node, "Motor Speed(r/s)", 0.5, {min:0, max:12})
+        this.motorSpeed = new PhyParamFloat(node, "Motor Speed(r/s)", 0.5, {min:-6, max:6}, "SetMotorSpeed")
+        this.maxTorque = new PhyParamFloat(node, "Max Torque(N/m)", 10, {min:0, max:10}, "SetMaxMotorTorque")
 
         this.anchor_dial = new PointDial((dx,dy)=>{
             this.anchor.increment(vec2.fromValues(dx, dy))
@@ -227,7 +259,7 @@ class NodeB2Joint extends NodeCls
         assert(defsA.constructor === B2Def || !isSingleBody(defsA), this, "bodyA is not a physics body")
         assert(defsB.constructor === B2Def || !isSingleBody(defsB), this, "bodyB is not a physics body")
 
-        const j = new B2Joint()
+        const j = new B2Joint(this.node.id)
         j.body_refA = defsA.bodies[0]
         j.body_refB = defsB.bodies[0]
         if (this.type.sel_idx === 0) {
@@ -235,9 +267,9 @@ class NodeB2Joint extends NodeCls
             j.init_call = (bodyA, bodyB)=>{
                 j.def.Initialize(bodyA, bodyB, new b2.Vec2(this.anchor.x, this.anchor.y))
             }
-            j.def.motorSpeed = this.motorSpeed.get_value();
-            j.def.enableMotor = this.enableMotor.get_value();
-            j.def.maxMotorTorque = 1000
+            j.def.motorSpeed = this.motorSpeed.get_value()
+            j.def.enableMotor = this.enableMotor.get_value()
+            j.def.maxMotorTorque = this.maxTorque.get_value()
         }
         else 
             assert(false, this, "Unexpected type")
@@ -275,8 +307,9 @@ function createWorld(def, gravity)
         if (body.index !== null) // can happen if the same body was added more than once through multiple paths
             continue // don't allow it to participate more than once since that complicates stuff
         body.index  = index_gen++ // this is the index of the new B2Body in w.bodies, for reference by joints
-        const mb = new B2Body() // don't want to change the input one
+        const mb = new B2Body(body.cnode_id) // don't want to change the input one
         w.bodies.push(mb)
+        w.cnode_to_obj[body.cnode_id] = mb
         mb.def = body.def
         mb.obj = w.obj.CreateBody(mb.def)
         for(let fixt of body.fixtures) {
@@ -289,7 +322,8 @@ function createWorld(def, gravity)
 
     for(let joint of def.joints) {
         dassert(joint.body_refA.index !== null && joint.body_refB.index !== null, "bodies not in world?") // sanity
-        const mj = new B2Joint()
+        const mj = new B2Joint(joint.cnode_id)
+        w.cnode_to_obj[joint.cnode_id] = mj
         mj.def = joint.def
         mj.body_refA = w.bodies[joint.body_refA.index]
         mj.body_refB = w.bodies[joint.body_refB.index]
@@ -324,6 +358,12 @@ class NodeB2Merge extends NodeCls
         }
         this.out.set(udef)
     }
+}
+
+// for online updates
+var g_current_worlds = []  
+function phy_reset_current_worlds() {
+    g_current_worlds.length = 0
 }
 
 

@@ -71,7 +71,14 @@ class NodeChangeFilter extends NodeCls
         this.change_expr = new ParamInt(node, "Change Expr", "frame_num", {show_code:true})
     }
 
-    should_clear_out_before_run() { return false }
+    should_clear_out_before_run() { return false } // don't clear my cache
+
+    is_dirty_override() {
+        // I know better than my terminals when I want to run
+        if (this.enabled.get_value() && this.out.get_const() !== null && !this.change_expr.pis_dirty())
+            return false
+        return true
+    }
 
     run() {
         if (this.enabled.get_value() && this.out.get_const() !== null && !this.change_expr.pis_dirty())
