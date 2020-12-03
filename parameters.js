@@ -1731,13 +1731,14 @@ function toFixedMag(f) {
 
 
 class ParamTransform extends Parameter {
-    constructor(node, label, start_values={}, opts=null) {
+    constructor(node, label, start_values={}, opts=null, change_func=null) {
         super(node, label)
         this.translate = [0,0] // coords here are not vec2.fromValues since they need to be nullable
         this.rotate = 0
         this.scale = [1,1]
         this.v = mat3.create()
         this.rotate_pivot = [0,0]
+        this.change_func = change_func
         
         this.b2_style = (opts !== null && opts.b2_style === true) ? true : false
         this.elems = {tx:null, ty:null, r:null, sx:null, sy:null, pvx:null, pvy:null }
@@ -1788,6 +1789,7 @@ class ParamTransform extends Parameter {
         mat3.rotate(this.v, this.v, glm.toRadian(this.rotate))
           mat3.translate(this.v, this.v, vec2.fromValues(-this.rotate_pivot[0],-this.rotate_pivot[1]))
         mat3.scale(this.v, this.v, this.scale)
+        this.call_change()
         this.pset_dirty()
     }
     is_valid() {

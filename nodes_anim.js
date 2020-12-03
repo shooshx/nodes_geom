@@ -84,6 +84,7 @@ class NodeChangeFilter extends NodeCls
         if (this.enabled.get_value() && this.out.get_const() !== null && !this.change_expr.pis_dirty())
             return
         const obj = this.in.get_const()
+        assert(obj !== null, this, "No input")
         this.out.set(obj)
     }
 

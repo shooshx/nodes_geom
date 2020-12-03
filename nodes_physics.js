@@ -22,9 +22,10 @@
 
 
 class B2Fixture {
-    constructor() {
+    constructor(cnode_id) {
         this.def = null
         this.obj = null
+        this.cnode_id = cnode_id
     }
 }
 
@@ -112,6 +113,29 @@ class B2World extends PObject
 }
  
 
+class PhyParamFloat extends ParamFloat {
+    constructor(node, label, start_v, conf, obj_func_name, id_suffix="") {
+        super(node, label, start_v, conf, make_phy_caller(obj_func_name, node.id + id_suffix, null))
+    }
+}
+class PhyParamBool extends ParamBool {
+    constructor(node, label, start_v, obj_func_name, change_func, id_suffix="") {
+        super(node, label, start_v, make_phy_caller(obj_func_name, node.id + id_suffix, change_func))
+    }
+}
+
+class PhyParamVec2 extends ParamVec2 {
+    constructor(node, label, start_x, start_y, obj_func_name, change_func, id_suffix="") {
+        super(node, label, start_x, start_y, make_phy_caller(obj_func_name, node.id + id_suffix, change_func))
+    }
+}
+
+class PhyParamTransform extends ParamTransform {
+    constructor(node, label, start_v, opt, obj_func_name, change_func, id_suffix="") {
+        super(node, label, start_v, opt, make_phy_caller(obj_func_name, node.id + id_suffix, change_func))
+    }
+}
+
 
 class NodeB2Body extends NodeCls
 {
@@ -128,14 +152,22 @@ class NodeB2Body extends NodeCls
             this.radius.set_visible(sel_idx === 1)
         })
         this.size = new ParamVec2(node, "Size(m)", 0.5, 0.5)
-        this.radius = new ParamFloat(node, "Radius(m)", 0.5)
-       // this.position = new ParamVec2(node, "Position(m)", 0, 0);
-       // this.angle = new ParamFloat(node, "Angle", 0, {min:0, max:360})
-        this.density = new ParamFloat(node, "Density(kg)", 1)
-        this.restit = new ParamFloat(node, "Restitution", 0.1, {min:0, max:1})
-        this.friction = new ParamFloat(node, "Friction", 0.1, {min:0, max:1})
+        this.radius = new PhyParamFloat(node, "Radius(m)", 0.5, {}, (w, v)=>{
+            w.cnode_to_obj[node.id + "_f"].obj.m_shape.m_radius = v
+        })
+       
+        this._sep = new ParamSeparator(node)
 
-        this.transform = new ParamTransform(node, "Transform", {}, {b2_style:true})
+        this.density = new PhyParamFloat(node, "Density(kg)", 1, {min:0, max:10}, (w, v)=>{
+            w.cnode_to_obj[node.id + "_f"].obj.SetDensity(v)
+            w.cnode_to_obj[node.id].obj.ResetMassData() // to the body
+        })
+        this.restit = new PhyParamFloat(node, "Restitution", 0.1, {min:0, max:1}, "SetRestitution", "_f") // doesn't change existing contacts
+        this.friction = new PhyParamFloat(node, "Friction", 0.1, {min:0, max:1}, "SetFriction", "_f")
+
+        this.transform = new PhyParamTransform(node, "Transform", {}, {b2_style:true}, (w, m)=>{
+            w.cnode_to_obj[node.id].obj.SetTransformXY(this.transform.translate[0], this.transform.translate[1], glm.toRadian(this.transform.rotate))
+        })
 
         this.radius_dial = new PointDial((dx,dy)=>{
             this.radius.increment(dx)
@@ -162,7 +194,7 @@ class NodeB2Body extends NodeCls
         else
             assert(false, node, "not supported")
 
-        const f = new B2Fixture()
+        const f = new B2Fixture(this.node.id + "_f")
         f.def = new b2.FixtureDef()
         f.def.shape = s
         f.def.density = this.density.v
@@ -176,6 +208,10 @@ class NodeB2Body extends NodeCls
     }
 
     draw_selection(m) {
+        if (g_current_worlds.length > 0 && this.type.sel_idx != 0) {
+            // moving objects should not show the move dial in the wrong place
+            return
+        }
         this.transform.draw_dial_at_obj(null, m)
         if (this.size.pis_visible())
             this.size.size_dial_draw(this.transform.v, m)
@@ -206,24 +242,24 @@ function isSingleBody(def) {
     return def.bodies.length === 1 && def.joints.length === 0
 }
 
-function make_phy_caller(obj_func_name, node_id) {
+function make_phy_caller(obj_func_name, node_id, change_func) {
     return function(v) {
         for(let w of g_current_worlds) {
+            if (typeof obj_func_name !== 'string') {
+                obj_func_name(w, v)  // it's actually a function override (for Density)
+                continue
+            }
             const obj = w.cnode_to_obj[node_id]
             if (obj === undefined)
-                return
-            console.log("setting ", v)
+                continue
             obj.obj[obj_func_name](v)
         }
+        if (change_func)
+            change_func(v)
     }
 }
 
-class PhyParamFloat extends ParamFloat
-{
-    constructor(node, label, start_v, conf, obj_func_name) {
-        super(node, label, start_v, conf, make_phy_caller(obj_func_name, node.id))
-    }
-}
+
 
 class NodeB2Joint extends NodeCls
 {
@@ -241,8 +277,9 @@ class NodeB2Joint extends NodeCls
         })
 
         this.anchor = new ParamVec2(node, "Anchor", 0, 0)
-        this.enableMotor = new ParamBool(node, "Motor", false, (v)=>{
+        this.enableMotor = new PhyParamBool(node, "Motor", false, "EnableMotor", (v)=>{
             this.motorSpeed.set_enable(v)
+            this.maxTorque.set_enable(v)
         })
         this.motorSpeed = new PhyParamFloat(node, "Motor Speed(r/s)", 0.5, {min:-6, max:6}, "SetMotorSpeed")
         this.maxTorque = new PhyParamFloat(node, "Max Torque(N/m)", 10, {min:0, max:10}, "SetMaxMotorTorque")
@@ -316,7 +353,8 @@ function createWorld(def, gravity)
             const mf = new B2Fixture()
             mb.fixtures.push(mf)
             mf.def = fixt.def
-            mf.obj = mb.obj.CreateFixture(mf.def)                    
+            mf.obj = mb.obj.CreateFixture(mf.def)      
+            w.cnode_to_obj[fixt.cnode_id] = mf              
         }
     }
 
