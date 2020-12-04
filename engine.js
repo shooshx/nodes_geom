@@ -20,6 +20,12 @@ function preload_images() {
     }
 }
 
+function show_overflow() { // for debugging
+    body.style.overflow = "initial"
+    main_view.style.overflow = "initial"
+    canvas_img_shadow.style.display = "initial"
+}
+
 var scratch_canvas = null // canvas for temporary jobs
 var ctx_scratch = null
 function ensure_scratch_canvas() {
@@ -99,8 +105,8 @@ function page_onload()
     create_top_menu(main_view)
     create_anim_bar()
     
-    panel_mouse_control(nodes_view, canvas_nodes)
-    panel_mouse_control(image_view, canvas_image)
+    panel_mouse_control(nodes_view, canvas_nodes, "_nodes")
+    panel_mouse_control(image_view, canvas_image, "_image")
     panel_mouse_wheel(image_view, canvas_image)
     setup_key_bindings()
 
@@ -619,6 +625,12 @@ function handle_node_exception(e) {
     }
     set_error(e.node_cls, e.message)
     console.error(e)    
+}
+
+function get_display_object() { // for shadow select
+    if (program.display_node === null)
+        return null
+    return program.display_node.outputs[0].get_const() 
 }
 
 // called whenever the display needs to be updated to reflect a change

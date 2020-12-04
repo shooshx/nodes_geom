@@ -364,6 +364,20 @@ class PObject {
     }
 
     draw_border() {} // called in NodeTransform
+
+    can_draw_shadow() {
+        return false
+    }
+    draw_shadow(m) {
+        ctx_img_shadow.save()
+        try {
+            canvas_setTransform(ctx_img_shadow, m)
+            this.draw_shadow_m(m)
+        }
+        finally {
+            ctx_img_shadow.restore()
+        }
+    }
 }
 
 class PHandle {
@@ -998,7 +1012,7 @@ class Node {
         this.theight = this.height + TERM_RADIUS * 4 + TERM_MARGIN_Y*2
     }
 
-    mousemove(dx, dy) {
+    mousemove_nodes(dx, dy) {
         this.x += dx
         this.y += dy
         this.recalc_bounding_box()      
@@ -1315,12 +1329,12 @@ function nodes_find_obj_shadow(e) {
         return null
 
     // TBD cache the data, don't sample each time
-    let shadow_col = ctx_nd_shadow.getImageData(e.cvs_x, e.cvs_y, 1, 1).data
-    let shadow_val = new Uint32Array(shadow_col.buffer)[0]
-    let obj_id = uid_from_color(shadow_val)
+    const shadow_col = ctx_nd_shadow.getImageData(e.cvs_x, e.cvs_y, 1, 1).data
+    const shadow_val = new Uint32Array(shadow_col.buffer)[0]
+    const obj_id = uid_from_color(shadow_val)
     //console.log("obj",obj_id)
     if (obj_id != 0 && obj_id !== null) {
-        let obj = program.obj_map[obj_id]
+        const obj = program.obj_map[obj_id]
         if (obj === undefined) // can still happen in the aliasing between two colors
             return null
         // the right way to do this is to take a majority vote between the pixels around

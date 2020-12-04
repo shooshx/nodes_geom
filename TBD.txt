@@ -61,14 +61,14 @@ EXPRESSIONS
 - BUG: func node without show_code?
 - BUG: bool value warninig on load of anim_bouncing_blobs2.yaml
 - BUG: uniform parser get uniforms in comments
+- BUG: canvases overflowing
 - Box2D
     - joints
-    - show translate dial where the object moved to
+    - mouse joint
     - template
     - show point of pivot
     - velocity for kinematic
-    - select object with mouse on image canvas
-    - change display shape
+    - change display shape with input geometry
     - disp-params
     - snap to middle point, edges, corner, edge-width
     - setLinearDamping, setAngularDamping
@@ -396,6 +396,8 @@ Minify:
 icons
     https://tablericons.com/
 
+post project in:
+    https://www.seelink.app/raghav/3vU9GDGWAgwoX3LyBCiBWs
 
 Pratt parser in rust: https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
 

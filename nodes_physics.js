@@ -59,23 +59,42 @@ class B2Def extends PObject
 
         this.p_draw_world_cache = null // not copied on clone
         this.p_draw_debug = null
+        this.p_draw_shadow = null
     }
 
     ensure_world_cache() {
         if (this.p_draw_world_cache !== null)
             return
         this.p_draw_world_cache = createWorld(this, [0,0]) // create world just for callding DebugDraw
-        this.p_draw_debug = new CanvasDebugDraw(ctx_img);
-        this.p_draw_world_cache.obj.SetDebugDraw(this.p_draw_debug);        
+    
+    }
+
+    do_draw(disp_values, drawer, color_from_shape) {
+        this.p_draw_world_cache.obj.SetDebugDraw(drawer);
+
+        drawer.SetFlags(b2.DrawFlags.e_shapeBit)
+        drawer.set_color_from_shape(color_from_shape)
+
+        drawer.ctx.lineWidth = 1.0/image_view.viewport_zoom
+        this.p_draw_world_cache.obj.DebugDraw()        
     }
 
     draw_m(m, disp_values) {
         this.ensure_world_cache()
-        this.p_draw_debug.SetFlags(b2.DrawFlags.e_shapeBit)
-        ctx_img.lineWidth = 1.0/image_view.viewport_zoom
-        this.p_draw_world_cache.obj.DebugDraw()
+        if (this.p_draw_debug === null) 
+            this.p_draw_debug = new CanvasDebugDraw(ctx_img);
+
+        this.do_draw(disp_values, this.p_draw_debug, false)
     }
     draw_template_m(m) {
+    }
+    can_draw_shadow() { return true }
+    draw_shadow_m(m) {
+        this.ensure_world_cache()
+        if (this.p_draw_shadow === null) 
+            this.p_draw_shadow = new CanvasDebugDraw(ctx_img_shadow);
+
+        this.do_draw({}, this.p_draw_shadow, true)
     }
 }
 
@@ -200,6 +219,7 @@ class NodeB2Body extends NodeCls
         f.def.density = this.density.v
         f.def.restitution = this.restit.v
         f.def.friction = this.friction.v
+        f.def.userData = { node_id: this.node.id } // for shadow find
         b.fixtures.push(f)
         
         const ret = new B2Def()
@@ -446,6 +466,16 @@ class CanvasDebugDraw extends b2.Draw
     constructor(ctx) {
       super(ctx);
       this.ctx = ctx
+      this.col_from_shape = false
+      this.last_shape_color = null
+    }
+
+    set_color_from_shape(v) {
+        this.col_from_shape = v
+    }
+
+    NextShape(ud) {
+        this.last_shape_color = color_from_uid(ud.node_id)
     }
   
     PushTransform(xf) {
@@ -463,6 +493,16 @@ class CanvasDebugDraw extends b2.Draw
         ctx.restore();
       }
     }
+
+    resolve_color(color, alpha=null) {
+        if (this.col_from_shape) {
+            dassert(this.last_shape_color !== null, "last color is null")
+            return this.last_shape_color
+        }
+        if (alpha === null)
+            alpha = color.a
+        return color.MakeStyleString(alpha)
+    }
   
     DrawPolygon(vertices, vertexCount, color) {
       const ctx = this.ctx
@@ -473,7 +513,7 @@ class CanvasDebugDraw extends b2.Draw
           ctx.lineTo(vertices[i].x, vertices[i].y);
         }
         ctx.closePath();
-        ctx.strokeStyle = color.MakeStyleString(1);
+        ctx.strokeStyle = this.resolve_color(color, 1);
         ctx.stroke();
       }
     }
@@ -487,9 +527,9 @@ class CanvasDebugDraw extends b2.Draw
           ctx.lineTo(vertices[i].x, vertices[i].y);
         }
         ctx.closePath();
-        ctx.fillStyle = color.MakeStyleString(0.5);
+        ctx.fillStyle = this.resolve_color(color, 0.5);
         ctx.fill();
-        ctx.strokeStyle = color.MakeStyleString(1);
+        ctx.strokeStyle = this.resolve_color(color, 1);
         ctx.stroke();
       }
     }
@@ -499,7 +539,7 @@ class CanvasDebugDraw extends b2.Draw
       if (ctx) {
         ctx.beginPath();
         ctx.arc(center.x, center.y, radius, 0, b2.pi * 2, true);
-        ctx.strokeStyle = color.MakeStyleString(1);
+        ctx.strokeStyle = this.resolve_color(color, 1);
         ctx.stroke();
       }
     }
@@ -513,9 +553,9 @@ class CanvasDebugDraw extends b2.Draw
         ctx.arc(cx, cy, radius, 0, b2.pi * 2, true);
         ctx.moveTo(cx, cy);
         ctx.lineTo((cx + axis.x * radius), (cy + axis.y * radius));
-        ctx.fillStyle = color.MakeStyleString(0.5);
+        ctx.fillStyle = this.resolve_color(color, 0.5);
         ctx.fill();
-        ctx.strokeStyle = color.MakeStyleString(1);
+        ctx.strokeStyle = this.resolve_color(color, 1);
         ctx.stroke();
       }
     }
@@ -552,7 +592,7 @@ class CanvasDebugDraw extends b2.Draw
         ctx.beginPath();
         ctx.moveTo(p1.x, p1.y);
         ctx.lineTo(p2.x, p2.y);
-        ctx.strokeStyle = color.MakeStyleString(1);
+        ctx.strokeStyle = this.resolve_color(color, 1);
         ctx.stroke();
       }
     }
@@ -581,7 +621,7 @@ class CanvasDebugDraw extends b2.Draw
     DrawPoint(p, size, color) {
       const ctx = this.ctx
       if (ctx) {
-        ctx.fillStyle = color.MakeStyleString();
+        ctx.fillStyle = this.resolve_color(color);
         //size *= g_camera.m_zoom;
         //size /= g_camera.m_extent;
         const hsize = size / 2;
@@ -641,7 +681,7 @@ class CanvasDebugDraw extends b2.Draw
     DrawAABB(aabb, color) {
       const ctx = this.ctx
       if (ctx) {
-        ctx.strokeStyle = color.MakeStyleString();
+        ctx.strokeStyle = this.resolve_color(color);
         const x = aabb.lowerBound.x;
         const y = aabb.lowerBound.y;
         const w = aabb.upperBound.x - aabb.lowerBound.x;

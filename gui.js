@@ -170,9 +170,12 @@ class ImageView extends ViewBase
             selected_node.cls.image_click(x, y)
     }
     find_obj(e) {
-        if (selected_node !== null)
-            return selected_node.cls.image_find_obj(e)
-        return null
+        if (selected_node !== null) {
+            const hit = selected_node.cls.image_find_obj(e)
+            if (hit !== null)
+                return hit
+        }
+        return image_shadow_find_obj(e)
     }
     check_rect_select() {
         return selected_node !== null && selected_node.cls.rect_select !== undefined
@@ -216,13 +219,40 @@ class ImageView extends ViewBase
     
 }
 
+function image_shadow_find_obj(e)
+{
+    if (e.cvs_x < 0 || e.cvs_y < 0 || e.cvs_x > canvas_image.width || e.cvs_y > canvas_image.height)
+        return null
+
+    const disp_obj = get_display_object()
+    if (disp_obj === null || !disp_obj.can_draw_shadow())
+        return null
+    if (canvas_img_shadow.width !== canvas_image.width)
+        canvas_img_shadow.width = canvas_image.width
+    if (canvas_img_shadow.height != canvas_image.height)
+        canvas_img_shadow.height = canvas_image.height
+    
+    disp_obj.draw_shadow(image_view.t_viewport)
+
+    const shadow_col = ctx_img_shadow.getImageData(e.cvs_x, e.cvs_y, 1, 1).data
+    const shadow_val = new Uint32Array(shadow_col.buffer)[0]
+    const node_id = uid_from_color(shadow_val)
+    if (node_id === null)
+        return null
+    const node = program.obj_map[node_id]
+    if (node !== undefined)  // can happen due to antialiasing
+        return node
+    return null
+}
+
+
 function is_point_in_rect(x, y, rect) {
     return (x > rect.left && x < rect.right && y > rect.top && y < rect.bottom)
 }
 
 let image_view = null
 
-function panel_mouse_control(view, canvas) 
+function panel_mouse_control(view, canvas, mousemove_postfix) 
 {    
     let panning = false
     let prev_x, prev_y, down_x, down_y
@@ -251,7 +281,8 @@ function panel_mouse_control(view, canvas)
                 //console.log("hit ", hit)
                 // passing e to potentiall stop propogation
                 hit.mousedown(ev)
-                return
+                if (hit.mousemove !== undefined || hit["mousemove" + mousemove_postfix] !== undefined)
+                    return  // if it can move, don't pan
             }
             did_move = false
             panning = true
@@ -303,11 +334,16 @@ function panel_mouse_control(view, canvas)
             view.pan_y += dy / view.zoom
             view.pan_redraw()
         }
-        else if (hit !== null && hit.mousemove !== undefined) {
-            let cvs_x = e.pageX - view.rect.left, cvs_y = e.pageY - view.rect.top
-            const ev = {vx:view.view_x(e.pageX), vy:view.view_y(e.pageY), ex:e.pageX, ey:e.pageY, cvs_x:cvs_x, cvs_y:cvs_y,
-                        shiftKey: e.shiftKey, ctrlKey:e.ctrlKey}
-            hit.mousemove(dx, dy, ev)
+        else if (hit !== null) {
+            let mm_name = "mousemove"
+            if (hit[mm_name] === undefined)
+                mm_name += mousemove_postfix
+            if (hit[mm_name] !== undefined) {
+                let cvs_x = e.pageX - view.rect.left, cvs_y = e.pageY - view.rect.top
+                const ev = {vx:view.view_x(e.pageX), vy:view.view_y(e.pageY), ex:e.pageX, ey:e.pageY, cvs_x:cvs_x, cvs_y:cvs_y,
+                            shiftKey: e.shiftKey, ctrlKey:e.ctrlKey}
+                hit[mm_name](dx, dy, ev)
+            }
         }
         
         if (view.hover !== undefined) {
