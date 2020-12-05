@@ -74,6 +74,7 @@ EXPRESSIONS
     - setLinearDamping, setAngularDamping
     - test several worlds running at the same time
     - pen
+    - planet gravity? b2GravityController, boyancy?
 - Animation
     - engine - dirty controlled by selected input in pick_one
     - single step button - smaller panel

@@ -240,9 +240,9 @@ function image_shadow_find_obj(e)
     if (node_id === null)
         return null
     const node = program.obj_map[node_id]
-    if (node !== undefined)  // can happen due to antialiasing
-        return node
-    return null
+    if (node === undefined || node.constructor !== Node)  // can happen due to antialiasing
+        return null
+    return node.cls.img_hit_find_obj()
 }
 
 
@@ -252,7 +252,7 @@ function is_point_in_rect(x, y, rect) {
 
 let image_view = null
 
-function panel_mouse_control(view, canvas, mousemove_postfix) 
+function panel_mouse_control(view, canvas) 
 {    
     let panning = false
     let prev_x, prev_y, down_x, down_y
@@ -281,7 +281,7 @@ function panel_mouse_control(view, canvas, mousemove_postfix)
                 //console.log("hit ", hit)
                 // passing e to potentiall stop propogation
                 hit.mousedown(ev)
-                if (hit.mousemove !== undefined || hit["mousemove" + mousemove_postfix] !== undefined)
+                if (is_mousemovable(hit))
                     return  // if it can move, don't pan
             }
             did_move = false
@@ -334,16 +334,11 @@ function panel_mouse_control(view, canvas, mousemove_postfix)
             view.pan_y += dy / view.zoom
             view.pan_redraw()
         }
-        else if (hit !== null) {
-            let mm_name = "mousemove"
-            if (hit[mm_name] === undefined)
-                mm_name += mousemove_postfix
-            if (hit[mm_name] !== undefined) {
-                let cvs_x = e.pageX - view.rect.left, cvs_y = e.pageY - view.rect.top
-                const ev = {vx:view.view_x(e.pageX), vy:view.view_y(e.pageY), ex:e.pageX, ey:e.pageY, cvs_x:cvs_x, cvs_y:cvs_y,
-                            shiftKey: e.shiftKey, ctrlKey:e.ctrlKey}
-                hit[mm_name](dx, dy, ev)
-            }
+        else if (hit !== null && is_mousemovable(hit)) {
+            let cvs_x = e.pageX - view.rect.left, cvs_y = e.pageY - view.rect.top
+            const ev = {vx:view.view_x(e.pageX), vy:view.view_y(e.pageY), ex:e.pageX, ey:e.pageY, cvs_x:cvs_x, cvs_y:cvs_y,
+                        shiftKey: e.shiftKey, ctrlKey:e.ctrlKey}
+            hit.mousemove(dx, dy, ev)
         }
         
         if (view.hover !== undefined) {
@@ -373,6 +368,12 @@ function panel_mouse_control(view, canvas, mousemove_postfix)
     })
 
 
+}
+
+function is_mousemovable(hit) {
+    if (hit.mousemovable !== undefined)
+        return hit.mousemovable()
+    return hit.mousemove !== undefined
 }
 
 // https://github.com/jackmoore/wheelzoom/blob/master/wheelzoom.js

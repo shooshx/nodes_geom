@@ -50,7 +50,10 @@ class B2Joint {
     }
 }
 
-class B2Def extends PObject 
+// for nodes that use a b2.World for display
+
+
+class B2Def extends PObject
 {
     constructor() {
         super()
@@ -58,77 +61,89 @@ class B2Def extends PObject
         this.joints = []  // list of B2Joint
 
         this.p_draw_world_cache = null // not copied on clone
-        this.p_draw_debug = null
-        this.p_draw_shadow = null
+
     }
 
     ensure_world_cache() {
         if (this.p_draw_world_cache !== null)
             return
-        this.p_draw_world_cache = createWorld(this, [0,0]) // create world just for callding DebugDraw
-    
-    }
-
-    do_draw(disp_values, drawer, color_from_shape) {
-        this.p_draw_world_cache.obj.SetDebugDraw(drawer);
-
-        drawer.SetFlags(b2.DrawFlags.e_shapeBit)
-        drawer.set_color_from_shape(color_from_shape)
-
-        drawer.ctx.lineWidth = 1.0/image_view.viewport_zoom
-        this.p_draw_world_cache.obj.DebugDraw()        
+        this.p_draw_world_cache = createWorld(this, [0,0]) // create world just for callding DebugDraw    
     }
 
     draw_m(m, disp_values) {
         this.ensure_world_cache()
-        if (this.p_draw_debug === null) 
-            this.p_draw_debug = new CanvasDebugDraw(ctx_img);
+        this.p_draw_world_cache.draw_mw(disp_values)
+    }
 
-        this.do_draw(disp_values, this.p_draw_debug, false)
+    can_draw_shadow() { 
+        return true 
     }
-    draw_template_m(m) {
-    }
-    can_draw_shadow() { return true }
     draw_shadow_m(m) {
         this.ensure_world_cache()
-        if (this.p_draw_shadow === null) 
-            this.p_draw_shadow = new CanvasDebugDraw(ctx_img_shadow);
-
-        this.do_draw({}, this.p_draw_shadow, true)
+        this.p_draw_world_cache.draw_shadow_m()
     }
 }
 
-class B2World extends PObject 
+class B2World extends PObject
 {
     constructor() {
         super()
         this.obj = null
         this.bodies = []
-        this.p_draw_debug = null
+
         // map cnode_id of the creator node to the object it created in the context of this world
         // this is done like this so that the same def can go to different worlds
         // used by online params
         this.cnode_to_obj = {} 
-    }
 
-    draw_m(m, disp_values) {
-        g_current_worlds.push(this)
-
-        if (this.p_draw_debug === null) {
-            this.p_draw_debug = new CanvasDebugDraw(ctx_img);
-            this.obj.SetDebugDraw(this.p_draw_debug);
-        }
-        this.p_draw_debug.SetFlags(b2.DrawFlags.e_shapeBit)
-        ctx_img.lineWidth = 1.0/image_view.viewport_zoom
-        this.obj.DebugDraw()
-    }
-    draw_template_m(m) {
+        this.p_draw_debug = null
+        this.p_draw_shadow = null
     }
 
     clone() {
         assert(false, this, "World object can't be cloned")
         // due to the b2 objects and multiple refs to the same objects
     }
+
+
+    do_draw(flags, drawer) {      
+        drawer.SetFlags(flags)
+        drawer.ctx.lineWidth = 1.0/image_view.viewport_zoom
+        this.obj.SetDebugDraw(drawer);
+        this.obj.DebugDraw()        
+    }
+
+    draw_mw(disp_values) { // used by B2Defs to draw without setting the current world
+        if (this.p_draw_debug === null) 
+            this.p_draw_debug = new CanvasDebugDraw(ctx_img);
+
+        let flags = 0
+        flags |= b2.DrawFlags.e_shapeBit
+        //flags |= b2.DrawFlags.e_jointBit
+        //flags |= b2.DrawFlags.e_controllerBit
+        //flags |= b2.DrawFlags.e_pairBit // lines connecting bodies
+        this.do_draw(flags, this.p_draw_debug)
+    }
+    draw_m(m, disp_values) {
+        g_current_worlds.push(this)
+        this.draw_mw(disp_values, this)
+    }
+
+    draw_template_m(m) {
+    }
+
+    can_draw_shadow() { 
+        return true 
+    }
+
+    draw_shadow_m(m) {
+        if (this.p_draw_shadow === null) {
+            this.p_draw_shadow = new CanvasDebugDraw(ctx_img_shadow);
+            this.p_draw_shadow.set_color_from_shape(true)
+        }
+        this.do_draw(b2.DrawFlags.e_shapeBit, this.p_draw_shadow)
+    }      
+
 }
  
 
@@ -227,8 +242,12 @@ class NodeB2Body extends NodeCls
         this.out.set(ret)
     }
 
+    dials_hidden() {
+        return g_current_worlds.length > 0 && this.type.sel_idx != 0
+    }
+
     draw_selection(m) {
-        if (g_current_worlds.length > 0 && this.type.sel_idx != 0) {
+        if (this.dials_hidden()) {
             // moving objects should not show the move dial in the wrong place
             return
         }
@@ -241,6 +260,8 @@ class NodeB2Body extends NodeCls
     }
 
     image_find_obj(e) {
+        if (this.dials_hidden()) 
+            return null
         if (this.radius.pis_visible()) { // radius before transform since they may overlap
             const hit = this.radius_dial.find_obj(e)
             if (hit)
@@ -255,6 +276,71 @@ class NodeB2Body extends NodeCls
                 return hit
         }
         return null
+    }
+
+    img_hit_find_obj() {
+        return new MouseJointProxy(this.node)
+    }
+}
+
+class MouseJointProxy
+{
+    constructor(node) {
+        this.node = node
+        this.joint = null
+        this.target = new b2.Vec2()
+        this.with_world = null
+    }
+    mousemovable() {
+        const [obj,w] = this.get_dynamic_obj()
+        return obj !== null
+    }
+    mousemove(dx, dy, e) {
+        if (this.joint === null)
+            return
+        const mpnt = image_view.epnt_to_model(e.ex, e.ey)
+        this.target.x = mpnt[0]
+        this.target.y = mpnt[1]
+    
+        //console.log("~~", this.target.x, this.target.y)
+        this.joint.SetTarget(this.target)
+    } 
+    mouseup() {
+        if (this.joint === null)
+            return
+        this.with_world.obj.DestroyJoint(this.joint)
+        this.joint = null
+        this.with_world = null
+    }
+
+    get_dynamic_obj() {
+        if (g_current_worlds.length === 0)
+            return [null,null]
+        const w = g_current_worlds[0]
+        const obj = w.cnode_to_obj[this.node.id]
+        if (obj === undefined || obj.constructor !== B2Body || obj.def.type !== b2.dynamicBody)
+            return [null,null]
+        return [obj,w]
+    }
+    
+    mousedown(e) {
+        this.node.select()
+        const [obj,w] = this.get_dynamic_obj()
+        if (obj === null)
+            return
+        const def = new b2.MouseJointDef()
+        def.bodyB = obj.obj
+        def.bodyA = obj.obj
+        const mpnt = image_view.epnt_to_model(e.ex, e.ey)
+        this.target.x = mpnt[0]
+        this.target.y = mpnt[1]
+        def.target = this.target
+        def.maxForce = 100 *  obj.obj.GetMass()
+        const frequencyHz = 5.0;
+        const dampingRatio = 0.7;
+        b2.LinearStiffness(def, frequencyHz, dampingRatio, def.bodyA, def.bodyB);
+        this.joint = w.obj.CreateJoint(def)
+        this.with_world = w
     }
 }
 
@@ -312,7 +398,7 @@ class NodeB2Joint extends NodeCls
     run() {
         const defsA = this.inA.get_const()
         const defsB = this.inB.get_const()
-        assert(defsA !== undefined && defsB !== undefined, this, "Missing input")
+        assert(defsA !== null && defsB !== null, this, "Missing input")
         assert(defsA.constructor === B2Def || !isSingleBody(defsA), this, "bodyA is not a physics body")
         assert(defsB.constructor === B2Def || !isSingleBody(defsB), this, "bodyB is not a physics body")
 
@@ -496,7 +582,8 @@ class CanvasDebugDraw extends b2.Draw
 
     resolve_color(color, alpha=null) {
         if (this.col_from_shape) {
-            dassert(this.last_shape_color !== null, "last color is null")
+            if (this.last_shape_color === null)
+                return "rgba(0,0,0,0)"
             return this.last_shape_color
         }
         if (alpha === null)
@@ -622,7 +709,7 @@ class CanvasDebugDraw extends b2.Draw
       const ctx = this.ctx
       if (ctx) {
         ctx.fillStyle = this.resolve_color(color);
-        //size *= g_camera.m_zoom;
+        size /= image_view.viewport_zoom;
         //size /= g_camera.m_extent;
         const hsize = size / 2;
         ctx.fillRect(p.x - hsize, p.y - hsize, size, size);

@@ -1012,7 +1012,7 @@ class Node {
         this.theight = this.height + TERM_RADIUS * 4 + TERM_MARGIN_Y*2
     }
 
-    mousemove_nodes(dx, dy) {
+    mousemove(dx, dy) {
         this.x += dx
         this.y += dy
         this.recalc_bounding_box()      
@@ -1102,11 +1102,13 @@ class NodeCls {
         this.vars_in = new VarsInTerminal(node, "vars_in")
     }
     // mouse interaction in image_view
-    image_click() {}
-    image_find_obj() { return null }
-    clear_selection() {}
-    draw_selection() {}
-    selected_obj_name() { return null }
+    image_find_obj() { return null } // called on image click when node is selected
+    draw_selection() {}  // when node is selected, draw the dials for image_find_obj()
+    img_hit_find_obj() { return null } // node was found using the shadow hit, get the hit object
+
+    image_click() {} // for adding, selecting points
+    clear_selection() {} 
+    selected_obj_name() { return null } // for menu
     // rect_select(min_x, min_y, max_x, max_y) {} if it's not defined, rect doesn't even show
 
     // nodes that depends on the viewport should implement and dirty themselves
