@@ -171,7 +171,7 @@ class FuncsSet {
         else
             this.set[name] += text
     }
-};
+}
 
 var ExprParser = (function() {
 
@@ -424,9 +424,6 @@ class UnaryOpNode extends NodeBase {
         if (this.type === null)            
             this.type = this.child.check_type()
         return this.type
-    }
-    clear_types_cache() {
-        this.type = null
     }
     to_glsl(emit_ctx) {
         const v = this.child.to_glsl(emit_ctx) + ')'
@@ -1252,7 +1249,7 @@ function parseValue() {
     eatSpaces();
     let c = getCharacter();
     switch (c) {
-        case '0':
+        case '0': {
             let base = getBase();
             if (base == 16)
                 val = parseHex();
@@ -1263,6 +1260,7 @@ function parseValue() {
             else
                 val = parseDecimal();
             break;
+        }
         case '1':  case '2':   case '3':
         case '4':  case '5':   case '6':
         case '7':  case '8':   case '9':   case '.':

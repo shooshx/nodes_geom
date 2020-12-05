@@ -716,7 +716,7 @@ class CanvasDebugDraw extends b2.Draw
       }
     }
   
-    rawString_s_color = new b2.Color(0.9, 0.6, 0.6);
+    //rawString_s_color = new b2.Color(0.9, 0.6, 0.6);
     DrawString(x, y, message) {
       return // TBD  
       const ctx = this.ctx
@@ -731,9 +731,9 @@ class CanvasDebugDraw extends b2.Draw
       }
     }
   
-    DrawStringWorld_s_p = new b2.Vec2();
-    DrawStringWorld_s_cc = new b2.Vec2();
-    DrawStringWorld_s_color = new b2.Color(0.5, 0.9, 0.5);
+    //DrawStringWorld_s_p = new b2.Vec2();
+    //DrawStringWorld_s_cc = new b2.Vec2();
+    //DrawStringWorld_s_color = new b2.Color(0.5, 0.9, 0.5);
     DrawStringWorld(x, y, message) {
       return  // TBD going to need some work
       const ctx = this.ctx

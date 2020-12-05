@@ -510,11 +510,12 @@ class NodeDFPrimitive extends BaseDFNodeCls
         case 1: // used for blobs with added level of 1 - http://jamie-wong.com/2014/08/19/metaballs-and-marching-squares/
             add("inv_circle", ["radius"],  [this.radius.get_value()], "return sqrt((radius*radius) / (p.x*p.x + p.y*p.y));")
             break
-        case 2:
+        case 2: {
             const sz = this.size.get_value()
             add("box", ["width", "height"], [sz[0], sz[1]], `vec2 d = abs(p)-vec2(width/2.0, height/2.0);
 return length(max(d,0.0)) + min(max(d.x,d.y),0.0);`)
             break
+        }
         default:
             assert(false, this, "expr not set")
         }
