@@ -36,6 +36,9 @@ class B2Body {
         this.obj = null
         this.cnode_id = cnode_id // create node unique-id
         this.index = null // temporary for building the world
+
+        this.online_params = [] // functions that take B2World that are called before every step to update parameters according to expression
+        this.on_init_params = [] // functions that are called just after the initialization of the world (for things that are not in the defs, kinematic velocity)
     }
 }
 
@@ -145,30 +148,75 @@ class B2World extends PObject
     }      
 
 }
+
+function b2VecFromArr(v) { return new b2.Vec2(v[0], v[1]) }
  
+// for on_init_params and online_params
+function mixin_phy_param(prm, obj_func_name, adapter=null) 
+{
+    prm.owner.online_params.push(prm)
+    prm.dyn_modify_obj = function(obj) {
+        dassert(obj.obj[obj_func_name] !== undefined, "object missing function " + obj_func_name)
+        let v = prm.get_value()
+        if (adapter !== null)
+            v = adapter(v)
+        obj.obj[obj_func_name](v)
+    }
+}
+
+// for change of parameters by user during sim
+function make_phy_caller(obj_func_name, node_id, change_func, adapter=null) {
+    return function(v) {
+        for(let w of g_current_worlds) {
+            if (typeof obj_func_name !== 'string') {
+                obj_func_name(w, v)  // it's actually a function override (for Density)
+                continue
+            }
+            const obj = w.cnode_to_obj[node_id]
+            if (obj === undefined)
+                continue
+            dassert(obj.obj[obj_func_name] !== undefined, "object missing function " + obj_func_name)
+            if (adapter !== null)
+                v = adapter(v)            
+            obj.obj[obj_func_name](v)
+        }
+        if (change_func)
+            change_func(v)
+    }
+}
 
 class PhyParamFloat extends ParamFloat {
     constructor(node, label, start_v, conf, obj_func_name, id_suffix="") {
         super(node, label, start_v, conf, make_phy_caller(obj_func_name, node.id + id_suffix, null))
+        mixin_phy_param(this, obj_func_name)
     }
 }
 class PhyParamBool extends ParamBool {
     constructor(node, label, start_v, obj_func_name, change_func, id_suffix="") {
         super(node, label, start_v, make_phy_caller(obj_func_name, node.id + id_suffix, change_func))
+        mixin_phy_param(this, obj_func_name)
     }
 }
-
 class PhyParamVec2 extends ParamVec2 {
     constructor(node, label, start_x, start_y, obj_func_name, change_func, id_suffix="") {
-        super(node, label, start_x, start_y, make_phy_caller(obj_func_name, node.id + id_suffix, change_func))
+        super(node, label, start_x, start_y, null, make_phy_caller(obj_func_name, node.id + id_suffix, change_func, b2VecFromArr))
+        mixin_phy_param(this, obj_func_name, b2VecFromArr)
+    }
+}
+class PhyParamTransform extends ParamTransform {
+    constructor(node, label, start_v, id_suffix="") {
+        super(node, label, start_v, {b2_style:true}, make_phy_caller((w, m)=>{
+            this.dyn_modify_obj(w.cnode_to_obj[node.id])
+        }, node.id + id_suffix, null))
+        node.online_params.push(this)
+    }
+    dyn_modify_obj(obj) {
+        obj.obj.SetTransformXY(this.translate[0], this.translate[1], glm.toRadian(this.rotate))
     }
 }
 
-class PhyParamTransform extends ParamTransform {
-    constructor(node, label, start_v, opt, obj_func_name, change_func, id_suffix="") {
-        super(node, label, start_v, opt, make_phy_caller(obj_func_name, node.id + id_suffix, change_func))
-    }
-}
+
+
 
 
 class NodeB2Body extends NodeCls
@@ -180,6 +228,9 @@ class NodeB2Body extends NodeCls
         this.out = new OutTerminal(node, "b2_defs")
         
         this.type = new ParamSelect(node, "Type", 0, [["Static", b2.staticBody], ["Kynematic", b2.kinematicBody], ["Dynamic",b2.dynamicBody]],(sel_idx)=>{
+            this.kin_lin_velocity.set_visible(sel_idx == 1);
+            this.kin_ang_velocity.set_visible(sel_idx == 1);
+            this._sep2.set_visible(sel_idx == 1);
         })
         this.shape = new ParamSelect(node, "Shape", 0, ["Box", "Circle"],(sel_idx)=>{
             this.size.set_visible(sel_idx === 0)
@@ -190,7 +241,11 @@ class NodeB2Body extends NodeCls
             w.cnode_to_obj[node.id + "_f"].obj.m_shape.m_radius = v
         })
        
-        this._sep = new ParamSeparator(node)
+        this._sep1 = new ParamSeparator(node, "_sep1")
+
+        this.kin_lin_velocity = new PhyParamVec2(node, "Linear V(m/s)", 0, 0, "SetLinearVelocity")
+        this.kin_ang_velocity = new PhyParamFloat(node, "Angular V(r/s)", 0, {min:-90, max:90}, "SetAngularVelocity")
+        this._sep2 = new ParamSeparator(node, "_sep2")
 
         this.density = new PhyParamFloat(node, "Density(kg)", 1, {min:0, max:10}, (w, v)=>{
             w.cnode_to_obj[node.id + "_f"].obj.SetDensity(v)
@@ -199,9 +254,7 @@ class NodeB2Body extends NodeCls
         this.restit = new PhyParamFloat(node, "Restitution", 0.1, {min:0, max:1}, "SetRestitution", "_f") // doesn't change existing contacts
         this.friction = new PhyParamFloat(node, "Friction", 0.1, {min:0, max:1}, "SetFriction", "_f")
 
-        this.transform = new PhyParamTransform(node, "Transform", {}, {b2_style:true}, (w, m)=>{
-            w.cnode_to_obj[node.id].obj.SetTransformXY(this.transform.translate[0], this.transform.translate[1], glm.toRadian(this.transform.rotate))
-        })
+        this.transform = new PhyParamTransform(node, "Transform", {})
 
         this.radius_dial = new PointDial((dx,dy)=>{
             this.radius.increment(dx)
@@ -236,6 +289,9 @@ class NodeB2Body extends NodeCls
         f.def.friction = this.friction.v
         f.def.userData = { node_id: this.node.id } // for shadow find
         b.fixtures.push(f)
+        if (this.type.sel_idx === 1) { // kinematic
+            b.on_init_params.push(this.kin_lin_velocity, this.kin_ang_velocity)
+        }
         
         const ret = new B2Def()
         ret.bodies.push(b)
@@ -348,22 +404,6 @@ function isSingleBody(def) {
     return def.bodies.length === 1 && def.joints.length === 0
 }
 
-function make_phy_caller(obj_func_name, node_id, change_func) {
-    return function(v) {
-        for(let w of g_current_worlds) {
-            if (typeof obj_func_name !== 'string') {
-                obj_func_name(w, v)  // it's actually a function override (for Density)
-                continue
-            }
-            const obj = w.cnode_to_obj[node_id]
-            if (obj === undefined)
-                continue
-            obj.obj[obj_func_name](v)
-        }
-        if (change_func)
-            change_func(v)
-    }
-}
 
 
 
@@ -462,6 +502,9 @@ function createWorld(def, gravity)
             mf.obj = mb.obj.CreateFixture(mf.def)      
             w.cnode_to_obj[fixt.cnode_id] = mf              
         }
+
+        for(let pp of body.on_init_params)
+            pp.dyn_modify_obj(mb)
     }
 
     for(let joint of def.joints) {

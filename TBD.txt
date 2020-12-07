@@ -64,10 +64,9 @@ EXPRESSIONS
 - BUG: canvases overflowing
 - Box2D
     - joints
-    - mouse joint
     - template
-    - show point of pivot
     - velocity for kinematic
+        expression
     - change display shape with input geometry
     - disp-params
     - snap to middle point, edges, corner, edge-width

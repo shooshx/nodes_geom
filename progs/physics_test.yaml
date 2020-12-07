@@ -1,0 +1,303 @@
+nodes:
+  '1':
+    params:
+      Type:
+        sel_str: Static
+      Shape:
+        sel_str: Box
+      Size(m):
+        e_x: 2
+        e_y: 0.1
+        se_cv: 'return vec2(0.5, 0.5)'
+      Radius(m):
+        e_v: 0.5
+        se_cv: return 0.5
+      Density(kg):
+        e_v: 1
+        se_cv: return 1
+      Restitution:
+        e_v: 0.1
+        se_cv: return 0.1
+      Friction:
+        e_v: 0.1
+        se_cv: return 0.1
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: floor
+    cls_name: Physics Body
+    x: 124
+    y: 31
+    disp_param: {}
+  '2':
+    params: {}
+    name: physics_merge_1
+    cls_name: Physics Merge
+    x: 185
+    y: 226
+    disp_param: {}
+  '4':
+    params:
+      Type:
+        sel_str: Static
+      Shape:
+        sel_str: Box
+      Size(m):
+        e_x: 0.11909099585062205
+        e_y: 1.328644149377593
+        se_cv: 'return vec2(0.5, 0.5)'
+      Radius(m):
+        e_v: 0.5
+        se_cv: return 0.5
+      Density(kg):
+        e_v: 1
+        se_cv: return 1
+      Restitution:
+        e_v: 0.787711137747613
+        se_cv: return 0.1
+      Friction:
+        e_v: 0.1
+        se_cv: return 0.1
+      Transform:
+        e_tx: 0.6081178838174283
+        e_ty: -0.6181418049792526
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: wall
+    cls_name: Physics Body
+    x: 297
+    y: 75
+    disp_param: {}
+  '6':
+    params:
+      Type:
+        sel_str: Dynamic
+      Shape:
+        sel_str: Box
+      Size(m):
+        e_x: 1.5
+        e_y: 0.09000000000000002
+        se_cv: 'return vec2(0.5, 0.5)'
+      Radius(m):
+        e_v: 0.5
+        se_cv: return 0.5
+      Density(kg):
+        e_v: 1
+        se_cv: return 1
+      Restitution:
+        e_v: 0.1
+        se_cv: return 0.1
+      Friction:
+        e_v: 0.1
+        se_cv: return 0.1
+      Transform:
+        se_tx: '-1'
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: rotor
+    cls_name: Physics Body
+    x: -31
+    y: 69
+    disp_param: {}
+  '8':
+    params:
+      Type:
+        sel_str: Revolute
+      Anchor:
+        e_x: -0.9967782987551863
+        e_y: -0.0033413070539419095
+        se_cv: 'return vec2(0, 0)'
+      Motor:
+        v: true
+        se_v: '0'
+      Motor Speed(r/s):
+        e_v: -4.083544422315924
+        se_cv: return 0.5
+      Max Torque(N/m):
+        e_v: 10
+        se_cv: return 10
+    name: physics_joint_1
+    cls_name: Physics Joint
+    x: 73
+    y: 141
+    disp_param: {}
+  '12':
+    params:
+      Gravity:
+        e_x: 0
+        e_y: 9.8
+        se_cv: 'return vec2(0, 9.8)'
+    name: physics_simulator_1
+    cls_name: Physics Simulator
+    x: 342
+    y: 453
+    disp_param: {}
+  '13':
+    params:
+      Pick Index:
+        e_v: 0
+        show_code: true
+        se_cv: |-
+          if (frame_num == 0)
+              return 0
+          return 1
+      OrderInputs:
+        sorted_order: [0, 1]
+    name: pick_one_1
+    cls_name: Pick One
+    x: 116
+    y: 394
+    disp_param: {}
+  '16':
+    params:
+      Filter Enabled:
+        v: true
+        se_v: '1'
+      Change Expr:
+        se_v: frame_num
+        show_code: true
+        se_cv: return frame_num
+    name: change_filter_1
+    cls_name: Change Filter
+    x: 366
+    y: 360
+    disp_param: {}
+  '19':
+    params:
+      Type:
+        sel_str: Dynamic
+      Shape:
+        sel_str: Circle
+      Size(m):
+        e_x: 0.5
+        e_y: 0.5
+        se_cv: 'return vec2(0.5, 0.5)'
+      Radius(m):
+        e_v: 0.2794737344398334
+        se_cv: return 0.5
+      Density(kg):
+        e_v: 1
+        se_cv: return 1
+      Restitution:
+        e_v: 0.1
+        se_cv: return 0.1
+      Friction:
+        e_v: 0.1
+        se_cv: return 0.1
+      Transform:
+        e_tx: -0.4310286099585069
+        e_ty: -0.8286441493775933
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: ball
+    cls_name: Physics Body
+    x: 219
+    y: -27
+    disp_param: {}
+  '21':
+    params:
+      Shape:
+        sel_str: Rectangle
+      Size:
+        e_x: 0.5
+        e_y: 0.5
+        se_cv: 'return vec2(0.5, 0.5)'
+      Num Points:
+        e_v: 5
+        se_cv: return 5
+      Inner Point:
+        e_x: 0.22600000000000003
+        se_y: '-0.311'
+        se_cv: 'return vec2(0.226, -0.311)'
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: geom_primitive_1
+    cls_name: Geom Primitive
+    x: -244
+    y: 87
+    disp_param:
+      show_vtx: true
+      show_lines: true
+lines:
+  - from_name: b2_defs
+    from_id: 4
+    to_name: b2_in_defs
+    to_id: 2
+    uid: 5
+  - from_name: b2_defs
+    from_id: 6
+    to_name: in_bodyA
+    to_id: 8
+    uid: 9
+  - from_name: b2_defs
+    from_id: 1
+    to_name: in_bodyB
+    to_id: 8
+    uid: 10
+  - from_name: b2_defs
+    from_id: 8
+    to_name: b2_in_defs
+    to_id: 2
+    uid: 11
+  - from_name: b2_defs
+    from_id: 2
+    to_name: in_multi
+    to_id: 13
+    uid: 14
+  - from_name: b2_world
+    from_id: 12
+    to_name: in_multi
+    to_id: 13
+    uid: 15
+  - from_name: out
+    from_id: 16
+    to_name: b2_in
+    to_id: 12
+    uid: 17
+  - from_name: out
+    from_id: 13
+    to_name: in
+    to_id: 16
+    uid: 18
+  - from_name: b2_defs
+    from_id: 19
+    to_name: b2_in_defs
+    to_id: 2
+    uid: 20
+next_node_id: 22
+names_idx_s:
+  Physics Body: 4
+  Physics Merge: 1
+  Physics Joint: 1
+  Physics Simulator: 1
+  Pick One: 1
+  Change Filter: 1
+  Geom Primitive: 1
+display_node_id: 21
+tdisp_node_ids: []
+input_node_ids: []
+nodes_view:
+  pan_x: 318
+  pan_y: 83
+decor: []

@@ -801,6 +801,7 @@ class Node {
         // calculated data members
         this.parameters = []
         this.param_aliases = {} // map old name of a parameter to its new Parameter object
+        this.online_params = [] // for physics
         this.terminal_aliases = {} // same for terminals
         this.inputs = []
         this.outputs = [] 

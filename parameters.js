@@ -464,8 +464,8 @@ function start_color_dropper(set_color)
 }
 
 class ParamSeparator extends Parameter {
-    constructor(node) {
-        super(node, null)
+    constructor(node, label=null) {
+        super(node, label)
     }
     save() { return null }
     load(v) {}
@@ -1416,7 +1416,7 @@ class DispParamFloat extends ParamFloat {
 
 
 class ParamVec2 extends CodeItemMixin(Parameter) {
-    constructor(node, label, start_x, start_y, conf=null) {
+    constructor(node, label, start_x, start_y, conf=null, change_func) {
         super(node, label, conf)
         dassert(start_x !== undefined && start_y !== undefined, "start value should not be undefined")
         this.x = start_x
@@ -1445,6 +1445,12 @@ class ParamVec2 extends CodeItemMixin(Parameter) {
             {allowed:false})
         this.make_code_item(code_expr, "vec2(" + start_x + ", " + start_y + ")")
         this.size_dial = null // if was ever created
+        this.change_func = change_func
+    }
+
+    call_change() { 
+        if (this.change_func) 
+            this.change_func(this.get_value())
     }
 
     non_code_peval_self() {
