@@ -47,6 +47,7 @@ class NodePickOne extends NodeCls
         this.last_line_picked = null 
         collect_line(line) // manual collect, just the input we want
         const obj = line.to_term.get_const()
+        // don't check if obj is empty here. If it's empty due to an error, forward it into the anim loop so that the error will reach there
         this.out.set(obj)
     }
 }

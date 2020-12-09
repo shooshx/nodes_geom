@@ -86,8 +86,12 @@ class DummyParam {
         this.owner = owner
         this.v = null
         this.visible = true
+        this.enable = true
         this.label = "<dummy>"
     }
+    pis_enable() { return true }
+    pis_visible() { return true }
+    pis_active() { return true }
     reg_expr_item() {}
     call_change() {}
     pset_dirty() {}

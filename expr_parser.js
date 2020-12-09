@@ -94,6 +94,7 @@ function typename(t) {
     case TYPE_VEC2: return "vec2"
     case TYPE_VEC3: return "vec3"
     case TYPE_VEC4: return "vec4"
+    case TYPE_FUNCTION: return "function"
     default: return "<" + t + ">"
     }
 }
@@ -811,12 +812,15 @@ func_defs['rgb'] = func_defs['vec3']
 func_defs['rgba'] = func_defs['vec4']
 
 // a place holder for an internal func that is returned from lookup and replaced by a FuncCallNode
-class InternalFuncDefDummyNode extends NodeBase {
+class FuncDefNode extends NodeBase {
     constructor(def) {
         super()
         this.def = def
     }
     num_args() { return this.def.num_args }
+    check_type() {
+        return TYPE_FUNCTION
+    }
 }
 
 class AddGlslFunc {
@@ -1084,7 +1088,7 @@ function parseFuncCall(func_node, func_name) {
         throw new ExprErr("Expected closing paren for argument list at " + index_)
     ++index_; // skip paren
 
-    if (func_node.constructor === InternalFuncDefDummyNode) { // dummy is discarded
+    if (func_node.constructor === FuncDefNode) { // dummy is discarded
         // internal func can have the argument number check during parsing
         const expect_num_arg = func_node.num_args()
         if (Array.isArray(expect_num_arg)) { // range was given
@@ -1135,7 +1139,7 @@ function lookupIdentifier(sb)
     if (constants[sb] !== undefined)
         return constants[sb]
     if (func_defs[sb] !== undefined)
-        return new InternalFuncDefDummyNode(func_defs[sb])
+        return new FuncDefNode(func_defs[sb])
 
     if (g_symbol_table !== null) {
         const sps = sb.split('.')

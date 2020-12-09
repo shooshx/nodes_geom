@@ -36,6 +36,9 @@ class Parameter
         if (this.line_elem !== null)
             elem_set_enable(this.line_elem, this.enable)
     }
+    pis_enable() {
+        return this.enable 
+    }
     set_visible(v) {
         if (this.visible == v)
             return
@@ -45,6 +48,9 @@ class Parameter
     }
     pis_visible() {
         return this.visible
+    }
+    pis_active() {
+        return this.visible && this.enable
     }
     init_enable_visible() {
         if (this.line_elem !== null) {
@@ -105,6 +111,10 @@ class Parameter
 
     set_shader_generated(v) { this.shader_generated = v }  // mark param automatically generated from shader code
     is_shader_generated() { return this.shader_generated }
+
+    get_last_error() {
+        return null // implemented by params that have items
+    }
 }
 
 // if the text of one of the labels is too long, fix the length of all of them
@@ -351,8 +361,8 @@ function add_param_slider(line, min_val, max_val, start_value, type, set_func) {
             exv = 0
         return (exv - cfg.min_val)/(cfg.max_val - cfg.min_val)
     }
-    const update = (value)=>{
-        if (value === null) {
+    const update = (value, disabled=false)=>{
+        if (value === null || disabled) {
             thumb.classList.toggle('slider_thumb_disabled', true)
             return
         }
@@ -810,7 +820,7 @@ class ExpressionItem {
     }
     eis_active() {
         // with color, it may still be active since it's the only one but not visible
-        return this.in_param.visible && this.eactive
+        return this.in_param.pis_active() && this.eactive
     }
     save_to(r) {
         if (this.e !== null && this.e.get_const_value() !== null)
@@ -850,7 +860,7 @@ class ExpressionItem {
         if (this.prop_type == ED_INT)
             v = round_or_null(v)
         if (do_slider_update && this.slider !== null)
-            this.slider.update(v) // slider needs to know if it's disabled or not, called on add_elem
+            this.slider.update(v, this.expr_score !== EXPR_CONST) // slider needs to know if it's disabled or not, called on add_elem
         const ov = this.get_prop()
         if (this.prop_type == ED_COLOR_EXPR) {
             if (arr_equals(v, ov))
@@ -859,7 +869,13 @@ class ExpressionItem {
             if (v === ov)
                 return false
         }
-        this.set_prop(v)
+        try {
+            this.set_prop(v)     
+        }
+        catch(e) {
+            this.eset_error(e)
+            throw e
+        }
         return true
     }
 
@@ -870,6 +886,11 @@ class ExpressionItem {
         if (this.editor) {
             this.editor.show_err(this.elast_error)
         }
+
+        // this was just in the peval catch but probably a good idea to do it in any error
+        if (this.in_param.owner.cls !== undefined) // this can be undefined if there's an exception in the node initialization value, before cls was assigned to
+            set_error(this.in_param.owner.cls, "Parameter expression error")
+
     }
     eclear_error() {
         if (this.elast_error === null) 
@@ -933,12 +954,10 @@ class ExpressionItem {
             this.etype_depend_var = false
             // if it contains reference to variables try to resolve them now, before type-check
             this.eresolve_evaluators(this.last_resolve_varbox, true) // can fail, we'll have another chance before run
-            this.do_check_type()
+            this.do_check_type() // sets etype_undecided, etype_depend_var
         }
         catch(ex) { // TBD better show the error somewhere
             this.eset_error(ex)
-            if (this.in_param.owner.cls !== undefined) // this can happen if there's an exception in the node initialization value, before cls was assigned to
-                set_error(this.in_param.owner.cls, "Parameter expression error")
             return
         }
         finally {
@@ -947,7 +966,7 @@ class ExpressionItem {
             state_access.score = EXPR_CONST
         }
 
-        if (this.expr_score == EXPR_CONST) { // depends on anything?
+        if (this.expr_score === EXPR_CONST) { // depends on anything?
             if (this.do_set_prop(ExprParser.do_eval(this.e)))  // returns false if it's the same value
                 this.in_param.pset_dirty() 
             this.need_inputs = null
@@ -981,8 +1000,8 @@ class ExpressionItem {
                     this.in_param.pset_dirty() 
                 }
             })
-            this.slider.update(this.get_prop())
-           // this.peval_self() // TBD(lazy) this will set the slider position and enablement (but not do pset_dirty since nothing changed)
+            this.slider.update(this.get_prop(), this.expr_score !== EXPR_CONST)
+           // this.peval_self() // Old lazy- this will set the slider position and enablement (but not do pset_dirty since nothing changed)
         }
         else if (!this.slider_conf.visible && this.slider != null) {
             this.slider.elem.parentNode.removeChild(this.slider.elem)
@@ -1309,12 +1328,21 @@ class ParamBaseExpr extends CodeItemMixin(Parameter)
         super(node, label, conf)
         dassert(start_v !== undefined, "start value should not be undefined");
         //this.v = start_v  // numerical value in case of const
-        this.item = new ExpressionItem(this, "v", ed_type,  (v)=>{ if (!this.show_code) this.v = v }, null, conf)
+        let set_prop_neg, set_prop_pos
+        if (conf.validate === undefined) {
+            set_prop_neg = (v)=>{ if (!this.show_code) this.v = v }
+            set_prop_pos = (v)=>{ if (this.show_code) this.v = v }
+        }
+        else {
+            set_prop_neg = (v)=>{ if (!this.show_code) { conf.validate(v); this.v = v } }
+            set_prop_pos = (v)=>{ if (this.show_code) { conf.validate(v); this.v = v } }
+        }
+        this.item = new ExpressionItem(this, "v", ed_type, set_prop_neg, null, conf)
         this.populate_code_ctx_menu(this.item.ctx_menu)
         this.single_line = null
         this.item.peval(start_v)  // if it's a param that can be either code or non-code, it's start_v should be a simgle expression
         
-        const code_expr = new ExpressionItem(this, "v", ed_type,  (v)=>{ if (this.show_code) this.v = v }, null, {allowed:false})
+        const code_expr = new ExpressionItem(this, "v", ed_type, set_prop_pos, null, {allowed:false})
         this.make_code_item(code_expr, start_v)
         this.change_func = change_func // set change_func after peval so that it won't be called in this initial peval (and the one in the code item), before all the other params were created (it will be called after load)
     }
@@ -1450,7 +1478,7 @@ class ParamVec2 extends CodeItemMixin(Parameter) {
 
     call_change() { 
         if (this.change_func) 
-            this.change_func(this.get_value())
+            this.change_func([this.x, this.y])
     }
 
     non_code_peval_self() {

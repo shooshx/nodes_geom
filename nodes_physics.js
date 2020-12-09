@@ -37,7 +37,6 @@ class B2Body {
         this.cnode_id = cnode_id // create node unique-id
         this.index = null // temporary for building the world
 
-        this.online_params = [] // functions that take B2World that are called before every step to update parameters according to expression
         this.on_init_params = [] // functions that are called just after the initialization of the world (for things that are not in the defs, kinematic velocity)
     }
 }
@@ -63,6 +62,7 @@ class B2Def extends PObject
         this.bodies = []  // list of B2Body
         this.joints = []  // list of B2Joint
 
+        // kind of a hack to take advantage of the fact the world can draw itself
         this.p_draw_world_cache = null // not copied on clone
 
     }
@@ -151,20 +151,10 @@ class B2World extends PObject
 
 function b2VecFromArr(v) { return new b2.Vec2(v[0], v[1]) }
  
-// for on_init_params and online_params
-function mixin_phy_param(prm, obj_func_name, adapter=null) 
-{
-    prm.owner.online_params.push(prm)
-    prm.dyn_modify_obj = function(obj) {
-        dassert(obj.obj[obj_func_name] !== undefined, "object missing function " + obj_func_name)
-        let v = prm.get_value()
-        if (adapter !== null)
-            v = adapter(v)
-        obj.obj[obj_func_name](v)
-    }
-}
 
 // for change of parameters by user during sim
+// also called from on_init for parameters the must be set only on world creation
+// also called from eresolve when variables change
 function make_phy_caller(obj_func_name, node_id, change_func, adapter=null) {
     return function(v) {
         for(let w of g_current_worlds) {
@@ -188,34 +178,26 @@ function make_phy_caller(obj_func_name, node_id, change_func, adapter=null) {
 class PhyParamFloat extends ParamFloat {
     constructor(node, label, start_v, conf, obj_func_name, id_suffix="") {
         super(node, label, start_v, conf, make_phy_caller(obj_func_name, node.id + id_suffix, null))
-        mixin_phy_param(this, obj_func_name)
     }
 }
 class PhyParamBool extends ParamBool {
     constructor(node, label, start_v, obj_func_name, change_func, id_suffix="") {
         super(node, label, start_v, make_phy_caller(obj_func_name, node.id + id_suffix, change_func))
-        mixin_phy_param(this, obj_func_name)
     }
 }
 class PhyParamVec2 extends ParamVec2 {
     constructor(node, label, start_x, start_y, obj_func_name, change_func, id_suffix="") {
         super(node, label, start_x, start_y, null, make_phy_caller(obj_func_name, node.id + id_suffix, change_func, b2VecFromArr))
-        mixin_phy_param(this, obj_func_name, b2VecFromArr)
     }
 }
 class PhyParamTransform extends ParamTransform {
     constructor(node, label, start_v, id_suffix="") {
         super(node, label, start_v, {b2_style:true}, make_phy_caller((w, m)=>{
-            this.dyn_modify_obj(w.cnode_to_obj[node.id])
+            const obj = w.cnode_to_obj[node.id]
+            obj.obj.SetTransformXY(this.translate[0], this.translate[1], glm.toRadian(this.rotate))
         }, node.id + id_suffix, null))
-        node.online_params.push(this)
-    }
-    dyn_modify_obj(obj) {
-        obj.obj.SetTransformXY(this.translate[0], this.translate[1], glm.toRadian(this.rotate))
     }
 }
-
-
 
 
 
@@ -237,8 +219,10 @@ class NodeB2Body extends NodeCls
             this.radius.set_visible(sel_idx === 1)
         })
         this.size = new ParamVec2(node, "Size(m)", 0.5, 0.5)
-        this.radius = new PhyParamFloat(node, "Radius(m)", 0.5, {}, (w, v)=>{
-            w.cnode_to_obj[node.id + "_f"].obj.m_shape.m_radius = v
+        this.radius = new PhyParamFloat(node, "Radius(m)", 0.5, { validate: (v)=>{ if (v !== null) assert(v >= 0, this, "Radius can't be negative")} }, (w, v)=>{
+            const fobj = w.cnode_to_obj[node.id + "_f"]
+            if (fobj !== undefined)
+                fobj.obj.m_shape.m_radius = v
         })
        
         this._sep1 = new ParamSeparator(node, "_sep1")
@@ -248,8 +232,12 @@ class NodeB2Body extends NodeCls
         this._sep2 = new ParamSeparator(node, "_sep2")
 
         this.density = new PhyParamFloat(node, "Density(kg)", 1, {min:0, max:10}, (w, v)=>{
-            w.cnode_to_obj[node.id + "_f"].obj.SetDensity(v)
-            w.cnode_to_obj[node.id].obj.ResetMassData() // to the body
+            const fobj = w.cnode_to_obj[node.id + "_f"]
+            if (fobj !== undefined)
+                fobj.obj.SetDensity(v)
+            const bobj = w.cnode_to_obj[node.id]
+            if (bobj !== undefined)
+                bobj.obj.ResetMassData() // to the body
         })
         this.restit = new PhyParamFloat(node, "Restitution", 0.1, {min:0, max:1}, "SetRestitution", "_f") // doesn't change existing contacts
         this.friction = new PhyParamFloat(node, "Friction", 0.1, {min:0, max:1}, "SetFriction", "_f")
@@ -481,6 +469,7 @@ function createWorld(def, gravity)
 {
     const w = new B2World()
     w.obj = new b2.World(new b2.Vec2(gravity[0], gravity[1]))
+    g_current_worlds.push(w) // for call_change on on_init to work
     let index_gen = 0
 
     for(let body of def.bodies)
@@ -504,7 +493,7 @@ function createWorld(def, gravity)
         }
 
         for(let pp of body.on_init_params)
-            pp.dyn_modify_obj(mb)
+            pp.call_change()
     }
 
     for(let joint of def.joints) {
@@ -540,6 +529,7 @@ class NodeB2Merge extends NodeCls
 
         const udef = new B2Def();
         for(let def of in_defs) {
+            assert(def !== null, this, "empty input")
             udef.bodies.push(...def.bodies)
             udef.joints.push(...def.joints)
         }
@@ -548,6 +538,7 @@ class NodeB2Merge extends NodeCls
 }
 
 // for online updates
+// this gets set and reset every draw with the currently drawn worlds, also on createWorld
 var g_current_worlds = []  
 function phy_reset_current_worlds() {
     g_current_worlds.length = 0
@@ -676,6 +667,8 @@ class CanvasDebugDraw extends b2.Draw
   
     DrawSolidCircle(center, radius, axis, color) {
       const ctx = this.ctx
+      if (radius < 0)
+        return
       if (ctx) {
         const cx = center.x;
         const cy = center.y;

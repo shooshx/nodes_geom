@@ -1062,8 +1062,18 @@ class Node {
     }
     reeval_all_exprs() {
         for(let p of this.parameters)
-            if (p.pis_visible())
+            if (p.pis_active())
                 p.reeval_all_exprs()
+    }
+
+    check_params_errors() {
+        for(let p of this.parameters)
+            if (p.pis_active())
+                if (p.get_last_error() !== null) {
+                    set_error(this.cls, "Parameter expression error")
+                    return false
+                }
+        return true
     }
 
     remove_param(prm) {

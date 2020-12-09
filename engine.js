@@ -391,6 +391,8 @@ function var_run_nodes_tree(n)
     const this_dirty = n.has_anything_dirty() || !n.has_cached_output()
     if (this_dirty) {
         collect_inputs(n, KIND_VARS) // vars input into this vars node
+        if (!n.check_params_errors())
+            throw { message: "Var Parameter error", node_cls:n.cls }
         n.cls.var_run()
     }
     //progress_io(n)
@@ -448,12 +450,15 @@ async function run_nodes_tree(n)
         }
         // clear outputs of what's just going to run to make sure it updated its output
         // otherwise it can have something there from a previous iteration (which will stay there in case of an error)
+        // shouldn't be before running the inputs since that causes error in animation loops
         if (n.cls.should_clear_out_before_run()) // disabled for NodeChangeFilter so that it won't create new versions when there's no change
             for(let out_t of n.outputs) {
                 out_t.clear()
             }
         if (!node_picking_lines) // a node that's picking lines, also does its own collect
             collect_inputs(n, KIND_OBJ)
+        if (!n.check_params_errors())
+            throw { message: "Parameter error", node_cls:n.cls }  // abort if there are any errors
         const r = n.cls.run()
         if (isPromise(r))
             await r
@@ -659,8 +664,14 @@ async function do_frame_draw(do_run, clear_all)
         return
 
     if (do_run || disp_obj === null) { // last-term: do_run will be false on select but if we don't have anything to display, we still need to run, do this only for the main display object and not for select or template
-        if (clear_all)
-            do_clear_all(program)
+        if (clear_all) {
+            try {
+                do_clear_all(program)
+            }
+            catch(e) { // can happen if some peval failed
+                return
+            }
+        }
         clear_inputs_errors(program)
         clear_nodes_status(program)
         // first run variable node on the tree and resolve variables on normal nodes since this affects dirtiness of nodes
@@ -680,15 +691,20 @@ async function do_frame_draw(do_run, clear_all)
         for(let node of run_root_nodes) // first mark all as dirty
             mark_dirty_tree(node)
         // run the dirty nodes
+        let disp_node_error = false
         for(let node of run_root_nodes) {
             try {
                 await run_nodes_tree(node)
             }
             catch(e) {
                 handle_node_exception(e)
+                if (node === program.display_node)
+                    disp_node_error = true
             }
         }
-        if (program.display_node !== null)
+        if (disp_node_error) // don't want to continue displaying something that came out of a node that had an error up in its chain
+            disp_obj = null
+        else if (program.display_node !== null)
             disp_obj = program.display_node.outputs[0].get_const() // in case it was null
     }
 
