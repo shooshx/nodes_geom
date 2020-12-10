@@ -31,6 +31,7 @@ class B2Fixture {
 
 class B2Body {
     constructor(cnode_id) {
+        this.name = null // for debugging
         this.def = null
         this.fixtures = []
         this.obj = null
@@ -70,7 +71,7 @@ class B2Def extends PObject
     ensure_world_cache() {
         if (this.p_draw_world_cache !== null)
             return
-        this.p_draw_world_cache = createWorld(this, [0,0]) // create world just for callding DebugDraw    
+        this.p_draw_world_cache = createWorld(this, [0,0], false) // create world just for callding DebugDraw    
     }
 
     draw_m(m, disp_values) {
@@ -122,7 +123,7 @@ class B2World extends PObject
 
         let flags = 0
         flags |= b2.DrawFlags.e_shapeBit
-        //flags |= b2.DrawFlags.e_jointBit
+        flags |= b2.DrawFlags.e_jointBit
         //flags |= b2.DrawFlags.e_controllerBit
         //flags |= b2.DrawFlags.e_pairBit // lines connecting bodies
         this.do_draw(flags, this.p_draw_debug)
@@ -251,6 +252,7 @@ class NodeB2Body extends NodeCls
     
     run() {
         const b = new B2Body(this.node.id)
+        b.name = this.node.name
         b.def = new b2.BodyDef()
         b.def.type = this.type.get_sel_val()
         b.def.position.Set(this.transform.translate[0], this.transform.translate[1])
@@ -393,7 +395,7 @@ function isSingleBody(def) {
 }
 
 
-
+const FREQUENCY_HZ_FOR_DAMPING = 1.0
 
 class NodeB2Joint extends NodeCls
 {
@@ -406,21 +408,63 @@ class NodeB2Joint extends NodeCls
         this.out = new OutTerminal(node, "b2_defs")
 
         this.type = new ParamSelect(node, "Type", 0, ["Revolute", "Distance", ],(sel_idx)=>{
+            this.anchor.set_visible(sel_idx === 0)
             this.enableMotor.set_visible(sel_idx === 0)
             this.motorSpeed.set_visible(sel_idx === 0)
+            this.maxTorque.set_visible(sel_idx === 0)
+
+            this.anchorA.set_visible(sel_idx === 1)
+            this.anchorB.set_visible(sel_idx === 1)
+            this.collideConnected.set_visible(sel_idx === 1)
+            this.damping.set_visible(sel_idx === 1)
         })
 
-        this.anchor = new ParamVec2(node, "Anchor", 0, 0)
+        // Revolute
+        this.anchor = new ParamVec2(node, "Anchor", 0, 0)  // can't change during sim
         this.enableMotor = new PhyParamBool(node, "Motor", false, "EnableMotor", (v)=>{
             this.motorSpeed.set_enable(v)
             this.maxTorque.set_enable(v)
         })
         this.motorSpeed = new PhyParamFloat(node, "Motor Speed(r/s)", 0.5, {min:-6, max:6}, "SetMotorSpeed")
         this.maxTorque = new PhyParamFloat(node, "Max Torque(N/m)", 10, {min:0, max:10}, "SetMaxMotorTorque")
+        this.anchor.dial = new PointDial((dx,dy)=>{ this.anchor.increment(vec2.fromValues(dx, dy)) })
 
-        this.anchor_dial = new PointDial((dx,dy)=>{
-            this.anchor.increment(vec2.fromValues(dx, dy))
+        // Distance
+        this.anchorA = new ParamVec2(node, "Anchor A", 0, 0) // relative to body center
+        this.anchorB = new ParamVec2(node, "Anchor B", 0, 0)
+        // if two objects are connected by more than one joint this bool needs to be the same on all or only the last one initialized will take
+        this.collideConnected = new PhyParamBool(node, "Collide Connected", false, (w, v)=>{
+            const obj = w.cnode_to_obj[node.id]
+            if (obj !== undefined)
+                obj.obj.m_collideConnected = v
         })
+        this.damping = new ParamFloat(node, "Damping", 0.2, {min:0, max:1})/*, (w, v)=>{
+            // for some reason online update of this doesn't seem to work right
+            const objA = w.cnode_to_obj[this.last_A_def.cnode_id]
+            const objB = w.cnode_to_obj[this.last_B_def.cnode_id]
+            const obj = w.cnode_to_obj[node.id]
+            if (objA === undefined || objB === undefined || obj === undefined)
+                return
+            const dummyDef = {}
+            b2.LinearStiffness(dummyDef, FREQUENCY_HZ_FOR_DAMPING, v, objA.obj, objA.obj)
+            obj.obj.SetStiffness(dummyDef.stiffness)
+            obj.obj.SetDamping(dummyDef.damping)
+        })*/
+        // TBD validator
+        this.len_tolerance = new ParamVec2(node, "Tolerance(m)", 0.1, 0.1) // not 2D, max allows lengthening and shortening
+
+        this.anchorA.dial = new PointDial((dx,dy)=>{ this.anchorA.increment(vec2.fromValues(dx, dy)) }, null, ()=>{
+            return [this.last_A_def.def.position.x, this.last_A_def.def.position.y]
+        })
+        this.anchorB.dial = new PointDial((dx,dy)=>{ this.anchorB.increment(vec2.fromValues(dx, dy)) }, null, ()=>{
+            return [this.last_B_def.def.position.x, this.last_B_def.def.position.y]
+        })
+
+        this.dialed_params = [this.anchor, this.anchorA, this.anchorB]
+
+        // the positions of the bodies in the last run, for placing the anchors that are relative
+        this.last_A_def = null  // b2.Vec2
+        this.last_B_def = null
     }
 
     run() {
@@ -433,16 +477,34 @@ class NodeB2Joint extends NodeCls
         const j = new B2Joint(this.node.id)
         j.body_refA = defsA.bodies[0]
         j.body_refB = defsB.bodies[0]
+        this.last_A_def = j.body_refA
+        this.last_B_def = j.body_refB
+
         if (this.type.sel_idx === 0) {
             j.def = new b2.RevoluteJointDef()
             j.init_call = (bodyA, bodyB)=>{
-                j.def.Initialize(bodyA, bodyB, new b2.Vec2(this.anchor.x, this.anchor.y))
+                j.def.Initialize(bodyA, bodyB, b2VecFromArr(this.anchor.get_value()))
             }
             j.def.motorSpeed = this.motorSpeed.get_value()
             j.def.enableMotor = this.enableMotor.get_value()
             j.def.maxMotorTorque = this.maxTorque.get_value()
         }
-        else 
+        else if (this.type.sel_idx === 1) {
+            j.def = new b2.DistanceJointDef()
+            j.def.collideConnected = this.collideConnected.get_value()
+            j.init_call = (bodyA, bodyB)=>{
+                const ancA_obj = b2VecFromArr(this.anchorA.get_value())
+                bodyA.GetWorldPoint(ancA_obj, ancA_obj)
+                const ancB_obj = b2VecFromArr(this.anchorB.get_value())
+                bodyB.GetWorldPoint(ancB_obj, ancB_obj)
+                j.def.Initialize(bodyA, bodyB, ancA_obj, ancB_obj)
+                b2.LinearStiffness(j.def, FREQUENCY_HZ_FOR_DAMPING, this.damping.get_value(), bodyA, bodyB)
+                const tol = this.len_tolerance.get_value()
+                j.def.minLength -= tol[0]
+                j.def.maxLength += tol[1]
+            }
+        }
+        else
             assert(false, this, "Unexpected type")
 
         const ret = new B2Def()
@@ -451,25 +513,37 @@ class NodeB2Joint extends NodeCls
         this.out.set(ret)
     }
 
+    dials_hidden() {
+        return g_current_worlds.length > 0
+    }
+
     draw_selection(m) {
-        if (this.anchor.pis_visible())
-            this.anchor_dial.draw(this.anchor.x, this.anchor.y, null, m)
+        if (this.dials_hidden())
+            return
+        for(let p of this.dialed_params)
+            if (p.pis_visible())
+                p.dial.draw(p.x, p.y, null, m)
     }
     image_find_obj(e) {
-        if (this.anchor.pis_visible()) {
-            const hit = this.anchor_dial.find_obj(e)
-            if (hit)
-                return hit
+        if (this.dials_hidden())
+            return null
+        for(let p of this.dialed_params) {
+            if (p.pis_visible()) {
+                const hit = p.dial.find_obj(e)
+                if (hit)
+                    return hit
+            }
         }
         return null
     }
 }
 
-function createWorld(def, gravity) 
+function createWorld(def, gravity, for_sim) 
 {
     const w = new B2World()
     w.obj = new b2.World(new b2.Vec2(gravity[0], gravity[1]))
-    g_current_worlds.push(w) // for call_change on on_init to work
+    if (for_sim)  // don't want to register if we're just creating it for drawing since that would make the dials disapper
+        g_current_worlds.push(w) // for call_change on on_init to work
     let index_gen = 0
 
     for(let body of def.bodies)
@@ -528,9 +602,15 @@ class NodeB2Merge extends NodeCls
         const in_defs = this.in_defs.get_input_consts()
 
         const udef = new B2Def();
+        const body_ids = new Set()
         for(let def of in_defs) {
             assert(def !== null, this, "empty input")
-            udef.bodies.push(...def.bodies)
+            for(let b of def.bodies)  { // the same body can arrive multiple times from different joints
+                if (body_ids.has(b.cnode_id))
+                    continue
+                udef.bodies.push(b)
+                body_ids.add(b.cnode_id)
+            }
             udef.joints.push(...def.joints)
         }
         this.out.set(udef)
@@ -564,7 +644,7 @@ class NodeB2Sim extends NodeCls
         assert(inobj !== null, this, "no input")
         let w = inobj
         if (inobj.constructor === B2Def) // first frame
-            w = createWorld(inobj, this.gravity.get_value())
+            w = createWorld(inobj, this.gravity.get_value(), true)
         else
             assert(inobj.constructor === B2World, this, "input not a defs or world")
 

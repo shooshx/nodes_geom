@@ -64,16 +64,22 @@ EXPRESSIONS
 - BUG: canvases overflowing
 - Box2D
     - joints
+        - revolute limits
     - template
-    - velocity for kinematic
-        expression
-    - change display shape with input geometry
+    - change display shape with input geometry/image
+    - bug? same body added from two joints
+    - body damping
     - disp-params
     - snap to middle point, edges, corner, edge-width
     - setLinearDamping, setAngularDamping
     - test several worlds running at the same time
     - pen
+    - copy
+    - sampled time step on startip
     - planet gravity? b2GravityController, boyancy?
+    - filtering?
+    - demo - bicycle doing a loop
+    - demo - double pendulum
 - Animation
     - engine - dirty controlled by selected input in pick_one
     - single step button - smaller panel

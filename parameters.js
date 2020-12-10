@@ -122,6 +122,7 @@ function fix_label_lengths(parameters) {
     let max_width = 0
     for(let p of parameters) {
         if (p.label_elem) {
+            // TBD doesn't deal with invisible parameters
             if (p.label_elem.scrollWidth > p.label_elem.offsetWidth) // it's bigger that the space for it
                 max_width = Math.max(max_width, p.label_elem.scrollWidth + 5)
             else if (p.label_elem.style.width !== '')  // we previosly set a width to it (needed for groups readding params)
@@ -1455,6 +1456,7 @@ class ParamVec2 extends CodeItemMixin(Parameter) {
         this.single_line = null
         this.item_x.peval_self()
         this.item_y.peval_self()
+        this.dial = null // set and used by the Node
 
         this.populate_code_ctx_menu(this.item_x.ctx_menu) // need to add only on one of them since it's added on the line
 
@@ -1983,15 +1985,22 @@ class ParamTransform extends Parameter {
 }
 
 class PointDial {
-    constructor(on_move, on_start_drag=null) {
+    constructor(on_move, on_start_drag=null, get_translate=null) {
         this.on_move = on_move
         this.on_start_drag = on_start_drag || ( ()=>{return null} )
         this.zc = null
+        // a callback to get an offset between the param coordinates and the world coordinates, used by physics joints
+        this.get_translate = get_translate 
     }
     draw(x, y, obj_t_mat, m) {
         if (obj_t_mat === null)
             obj_t_mat = mat3.create()
         this.obj_t_mat = obj_t_mat
+        if (this.get_translate !== null) {
+            const v = this.get_translate()
+            x += v[0]
+            y += v[1]
+        }
         let p = vec2.fromValues(x, y)
         vec2.transformMat3(p, p, obj_t_mat)
         vec2.transformMat3(p, p, m)
