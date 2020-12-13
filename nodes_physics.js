@@ -159,13 +159,13 @@ function b2VecFromArr(v) { return new b2.Vec2(v[0], v[1]) }
 function make_phy_caller(obj_func_name, node_id, change_func, adapter=null) {
     return function(v) {
         for(let w of g_current_worlds) {
-            if (typeof obj_func_name !== 'string') {
-                obj_func_name(w, v)  // it's actually a function override (for Density)
-                continue
-            }
             const obj = w.cnode_to_obj[node_id]
             if (obj === undefined)
                 continue
+            if (typeof obj_func_name !== 'string') {
+                obj_func_name(w, v, obj)  // it's actually a function override (for Density)
+                continue
+            }
             dassert(obj.obj[obj_func_name] !== undefined, "object missing function " + obj_func_name)
             if (adapter !== null)
                 v = adapter(v)            
@@ -181,6 +181,15 @@ class PhyParamFloat extends ParamFloat {
         super(node, label, start_v, conf, make_phy_caller(obj_func_name, node.id + id_suffix, null))
     }
 }
+class PhyParamFloatPositive extends PhyParamFloat {
+    constructor(node, label, start_v, conf, obj_func_name, id_suffix="") {
+        if (conf === null)
+            conf = {}
+        conf.validate = (v)=>{ if (v !== null) assert(v >= 0, node.cls, "Can't be negative")} 
+        super(node, label, start_v, conf, obj_func_name, id_suffix)
+    }
+}
+
 class PhyParamBool extends ParamBool {
     constructor(node, label, start_v, obj_func_name, change_func, id_suffix="") {
         super(node, label, start_v, make_phy_caller(obj_func_name, node.id + id_suffix, change_func))
@@ -220,7 +229,7 @@ class NodeB2Body extends NodeCls
             this.radius.set_visible(sel_idx === 1)
         })
         this.size = new ParamVec2(node, "Size(m)", 0.5, 0.5)
-        this.radius = new PhyParamFloat(node, "Radius(m)", 0.5, { validate: (v)=>{ if (v !== null) assert(v >= 0, this, "Radius can't be negative")} }, (w, v)=>{
+        this.radius = new PhyParamFloatPositive(node, "Radius(m)", 0.5, {min:0, max:1}, (w, v, bobj)=>{
             const fobj = w.cnode_to_obj[node.id + "_f"]
             if (fobj !== undefined)
                 fobj.obj.m_shape.m_radius = v
@@ -232,13 +241,11 @@ class NodeB2Body extends NodeCls
         this.kin_ang_velocity = new PhyParamFloat(node, "Angular V(r/s)", 0, {min:-90, max:90}, "SetAngularVelocity")
         this._sep2 = new ParamSeparator(node, "_sep2")
 
-        this.density = new PhyParamFloat(node, "Density(kg)", 1, {min:0, max:10}, (w, v)=>{
+        this.density = new PhyParamFloat(node, "Density(kg)", 1, {min:0, max:10}, (w, v, bobj)=>{
             const fobj = w.cnode_to_obj[node.id + "_f"]
             if (fobj !== undefined)
                 fobj.obj.SetDensity(v)
-            const bobj = w.cnode_to_obj[node.id]
-            if (bobj !== undefined)
-                bobj.obj.ResetMassData() // to the body
+            bobj.obj.ResetMassData() // to the body
         })
         this.restit = new PhyParamFloat(node, "Restitution", 0.1, {min:0, max:1}, "SetRestitution", "_f") // doesn't change existing contacts
         this.friction = new PhyParamFloat(node, "Friction", 0.1, {min:0, max:1}, "SetFriction", "_f")
@@ -419,7 +426,7 @@ class NodeB2Joint extends NodeCls
             this.damping.set_visible(sel_idx === 1)
         })
 
-        // Revolute
+        // ------- Revolute ---------
         this.anchor = new ParamVec2(node, "Anchor", 0, 0)  // can't change during sim
         this.enableMotor = new PhyParamBool(node, "Motor", false, "EnableMotor", (v)=>{
             this.motorSpeed.set_enable(v)
@@ -429,29 +436,30 @@ class NodeB2Joint extends NodeCls
         this.maxTorque = new PhyParamFloat(node, "Max Torque(N/m)", 10, {min:0, max:10}, "SetMaxMotorTorque")
         this.anchor.dial = new PointDial((dx,dy)=>{ this.anchor.increment(vec2.fromValues(dx, dy)) })
 
-        // Distance
+        // ------- Distance ---------
         this.anchorA = new ParamVec2(node, "Anchor A", 0, 0) // relative to body center
         this.anchorB = new ParamVec2(node, "Anchor B", 0, 0)
         // if two objects are connected by more than one joint this bool needs to be the same on all or only the last one initialized will take
-        this.collideConnected = new PhyParamBool(node, "Collide Connected", false, (w, v)=>{
-            const obj = w.cnode_to_obj[node.id]
-            if (obj !== undefined)
-                obj.obj.m_collideConnected = v
+        this.collideConnected = new PhyParamBool(node, "Collide Connected", false, (w, v, obj)=>{
+            obj.obj.m_collideConnected = v
         })
-        this.damping = new ParamFloat(node, "Damping", 0.2, {min:0, max:1})/*, (w, v)=>{
-            // for some reason online update of this doesn't seem to work right
+        this.damping = new PhyParamFloat(node, "Damping", 0.2, {min:0, max:1}, (w, v, obj)=>{
             const objA = w.cnode_to_obj[this.last_A_def.cnode_id]
             const objB = w.cnode_to_obj[this.last_B_def.cnode_id]
-            const obj = w.cnode_to_obj[node.id]
-            if (objA === undefined || objB === undefined || obj === undefined)
+            if (objA === undefined || objB === undefined)
                 return
             const dummyDef = {}
-            b2.LinearStiffness(dummyDef, FREQUENCY_HZ_FOR_DAMPING, v, objA.obj, objA.obj)
+            b2.LinearStiffness(dummyDef, FREQUENCY_HZ_FOR_DAMPING, v, objA.obj, objB.obj)
             obj.obj.SetStiffness(dummyDef.stiffness)
             obj.obj.SetDamping(dummyDef.damping)
-        })*/
+        })
         // TBD validator
-        this.len_tolerance = new ParamVec2(node, "Tolerance(m)", 0.1, 0.1) // not 2D, max allows lengthening and shortening
+        this.min_len = new PhyParamFloatPositive(node, "Min Length", 0.1, {min:0, max:2}, (w, v, obj)=>{
+            obj.obj.SetMinLength(obj.obj.GetLength() - v)
+        })
+        this.max_len = new PhyParamFloatPositive(node, "Max Length", 0.1, {min:0, max:2}, (w, v, obj)=>{
+            obj.obj.SetMaxLength(obj.obj.GetLength() + v)
+        })
 
         this.anchorA.dial = new PointDial((dx,dy)=>{ this.anchorA.increment(vec2.fromValues(dx, dy)) }, null, ()=>{
             return [this.last_A_def.def.position.x, this.last_A_def.def.position.y]
@@ -499,9 +507,8 @@ class NodeB2Joint extends NodeCls
                 bodyB.GetWorldPoint(ancB_obj, ancB_obj)
                 j.def.Initialize(bodyA, bodyB, ancA_obj, ancB_obj)
                 b2.LinearStiffness(j.def, FREQUENCY_HZ_FOR_DAMPING, this.damping.get_value(), bodyA, bodyB)
-                const tol = this.len_tolerance.get_value()
-                j.def.minLength -= tol[0]
-                j.def.maxLength += tol[1]
+                j.def.minLength -= this.min_len.get_value()
+                j.def.maxLength += this.max_len.get_value()
             }
         }
         else
@@ -567,7 +574,7 @@ function createWorld(def, gravity, for_sim)
         }
 
         for(let pp of body.on_init_params)
-            pp.call_change()
+            pp.call_change() // set config that needs the bodies 
     }
 
     for(let joint of def.joints) {

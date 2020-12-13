@@ -163,10 +163,12 @@ nodes:
       Damping:
         e_v: 0.2
         se_cv: return 0.2
-      Tolerance(m):
-        e_x: 0.1
-        e_y: 0.1
-        se_cv: 'return vec2(0.1, 0.1)'
+      Min Length:
+        e_v: 0.1
+        se_cv: return 0.1
+      Max Length:
+        e_v: 0.1
+        se_cv: return 0.1
     name: rot_joint
     cls_name: Physics Joint
     x: 73
@@ -224,7 +226,7 @@ nodes:
         e_y: 0.5
         se_cv: 'return vec2(0.5, 0.5)'
       Radius(m):
-        e_v: 0.279
+        e_v: 0.26
         se_cv: return 0.5
       Linear V(m/s):
         e_x: 0
@@ -341,7 +343,7 @@ nodes:
         e_y: 0.37000000000000005
         se_cv: 'return vec2(0.5, 0.5)'
       Radius(m):
-        e_v: 0.1596852394916911
+        e_v: 0.16000000000000003
         se_cv: return 0.5
       Linear V(m/s):
         e_x: 0
@@ -351,7 +353,7 @@ nodes:
         e_v: 0
         se_cv: return 0
       Density(kg):
-        e_v: 5.818
+        e_v: 3.373257232050837
         se_cv: return 1
       Restitution:
         e_v: 0.1
@@ -360,8 +362,8 @@ nodes:
         e_v: 0.1
         se_cv: return 0.1
       Transform:
-        e_tx: 0.3241348973607039
-        e_ty: 0.5635845552297166
+        e_tx: 0.32400000000000007
+        e_ty: 0.5640000000000001
         e_r: 0
         e_pvx: 0
         e_pvy: 0
@@ -390,8 +392,8 @@ nodes:
         e_v: 10
         se_cv: return 10
       Anchor A:
-        e_x: 0.14744437927663756
-        e_y: 0.0264787878787879
+        e_x: 0.14700000000000002
+        e_y: 0.026500000000000006
         se_cv: 'return vec2(0, 0)'
       Anchor B:
         se_x: '-0.135'
@@ -403,14 +405,16 @@ nodes:
       Damping:
         e_v: 0
         se_cv: return 0.2
-      Tolerance(m):
-        e_x: 0.1
-        e_y: 0.4
-        se_cv: 'return vec2(0.1, 0.1)'
+      Min Length:
+        e_v: 0.1
+        se_cv: return 0.1
+      Max Length:
+        e_v: 0.1
+        se_cv: return 0.1
     name: dist_joint_1
     cls_name: Physics Joint
-    x: 353
-    y: 141
+    x: 334
+    y: 155
     disp_param: {}
   '36':
     params:
@@ -422,7 +426,7 @@ nodes:
         se_cv: 'return vec2(0, 0)'
       Motor:
         v: false
-        se_v: '0'
+        e_v: 0
       Motor Speed(r/s):
         e_v: 0.5
         se_cv: return 0.5
@@ -430,23 +434,25 @@ nodes:
         e_v: 10
         se_cv: return 10
       Anchor A:
-        e_x: 0.6844572825024435
-        e_y: 0.01110361681329421
+        e_x: 0.6840000000000002
+        e_y: 0.011100000000000002
         se_cv: 'return vec2(0, 0)'
       Anchor B:
-        e_x: 0.12316715542521986
-        e_y: 0.023460410557184744
+        e_x: 0
+        e_y: 0
         se_cv: 'return vec2(0, 0)'
       Collide Connected:
         v: false
-        se_v: '0'
-      Damping:
         e_v: 0
+      Damping:
+        e_v: 0.7106631834648237
         se_cv: return 0.2
-      Tolerance(m):
-        e_x: 0.1
-        e_y: 0.4
-        se_cv: 'return vec2(0.1, 0.1)'
+      Min Length:
+        e_v: 0
+        se_cv: return 0.1
+      Max Length:
+        e_v: 0.43820438824566543
+        se_cv: return 0.1
     name: dist_j_2
     cls_name: Physics Joint
     x: 515
@@ -494,11 +500,6 @@ lines:
     to_id: 26
     uid: 28
   - from_name: b2_defs
-    from_id: 26
-    to_name: b2_in_defs
-    to_id: 2
-    uid: 29
-  - from_name: b2_defs
     from_id: 19
     to_name: b2_in_defs
     to_id: 2
@@ -541,6 +542,6 @@ display_node_id: 13
 tdisp_node_ids: []
 input_node_ids: []
 nodes_view:
-  pan_x: -111
-  pan_y: 104
+  pan_x: -113
+  pan_y: 22
 decor: []

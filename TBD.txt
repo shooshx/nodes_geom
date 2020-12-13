@@ -61,8 +61,10 @@ EXPRESSIONS
 - BUG: func node without show_code?
 - BUG: bool value warninig on load of anim_bouncing_blobs2.yaml
 - BUG: uniform parser get uniforms in comments
-- BUG: canvases overflowing
+- BUG: canvases overflowing from bottom
+
 - Box2D
+    - BUG: errors don't stop previous anim
     - joints
         - revolute limits
     - template
@@ -75,11 +77,19 @@ EXPRESSIONS
     - test several worlds running at the same time
     - pen
     - copy
+    - copy joint?
     - sampled time step on startip
     - planet gravity? b2GravityController, boyancy?
     - filtering?
+    - merge node - disable using checkboxes for each input
     - demo - bicycle doing a loop
     - demo - double pendulum
+    - demo? Newton cradle
+- multiple variables in variable node
+- Nodes view multi select
+- Nodes view zoom
+- Nodes view menu on the side fix
+- Nodes view copy-paste
 - Animation
     - engine - dirty controlled by selected input in pick_one
     - single step button - smaller panel

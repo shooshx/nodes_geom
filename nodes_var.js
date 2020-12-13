@@ -130,6 +130,9 @@ class VariablesBox extends PObject
         this.vb = {}
         this.empty = true
     }
+    draw() {}
+    draw_selection() {}
+    draw_template() {}
     
 }
 
@@ -173,85 +176,173 @@ class NodeVariable extends NodeCls
         node.width = 80
         node.nkind = KIND_VARS
         this.var_out = new VarOutTerminal(node, "variable_out")
-        // TBD show code
-        this.type = new ParamSelect(node, "Type", 0, ['Float', 'Integer', 'Float2', 'Float2-Mouse', 'Color', 'Bool'], (sel_idx)=>{ // TBD Transform, Function
-            this.expr_float.set_visible(sel_idx == 0)
-            this.expr_int.set_visible(sel_idx == 1)
-            this.expr_vec2.set_visible(sel_idx == 2)
-            this.expr_vec2_mouse.set_visible(sel_idx == 3)
-            this.mouseState.set_visible(sel_idx == 3)
-            this.expr_color.set_visible(sel_idx == 4)
-            this.expr_bool.set_visible(sel_idx == 5)
+
+        this.namer = new ParamObjStore(node, "<obj-store>", {gen_id:2, prms_lst:[1]}, ()=>{
+            for(let p of this.vars_prm)
+                for(let param of p.params)
+                    node.remove_param(param)
+            this.vars_prm.length = 0
+            const lst_copy = [...this.namer.v.prms_lst]
+            this.namer.v.prms_lst.length = 0 // going to repopulate it
+            for(let id of lst_copy)
+                this.add_variable(node, id)
+            this.v_group.update_elems()
+        })
+
+        this.v_group = new ParamGroup(node, "vars_params")
+
+        this.vars_prm = []
+        //const p = this.add_variable(node)
+        //this.vars_prm = [p]
+        this.add_prm_btn = new ParamButton(node, "[+]", ()=>{
+            this.add_variable(node)
+            this.v_group.update_elems()
+        }, ["param_btn", "param_var_add_btn"])
+
+        node.register_rename_observer((newname)=>{
+            if (this.vars_prm.length == 1)
+                this.vars_prm[0].name.modify(newname)
+        })
+    }
+
+    any_prm_need_input() {
+        for(let p of this.vars_prm)
+            if (p.type.sel_idx == 3)
+                return true
+        return false
+    }
+
+    add_variable(node, id = null)
+    {
+        if (id === null)
+            id = this.namer.v.gen_id++
+        const prefix = "p" + id + "_";
+        const p = {}
+        p.id = id
+        this.namer.v.prms_lst.push(id)
+        this.vars_prm.push(p)
+
+        p.type = new ParamSelect(node, ["Type", prefix], 0, ['Float', 'Integer', 'Float2', 'Float2-Mouse', 'Color', 'Bool'], (sel_idx)=>{ // TBD Transform, Function
+            p.expr_float.set_visible(sel_idx == 0)
+            p.expr_int.set_visible(sel_idx == 1)
+            p.expr_vec2.set_visible(sel_idx == 2)
+            p.expr_vec2_mouse.set_visible(sel_idx == 3)
+            p.mouseState.set_visible(sel_idx == 3)
+            p.expr_color.set_visible(sel_idx == 4)
+            p.expr_bool.set_visible(sel_idx == 5)
 
             const prev = node.can_input
-            node.can_input = sel_idx == 3
-            if (prev != node.can_input) {
+            // check if any param has input
+            node.can_input = this.any_prm_need_input()
+            if (prev != node.can_input) { // was changed?
                 draw_nodes()
                 if (!node.can_input && node.receives_input) { // just changed out of it, make sure it no longer receives input
                     program.set_input_node(node)
                 }
             }
-        }) 
-        this.name = new ParamStr(node, "Name", "var", (v)=>{
-            node.set_name(v)
-            draw_nodes()
         })
-        this.expr_float = new ParamFloat(node, "Float", 1.0, {min:0, max:2})
-        this.expr_int = new ParamInt(node, "Integer", 1, {min:0, max:10})
-        this.expr_vec2 = new ParamVec2(node, "Float2", 0, 0)
-        this.expr_color = new ParamColor(node, "Color", "#cccccc")
-        this.expr_vec2_mouse = new ParamVec2(node, "Mouse Coord", 0, 0) // want a different one since we don't want to mess with expr_vec2 being in code or not
-        this.expr_vec2_mouse.set_enable(false)  // user never edits it directly
-        this.expr_bool = new ParamBool(node, "Bool", false)
-        this.mouseState = new ParamSelect(node, "Sample At", 0, ["Mouse left down", "Mouse move"])
+        p.remove_btn = new ParamButton(node, ["[-]", prefix], ()=>{
+            const i = this.vars_prm.findIndex(function(lp) { return Object.is(lp, p) })
+            console.assert(i !== -1)
+            this.vars_prm.splice(i, 1)
+            const ni = this.namer.v.prms_lst.findIndex(function(lid) { return lid === p.id })
+            console.assert(ni !== -1)
+            this.namer.v.prms_lst.splice(i, 1)            
+            for(let pp of p.params)
+                node.remove_param(pp)
+            this.v_group.update_elems()
+        }, ["param_btn", "param_var_rm_btn"]) 
+        p.remove_btn.share_line_elem_from(p.type)
 
-        node.register_rename_observer((newname)=>{this.name.modify(newname)})
+        p.name = new ParamStr(node, ["Name", prefix], "var", (v)=>{
+            if (this.vars_prm.length == 1) { // with one var the name of the var is the name of the node
+                node.set_name(v)
+                draw_nodes()
+            }
+        })
+        p.expr_float = new ParamFloat(node, ["Float", prefix], 1.0, {min:0, max:2})
+        p.expr_int = new ParamInt(node, ["Integer", prefix], 1, {min:0, max:10})
+        p.expr_vec2 = new ParamVec2(node, ["Float2" ,prefix], 0, 0)
+        p.expr_color = new ParamColor(node, ["Color", prefix], "#cccccc")
+        p.expr_vec2_mouse = new ParamVec2(node, ["Mouse Coord", prefix], 0, 0) // want a different one since we don't want to mess with expr_vec2 being in code or not
+        p.expr_vec2_mouse.set_enable(false)  // user never edits it directly
+        p.expr_bool = new ParamBool(node, ["Bool", prefix], false)
+        p.mouseState = new ParamSelect(node, ["Sample At", prefix], 0, ["Mouse left down", "Mouse move"])
+        p.sep = new ParamSeparator(node, prefix + "sep", "param_sep_line")
 
-        this.vb = new VarBox()
+        // for easy removal
+        p.params = [p.type, p.remove_btn, p.name, p.expr_float, p.expr_int, p.expr_vec2, p.expr_color, p.expr_vec2_mouse, p.expr_bool, p.mouseState, p.sep]
+        for(let pp of p.params) {
+            pp.set_group(this.v_group)
+            pp.call_change()            
+        }
+
+        p.vb = new VarBox()
+
+        return p
     }
 
     var_run() {
-        assert(this.name.v.length > 0, this, "Name can't be empty")
         let vsb = new VariablesBox()
-        vsb.add(this.name.v, this.vb)
+        let name_set = new Set()
+        for(let p of this.vars_prm)
+        {
+            const name = p.name.v
+            assert(name.length > 0, this, "Name can't be empty")
+            assert(!name_set.has(name), this, "Name defined multiple times: " + name)
+            name_set.add(name)
+            vsb.add(name, p.vb)
 
-        switch(this.type.sel_idx) {
-        case 0: this.vb.vbset(this.expr_float.get_value(), TYPE_NUM); break;
-        case 1: this.vb.vbset(this.expr_int.get_value(), TYPE_NUM); break;
-        case 2: this.vb.vbset(this.expr_vec2.get_value(), TYPE_VEC2); break;
-        case 3: this.vb.vbset(this.expr_vec2_mouse.get_value(), TYPE_VEC2); break;
-        case 4: this.vb.vbset(color_to_uint8arr(this.expr_color.v), TYPE_VEC4); break;
-        case 5: this.vb.vbset(this.expr_bool.get_value(), TYPE_BOOL); break;
+            switch(p.type.sel_idx) {
+            case 0: p.vb.vbset(p.expr_float.get_value(), TYPE_NUM); break;
+            case 1: p.vb.vbset(p.expr_int.get_value(), TYPE_NUM); break;
+            case 2: p.vb.vbset(p.expr_vec2.get_value(), TYPE_VEC2); break;
+            case 3: p.vb.vbset(p.expr_vec2_mouse.get_value(), TYPE_VEC2); break;
+            case 4: p.vb.vbset(color_to_uint8arr(p.expr_color.v), TYPE_VEC4); break;
+            case 5: p.vb.vbset(p.expr_bool.get_value(), TYPE_BOOL); break;
+            }
         }
         this.var_out.set(vsb)
     }
 
     cclear_dirty() {  // c for cls
-        this.vb.vclear_dirty();
+        for(let p of this.vars_prm)
+            p.vb.vclear_dirty();
     }
 
-    move_action(e) {
+    move_action(e, p) {
         const cp = image_view.epnt_to_model(e.pageX, e.pageY)
-        this.expr_vec2_mouse.modify(cp)
+        p.expr_vec2_mouse.modify(cp)
     }
 
     inputevent(name, e) {
         if (name == "mousedown" || name == "mouseup") {
-            if (this.mouseState.sel_idx == 0 && e.button == 0)
-                return true // want to capture
+            if (e.button == 0) {
+                for(let p of this.vars_prm)
+                    if (p.mouseState.sel_idx == 0)
+                        return true // want to capture
+            }
             return false
         }
         if (name != "mousemove") 
             return false
+
+        let did_anything = false
+        const move_action = (e, p)=>{
+            const cp = image_view.epnt_to_model(e.pageX, e.pageY)
+            p.expr_vec2_mouse.modify(cp)
+            did_anything = true
+        }
+
         // push and drag can be used only if the press was captured in the image canvase. 
         //  Otherwise, capture from node canvas and drag to image canvas would also move it
-        if (this.mouseState.sel_idx == 0 && ((e.buttons & 1) != 0) && e.img_canvas_capture === true)
-            this.move_action(e)
-        else if (this.mouseState.sel_idx == 1)
-            this.move_action(e)
-        else
-            return false
-        return true
+        for(let p of this.vars_prm) {
+            if (p.mouseState.sel_idx == 0 && ((e.buttons & 1) != 0) && e.img_canvas_capture === true)
+                this.move_action(e, p)
+            else if (p.mouseState.sel_idx == 1)
+                this.move_action(e, p)
+        }
+        return did_anything
 
     }
 }

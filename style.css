@@ -203,6 +203,15 @@ input {
     margin: 8px 4px 4px 4px;
     border-style: none;    /* just space, no line */
 }
+.param_line_sep {
+    position: relative;
+}
+.param_sep_line {
+    margin: 8px 4px 4px 4px;
+    border-style: none; /* override the <hr> default */
+    border-bottom: 1px dotted #666;
+}
+
 .param_label_pre {
     width: 120px;
     display: inline-block;
@@ -542,7 +551,25 @@ input {
     background-image: linear-gradient(to bottom, #909090, #808080);  
 }
 .param_btn:active , .param_checkbox_input:checked+.param_btn {
-    background-image: linear-gradient(to bottom, #9090d0, #8080d0); 
+    background-image: linear-gradient(to bottom, #9090d0, #8080d0) !important; /* important makes it act on rm_btn */
+}
+
+.param_var_add_btn {
+    height: 30px;
+    min-width: 30px;
+    line-height: 30px;
+}
+.param_var_rm_btn {
+    height: 25px;
+    min-width: 0px;
+    line-height: 23px;
+    padding: 0 3px 0 3px;
+    position: absolute;
+    right: 2px; 
+    background-image: linear-gradient(to bottom, #aa8080, #aa7070);    
+}
+.param_var_rm_btn:hover {
+    background-image: linear-gradient(to bottom, #aa9090, #aa8080);  
 }
 /*.param_select {
 }*/

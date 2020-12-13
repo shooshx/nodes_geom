@@ -3,7 +3,14 @@
 class Parameter
 {
     constructor(node, label) {
-        this.label = label
+        if (typeof label === "string") {
+            this.label = label
+            this.label_display = label
+        }
+        else { // for cases we want the serialized label different from the text displayed
+            this.label = label[1] + label[0]
+            this.label_display = label[0] 
+        }
         this.label_elem = null  // use for changing the label 
         this.line_elem = null  // used for enable
         this.enable = true
@@ -23,7 +30,7 @@ class Parameter
         this.my_expr_items = []  // ExpressionItem objects in me
         this.shader_generated = false  // for knowing if to create proxies 
     }
-    set_label(text) {
+    set_label(text) { //never used
         this.label = text
         if (this.label_elem !== null) // can be null if we call this before displaying elements
             this.label_elem.innerText = text
@@ -100,8 +107,11 @@ class Parameter
         this.my_expr_items.push(expr)
     }
     resolve_variables(vars_box) { // each param that has expr_items implements this to its exprs
+        let any_changed = false
         for(let expr of this.my_expr_items)
-            expr.eresolve_variables(vars_box)
+            any_changed |= expr.eresolve_variables(vars_box)
+        if (any_changed)
+            this.call_change()
     }
     reeval_all_exprs() {
         for(let expr of this.my_expr_items)
@@ -475,13 +485,15 @@ function start_color_dropper(set_color)
 }
 
 class ParamSeparator extends Parameter {
-    constructor(node, label=null) {
+    constructor(node, label=null, cls="param_separator") {
         super(node, label)
+        this.cls = cls
     }
     save() { return null }
     load(v) {}
     add_elems(parent) {
-        add_elem(parent, "hr", "param_separator")
+        this.line_elem = add_param_line(parent, this, "param_line_sep")  // don't want the min-height
+        add_elem(this.line_elem, "hr", this.cls)
     }
 }
 
@@ -521,8 +533,8 @@ class ParamStr extends Parameter {
     save() { return {v:this.v}}
     load(v) { this.v = v.v }
     add_elems(parent) {
-        this.line_elem = add_param_line(parent)
-        this.label_elem = add_param_label(this.line_elem, this.label)
+        this.line_elem = add_param_line(parent, this)
+        this.label_elem = add_param_label(this.line_elem, this.label_display)
         this.elem = add_param_edit(this.line_elem, this.v, ED_STR, (v)=>{ 
             this.v = v; 
             this.call_change()
@@ -635,7 +647,7 @@ class ParamBool extends Parameter {
     }
     add_elems(parent) {
         this.line_elem = add_param_multiline(parent, this)
-        this.checkbox_line = add_param_line(this.line_elem, this)
+        this.checkbox_line = add_param_line(this.line_elem) // don't pass this since it's in the line_elem
         elem_set_visible(this.checkbox_line, !this.opt.expr_visible)
 
         let label_cls_add = null
@@ -657,9 +669,9 @@ class ParamBool extends Parameter {
 
         // ----- expr elements ------
         if (this.opt.allow_expr) {
-            this.expr_line = add_param_line(this.line_elem, this)
+            this.expr_line = add_param_line(this.line_elem) // don't pass this since it's in the line_elem
             elem_set_visible(this.expr_line, this.opt.expr_visible)        
-            add_param_label(this.expr_line, this.label)
+            add_param_label(this.expr_line, this.label_display)
             const code_elem = this.item.add_editbox(this.expr_line, true)
 
             this.ctx_menu.add_context_menu(this.line_elem)
@@ -1168,16 +1180,17 @@ class ExpressionItem {
             ExprParser.clear_types_cache(this.e) // some variable change, it's possible we need to change the type of everything
             this.do_check_type(true)
 
+            let did_change = false
             // similar to what is done at the end of peval
             if ((this.expr_score & EXPR_NEED_INPUT) != 0) {
                 this.do_set_prop(null) // it's dynamic so best if it doesn't have a proper value from before
-                this.in_param.pset_dirty()
+                did_change = this.in_param.pset_dirty()
             }
             else {
                 if (this.do_set_prop(ExprParser.do_eval(this.e), false)) // don't do slider-update since we know the it's non-const expr and slider need to remain transparent
-                    this.in_param.pset_dirty()
+                    did_change = this.in_param.pset_dirty()
             }
-            this.in_param.call_change()
+            return did_change
         }
         catch(ex) {
             this.eset_error(ex)
@@ -1259,9 +1272,9 @@ let CodeItemMixin = (superclass) => class extends superclass {
     add_code_elem() {
         if (!this.allowed_code)
             return
-        this.code_line = add_param_line(this.line_elem, this)
+        this.code_line = add_param_line(this.line_elem)  // don't pass this since it's in the line_elem
         elem_set_visible(this.code_line, this.show_code)
-        add_param_label(this.code_line, this.label)
+        add_param_label(this.code_line, this.label_display)
         const code_elem = this.code_item.add_editbox(this.code_line, true)
     }
 
@@ -1369,9 +1382,9 @@ class ParamBaseExpr extends CodeItemMixin(Parameter)
     add_elems(parent) {
         this.line_elem = add_param_multiline(parent, this)
 
-        this.single_line = add_param_line(this.line_elem, this)
+        this.single_line = add_param_line(this.line_elem) // don't pass this here since we passed it for line_elem
         elem_set_visible(this.single_line, !this.show_code)
-        this.label_elem = add_param_label(this.single_line, this.label)
+        this.label_elem = add_param_label(this.single_line, this.label_display)
         const single_elem = this.item.add_editbox(this.single_line, true)
 
         if (this.is_sharing_line_elem() && this.allowed_code) //  if it's sharing a line, clearly it wasn't meant to be code
@@ -1506,9 +1519,9 @@ class ParamVec2 extends CodeItemMixin(Parameter) {
     add_elems(parent) {
         this.line_elem = add_param_multiline(parent, this)
 
-        this.single_line = add_param_line(this.line_elem, this)
+        this.single_line = add_param_line(this.line_elem)  // don't pass this since it's in the line_elem
         elem_set_visible(this.single_line, !this.show_code)
-        this.label_elem = add_param_label(this.single_line, this.label)
+        this.label_elem = add_param_label(this.single_line, this.label_display)
         this.item_x.add_editbox(this.single_line)
         this.item_y.add_editbox(this.single_line)
         this.shared_line_elem = this.single_line
@@ -1586,7 +1599,7 @@ class ParamVec2Int extends Parameter {
     load(v) { this.x=v.x; this.y=v.y }
     add_elems(parent) {
         this.line_elem = add_param_line(parent, this)
-        this.label_elem = add_param_label(this.line_elem, this.label)
+        this.label_elem = add_param_label(this.line_elem, this.label_display)
         this.elem_x = add_param_edit(this.line_elem, this.x, ED_INT, (v) => { this.x = parseInt(v); this.pset_dirty() }) // NOTE with expr v can be null!
         this.elem_y = add_param_edit(this.line_elem, this.y, ED_INT, (v) => { this.y = parseInt(v); this.pset_dirty() })
     }
@@ -1698,10 +1711,10 @@ class ParamColor extends CodeItemMixin(Parameter)
     add_elems(parent) {
         this.line_elem = add_param_multiline(parent, this)
 
-        this.single_line = add_param_line(this.line_elem, this);
+        this.single_line = add_param_line(this.line_elem);  // don't pass this since it's in the line_elem
         elem_set_visible(this.single_line, !this.show_code)
 
-        this.label_elem = add_param_label(this.single_line, this.label)
+        this.label_elem = add_param_label(this.single_line, this.label_display)
         let [iv, elem, picker] = add_param_color(this.single_line, this.picker_v, 'param_input', (v)=>{ 
             if (this.v !== null && this.v.hex == v.hex) 
                 return;
@@ -2541,12 +2554,12 @@ class ParamTable extends Parameter {
         this.line_elem = add_param_block(parent)
         if (this.with_index_column) {
             // if we have and index column add a standard label that will be flush with the index column
-            add_param_label(this.line_elem, this.label)
+            add_param_label(this.line_elem, this.label_display)
         }
         else {
             // otherwise, add a title that will be left aligned
             this.label_elem = add_div(this.line_elem, "param_list_title")
-            this.label_elem.innerText = this.label + ":"
+            this.label_elem.innerText = this.label_display + ":"
         }
         this.table_elem = add_div(this.line_elem, "param_list_body")
 
@@ -2886,7 +2899,7 @@ class ParamTextBlock extends Parameter
 
     add_elems(parent) {
         this.line_elem = add_param_line(parent, this)
-        this.label_elem = add_param_label(this.line_elem, this.label)
+        this.label_elem = add_param_label(this.line_elem, this.label_display)
 
         this.editor = new Editor(this.line_elem, this.v, (v)=>{
             this.v = v
@@ -2938,7 +2951,7 @@ class ParamSelect extends Parameter
     }
     add_elems(parent) {
         this.line_elem = add_param_line(parent, this)
-        this.label_elem = add_param_label(this.line_elem, this.label)
+        this.label_elem = add_param_label(this.line_elem, this.label_display)
         add_combobox(this.line_elem, this.opts, this.sel_idx, (v)=>{ 
             this.sel_idx = v; 
             this.call_change()
@@ -3062,7 +3075,7 @@ class ParamFileUpload extends Parameter
     }
     add_elems(parent) {
         this.line_elem = add_param_line(parent)
-        this.label_elem = add_param_label(this.line_elem, this.label)
+        this.label_elem = add_param_label(this.line_elem, this.label_display)
         add_upload_btn(this.line_elem, ["param_btn", "param_file_choose_btn"], "Choose File...", (in_file)=>{ 
             this.file = in_file
             filename_show.textContent = this.file.name 
@@ -3201,9 +3214,10 @@ class ParamImageUpload extends ParamFileUpload
 // not really a parameter that holds a value. it's a button that shows in the parameters panel
 class ParamButton extends Parameter 
 {
-    constructor(node, label, onclick) {
+    constructor(node, label, onclick, cls=null) {
         super(node, label)
         this.onclick = onclick
+        this.cls = cls
     }
     save() { return null }
     load(v) { }
@@ -3211,7 +3225,7 @@ class ParamButton extends Parameter
         this.line_elem = add_param_line(parent, this)
         if (!this.is_sharing_line_elem()) 
             add_param_label(this.line_elem, null)  // empty space
-        add_push_btn(this.line_elem, this.label, this.onclick)
+        add_push_btn(this.line_elem, this.label_display, this.onclick, this.cls)
     }
 }
 

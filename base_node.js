@@ -1054,7 +1054,7 @@ class Node {
         this.cls.cclear_dirty()
     }
     
-    // from Node
+    // from Node ctor
     call_params_change() {
         for(let p of this.parameters)
             if (p.call_change)
@@ -1109,6 +1109,7 @@ class NodeCls {
     constructor(node) {
         this.error = null
         this.node = node
+        node.cls = this // parameters in the initialization may need it
         // any node can have a variables in
         this.vars_in = new VarsInTerminal(node, "vars_in")
     }
