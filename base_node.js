@@ -13,18 +13,19 @@ const TEMPLATE_LINE_COLOR = "#de77f1"
 
 
 // https://github.com/gdenisov/cardinal-spline-js/blob/master/curve_func.min.js
-function curve(d,j,u,g,c){u=(typeof u==="number")?u:0.5;g=g?g:25;var k,e=1,f=j.length,o=0,n=(f-2)*g+2+(c?2*g:0),m=new Float32Array(n),a=new Float32Array((g+2)*4),b=4;k=j.slice(0);if(c){k.unshift(j[f-1]);k.unshift(j[f-2]);k.push(j[0],j[1])}else{k.unshift(j[1]);k.unshift(j[0]);k.push(j[f-2],j[f-1])}a[0]=1;for(;e<g;e++){var p=e/g,q=p*p,s=q*p,r=s*2,t=q*3;a[b++]=r-t+1;a[b++]=t-r;a[b++]=s-2*q+p;a[b++]=s-q}a[++b]=1;h(k,a,f);if(c){k=[];k.push(j[f-4],j[f-3],j[f-2],j[f-1]);k.push(j[0],j[1],j[2],j[3]);h(k,a,4)}function h(H,A,C){for(var B=2,I;B<C;B+=2){var D=H[B],E=H[B+1],F=H[B+2],G=H[B+3],J=(F-H[B-2])*u,K=(G-H[B-1])*u,L=(H[B+4]-D)*u,M=(H[B+5]-E)*u;for(I=0;I<g;I++){var v=I<<2,w=A[v],x=A[v+1],y=A[v+2],z=A[v+3];m[o++]=w*D+x*F+y*J+z*L;m[o++]=w*E+x*G+y*K+z*M}}}f=c?0:j.length-2;m[o++]=j[f];m[o]=j[f+1];for(e=0,f=m.length;e<f;e+=2){d.lineTo(m[e],m[e+1])}return m}
+//function curve(d,j,u,g,c){u=(typeof u==="number")?u:0.5;g=g?g:25;var k,e=1,f=j.length,o=0,n=(f-2)*g+2+(c?2*g:0),m=new Float32Array(n),a=new Float32Array((g+2)*4),b=4;k=j.slice(0);if(c){k.unshift(j[f-1]);k.unshift(j[f-2]);k.push(j[0],j[1])}else{k.unshift(j[1]);k.unshift(j[0]);k.push(j[f-2],j[f-1])}a[0]=1;for(;e<g;e++){var p=e/g,q=p*p,s=q*p,r=s*2,t=q*3;a[b++]=r-t+1;a[b++]=t-r;a[b++]=s-2*q+p;a[b++]=s-q}a[++b]=1;h(k,a,f);if(c){k=[];k.push(j[f-4],j[f-3],j[f-2],j[f-1]);k.push(j[0],j[1],j[2],j[3]);h(k,a,4)}function h(H,A,C){for(var B=2,I;B<C;B+=2){var D=H[B],E=H[B+1],F=H[B+2],G=H[B+3],J=(F-H[B-2])*u,K=(G-H[B-1])*u,L=(H[B+4]-D)*u,M=(H[B+5]-E)*u;for(I=0;I<g;I++){var v=I<<2,w=A[v],x=A[v+1],y=A[v+2],z=A[v+3];m[o++]=w*D+x*F+y*J+z*L;m[o++]=w*E+x*G+y*K+z*M}}}f=c?0:j.length-2;m[o++]=j[f];m[o]=j[f+1];for(e=0,f=m.length;e<f;e+=2){d.lineTo(m[e],m[e+1])}return m}
 // maybe better: https://github.com/Raymond-C/CubicHermite
 
-
+/*
 function connector_line_s(fx, fy, tx, ty) { // from, to
     ctx_nodes.beginPath()
-    ctx_nodes.moveTo(fx + nodes_view.pan_x, fy + nodes_view.pan_y)
-    ctx_nodes.lineTo(tx + nodes_view.pan_x, ty + nodes_view.pan_y)
+    ctx_nodes.moveTo(fx, fy)
+    ctx_nodes.lineTo(tx, ty)
     ctx_nodes.strokeStyle = "#000"
     ctx_nodes.lineWidth = 2
     ctx_nodes.stroke()    
 }
+*/
 
 function draw_curve(ctx, cpnts) {
     ctx.moveTo(cpnts[0], cpnts[1])
@@ -35,8 +36,6 @@ function draw_curve(ctx, cpnts) {
 const LINE_ARROW = {out:7, back:14}
 
 function connector_line(fx, fy, fxoffset, tx, ty, txoffset, free, uid, kind) { // from, to
-    fx += nodes_view.pan_x, tx += nodes_view.pan_x
-    fy += nodes_view.pan_y, ty += nodes_view.pan_y
     let dy = ty - fy, dx = tx - fx
     let cpnts;
     if (ty - 2*TERM_RADIUS -5 > fy || Math.sqrt(dx*dx+dy*dy) < 70 || free || kind == KIND_VARS) {// going down or very short        
@@ -58,6 +57,7 @@ function connector_line(fx, fy, fxoffset, tx, ty, txoffset, free, uid, kind) { /
         
     }
 
+    nodes_draw_start()
     ctx_nodes.beginPath()
     draw_curve(ctx_nodes, cpnts)
 
@@ -93,6 +93,8 @@ function connector_line(fx, fy, fxoffset, tx, ty, txoffset, free, uid, kind) { /
         ctx_nd_shadow.strokeStyle = color_from_uid(uid)
         ctx_nd_shadow.stroke()
     }
+
+    nodes_draw_end()
 }
 
 function zero_pad_hex2(n) {
@@ -200,8 +202,8 @@ class TerminalBase {
             this.connection_event(false) // initialized disconnected, later load may connect or not
     }
 
-    px() { return this.owner.x + this.xoffset + nodes_view.pan_x }
-    py() { return this.owner.y + this.yoffset + nodes_view.pan_y }
+    px() { return this.owner.x + this.xoffset }
+    py() { return this.owner.y + this.yoffset }
     center_x() { return this.owner.x + this.xoffset }
     center_y() { return this.owner.y + this.yoffset }
     center_offset() { return this.xoffset }
@@ -295,11 +297,11 @@ class TerminalBase {
     hover(wx, wy) {
         hover_box.innerHTML = this.name
         hover_box.style.display = "initial"
-        hover_box.style.left = nodes_view.rect.left + nodes_view.pan_x + this.center_x() + "px"
+        hover_box.style.left = nodes_view.rect.left + (nodes_view.pan_x + this.center_x())*nodes_view.zoom + "px"
         let y_offset = 0
         if (this.is_input)
             y_offset = -30;
-        hover_box.style.top = nodes_view.rect.top + nodes_view.pan_y + this.center_y() + y_offset + "px"
+        hover_box.style.top = nodes_view.rect.top + (nodes_view.pan_y + this.center_y())*nodes_view.zoom + y_offset + "px"
     }
     
 }
@@ -873,12 +875,13 @@ class Node {
       //  }        
     }
     
-    px() {  // panned
-        return this.x + nodes_view.pan_x
+    px() { 
+        return this.x
     }
     py() {
-        return this.y + nodes_view.pan_y
+        return this.y
     }
+
     namex() {
         return this.px() + this.width + this.name_xmargin + NODE_NAME_PROPS.margin_left
     }
@@ -1202,8 +1205,8 @@ class NV_TextNote
         this.text = v
         this.lines = this.text.split('\n');
     }
-    px() { return this.x + nodes_view.pan_x }
-    py() { return this.y + nodes_view.pan_y }    
+    px() { return this.x }
+    py() { return this.y } 
     draw() {
         const px = this.px(), py = this.py()
         ctx_nodes.font = this.font_size + "px Verdana"
@@ -1263,8 +1266,8 @@ class NV_TextNote
         // move button
         const move_elem = add_div(button_cont, ["nodes_text_button","nodes_text_move_grip"])
         add_move_handlers(move_elem, (dx, dy)=>{
-            this.x += dx
-            this.y += dy
+            this.x += dx/nodes_view.zoom
+            this.y += dy/nodes_view.zoom
             draw_nodes()
             ti.move_to(this.px(), this.py())
         }, (ex, ey, e)=> {
@@ -1285,6 +1288,7 @@ class NV_TextNote
         }
         myAddEventListener(color_elem, "mousedown", e_stopProp)
         myAddEventListener(picker.elem, "mousedown", e_stopProp)
+        
 
         // font-size buttons        
         const font_sizes = [11,12,13,14,16,18,20,24,30,36,48,60,72]
@@ -1435,6 +1439,7 @@ function nodes_context_menu(e) {
             }
         }
         opt.push({text:"-"}, {text:"Text Note", func:()=>{ program.nodes_add_decor(new NV_TextNote(e.vx, e.vy, "text")); draw_nodes() }})
+        opt.push({text:"Reset view", func:function() { nodes_view.reset_view() }})
     }
     
     nodes_view.last_ctx_menu = open_context_menu(opt, e.ex, e.ey, main_view, ()=>{nodes_view.dismiss_ctx_menu()})    
@@ -1458,6 +1463,25 @@ function nodes_hover(e) {
 
 const NODES_GRID_SIZE = 50
 
+let g_draw_nodes_rec = 0 // draw_connection is called from draw_nodes and from outside as well
+function nodes_draw_start() {
+    ++g_draw_nodes_rec;
+    if (g_draw_nodes_rec != 1)
+        return
+    ctx_nodes.save()
+    const z = nodes_view.zoom
+    ctx_nodes.transform(z, 0, 0, z, nodes_view.pan_x*z, nodes_view.pan_y*z)
+    ctx_nd_shadow.save()
+    ctx_nd_shadow.transform(z, 0, 0, z, nodes_view.pan_x*z, nodes_view.pan_y*z)
+}
+
+function nodes_draw_end() {
+    --g_draw_nodes_rec;
+    if (g_draw_nodes_rec != 0)
+        return
+    ctx_nodes.restore()
+    ctx_nd_shadow.restore()
+}
 
 function draw_nodes()
 {   
@@ -1470,18 +1494,21 @@ function draw_nodes()
     ctx_nd_shadow.fillStyle = "#000"
     ctx_nd_shadow.fillRect(0, 0, canvas_nd_shadow.width, canvas_nd_shadow.height)
     
+    nodes_draw_start()
+
     const left = -nodes_view.pan_x, top = -nodes_view.pan_y
-    const right = canvas_nodes.width - nodes_view.pan_x, bottom = canvas_nodes.height - nodes_view.pan_y
-    
+    const right = canvas_nodes.width / nodes_view.zoom - nodes_view.pan_x
+    const bottom = canvas_nodes.height / nodes_view.zoom - nodes_view.pan_y
+
     // grid
     ctx_nodes.beginPath();
     for(let x = round_to(left, NODES_GRID_SIZE); x < right; x += NODES_GRID_SIZE) {
-        ctx_nodes.moveTo(x + nodes_view.pan_x, top + nodes_view.pan_y)
-        ctx_nodes.lineTo(x + nodes_view.pan_x, bottom + nodes_view.pan_y)
+        ctx_nodes.moveTo(x, top)
+        ctx_nodes.lineTo(x, bottom)
     }
     for(let y = round_to(top, NODES_GRID_SIZE); y < bottom; y += NODES_GRID_SIZE) {
-        ctx_nodes.moveTo(left + nodes_view.pan_x, y + nodes_view.pan_y)
-        ctx_nodes.lineTo(right + nodes_view.pan_x, y + nodes_view.pan_y)
+        ctx_nodes.moveTo(left, y)
+        ctx_nodes.lineTo(right, y)
     }    
     ctx_nodes.strokeStyle = "#444"
     ctx_nodes.stroke()
@@ -1503,8 +1530,10 @@ function draw_nodes()
         n.draw_shadow()        
     }   
     for(let n of program.nodes) {
-        n.draw_shadow();
+        n.draw_shadow()
     }
+
+    nodes_draw_end()
 }
 
 

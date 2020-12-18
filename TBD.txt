@@ -2,7 +2,6 @@ GUI:
 - parameter value change with drag and right button like in houdini
 - color picker with null?
 - select *nodes* with Ctrl, rectangle (display params of multiple nodes at once?)
-- zoom nodes view
 - icons nodes view
 - node show node name class if name doesn't include it
 - progress bar for long run, abort button
@@ -69,8 +68,7 @@ EXPRESSIONS
         - revolute limits
     - template
     - change display shape with input geometry/image
-    - bug? same body added from two joints
-    - body damping
+        - setTransform to mesh
     - disp-params
     - snap to middle point, edges, corner, edge-width
     - setLinearDamping, setAngularDamping
@@ -85,9 +83,7 @@ EXPRESSIONS
     - demo - bicycle doing a loop
     - demo - double pendulum
     - demo? Newton cradle
-- multiple variables in variable node
 - Nodes view multi select
-- Nodes view zoom
 - Nodes view menu on the side fix
 - Nodes view copy-paste
 - Animation

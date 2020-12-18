@@ -1338,12 +1338,12 @@ let CodeItemMixin = (superclass) => class extends superclass {
 // used by single-value params that have expression and code ability
 class ParamBaseExpr extends CodeItemMixin(Parameter)
 {
-    constructor(node, label, start_v, ed_type, conf, change_func=null) {
+    constructor(node, label, start_v, ed_type, conf=null, change_func=null) {
         super(node, label, conf)
         dassert(start_v !== undefined, "start value should not be undefined");
         //this.v = start_v  // numerical value in case of const
         let set_prop_neg, set_prop_pos
-        if (conf.validate === undefined) {
+        if (conf === null || conf.validate === undefined) {
             set_prop_neg = (v)=>{ if (!this.show_code) this.v = v }
             set_prop_pos = (v)=>{ if (this.show_code) this.v = v }
         }

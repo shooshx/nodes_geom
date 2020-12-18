@@ -86,16 +86,18 @@ class ViewBase
     }
 
     view_x(pageX) {
-        return pageX - this.rect.left - this.pan_x
+        return (pageX - this.rect.left)/this.zoom - this.pan_x
     }
     view_y(pageY) {
-        return pageY - this.rect.top - this.pan_y
+        return (pageY - this.rect.top)/this.zoom - this.pan_y
     }
     save() {
-        return { pan_x:this.pan_x, pan_y:this.pan_y }
+        return { pan_x:this.pan_x, pan_y:this.pan_y, zoom:this.zoom }
     }
     load(s) {
-        this.pan_x = parseInt(s.pan_x); this.pan_y = parseInt(s.pan_y)
+        this.pan_x = (s.pan_x === undefined || s.pan_x === null) ? 0 : parseInt(s.pan_x)
+        this.pan_y = (s.pan_y === undefined || s.pan_y === null) ? 0 : parseInt(s.pan_y)
+        this.zoom =  (s.zoom === undefined  || s.zoom === null) ? 1 : parseFloat(s.zoom)
     }
 
     dismiss_ctx_menu() {
@@ -108,6 +110,12 @@ class ViewBase
     nodes_inputevent(name, e) {
     }
 
+    reset_view() {
+        this.pan_x = 0
+        this.pan_y = 0
+        this.zoom = 1
+        this.pan_redraw()
+    }
 }
 
 class NodesView extends ViewBase
@@ -149,13 +157,6 @@ class ImageView extends ViewBase
         // used for centering the viewport
         this.margin_x = 0
         this.margin_y = 0
-    }
-
-    reset_view() {
-        this.pan_x = 0
-        this.pan_y = 0
-        this.zoom = 1
-        this.pan_redraw()
     }
 
     pan_redraw() {
@@ -338,7 +339,7 @@ function panel_mouse_control(view, canvas)
             let cvs_x = e.pageX - view.rect.left, cvs_y = e.pageY - view.rect.top
             const ev = {vx:view.view_x(e.pageX), vy:view.view_y(e.pageY), ex:e.pageX, ey:e.pageY, cvs_x:cvs_x, cvs_y:cvs_y,
                         shiftKey: e.shiftKey, ctrlKey:e.ctrlKey}
-            hit.mousemove(dx, dy, ev)
+            hit.mousemove(dx / view.zoom, dy / view.zoom, ev)
         }
         
         if (view.hover !== undefined) {
@@ -367,7 +368,10 @@ function panel_mouse_control(view, canvas)
         view.dismiss_popups()
     })
 
-
+    myAddEventListener(document, 'mousewheel', function(e) { // don't keep boxes one while zooming
+        view.dismiss_ctx_menu()
+        view.dismiss_popups()
+    })
 }
 
 function is_mousemovable(hit) {
@@ -516,10 +520,11 @@ function nodes_dismiss_text_input() {
     }
 }
 function pop_nodes_text_input(x, y, startv, func, opt) {
+    // TBD a better way to do it is to hide the text area altogether instead oftrying to align it to the canvas text
     nodes_dismiss_text_input()
     const multi = opt && opt.multiline
     const elem = add_div(main_view, "node_name_edit")
-    let input, yoffset
+    let input, yoffset = 0
     if (!multi) {
         input = add_elem(elem, "input", "node_name_input")
         input.setAttribute("type", "text")
@@ -529,10 +534,15 @@ function pop_nodes_text_input(x, y, startv, func, opt) {
         input = add_elem(elem, "textarea", ["node_name_input", "node_text_area"])
         yoffset = (opt.yoffset !== undefined) ? opt.yoffset : 6  // depends on font size
     }
+    if (nodes_view.zoom !== 1.0) {
+        // make the scale move the box to the right and not to both ways
+        input.style.transform = "translate(-50%,-50%) scale(" + nodes_view.zoom + ") translate(50%,50%)"
+    }
+    yoffset *= nodes_view.zoom
     input.setAttribute("spellcheck", false)
     const move_to = (to_x, to_y)=>{
-        elem.style.left = (to_x + nodes_view.rect.left) + "px"
-        elem.style.top = (to_y + nodes_view.rect.top - yoffset) + "px"
+        elem.style.left = ((to_x + nodes_view.pan_x)*nodes_view.zoom + nodes_view.rect.left) + "px"
+        elem.style.top = ((to_y + nodes_view.pan_y)*nodes_view.zoom + nodes_view.rect.top - yoffset) + "px"
     }
     move_to(x, y)
     input.value = startv

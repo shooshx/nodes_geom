@@ -108,6 +108,7 @@ function page_onload()
     panel_mouse_control(nodes_view, canvas_nodes, "_nodes")
     panel_mouse_control(image_view, canvas_image, "_image")
     panel_mouse_wheel(image_view, canvas_image)
+    panel_mouse_wheel(nodes_view, canvas_nodes)
     setup_key_bindings()
 
     image_view.resize_redraw()
