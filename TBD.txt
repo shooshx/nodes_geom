@@ -61,7 +61,6 @@ EXPRESSIONS
 - BUG: bool value warninig on load of anim_bouncing_blobs2.yaml
 - BUG: uniform parser get uniforms in comments
 - BUG: canvases overflowing from bottom
-
 - Box2D
     - BUG: errors don't stop previous anim
     - joints
@@ -84,7 +83,6 @@ EXPRESSIONS
     - demo - double pendulum
     - demo? Newton cradle
 - Nodes view multi select
-- Nodes view menu on the side fix
 - Nodes view copy-paste
 - Animation
     - engine - dirty controlled by selected input in pick_one

@@ -440,7 +440,7 @@ function addTextChild(elem, txt) {
 
 
 
-function open_context_menu(options, wx, wy, parent_elem, dismiss_func)
+function open_context_menu(options, wx, wy, parent_elem, dismiss_func, sub_menu_of=null)
 {
     let menu_elem = add_div(parent_elem, "ctx_menu")
     let open_sub = {opt:null, elem:null}
@@ -470,7 +470,7 @@ function open_context_menu(options, wx, wy, parent_elem, dismiss_func)
                     open_sub.elem.parentElement.removeChild(open_sub.elem)
                 open_sub.opt = opt
                 const rect = e.getBoundingClientRect();
-                open_sub.elem = open_context_menu(opt.sub_opts, Math.trunc(rect.right)-wx-4, Math.trunc(rect.top)-wy-3, menu_elem, dismiss_func)
+                open_sub.elem = open_context_menu(opt.sub_opts, Math.trunc(rect.right)-wx-4, Math.trunc(rect.top)-wy-3, menu_elem, dismiss_func, menu_elem)
             })
         }
         else { // normal option, dismiss open sub if exists
@@ -499,12 +499,15 @@ function open_context_menu(options, wx, wy, parent_elem, dismiss_func)
     let rx = Math.trunc(parentRect.left) + wx, ry = Math.trunc(parentRect.top) + wy
     
     if (rx + menu_width > main_width) {  // x overflow
-        rx = main_width - menu_width
+        if (sub_menu_of === null)
+            rx = main_width - menu_width
+        else // show on the other side of the parent menu
+            rx = sub_menu_of.getBoundingClientRect().left - menu_width + 3 // a little overlap
     }
     if (ry + menu_height > main_height) { // y overflow
         ry = main_height - menu_height
     }
-    wx = rx - parentRect.left
+    wx = rx - parentRect.left // needs to be relative to parent
     wy = ry - parentRect.top
     
     menu_elem.style.left = wx + "px"
