@@ -12,7 +12,7 @@ class NodePickOne extends NodeCls
         this.in_m = new InTerminalMulti(node, "in_multi")
         this.out = new OutTerminal(node, "out")
 
-        this.pick_expr = new ParamInt(node, "Pick Index", 0, {show_code:true})
+        this.pick_expr = new ParamInt(node, "Pick Index", "(frame_num == 0) ? 0 : 1", {show_code:true})
         mixin_multi_reorder_control(node, this, this.sorted_order, this.in_m)
         this.last_line_picked = null
     }

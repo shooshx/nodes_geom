@@ -138,6 +138,7 @@ class Program {
         this.names_indices = {}
         this.next_obj_id = 1
         this.next_eph_obj_id = 1
+        this.glob_var_nodes = [] // runs before the display node
         this.tdisp_nodes = [] // template display
         this.input_nodes = []
         this.nodes_decor = [] // non-functional decorations in the nodes view
@@ -274,6 +275,22 @@ class Program {
             const idx = program.tdisp_nodes.indexOf(node)
             console.assert(idx !== -1)
             this.tdisp_nodes.splice(idx, 1);
+        }
+        if (do_draw)
+            trigger_frame_draw(true)
+    }
+
+    set_glob_var_node(node, do_draw=true) {
+        node.global_active = !node.global_active 
+        if (node.global_active) {
+            this.glob_var_nodes.push(node)
+            g_anim.vars_box.add_ns("glob_" + node.id)
+        }
+        else {
+            g_anim.vars_box.remove_ns("glob_" + node.id)
+            const idx = program.glob_var_nodes.indexOf(node)
+            console.assert(idx !== -1) 
+            this.glob_var_nodes.splice(idx, 1);
         }
         if (do_draw)
             trigger_frame_draw(true)
@@ -639,14 +656,20 @@ function get_display_object() { // for shadow select
     return program.display_node.outputs[0].get_const() 
 }
 
+var frame_ver = 1 // always ascending id of the frame, for modern dirty analysis
+
 // called whenever the display needs to be updated to reflect a change
 async function do_frame_draw(do_run, clear_all) 
 {
+    ++frame_ver
     let run_root_nodes = new Set()
     let disp_obj = null
 
     fps_counter_update()
     canvas_webgl.reset_to_latest_max()
+
+    for(let gn of program.glob_var_nodes) // these need to be first so that global would be there for eval. Set is order preserving
+        run_root_nodes.add(gn)
     if (program.display_node === null) { 
         show_display_params(null, null) // remove what's shown
     }
@@ -654,13 +677,11 @@ async function do_frame_draw(do_run, clear_all)
         run_root_nodes.add(program.display_node)
         disp_obj = program.display_node.outputs[0].get_const() // if there's no output object
     }
-    for(let tn of program.tdisp_nodes) {
+    for(let tn of program.tdisp_nodes) 
         run_root_nodes.add(tn)
-    }
-    if (selected_node !== null) {
+    if (selected_node !== null) 
         run_root_nodes.add(selected_node)
-    }
-
+        
     if (run_root_nodes.length == 0)
         return
 
@@ -802,7 +823,7 @@ class Animation {
     }
     notify_pre_draw() {
         this.frame_num_box.vbset(this.frame_num, TYPE_NUM)
-        for(let handler of this.pre_draw_handlers)
+        for(let handler of this.pre_draw_handlers)  // update UI
             handler(this.frame_num, this.frame_time, this.run)        
     }
 }

@@ -43,7 +43,7 @@ class VarsInTerminal extends InTerminal
         draw_curve(ctx, pnts)
     }
 
-    intr_set(obj, uver) {
+    intr_set(obj, uver) { // from collect_line
         assert(obj.constructor === VariablesBox, this.owner.cls, "Unexpected object type")
         let any_dirty = false
         for(let name in obj.vb) {
@@ -52,8 +52,8 @@ class VarsInTerminal extends InTerminal
             // every node input term has its own clone of the VarBox so that it could keep track of if its dirty or not
             // and so that the original (incoming) VarBox dirty flag could be cleared after the node is done running
             if (this.my_vsb.vb[name] === undefined || !vb_equals(obj.vb[name], this.my_vsb.vb[name])) {
-                const vb = clone(obj.vb[name])
-                vb.vis_dirty = true
+                const vb = clone(obj.vb[name]) // TBD still neede with new dirty mechanism?
+                //vb.vis_dirty = true
                 this.my_vsb.vb[name] = vb
                 any_dirty = true
             }
@@ -75,9 +75,9 @@ class VarsInTerminal extends InTerminal
         this.h.p.clear()
     }
     
-    empty() {
+    /*empty() {
         return this.my_vsb.empty
-    }
+    }*/
 }
 
 // compare VarBoxs
@@ -98,15 +98,30 @@ class VarBox {
     constructor() {
         this.v = null
         this.type = null
-        this.vis_dirty = false
+        this.vdirtied_at_ver = null // this is used for determining dirtyness in a way that doesn't require clear()
     }
     vbset(v, type) {
         this.v = v
         this.type = type
-        this.vis_dirty = true
+        this.vdirtied_at_ver = frame_ver
     }
     vclear_dirty() {
-        this.vis_dirty = false
+        //this.vis_dirty = false
+    }
+    vis_dirty() {
+        return this.vdirtied_at_ver == frame_ver
+    }
+}
+
+class VariableInnerBox {
+    constructor() {
+        this.vb = {}
+    }
+    add(name, vb) {
+        this.vb[name] = vb
+    }
+    vclear() {
+        this.vb = {}
     }
 }
 
@@ -116,19 +131,41 @@ class VariablesBox extends PObject
     constructor() {
         super()
         this.vb = {} // map variable name to VarBox where type is of TYPE_xxx
-        this.empty = true
+        this.nss = new Map()  // namespaces for gloval var nodes
+        //this.empty = true // not used
     }
     lookup(name) {
-        return this.vb[name]
+        let r = this.vb[name]
+        if (r !== undefined)
+            return r
+        // one level recursive
+        for(let m of this.nss.values()) {
+            r = m.vb[name]
+            if (r !== undefined)
+                return r
+        }
+    }
+
+    get_ns(name) {
+        return this.nss.get(name)
+    }
+
+    add_ns(name) {
+        const vb = new VariableInnerBox()
+        this.nss.set(name, vb)
+        return vb
+    }
+    remove_ns(name) {
+        delete this.nss.delete(name)
     }
 
     add(name, vb) {
         this.vb[name] = vb
-        this.empty = false
+        //this.empty = false
     }
     clear() {
         this.vb = {}
-        this.empty = true
+        //this.empty = true
     }
     draw() {}
     draw_selection() {}
@@ -172,6 +209,7 @@ class NodeVariable extends NodeCls
         super(node)
         node.can_display = false
         node.can_input = true
+        node.can_global = false
         node.name_xmargin = 8
         node.width = 80
         node.nkind = KIND_VARS
@@ -187,6 +225,10 @@ class NodeVariable extends NodeCls
             for(let id of lst_copy)
                 this.add_variable(node, id)
             this.v_group.update_elems()
+        })
+        this.global = new ParamBool(node, "Global Namespace", false, (v)=>{
+            node.can_global = v
+            draw_nodes()
         })
 
         this.v_group = new ParamGroup(node, "vars_params")
@@ -283,7 +325,21 @@ class NodeVariable extends NodeCls
     }
 
     var_run() {
-        let vsb = new VariablesBox()
+        let vsb = null, out_obj = null
+        if (this.global.get_value()) {
+            // every global vars node has its own namespace in g_anim so that it can recreate all its vars every time so there won't be garbage left there
+            out_obj = g_anim.vars_box
+            vsb = g_anim.vars_box.get_ns("glob_" + this.node.id)
+            if (vsb !== undefined)
+                vsb.vclear()
+            // can be undefined if the node is just selected but not marked active, in that case, just do the output terminal
+        }
+        
+        if (vsb === null || vsb === undefined) {
+            vsb = new VariablesBox()
+            out_obj = vsb
+        }
+
         let name_set = new Set()
         for(let p of this.vars_prm)
         {
@@ -302,7 +358,7 @@ class NodeVariable extends NodeCls
             case 5: p.vb.vbset(p.expr_bool.get_value(), TYPE_BOOL); break;
             }
         }
-        this.var_out.set(vsb)
+        this.var_out.set(out_obj)
     }
 
     cclear_dirty() {  // c for cls

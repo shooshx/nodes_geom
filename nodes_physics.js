@@ -424,6 +424,8 @@ class NodeB2Joint extends NodeCls
             this.anchorB.set_visible(sel_idx === 1)
             this.collideConnected.set_visible(sel_idx === 1)
             this.damping.set_visible(sel_idx === 1)
+            this.min_len.set_visible(sel_idx === 1)
+            this.max_len.set_visible(sel_idx === 1)
         })
 
         // ------- Revolute ---------

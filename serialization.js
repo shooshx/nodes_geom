@@ -7,6 +7,7 @@ function save_program() {
         display_node_id: (program.display_node == null) ? null : program.display_node.id,
         tdisp_node_ids: [], 
         input_node_ids: [],
+        glob_var_node_ids: [],
         nodes_view: nodes_view.save(),  // part of the program so the user won't need to start looking for the nodes
         decor: []
     }
@@ -31,6 +32,9 @@ function save_program() {
     }
     for(let inn of program.input_nodes) {
         sprog.input_node_ids.push(inn.id)
+    }
+    for(let gnn of program.glob_var_nodes) {
+        sprog.glob_var_node_ids.push(gnn.id)
     }
     for(let dec of program.nodes_decor) {
         const r = dec.save()
@@ -207,6 +211,13 @@ function _load_program(sprog)
             const inn = newprog.obj_map[inid]
             console.assert(inn !== undefined, "input node not found")
             newprog.set_input_node(inn, false)
+        }
+    }
+    if (sprog.glob_var_node_ids !== undefined) {
+        for(let gnid of sprog.glob_var_node_ids) {
+            const gnn = newprog.obj_map[gnid]
+            console.assert(gnn !== undefined, "global var node not found")
+            newprog.set_glob_var_node(gnn, false)
         }
     }
 

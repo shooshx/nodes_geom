@@ -61,14 +61,21 @@ EXPRESSIONS
 - BUG: bool value warninig on load of anim_bouncing_blobs2.yaml
 - BUG: uniform parser get uniforms in comments
 - BUG: canvases overflowing from bottom
+- !! global var node
+    remove old names...
+    changes don't propogate
 - Box2D
     - BUG: errors don't stop previous anim
+    - BUG: in scissors test file has non dynamic dynamic body
+    - BUG: var hidden terminal not unhidden on connect
     - joints
         - revolute limits
+        - revolute relative anchors
     - template
     - change display shape with input geometry/image
         - setTransform to mesh
     - disp-params
+        - menu to enable select with click on image
     - snap to middle point, edges, corner, edge-width
     - setLinearDamping, setAngularDamping
     - test several worlds running at the same time

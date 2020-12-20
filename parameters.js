@@ -1156,7 +1156,7 @@ class ExpressionItem {
                 throw new ExprErr("Unknown variable " + ve.varname, ve.line_num) // TBD add what line                
             }
             ve.var_box = from_in
-            vis_dirty = vis_dirty || from_in.vis_dirty
+            vis_dirty = vis_dirty || from_in.vis_dirty()
         }
         return vis_dirty
     }
@@ -1354,7 +1354,7 @@ class ParamBaseExpr extends CodeItemMixin(Parameter)
         this.item = new ExpressionItem(this, "v", ed_type, set_prop_neg, null, conf)
         this.populate_code_ctx_menu(this.item.ctx_menu)
         this.single_line = null
-        this.item.peval(start_v)  // if it's a param that can be either code or non-code, it's start_v should be a simgle expression
+        this.item.peval(start_v)  // if it's a param that can be either code or non-code, it's start_v should be a single expression
         
         const code_expr = new ExpressionItem(this, "v", ed_type, set_prop_pos, null, {allowed:false})
         this.make_code_item(code_expr, start_v)

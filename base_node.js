@@ -243,6 +243,7 @@ class TerminalBase {
     draw(force=false) { // force needed for drawing the vars terminal when just hovering a line
         if (!this.tvisible)
             return
+        nodes_draw_start() // can be drawn outside draw_node when just connecting vars line
         ctx_nodes.beginPath();
         this.draw_path(ctx_nodes, force)
         ctx_nodes.fillStyle = this.color
@@ -250,6 +251,7 @@ class TerminalBase {
         ctx_nodes.strokeStyle = "#000"
         ctx_nodes.lineWidth = 1
         ctx_nodes.stroke()
+        nodes_draw_end()
     }
     draw_shadow() {
         ctx_nd_shadow.beginPath();
@@ -697,6 +699,7 @@ const NODE_NAME_PROPS = { font:"14px Verdana", margin_top:3, margin_left:5, heig
 const NODE_FLAG_DISPLAY = {offset: 105, color: "#00A1F7" }
 const NODE_FLAG_TEMPLATE = {offset: 90, color: "#de77f1" }
 const NODE_FLAG_INPUT = { width: 15, color: "#8AE600" }
+const NODE_GLOBAL_FLAG = { offset: 60, color: "#339933" }
 
 
 function wrapText(context, text, x, center_y, maxWidth, lineHeight) {
@@ -797,6 +800,7 @@ class Node {
         this.id = id  // used for identification in the program and serialization
         this.can_display = true // vars nodes can't display, set in cls ctor
         this.can_input = false  // vars node can get mouse input
+        this.can_global = false // vars node sets variables to global namespace, same as template display, only in the first flag place
         this.name_xmargin = 0   // distance of name from node, use for var input node
         this.nkind = KIND_OBJ
 
@@ -834,6 +838,7 @@ class Node {
 
         this.disp_template = false
         this.receives_input = false // depends on can_input
+        this.global_active = false // depends on can_global
 
         if (this.state_access === null)
             this.set_state_evaluators([]) // if cls ctor did not call it
@@ -952,7 +957,7 @@ class Node {
             ctx_nodes.lineTo(px + NODE_FLAG_TEMPLATE.offset, py+this.height)
             ctx_nodes.stroke()
         }
-        if (this.can_input)
+        if (this.can_input)  // variable
         {
             if (this.receives_input) {
                 ctx_nodes.fillStyle = NODE_FLAG_INPUT.color
@@ -964,6 +969,20 @@ class Node {
             ctx_nodes.beginPath();
             ctx_nodes.moveTo(px + NODE_FLAG_INPUT.width, py)
             ctx_nodes.lineTo(px + NODE_FLAG_INPUT.width, py+this.height)
+            ctx_nodes.stroke()
+        }
+        if (this.can_global) // variable
+        {
+            if (this.global_active) { // place of display flag but controlled by the template flag
+                ctx_nodes.beginPath();
+                rounded_rect_f(ctx_nodes, px + NODE_GLOBAL_FLAG.offset, py, this.width - NODE_GLOBAL_FLAG.offset, this.height, 0, 0, 5, 5)
+                ctx_nodes.fillStyle = NODE_GLOBAL_FLAG.color
+                ctx_nodes.fill()
+                ctx_nodes.stroke()  // looks bad without this
+            }
+            ctx_nodes.beginPath();
+            ctx_nodes.moveTo(px + NODE_GLOBAL_FLAG.offset, py)
+            ctx_nodes.lineTo(px + NODE_GLOBAL_FLAG.offset, py+this.height)
             ctx_nodes.stroke()
         }
 
@@ -1383,6 +1402,10 @@ function find_node_obj(e) {
             if (n.can_input) {
                 if (px <= n.x + NODE_FLAG_INPUT.width)
                     return new NodeFlagProxy(n, (n)=>{ program.set_input_node(n) }, false) // don't select node since that's only annying most of the time
+            }
+            if (n.can_global) {
+                if (px >= n.x + NODE_GLOBAL_FLAG.offset)
+                    return new NodeFlagProxy(n, (n)=>{ program.set_glob_var_node(n) })
             }
             if (px >= n.x)                
                 return n
