@@ -339,7 +339,7 @@ function panel_mouse_control(view, canvas)
             let cvs_x = e.pageX - view.rect.left, cvs_y = e.pageY - view.rect.top
             const ev = {vx:view.view_x(e.pageX), vy:view.view_y(e.pageY), ex:e.pageX, ey:e.pageY, cvs_x:cvs_x, cvs_y:cvs_y,
                         shiftKey: e.shiftKey, ctrlKey:e.ctrlKey}
-            hit.mousemove(dx / view.zoom, dy / view.zoom, ev)
+            hit.mousemove(dx, dy, ev)
         }
         
         if (view.hover !== undefined) {

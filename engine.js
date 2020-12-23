@@ -661,7 +661,6 @@ var frame_ver = 1 // always ascending id of the frame, for modern dirty analysis
 // called whenever the display needs to be updated to reflect a change
 async function do_frame_draw(do_run, clear_all) 
 {
-    ++frame_ver
     let run_root_nodes = new Set()
     let disp_obj = null
 
@@ -781,6 +780,7 @@ async function do_frame_draw(do_run, clear_all)
         }                
     }    
 
+    ++frame_ver
 }
 
 class Animation {

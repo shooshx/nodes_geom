@@ -61,22 +61,24 @@ EXPRESSIONS
 - BUG: bool value warninig on load of anim_bouncing_blobs2.yaml
 - BUG: uniform parser get uniforms in comments
 - BUG: canvases overflowing from bottom
-- !! global var node
-    remove old names...
-    changes don't propogate
+- BUG: label space adjust doesn't work for ParamBool
+- BUG: ParamFloat moving transparent slider doesn't move it
 - Box2D
     - BUG: errors don't stop previous anim
     - BUG: in scissors test file has non dynamic dynamic body
-    - BUG: var hidden terminal not unhidden on connect
+    - BUG: changing glob variable doesn't trigger online change in radius    
     - joints
         - revolute limits
         - revolute relative anchors
+        - show the name of where the line comes from
+    - box body - change size online    
     - template
     - change display shape with input geometry/image
         - setTransform to mesh
     - disp-params
         - menu to enable select with click on image
     - snap to middle point, edges, corner, edge-width
+    - merge - disable node
     - setLinearDamping, setAngularDamping
     - test several worlds running at the same time
     - pen
@@ -86,11 +88,13 @@ EXPRESSIONS
     - planet gravity? b2GravityController, boyancy?
     - filtering?
     - merge node - disable using checkboxes for each input
+    - spirograph example: https://laughingsquid.com/the-cycloid-drawing-machine-a-device-that-uses-wooden-gears-to-create-elaborate-beautiful-designs/
     - demo - bicycle doing a loop
     - demo - double pendulum
     - demo? Newton cradle
 - Nodes view multi select
 - Nodes view copy-paste
+- variable - define in a dialog? comment about each
 - Animation
     - engine - dirty controlled by selected input in pick_one
     - single step button - smaller panel
@@ -420,6 +424,10 @@ Pratt parser in rust: https://matklad.github.io/2020/04/13/simple-but-powerful-p
 
 Write-About
 - difference in radial gradient between canvas and svg (opposite circles), browsers difference
+
+nice visualizations:
+    https://observablehq.com/@rreusser/complex-function-plotter?collection=@rreusser/writeups
+    https://rreusser.github.io/projects/
 
 Links
 - 3D Distance field: https://stephaneginier.com/archive/editSDF/

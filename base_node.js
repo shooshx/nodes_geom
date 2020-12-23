@@ -1036,8 +1036,8 @@ class Node {
     }
 
     mousemove(dx, dy) {
-        this.x += dx
-        this.y += dy
+        this.x += dx / nodes_view.zoom
+        this.y += dy / nodes_view.zoom
         this.recalc_bounding_box()      
         draw_nodes()
     }

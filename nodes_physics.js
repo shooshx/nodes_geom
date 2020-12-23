@@ -37,6 +37,7 @@ class B2Body {
         this.obj = null
         this.cnode_id = cnode_id // create node unique-id
         this.index = null // temporary for building the world
+        this.t_mat = null // not actually used
 
         this.on_init_params = [] // functions that are called just after the initialization of the world (for things that are not in the defs, kinematic velocity)
     }
@@ -264,6 +265,7 @@ class NodeB2Body extends NodeCls
         b.def.type = this.type.get_sel_val()
         b.def.position.Set(this.transform.translate[0], this.transform.translate[1])
         b.def.angle = glm.toRadian(this.transform.rotate)
+        b.t_mat = mat3.copy(mat3.create(), this.transform.v) // don't want this to be tied to the Param, best thing is to copy it
 
         let s = null
         const pivot = new b2.Vec2(-this.transform.rotate_pivot[0], -this.transform.rotate_pivot[1])
@@ -401,6 +403,13 @@ function isSingleBody(def) {
     return def.bodies.length === 1 && def.joints.length === 0
 }
 
+function getWorldPoint_fromBodyDef(def, localPoint) {
+    const xf = new b2.Transform();
+    xf.p.Copy(b2Maybe(bd.position, b2Vec2.ZERO));
+    xf.q.SetAngle(b2Maybe(bd.angle, 0));
+
+    b2Transform.MulXV(this.m_xf, localPoint, out);
+}
 
 const FREQUENCY_HZ_FOR_DAMPING = 1.0
 
@@ -414,14 +423,21 @@ class NodeB2Joint extends NodeCls
         this.inB = new InTerminal(node, "in_bodyB")
         this.out = new OutTerminal(node, "b2_defs")
 
+        const anchors_vis = ()=>{
+            const rel = this.rel_anchor.get_value()
+            this.anchor.set_visible(this.type.sel_idx === 0 && !rel)
+            const v = (this.type.sel_idx === 1) || (this.type.sel_idx === 0 && rel)
+            this.anchorA.set_visible(v)
+            this.anchorB.set_visible(v)
+        }
+
         this.type = new ParamSelect(node, "Type", 0, ["Revolute", "Distance", ],(sel_idx)=>{
-            this.anchor.set_visible(sel_idx === 0)
             this.enableMotor.set_visible(sel_idx === 0)
             this.motorSpeed.set_visible(sel_idx === 0)
             this.maxTorque.set_visible(sel_idx === 0)
+            this.rel_anchor.set_visible(sel_idx === 0)
 
-            this.anchorA.set_visible(sel_idx === 1)
-            this.anchorB.set_visible(sel_idx === 1)
+            anchors_vis()
             this.collideConnected.set_visible(sel_idx === 1)
             this.damping.set_visible(sel_idx === 1)
             this.min_len.set_visible(sel_idx === 1)
@@ -429,7 +445,15 @@ class NodeB2Joint extends NodeCls
         })
 
         // ------- Revolute ---------
-        this.anchor = new ParamVec2(node, "Anchor", 0, 0)  // can't change during sim
+        this.rel_anchor = new ParamBool(node, "Body-Relative Anchors", false, (v)=>{
+            anchors_vis()
+        }) 
+        // these can't change during sim
+        this.anchor = new ParamVec2(node, "Anchor", 0, 0, null, (x,y)=>{
+        })  
+        this.anchorA = new ParamVec2(node, "Anchor A", 0, 0) // relative to body center
+        this.anchorB = new ParamVec2(node, "Anchor B", 0, 0)
+
         this.enableMotor = new PhyParamBool(node, "Motor", false, "EnableMotor", (v)=>{
             this.motorSpeed.set_enable(v)
             this.maxTorque.set_enable(v)
@@ -439,8 +463,6 @@ class NodeB2Joint extends NodeCls
         this.anchor.dial = new PointDial((dx,dy)=>{ this.anchor.increment(vec2.fromValues(dx, dy)) })
 
         // ------- Distance ---------
-        this.anchorA = new ParamVec2(node, "Anchor A", 0, 0) // relative to body center
-        this.anchorB = new ParamVec2(node, "Anchor B", 0, 0)
         // if two objects are connected by more than one joint this bool needs to be the same on all or only the last one initialized will take
         this.collideConnected = new PhyParamBool(node, "Collide Connected", false, (w, v, obj)=>{
             obj.obj.m_collideConnected = v
@@ -463,18 +485,25 @@ class NodeB2Joint extends NodeCls
             obj.obj.SetMaxLength(obj.obj.GetLength() + v)
         })
 
-        this.anchorA.dial = new PointDial((dx,dy)=>{ this.anchorA.increment(vec2.fromValues(dx, dy)) }, null, ()=>{
-            return [this.last_A_def.def.position.x, this.last_A_def.def.position.y]
-        })
-        this.anchorB.dial = new PointDial((dx,dy)=>{ this.anchorB.increment(vec2.fromValues(dx, dy)) }, null, ()=>{
-            return [this.last_B_def.def.position.x, this.last_B_def.def.position.y]
-        })
+        this.anchorA.dial = new PointDial((dx,dy)=>{ this.anchorA.increment(vec2.fromValues(dx, dy)) }, null)
+        this.anchorA.member_body_def = "last_A_def" // for lookup in draw_selection
+
+        this.anchorB.dial = new PointDial((dx,dy)=>{ this.anchorB.increment(vec2.fromValues(dx, dy)) }, null)
+        this.anchorB.member_body_def = "last_B_def"
 
         this.dialed_params = [this.anchor, this.anchorA, this.anchorB]
 
         // the positions of the bodies in the last run, for placing the anchors that are relative
         this.last_A_def = null  // b2.Vec2
         this.last_B_def = null
+    }
+
+    get_ab_anchors(bodyA, bodyB) {
+        const ancA_obj = b2VecFromArr(this.anchorA.get_value())
+        bodyA.GetWorldPoint(ancA_obj, ancA_obj)
+        const ancB_obj = b2VecFromArr(this.anchorB.get_value())
+        bodyB.GetWorldPoint(ancB_obj, ancB_obj)
+        return [ancA_obj, ancB_obj]
     }
 
     run() {
@@ -494,6 +523,11 @@ class NodeB2Joint extends NodeCls
             j.def = new b2.RevoluteJointDef()
             j.init_call = (bodyA, bodyB)=>{
                 j.def.Initialize(bodyA, bodyB, b2VecFromArr(this.anchor.get_value()))
+                if (this.rel_anchor.get_value()) {
+                    // init it on the single point and the move it since there's no INitialize with rel anchors
+                    j.def.localAnchorA = b2VecFromArr(this.anchorA.get_value())
+                    j.def.localAnchorB = b2VecFromArr(this.anchorB.get_value())
+                }
             }
             j.def.motorSpeed = this.motorSpeed.get_value()
             j.def.enableMotor = this.enableMotor.get_value()
@@ -503,10 +537,7 @@ class NodeB2Joint extends NodeCls
             j.def = new b2.DistanceJointDef()
             j.def.collideConnected = this.collideConnected.get_value()
             j.init_call = (bodyA, bodyB)=>{
-                const ancA_obj = b2VecFromArr(this.anchorA.get_value())
-                bodyA.GetWorldPoint(ancA_obj, ancA_obj)
-                const ancB_obj = b2VecFromArr(this.anchorB.get_value())
-                bodyB.GetWorldPoint(ancB_obj, ancB_obj)
+                const [ancA_obj, ancB_obj] = this.get_ab_anchors(bodyA, bodyB)
                 j.def.Initialize(bodyA, bodyB, ancA_obj, ancB_obj)
                 b2.LinearStiffness(j.def, FREQUENCY_HZ_FOR_DAMPING, this.damping.get_value(), bodyA, bodyB)
                 j.def.minLength -= this.min_len.get_value()
@@ -530,8 +561,19 @@ class NodeB2Joint extends NodeCls
         if (this.dials_hidden())
             return
         for(let p of this.dialed_params)
-            if (p.pis_visible())
-                p.dial.draw(p.x, p.y, null, m)
+            if (p.pis_visible()) {
+                let t_mat = null
+                if (p.member_body_def !== undefined) {
+                    const last_def = this[p.member_body_def]
+                    if (last_def !== null) {
+                        t_mat = mat3.create()
+                        // don't use the param t_mat since that include the pivot move which we don't want since this is just the position of the body
+                        mat3.translate(t_mat, t_mat, [last_def.def.position.x, last_def.def.position.y])
+                        mat3.rotate(t_mat, t_mat, last_def.def.angle)
+                    }
+                }
+                p.dial.draw(p.x, p.y, t_mat, m)
+            }
     }
     image_find_obj(e) {
         if (this.dials_hidden())
