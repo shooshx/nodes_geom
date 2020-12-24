@@ -271,7 +271,7 @@ class NodeB2Body extends NodeCls
         const pivot = new b2.Vec2(-this.transform.rotate_pivot[0], -this.transform.rotate_pivot[1])
         if (this.shape.sel_idx === 0) {  // box
             s = new b2.PolygonShape()
-            s.SetAsBox(this.size.x * 0.5, this.size.y * 0.5, pivot, 0)
+            s.SetAsBox(Math.abs(this.size.x) * 0.5, Math.abs(this.size.y) * 0.5, pivot, 0)
         }
         else if (this.shape.sel_idx === 1) { // circle 
             s = new b2.CircleShape(this.radius.v)

@@ -111,8 +111,8 @@ nodes:
         se_cv: 'return vec2(0, 9.8)'
     name: physics_simulator_1
     cls_name: Physics Simulator
-    x: 239.41361983471114
-    y: 678.4426694214883
+    x: 240.51361983471114
+    y: 755.4426694214883
     disp_param: {}
   '22':
     params:
@@ -696,13 +696,13 @@ nodes:
           prms_lst: [1, 2, 3, 4, 5, 6, 7]
       Global Namespace:
         v: true
-        se_v: '0'
+        e_v: 0
       p1_Type:
         sel_str: Float
       p1_Name:
         v: radius1
       p1_Float:
-        e_v: 0.4512024424783929
+        e_v: 0.49700000000000005
         se_cv: return 1
       p1_Integer:
         e_v: 1
@@ -720,7 +720,7 @@ nodes:
         se_cv: 'return vec2(0, 0)'
       p1_Bool:
         v: false
-        se_v: '0'
+        e_v: 0
       p1_Sample At:
         sel_str: Mouse left down
       p2_Type:
@@ -728,7 +728,7 @@ nodes:
       p2_Name:
         v: radius2
       p2_Float:
-        e_v: 0.3988782191660827
+        e_v: 0.45313468177706634
         se_cv: return 1
       p2_Integer:
         e_v: 1
@@ -746,7 +746,7 @@ nodes:
         se_cv: 'return vec2(0, 0)'
       p2_Bool:
         v: false
-        se_v: '0'
+        e_v: 0
       p2_Sample At:
         sel_str: Mouse left down
       p3_Type:
@@ -772,7 +772,7 @@ nodes:
         se_cv: 'return vec2(0, 0)'
       p3_Bool:
         v: false
-        se_v: '0'
+        e_v: 0
       p3_Sample At:
         sel_str: Mouse left down
       p4_Type:
@@ -803,7 +803,7 @@ nodes:
         se_cv: 'return vec2(0, 0)'
       p4_Bool:
         v: false
-        se_v: '0'
+        e_v: 0
       p4_Sample At:
         sel_str: Mouse left down
       p5_Type:
@@ -834,7 +834,7 @@ nodes:
         se_cv: 'return vec2(0, 0)'
       p5_Bool:
         v: false
-        se_v: '0'
+        e_v: 0
       p5_Sample At:
         sel_str: Mouse left down
       p6_Type:
@@ -842,7 +842,7 @@ nodes:
       p6_Name:
         v: len3
       p6_Float:
-        e_v: 1.9774343574807287
+        e_v: 1.9769999999999999
         sldcfg_v:
           min: 0
           max: 3
@@ -865,7 +865,7 @@ nodes:
         se_cv: 'return vec2(0, 0)'
       p6_Bool:
         v: false
-        se_v: '0'
+        e_v: 0
       p6_Sample At:
         sel_str: Mouse left down
       p7_Type:
@@ -896,13 +896,27 @@ nodes:
         se_cv: 'return vec2(0, 0)'
       p7_Bool:
         v: false
-        se_v: '0'
+        e_v: 0
       p7_Sample At:
         sel_str: Mouse left down
-    name: radius1
+    name: var
     cls_name: Variable
-    x: -20.585454545454574
-    y: -63.46818181818188
+    x: -38.18545454545453
+    y: -77.76818181818179
+    disp_param: {}
+  '70':
+    params:
+      Filter Enabled:
+        v: true
+        e_v: 1
+      Change Expr:
+        se_v: frame_num
+        show_code: true
+        se_cv: return frame_num
+    name: change_filter_1
+    cls_name: Change Filter
+    x: 259.49999999999943
+    y: 667.8000000000008
     disp_param: {}
 lines:
   - from_name: b2_defs
@@ -915,11 +929,6 @@ lines:
     to_name: in_multi
     to_id: 12
     uid: 13
-  - from_name: out
-    from_id: 12
-    to_name: b2_in
-    to_id: 14
-    uid: 15
   - from_name: b2_world
     from_id: 14
     to_name: in_multi
@@ -1035,7 +1044,17 @@ lines:
     to_name: b2_in_defs
     to_id: 60
     uid: 67
-next_node_id: 70
+  - from_name: out
+    from_id: 12
+    to_name: in
+    to_id: 70
+    uid: 71
+  - from_name: out
+    from_id: 70
+    to_name: b2_in
+    to_id: 14
+    uid: 72
+next_node_id: 73
 names_idx_s:
   Physics Merge: 2
   Physics Body: 10
@@ -1043,13 +1062,14 @@ names_idx_s:
   Pick One: 2
   Physics Simulator: 1
   Variable: 1
+  Change Filter: 1
 display_node_id: 12
 tdisp_node_ids: []
 input_node_ids: []
 glob_var_node_ids:
   - 69
 nodes_view:
-  pan_x: 186.68545454545404
-  pan_y: 89.86818181818168
+  pan_x: 235
+  pan_y: 81.3
   zoom: 0.9090909090909088
 decor: []
