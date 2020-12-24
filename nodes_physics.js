@@ -192,12 +192,12 @@ class PhyParamFloatPositive extends PhyParamFloat {
 }
 
 class PhyParamBool extends ParamBool {
-    constructor(node, label, start_v, obj_func_name, change_func, id_suffix="") {
+    constructor(node, label, start_v, obj_func_name, change_func=null, id_suffix="") {
         super(node, label, start_v, make_phy_caller(obj_func_name, node.id + id_suffix, change_func))
     }
 }
 class PhyParamVec2 extends ParamVec2 {
-    constructor(node, label, start_x, start_y, obj_func_name, change_func, id_suffix="") {
+    constructor(node, label, start_x, start_y, obj_func_name, change_func=null, id_suffix="") {
         super(node, label, start_x, start_y, null, make_phy_caller(obj_func_name, node.id + id_suffix, change_func, b2VecFromArr))
     }
 }
@@ -451,8 +451,13 @@ class NodeB2Joint extends NodeCls
         // these can't change during sim
         this.anchor = new ParamVec2(node, "Anchor", 0, 0, null, (x,y)=>{
         })  
-        this.anchorA = new ParamVec2(node, "Anchor A", 0, 0) // relative to body center
-        this.anchorB = new ParamVec2(node, "Anchor B", 0, 0)
+        // relative to body center
+        this.anchorA = new PhyParamVec2(node, "Anchor A", 0, 0, (w, v, obj)=>{
+            obj.obj.m_localAnchorA = b2VecFromArr(v)
+        }) 
+        this.anchorB = new PhyParamVec2(node, "Anchor B", 0, 0, (w, v, obj)=>{
+            obj.obj.m_localAnchorB = b2VecFromArr(v)
+        })
 
         this.enableMotor = new PhyParamBool(node, "Motor", false, "EnableMotor", (v)=>{
             this.motorSpeed.set_enable(v)

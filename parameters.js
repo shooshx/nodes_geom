@@ -963,7 +963,7 @@ class ExpressionItem {
             this.variable_evaluators = state_access.need_variables
             state_access_need_inputs = state_access.need_inputs
             this.expr_score = state_access.score  // score determines if the expression depends on anything
-            this.etype_undecided = false
+            this.etype_undecided = false  // TBD can be refactored to not be members?
             this.etype_depend_var = false
             // if it contains reference to variables try to resolve them now, before type-check
             this.eresolve_evaluators(this.last_resolve_varbox, true) // can fail, we'll have another chance before run
@@ -1083,6 +1083,7 @@ class ExpressionItem {
         this.eclear_error()  // when moving slider clear any error that might have been there before
         this.e = ExprParser.make_num_node(v)
         this.se = formatType(v, this.prop_type)
+        this.expr_score = EXPR_CONST
         this.need_inputs = null
         this.variable_evaluators = {} // need for forget about the previous expression
         if (this.editor !== null)
@@ -1184,13 +1185,16 @@ class ExpressionItem {
             // similar to what is done at the end of peval
             if ((this.expr_score & EXPR_NEED_INPUT) != 0) {
                 this.do_set_prop(null) // it's dynamic so best if it doesn't have a proper value from before
-                did_change = this.in_param.pset_dirty()
+                this.in_param.pset_dirty()
+                did_change = true
             }
             else {
-                if (this.do_set_prop(ExprParser.do_eval(this.e), false)) // don't do slider-update since we know the it's non-const expr and slider need to remain transparent
-                    did_change = this.in_param.pset_dirty()
+                if (this.do_set_prop(ExprParser.do_eval(this.e), false)) {// don't do slider-update since we know the it's non-const expr and slider need to remain transparent
+                    this.in_param.pset_dirty()
+                    did_change = true
+                }
             }
-            return did_change
+            return did_change // for call_change in caller
         }
         catch(ex) {
             this.eset_error(ex)
