@@ -238,12 +238,14 @@ class NodeB2Body extends NodeCls
             const fobj = w.cnode_to_obj[node.id + "_f"]
             if (fobj !== undefined)
                 fobj.obj.m_shape = s
+            bobj.obj.SetAwake(true)
         })
         this.radius = new PhyParamFloatPositive(node, "Radius(m)", 0.5, {min:0, max:1}, (w, v, bobj)=>{
             const fobj = w.cnode_to_obj[node.id + "_f"]
             if (fobj !== undefined)
                 fobj.obj.m_shape.m_radius = v
             // TBD mass???
+            bobj.obj.SetAwake(true)
         })
        
         this._sep1 = new ParamSeparator(node, "_sep1")
@@ -467,9 +469,11 @@ class NodeB2Joint extends NodeCls
         // relative to body center
         this.anchorA = new PhyParamVec2(node, "Anchor A", 0, 0, (w, v, obj)=>{
             obj.obj.m_localAnchorA = b2VecFromArr(v)
+            this.online_awake_objects(w)
         }) 
         this.anchorB = new PhyParamVec2(node, "Anchor B", 0, 0, (w, v, obj)=>{
             obj.obj.m_localAnchorB = b2VecFromArr(v)
+            this.online_awake_objects(w)
         })
 
         this.enableMotor = new PhyParamBool(node, "Motor", false, "EnableMotor", (v)=>{
@@ -514,6 +518,19 @@ class NodeB2Joint extends NodeCls
         // the positions of the bodies in the last run, for placing the anchors that are relative
         this.last_A_def = null  // b2.Vec2
         this.last_B_def = null
+    }
+
+    online_awake_objects(w) {
+        if (this.last_A_def !== null) {
+            const objA = w.cnode_to_obj[this.last_A_def.cnode_id]
+            if (objA !== undefined)
+                objA.obj.SetAwake(true)
+        }
+        if (this.last_B_def !== null) {
+            const objB = w.cnode_to_obj[this.last_B_def.cnode_id]
+            if (objB !== undefined)
+                objB.obj.SetAwake(true)
+        }
     }
 
     get_ab_anchors(bodyA, bodyB) {

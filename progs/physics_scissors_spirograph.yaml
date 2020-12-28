@@ -24,7 +24,7 @@ nodes:
         e_y: 0
         se_cv: 'return vec2(0, 0)'
       Angular V(r/s):
-        e_v: 0.5
+        se_v: 'enable_rotation ? rot_vel2 : 0'
         se_cv: return 0
       Density(kg):
         e_v: 1
@@ -45,8 +45,8 @@ nodes:
         e_sy: 1
     name: wheel_2
     cls_name: Physics Body
-    x: -152.5
-    y: 80.4
+    x: -159.15499999999992
+    y: 88.38600000000002
     disp_param: {}
   '4':
     params:
@@ -66,7 +66,7 @@ nodes:
         e_y: 0
         se_cv: 'return vec2(0, 0)'
       Angular V(r/s):
-        e_v: 1
+        se_v: 'enable_rotation ? rot_vel1 : 0'
         se_cv: return 0
       Density(kg):
         e_v: 1
@@ -258,11 +258,11 @@ nodes:
         se_y: '-1.075'
         se_cv: 'return vec2(0, 0)'
       Anchor A:
-        se_x: '-len2/2'
+        se_x: '-len2*joint_at_2'
         e_y: 0
         se_cv: 'return vec2(0, 0)'
       Anchor B:
-        se_x: len1/2
+        se_x: len1*joint_at_1
         e_y: 0
         se_cv: 'return vec2(0, 0)'
       Motor:
@@ -520,11 +520,11 @@ nodes:
         se_cv: 'return vec2(0, 0)'
       Anchor A:
         e_x: 0
-        e_y: 0
+        se_y: len3*(0.5-joint_at_3)
         se_cv: 'return vec2(0, 0)'
       Anchor B:
         e_x: 0
-        e_y: 0
+        se_y: len4*(0.5-joint_at_4)
         se_cv: 'return vec2(0, 0)'
       Motor:
         v: false
@@ -549,8 +549,8 @@ nodes:
         se_cv: return 0.1
     name: sic_joint_top
     cls_name: Physics Joint
-    x: 428.3400000000019
-    y: 217.30999999999983
+    x: 436.32600000000184
+    y: 223.96499999999978
     disp_param: {}
   '59':
     params:
@@ -692,17 +692,18 @@ nodes:
     params:
       <obj-store>:
         v:
-          gen_id: 8
-          prms_lst: [1, 2, 3, 4, 5, 6, 7]
+          gen_id: 15
+          prms_lst: [1, 8, 2, 9, 10, 3, 4, 11, 5, 12, 6, 13, 7, 14]
       Global Namespace:
         v: true
-        e_v: 0
+      Brief View:
+        v: true
       p1_Type:
         sel_str: Float
       p1_Name:
         v: radius1
       p1_Float:
-        e_v: 0.49700000000000005
+        e_v: 0.3420000000000001
         se_cv: return 1
       p1_Integer:
         e_v: 1
@@ -723,12 +724,49 @@ nodes:
         e_v: 0
       p1_Sample At:
         sel_str: Mouse left down
+      p8_Type:
+        sel_str: Float
+      p8_Name:
+        v: rot_vel1
+      p8_Float:
+        e_v: 0.43700000000000006
+        sldcfg_v:
+          min: 0
+          max: 3
+          allowed: true
+          visible: true
+        dlg_rect:
+          left: null
+          top: null
+          width: null
+          height: null
+          visible: false
+        se_cv: return 1
+      p8_Integer:
+        e_v: 1
+        se_cv: return 1
+      p8_Float2:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      p8_Color:
+        hex: '#CCCCCC'
+        se_cv: 'return rgb(204, 204, 204)'
+      p8_Mouse Coord:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      p8_Bool:
+        v: false
+        e_v: 0
+      p8_Sample At:
+        sel_str: Mouse left down
       p2_Type:
         sel_str: Float
       p2_Name:
         v: radius2
       p2_Float:
-        e_v: 0.45313468177706634
+        e_v: 0.49800000000000005
         se_cv: return 1
       p2_Integer:
         e_v: 1
@@ -748,6 +786,63 @@ nodes:
         v: false
         e_v: 0
       p2_Sample At:
+        sel_str: Mouse left down
+      p9_Type:
+        sel_str: Float
+      p9_Name:
+        v: rot_vel2
+      p9_Float:
+        e_v: 1.383
+        sldcfg_v:
+          min: 0
+          max: 3
+          allowed: true
+          visible: true
+        se_cv: return 1
+      p9_Integer:
+        e_v: 1
+        se_cv: return 1
+      p9_Float2:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      p9_Color:
+        hex: '#CCCCCC'
+        se_cv: 'return rgb(204, 204, 204)'
+      p9_Mouse Coord:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      p9_Bool:
+        v: false
+        e_v: 0
+      p9_Sample At:
+        sel_str: Mouse left down
+      p10_Type:
+        sel_str: Bool
+      p10_Name:
+        v: enable_rotation
+      p10_Float:
+        e_v: 1
+        se_cv: return 1
+      p10_Integer:
+        e_v: 1
+        se_cv: return 1
+      p10_Float2:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      p10_Color:
+        hex: '#CCCCCC'
+        se_cv: 'return rgb(204, 204, 204)'
+      p10_Mouse Coord:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      p10_Bool:
+        v: false
+        e_v: 0
+      p10_Sample At:
         sel_str: Mouse left down
       p3_Type:
         sel_str: Float
@@ -806,6 +901,37 @@ nodes:
         e_v: 0
       p4_Sample At:
         sel_str: Mouse left down
+      p11_Type:
+        sel_str: Float
+      p11_Name:
+        v: joint_at_1
+      p11_Float:
+        e_v: 0.6477506496097611
+        sldcfg_v:
+          min: 0
+          max: 1
+          allowed: true
+          visible: true
+        se_cv: return 1
+      p11_Integer:
+        e_v: 1
+        se_cv: return 1
+      p11_Float2:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      p11_Color:
+        hex: '#CCCCCC'
+        se_cv: 'return rgb(204, 204, 204)'
+      p11_Mouse Coord:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      p11_Bool:
+        v: false
+        e_v: 0
+      p11_Sample At:
+        sel_str: Mouse left down
       p5_Type:
         sel_str: Float
       p5_Name:
@@ -837,12 +963,43 @@ nodes:
         e_v: 0
       p5_Sample At:
         sel_str: Mouse left down
+      p12_Type:
+        sel_str: Float
+      p12_Name:
+        v: joint_at_2
+      p12_Float:
+        e_v: 0.712564482610496
+        sldcfg_v:
+          min: 0
+          max: 1
+          allowed: true
+          visible: true
+        se_cv: return 1
+      p12_Integer:
+        e_v: 1
+        se_cv: return 1
+      p12_Float2:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      p12_Color:
+        hex: '#CCCCCC'
+        se_cv: 'return rgb(204, 204, 204)'
+      p12_Mouse Coord:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      p12_Bool:
+        v: false
+        e_v: 0
+      p12_Sample At:
+        sel_str: Mouse left down
       p6_Type:
         sel_str: Float
       p6_Name:
         v: len3
       p6_Float:
-        e_v: 1.9769999999999999
+        e_v: 2.4419999999999997
         sldcfg_v:
           min: 0
           max: 3
@@ -867,6 +1024,37 @@ nodes:
         v: false
         e_v: 0
       p6_Sample At:
+        sel_str: Mouse left down
+      p13_Type:
+        sel_str: Float
+      p13_Name:
+        v: joint_at_3
+      p13_Float:
+        e_v: 0.566028860174052
+        sldcfg_v:
+          min: 0
+          max: 1
+          allowed: true
+          visible: true
+        se_cv: return 1
+      p13_Integer:
+        e_v: 1
+        se_cv: return 1
+      p13_Float2:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      p13_Color:
+        hex: '#CCCCCC'
+        se_cv: 'return rgb(204, 204, 204)'
+      p13_Mouse Coord:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      p13_Bool:
+        v: false
+        e_v: 0
+      p13_Sample At:
         sel_str: Mouse left down
       p7_Type:
         sel_str: Float
@@ -899,10 +1087,41 @@ nodes:
         e_v: 0
       p7_Sample At:
         sel_str: Mouse left down
+      p14_Type:
+        sel_str: Float
+      p14_Name:
+        v: joint_at_4
+      p14_Float:
+        e_v: 0.6308426931747868
+        sldcfg_v:
+          min: 0
+          max: 1
+          allowed: true
+          visible: true
+        se_cv: return 1
+      p14_Integer:
+        e_v: 1
+        se_cv: return 1
+      p14_Float2:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      p14_Color:
+        hex: '#CCCCCC'
+        se_cv: 'return rgb(204, 204, 204)'
+      p14_Mouse Coord:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      p14_Bool:
+        v: false
+        e_v: 0
+      p14_Sample At:
+        sel_str: Mouse left down
     name: var
     cls_name: Variable
-    x: -38.18545454545453
-    y: -77.76818181818179
+    x: -133.43635355043884
+    y: -105.27182295206215
     disp_param: {}
   '70':
     params:
@@ -1054,7 +1273,7 @@ lines:
     to_name: b2_in
     to_id: 14
     uid: 72
-next_node_id: 73
+next_node_id: 74
 names_idx_s:
   Physics Merge: 2
   Physics Body: 10
@@ -1063,13 +1282,14 @@ names_idx_s:
   Physics Simulator: 1
   Variable: 1
   Change Filter: 1
+  Function Fill: 1
 display_node_id: 12
 tdisp_node_ids: []
 input_node_ids: []
 glob_var_node_ids:
   - 69
 nodes_view:
-  pan_x: 235
-  pan_y: 81.3
-  zoom: 0.9090909090909088
+  pan_x: 206.564
+  pan_y: 139.65499999999994
+  zoom: 0.7513148009015777
 decor: []

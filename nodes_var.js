@@ -388,6 +388,7 @@ class NodeVariable extends NodeCls
 
     move_variable(id, dir) {
         let lst = this.namer.st_get("prms_lst")
+        // modifying directly the list that is referenced in namer
         const idx = lst.indexOf(id)
         if (idx === -1)
             console.error("didn't find index of ", id)
@@ -395,7 +396,6 @@ class NodeVariable extends NodeCls
             return
         lst.splice(idx, 1)
         lst.splice(idx + dir, 0, id)
-        this.namer.st_set(lst)
 
         this.v_group.update_elems()
       

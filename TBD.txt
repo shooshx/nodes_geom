@@ -65,13 +65,13 @@ EXPRESSIONS
 - variables display - change order
 - Box2D
     - BUG: errors don't stop previous anim
-    - BUG: in scissors test file has non dynamic dynamic body
     - joints
         - revolute limits
         - revolute relative anchors
         - show the name of where the line comes from
+    - !!! text annotation    
     - box body - change size online   
-    - filtering - for scissors
+    - filtering - for scissors to not bang
     - template
     - change display shape with input geometry/image
         - setTransform to mesh
