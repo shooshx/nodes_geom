@@ -210,7 +210,11 @@ class PhyParamTransform extends ParamTransform {
     }
 }
 
-
+function b2MakeBox(w, h, pivot) {
+    const s = new b2.PolygonShape()
+    s.SetAsBox(Math.abs(w) * 0.5, Math.abs(h) * 0.5, pivot, 0)
+    return s
+}
 
 class NodeB2Body extends NodeCls
 {
@@ -229,11 +233,17 @@ class NodeB2Body extends NodeCls
             this.size.set_visible(sel_idx === 0)
             this.radius.set_visible(sel_idx === 1)
         })
-        this.size = new ParamVec2(node, "Size(m)", 0.5, 0.5)
+        this.size = new PhyParamVec2(node, "Size(m)", 0.5, 0.5, (w, v, bobj)=>{
+            const s = b2MakeBox(v[0], v[1], this.get_shape_pivot())
+            const fobj = w.cnode_to_obj[node.id + "_f"]
+            if (fobj !== undefined)
+                fobj.obj.m_shape = s
+        })
         this.radius = new PhyParamFloatPositive(node, "Radius(m)", 0.5, {min:0, max:1}, (w, v, bobj)=>{
             const fobj = w.cnode_to_obj[node.id + "_f"]
             if (fobj !== undefined)
                 fobj.obj.m_shape.m_radius = v
+            // TBD mass???
         })
        
         this._sep1 = new ParamSeparator(node, "_sep1")
@@ -257,6 +267,10 @@ class NodeB2Body extends NodeCls
             this.radius.increment(dx)
         })
     }
+
+    get_shape_pivot() {
+        return new b2.Vec2(-this.transform.rotate_pivot[0], -this.transform.rotate_pivot[1])
+    }
     
     run() {
         const b = new B2Body(this.node.id)
@@ -268,10 +282,9 @@ class NodeB2Body extends NodeCls
         b.t_mat = mat3.copy(mat3.create(), this.transform.v) // don't want this to be tied to the Param, best thing is to copy it
 
         let s = null
-        const pivot = new b2.Vec2(-this.transform.rotate_pivot[0], -this.transform.rotate_pivot[1])
+        const pivot = this.get_shape_pivot()
         if (this.shape.sel_idx === 0) {  // box
-            s = new b2.PolygonShape()
-            s.SetAsBox(Math.abs(this.size.x) * 0.5, Math.abs(this.size.y) * 0.5, pivot, 0)
+            s = b2MakeBox(this.size.x, this.size.y, pivot)
         }
         else if (this.shape.sel_idx === 1) { // circle 
             s = new b2.CircleShape(this.radius.v)

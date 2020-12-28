@@ -167,7 +167,9 @@ function clear_elem(e) {
 // list of callbacks that want to get a call
 // in the current "add_elems"
 let g_params_popups = [] 
+let g_last_show_params_of_node = null
 function show_params_of(node) {
+    g_last_show_params_of_node = node
     // clear children
     param_dismiss_popups() // we there just happen to be anything left, dismiss it before we forget it
     g_params_popups.length = 0
@@ -176,11 +178,19 @@ function show_params_of(node) {
         return
     
     for(let p of node.parameters) {
+        if (p.group_param !== null)
+            continue // the group will call add_elems
         p.add_elems(div_params_list)
         p.init_enable_visible()
     }
     fix_label_lengths(node.parameters)
 }
+
+// for call_change that need to do something with the UI (variables brief)
+function is_nodes_param_shown(node) {
+    return (g_last_show_params_of_node === node)
+}
+
 
 function param_dismiss_popups() {
     for(let callback of g_params_popups)
@@ -646,8 +656,13 @@ class ParamBool extends Parameter {
         this.call_change()  
     }
     add_elems(parent) {
-        this.line_elem = add_param_multiline(parent, this)
-        this.checkbox_line = add_param_line(this.line_elem) // don't pass this since it's in the line_elem
+        if (this.opt.allow_expr) {
+            this.line_elem = add_param_multiline(parent, this)
+            this.checkbox_line = add_param_line(this.line_elem) // don't pass this since it's in the line_elem
+        }
+        else {  // no code needed, simplify the dom to allow sharing
+            this.line_elem = this.checkbox_line = add_param_line(parent, this)
+        }
         elem_set_visible(this.checkbox_line, !this.opt.expr_visible)
 
         let label_cls_add = null
@@ -657,7 +672,7 @@ class ParamBool extends Parameter {
             label_cls_add = "param_checkbox_inline" // for margin
 
         let add_func = this.as_btn ? add_checkbox_btn : add_param_checkbox
-        const [ein,label,edisp] = add_func(this.checkbox_line, this.label, this.v, (v) => {
+        const [ein,label,edisp] = add_func(this.checkbox_line, this.label_display, this.v, (v) => {
             this.v = v; 
             this.call_change()
             this.pset_dirty()
@@ -1276,6 +1291,12 @@ let CodeItemMixin = (superclass) => class extends superclass {
     add_code_elem() {
         if (!this.allowed_code)
             return
+        if (this.code_line !== null) {
+            this.line_elem.appendChild(this.code_line) // was already created and its test should be up to date with the item
+            return
+        }
+        if (!this.show_code)
+            return // will be created when needed on set_show_code()
         this.code_line = add_param_line(this.line_elem)  // don't pass this since it's in the line_elem
         elem_set_visible(this.code_line, this.show_code)
         add_param_label(this.code_line, this.label_display)
@@ -1308,10 +1329,13 @@ let CodeItemMixin = (superclass) => class extends superclass {
     set_show_code(v) {
         if (v === this.show_code)
             return
+        if (v && this.code_line === null) // need it and didn't add it
+            this.add_code_elem()
         this.show_code = v
         if (this.single_line !== null) { // displayed?
             elem_set_visible(this.single_line, !v)
-            elem_set_visible(this.code_line, v)
+            if (this.code_line !== null)
+                elem_set_visible(this.code_line, v)
         }
         this.do_set_eactives()
 
@@ -1389,10 +1413,11 @@ class ParamBaseExpr extends CodeItemMixin(Parameter)
         this.single_line = add_param_line(this.line_elem) // don't pass this here since we passed it for line_elem
         elem_set_visible(this.single_line, !this.show_code)
         this.label_elem = add_param_label(this.single_line, this.label_display)
-        const single_elem = this.item.add_editbox(this.single_line, true)
 
         if (this.is_sharing_line_elem() && this.allowed_code) //  if it's sharing a line, clearly it wasn't meant to be code
             throw new Error("param that shares line doesn't work with allowed_code")
+
+        this.item.add_editbox(this.single_line, true)
         this.add_code_elem()
     }
 
@@ -3242,9 +3267,43 @@ class ParamGroup extends Parameter
     save() { return null }
     load(v) { }
     add_elems(parent) {
-        this.line_elem = add_param_line(parent)
+        this.line_elem = add_param_line(parent, this)
         this.line_elem.classList.toggle('param_line_group', true)
+        this.add_sub_params()
     }
+
+    add_sub_params() {
+        let my_params = []
+        for(let p of this.owner.parameters) { 
+            if (p.group_param !== null && Object.is(p.group_param, this)) {
+                my_params.push(p)
+            }
+        }
+
+        if (this.owner.cls.get_sorted_labels !== undefined) {
+            const sorted_order = this.owner.cls.get_sorted_labels(this) // for vars
+            if (sorted_order !== null) {
+                dassert(sorted_order.length === my_params.length, "wrong size of sorted_order")
+                const prm_by_label = {}
+                for(let p of my_params)
+                    prm_by_label[p.label] = p
+                for(let pi of sorted_order) {
+                    const p = prm_by_label[pi]
+                    dassert(p !== undefined, "can't find param label " + pi)
+                    p.add_elems(null) 
+                    p.init_enable_visible()
+                }
+                my_params = null // indicate it's done
+            }
+        }
+        if (my_params !== null) {
+            for(let p of my_params) {
+                p.add_elems(null) // null since they will get their parent from the group they have set
+                p.init_enable_visible()
+            }
+        }
+    }
+
     update_elems() { // will still work (and do nothing visible) if the node is not selected
         // remove all previous children
         if (this.line_elem === null)
@@ -3253,12 +3312,7 @@ class ParamGroup extends Parameter
             this.line_elem.removeChild(this.line_elem.firstChild);
         }
         // re-add up to date children
-        for(let p of this.owner.parameters) {
-            if (p.group_param !== null && Object.is(p.group_param, this)) {
-                p.add_elems(null) // will get their parent from the group they have set
-                p.init_enable_visible()
-            }
-        }
+        this.add_sub_params()
         fix_label_lengths(this.owner.parameters)
     }
 }

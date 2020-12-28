@@ -571,6 +571,21 @@ input {
 .param_var_rm_btn:hover {
     background-image: linear-gradient(to bottom, #aa9090, #aa8080);  
 }
+.param_var_arrow {
+    height: 25px;
+    min-width: 0px;
+    line-height: 23px;
+    padding: 0 3px 0 3px;
+    position: absolute;   
+}
+.param_var_up_btn {
+    right: 35px; 
+}
+.param_var_down_btn {
+    right: 75px; 
+}
+
+
 /*.param_select {
 }*/
 .param_file_input {

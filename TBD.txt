@@ -61,7 +61,8 @@ EXPRESSIONS
 - BUG: bool value warninig on load of anim_bouncing_blobs2.yaml
 - BUG: uniform parser get uniforms in comments
 - BUG: canvases overflowing from bottom
-- BUG: label space adjust doesn't work for ParamBool
+- BUG: label space adjust doesn't work for ParamBool, also for bool sharing a line in variables node
+- variables display - change order
 - Box2D
     - BUG: errors don't stop previous anim
     - BUG: in scissors test file has non dynamic dynamic body
@@ -69,7 +70,8 @@ EXPRESSIONS
         - revolute limits
         - revolute relative anchors
         - show the name of where the line comes from
-    - box body - change size online    
+    - box body - change size online   
+    - filtering - for scissors
     - template
     - change display shape with input geometry/image
         - setTransform to mesh
@@ -84,7 +86,7 @@ EXPRESSIONS
     - copy joint?
     - sampled time step on startip
     - planet gravity? b2GravityController, boyancy?
-    - filtering?
+
     - merge node - disable using checkboxes for each input
     - spirograph example: https://laughingsquid.com/the-cycloid-drawing-machine-a-device-that-uses-wooden-gears-to-create-elaborate-beautiful-designs/
     - demo - bicycle doing a loop

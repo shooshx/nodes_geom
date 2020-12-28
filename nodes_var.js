@@ -229,7 +229,11 @@ class NodeVariable extends NodeCls
         this.global = new ParamBool(node, "Global Namespace", false, (v)=>{
             node.can_global = v
             draw_nodes()
-        })
+        }, {allow_expr:false})
+        this.brief = new ParamBool(node, "Brief View", false, (v)=>{
+            this.set_brief(v)
+        }, {allow_expr:false})
+        this.brief.share_line_elem_from(this.global)
 
         this.v_group = new ParamGroup(node, "vars_params")
 
@@ -241,10 +245,44 @@ class NodeVariable extends NodeCls
             this.v_group.update_elems()
         }, ["param_btn", "param_var_add_btn"])
 
+
         node.register_rename_observer((newname)=>{
             if (this.vars_prm.length == 1)
                 this.vars_prm[0].name.modify(newname)
         })
+    }
+
+    set_brief(v) 
+    {
+        this.add_prm_btn.set_visible(!v)
+        for(let p of this.vars_prm) {
+            p.type.set_visible(!v)
+            p.remove_btn.set_visible(!v)
+            p.name.set_visible(!v)
+            p.mouseState.set_visible(!v && p.type.sel_idx == 3)
+            p.sep.set_visible(!v)
+            p.up_btn.set_visible(!v)
+            p.down_btn.set_visible(!v)
+            for(let name of ["expr_float", "expr_int", "expr_vec2", "expr_vec2_mouse", "expr_color", "expr_bool"]) {
+                if (v) {
+                    // need to save a backup of the original name that looked like "Float"
+                    if (p[name].label_display_bak === undefined) // do it only on the first time since only the first time the label_display is what it was inited with
+                        p[name].label_display_bak = p[name].label_display
+                    p[name].label_display = p.name.get_value()
+                }
+                else {
+                    if (p[name].label_display_bak !== undefined) // will be undefined on the first call from load
+                        p[name].label_display = p[name].label_display_bak
+                }
+            }
+        }
+
+        if (is_nodes_param_shown(this.node))
+            show_params_of(this.node) // refresh display labels
+    }
+    post_load_hook() {
+        if (this.brief.v)
+            this.set_brief(true) // need to set their display names which were wrong in the initial call_change of the param from load since that was before the params were loaded
     }
 
     any_prm_need_input() {
@@ -263,6 +301,9 @@ class NodeVariable extends NodeCls
         p.id = id
         this.namer.v.prms_lst.push(id)
         this.vars_prm.push(p)
+
+        p.p_group = new ParamGroup(node, prefix + "group")
+        p.p_group.set_group(this.v_group)
 
         p.type = new ParamSelect(node, ["Type", prefix], 0, ['Float', 'Integer', 'Float2', 'Float2-Mouse', 'Color', 'Bool'], (sel_idx)=>{ // TBD Transform, Function
             p.expr_float.set_visible(sel_idx == 0)
@@ -296,6 +337,16 @@ class NodeVariable extends NodeCls
         }, ["param_btn", "param_var_rm_btn"]) 
         p.remove_btn.share_line_elem_from(p.type)
 
+        p.up_btn = new ParamButton(node, ["[/\\]", prefix], ()=>{
+            this.move_variable(id, -1)
+        }, ["param_btn", "param_var_arrow", "param_var_up_btn"])
+        p.up_btn.share_line_elem_from(p.type)
+
+        p.down_btn = new ParamButton(node, ["[\\/]", prefix], ()=>{
+            this.move_variable(id, 1)
+        }, ["param_btn", "param_var_arrow", "param_var_down_btn"])
+        p.down_btn.share_line_elem_from(p.type)
+
         p.name = new ParamStr(node, ["Name", prefix], "var", (v)=>{
             if (this.vars_prm.length == 1) { // with one var the name of the var is the name of the node
                 node.set_name(v)
@@ -309,19 +360,45 @@ class NodeVariable extends NodeCls
         p.expr_vec2_mouse = new ParamVec2(node, ["Mouse Coord", prefix], 0, 0) // want a different one since we don't want to mess with expr_vec2 being in code or not
         p.expr_vec2_mouse.set_enable(false)  // user never edits it directly
         p.expr_bool = new ParamBool(node, ["Bool", prefix], false)
+
         p.mouseState = new ParamSelect(node, ["Sample At", prefix], 0, ["Mouse left down", "Mouse move"])
         p.sep = new ParamSeparator(node, prefix + "sep", "param_sep_line")
 
         // for easy removal
-        p.params = [p.type, p.remove_btn, p.name, p.expr_float, p.expr_int, p.expr_vec2, p.expr_color, p.expr_vec2_mouse, p.expr_bool, p.mouseState, p.sep]
+        p.params = [p.p_group, p.type, p.remove_btn, p.up_btn, p.down_btn, p.name, p.expr_float, p.expr_int, p.expr_vec2, p.expr_color, p.expr_vec2_mouse, p.expr_bool, p.mouseState, p.sep]
         for(let pp of p.params) {
-            pp.set_group(this.v_group)
+            if (pp === p.p_group)
+                continue // don't want to set the group to the group of this var
+            pp.set_group(p.p_group)
             pp.call_change()            
         }
 
         p.vb = new VarBox()
 
         return p
+    }
+    get_sorted_labels(for_group) {
+        if (for_group !== this.v_group)
+            return null
+        const lst = []
+        for(let id of this.namer.st_get("prms_lst"))
+            lst.push("p" + id + "_group")
+        return lst
+    }
+
+    move_variable(id, dir) {
+        let lst = this.namer.st_get("prms_lst")
+        const idx = lst.indexOf(id)
+        if (idx === -1)
+            console.error("didn't find index of ", id)
+        if (idx + dir < 0 || idx + dir >= lst.length)
+            return
+        lst.splice(idx, 1)
+        lst.splice(idx + dir, 0, id)
+        this.namer.st_set(lst)
+
+        this.v_group.update_elems()
+      
     }
 
     var_run() {
