@@ -744,6 +744,45 @@ class NodeB2Sim extends NodeCls
 }
 
 
+// extract the transform relative to a given body in a given world and set it to a given object
+class ExtractTransform extends NodeCls
+{
+    static name() { return "Extract Transform" }
+    constructor(node) {
+        super(node)
+
+        this.in_body = new InTerminal(node, "in_body")
+        this.in_world = new InTerminal(node, "in_world")
+        this.in_dst_obj = new InTerminal(node, "in_dst_obj")
+        this.out_obj = new OutTerminal(node, "out_obj")
+    }
+    run() {
+        const in_body = this.in_body.get_const()
+        assert(in_body !== null, this, "missing in_body")
+        assert(in_body.constructor === B2Def && in_body.bodies.length === 1, this, "in_body should be a single body definition")
+        const in_world = this.in_world.get_const()
+        assert(in_world !== null, this, "missing in_world")
+        assert(in_world.constructor === B2World, this, "in_world needs to be a B2World")
+        const in_dst_obj = this.in_dst_obj.get_mutable()
+        assert(in_dst_obj !== null, this, "missing in_dst_obj")
+        assert(in_dst_obj.set_transform !== undefined, this, "in_dst_obj doesn't have set_transform")
+
+        const body_def = in_body.bodies[0]
+        const body = in_world.cnode_to_obj[body_def.cnode_id]
+        assert(body !== undefined, this, "Can't find body " + body_def.cnode_id)
+        const pos = body.obj.GetPosition()
+        const angle = body.obj.GetAngle()
+        const m = mat3.create()
+        mat3.translate(m, m, vec2.fromValues(pos.x, pos.y))
+        mat3.rotate(m, m, angle)
+
+        in_dst_obj.set_transform(m)
+        this.out_obj.set(in_dst_obj)
+    }
+}
+
+//class NodePen
+
 
 
 // from https://github.com/flyover/box2d.ts/blob/master/testbed/draw.ts
@@ -915,55 +954,6 @@ class CanvasDebugDraw extends b2.Draw
         //size /= g_camera.m_extent;
         const hsize = size / 2;
         ctx.fillRect(p.x - hsize, p.y - hsize, size, size);
-      }
-    }
-  
-    //rawString_s_color = new b2.Color(0.9, 0.6, 0.6);
-    DrawString(x, y, message) {
-      return // TBD  
-      const ctx = this.ctx
-      if (ctx) {
-        ctx.save();
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.font = "15px DroidSans";
-        const color = DebugDraw.DrawString_s_color;
-        ctx.fillStyle = color.MakeStyleString();
-        ctx.fillText(message, x, y);
-        ctx.restore();
-      }
-    }
-  
-    //DrawStringWorld_s_p = new b2.Vec2();
-    //DrawStringWorld_s_cc = new b2.Vec2();
-    //DrawStringWorld_s_color = new b2.Color(0.5, 0.9, 0.5);
-    DrawStringWorld(x, y, message) {
-      return  // TBD going to need some work
-      const ctx = this.ctx
-      if (ctx) {
-        const p = DebugDraw.DrawStringWorld_s_p.Set(x, y);
-  
-        // world -> viewport
-        const vt = g_camera.m_center;
-        b2.Vec2.SubVV(p, vt, p);
-        ///const vr = g_camera.m_roll;
-        ///b2.Rot.MulTRV(vr, p, p);
-        const vs = g_camera.m_zoom;
-        b2.Vec2.MulSV(1 / vs, p, p);
-  
-        // viewport -> canvas
-        const cs = 0.5 * g_camera.m_height / g_camera.m_extent;
-        b2.Vec2.MulSV(cs, p, p);
-        p.y *= -1;
-        const cc = DebugDraw.DrawStringWorld_s_cc.Set(0.5 * ctx.canvas.width, 0.5 * ctx.canvas.height);
-        b2.Vec2.AddVV(p, cc, p);
-  
-        ctx.save();
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.font = "15px DroidSans";
-        const color = DebugDraw.DrawStringWorld_s_color;
-        ctx.fillStyle = color.MakeStyleString();
-        ctx.fillText(message, p.x, p.y);
-        ctx.restore();
       }
     }
   

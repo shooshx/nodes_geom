@@ -51,6 +51,7 @@ EXPRESSIONS
 - colors [0-1] everywhere (set attr)
 - SetAttr with null return to do nothing like in fill
     -none value for function
+- Sample any param from any node ???
 
 ****** CURRENT AGENDA ******
 - Copy
@@ -62,15 +63,13 @@ EXPRESSIONS
 - BUG: uniform parser get uniforms in comments
 - BUG: canvases overflowing from bottom
 - BUG: label space adjust doesn't work for ParamBool, also for bool sharing a line in variables node
-- variables display - change order
+- maybe BUG: variables loose exact accuracy on repeated load-save?
 - Box2D
     - BUG: errors don't stop previous anim
     - joints
         - revolute limits
-        - revolute relative anchors
         - show the name of where the line comes from
     - !!! text annotation    
-    - box body - change size online   
     - filtering - for scissors to not bang
     - template
     - change display shape with input geometry/image

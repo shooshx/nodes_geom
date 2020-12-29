@@ -2180,6 +2180,7 @@ class TransformDial {
         this.param = param
         this.cx = null; this.cy = null
         this.with_resize = false
+        this.mv = null
     }
     set_center(cx, cy) { 
         this.cx = cx; this.cy = cy
@@ -2193,6 +2194,8 @@ class TransformDial {
 
     // called from image_find_obj
     find_obj(e) { // event coords
+        if (this.mv === null)
+            return null // not displayed yet
         const mv = this.mv, uab = this.uab, rab = this.rab, rot = this.rot, ex = e.ex, ey = e.ey
         if (rect_hit(ex, ey, mv))
             return new DialMoveHandle(this.param, true, true)

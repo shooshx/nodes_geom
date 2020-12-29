@@ -426,10 +426,12 @@ function clone(obj) {
         // it's a typed array or Path2D (that have copy ctor)
         return new obj.constructor(obj)
     }
-    if (obj.constructor === WebGLBuffer || obj.constructor === WebGLTexture || obj.constructor === CanvasGradient) {
+    if (obj.constructor === WebGLBuffer ||  
+        obj.constructor === CanvasGradient || obj.constructor == ImageBitmap) {
         return null // gl buffers can't be cloned, cached objects
     }
-    if (obj.constructor === HTMLImageElement) {
+    if (obj.constructor === HTMLImageElement || obj.constructor === WebGLTexture) {
+        // I think nowa days all WebGLTexture should be immutable
         return obj // immutable object (once it's loaded) so it's ok for several clones to reference it
     }
     if (obj.constructor === ObjConstProxy) {

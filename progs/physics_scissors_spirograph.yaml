@@ -840,7 +840,7 @@ nodes:
         e_y: 0
         se_cv: 'return vec2(0, 0)'
       p10_Bool:
-        v: false
+        v: true
         e_v: 0
       p10_Sample At:
         sel_str: Mouse left down
@@ -906,7 +906,7 @@ nodes:
       p11_Name:
         v: joint_at_1
       p11_Float:
-        e_v: 0.6477506496097611
+        e_v: 0.6480000000000001
         sldcfg_v:
           min: 0
           max: 1
@@ -968,7 +968,7 @@ nodes:
       p12_Name:
         v: joint_at_2
       p12_Float:
-        e_v: 0.712564482610496
+        e_v: 0.7130000000000001
         sldcfg_v:
           min: 0
           max: 1
@@ -1030,7 +1030,7 @@ nodes:
       p13_Name:
         v: joint_at_3
       p13_Float:
-        e_v: 0.566028860174052
+        e_v: 0.5660000000000001
         sldcfg_v:
           min: 0
           max: 1
@@ -1092,7 +1092,7 @@ nodes:
       p14_Name:
         v: joint_at_4
       p14_Float:
-        e_v: 0.6308426931747868
+        e_v: 0.6310000000000001
         sldcfg_v:
           min: 0
           max: 1
@@ -1136,6 +1136,54 @@ nodes:
     cls_name: Change Filter
     x: 259.49999999999943
     y: 667.8000000000008
+    disp_param: {}
+  '74':
+    params: {}
+    name: extract_transform_1
+    cls_name: Extract Transform
+    x: 738.3940000000013
+    y: 333.0580000000001
+    disp_param: {}
+  '77':
+    params:
+      File Upload:
+        rurl: img/test_img1.png
+      size:
+        e_x: 0.8240000000000001
+        e_y: 1.812
+        se_cv: 'return vec2(2, 2)'
+      Smooth Scaling:
+        v: true
+        e_v: 1
+      Transform:
+        e_tx: 1.595
+        se_ty: '-1.462'
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+      Texture Edge:
+        sel_str: Pad
+    name: load_image_1
+    cls_name: Load Image
+    x: 925.0420999999988
+    y: 169.65149999999994
+    disp_param: {}
+  '79':
+    params:
+      transform:
+        se_tx: '-0.342'
+        se_ty: '-0.178'
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+    name: transform_1
+    cls_name: Transform
+    x: 979.6399999999998
+    y: 267.9740000000007
     disp_param: {}
 lines:
   - from_name: b2_defs
@@ -1273,7 +1321,22 @@ lines:
     to_name: b2_in
     to_id: 14
     uid: 72
-next_node_id: 74
+  - from_name: b2_defs
+    from_id: 43
+    to_name: in_body
+    to_id: 74
+    uid: 75
+  - from_name: b2_world
+    from_id: 14
+    to_name: in_world
+    to_id: 74
+    uid: 76
+  - from_name: out_img
+    from_id: 77
+    to_name: in_dst_obj
+    to_id: 74
+    uid: 81
+next_node_id: 82
 names_idx_s:
   Physics Merge: 2
   Physics Body: 10
@@ -1283,13 +1346,16 @@ names_idx_s:
   Variable: 1
   Change Filter: 1
   Function Fill: 1
+  Extract Transform: 1
+  Load Image: 1
+  Transform: 1
 display_node_id: 12
 tdisp_node_ids: []
 input_node_ids: []
 glob_var_node_ids:
   - 69
 nodes_view:
-  pan_x: 206.564
-  pan_y: 139.65499999999994
-  zoom: 0.7513148009015777
+  pan_x: 57.50239999999975
+  pan_y: -402.5645999999999
+  zoom: 0.6830134553650705
 decor: []

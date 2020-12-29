@@ -886,7 +886,8 @@ const nodes_classes = [
         NodeB2Body,
         NodeB2Joint,
         NodeB2Merge,
-        NodeB2Sim
+        NodeB2Sim,
+        ExtractTransform
     ]},
     NodeSetAttr, 
     NodeTransform,
