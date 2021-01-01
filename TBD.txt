@@ -69,7 +69,7 @@ EXPRESSIONS
     - joints
         - revolute limits
         - show the name of where the line comes from
-    - !!! text annotation    
+    - text annotation    
     - filtering - for scissors to not bang
     - template
     - change display shape with input geometry/image
@@ -81,7 +81,10 @@ EXPRESSIONS
     - setLinearDamping, setAngularDamping
     - test several worlds running at the same time
     - pen
+        normal run variables - sample the transform
+        transform object in expression
     - copy
+    - sample param from node in expression - to allow setting the length to set the joint as well
     - copy joint?
     - sampled time step on startip
     - planet gravity? b2GravityController, boyancy?
@@ -415,6 +418,7 @@ Minify:
 
 icons
     https://tablericons.com/
+GUI panel layout: https://github.com/slightlyoff/cassowary.js/
 
 post project in:
     https://www.seelink.app/raghav/3vU9GDGWAgwoX3LyBCiBWs

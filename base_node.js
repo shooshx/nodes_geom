@@ -828,9 +828,7 @@ class Node {
         // this member is managed by the engine in its scan for dirty subtrees. should not be set by the node itself        
         this._node_dirty = true 
         // indication for the engine traversal of this node.
-        // if the engine visited this node it means it doesn't need to distribute it's output to connections
-        // I keep track of that since it's useful to know (and check) that any input is only being set once in a run
-        this._visited = false
+          this._last_visited_fv = 0 // frame_ver
         // should be set by the node if anything happened that dirtied itss state (that is not a parameter)
         // used for viewport dependent nodes when viewport changes (not actaully used right now)
         this.self_dirty = false
@@ -1163,10 +1161,10 @@ class NodeCls {
     pick_lines() { assert(false, this, "not selecting lines") }
     should_clear_out_before_run() { return true }
 
-    nresolve_variables() {
+    nresolve_variables(do_globals) {
         try {
             for(let p of this.node.parameters) {
-                p.resolve_variables(this.vars_in.my_vsb) // variables already have the vars_box referenced
+                p.resolve_variables(this.vars_in.my_vsb, do_globals, !do_globals) // variables already have the vars_box referenced
             }
         } 
         catch(err) {

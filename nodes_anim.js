@@ -23,6 +23,7 @@ class NodePickOne extends NodeCls
 
         assert(of_terminal === this.in_m, this, "Unexpected terminal in pick_lines")
         assert(this.in_m.lines.length > 0, this, "No inputs")
+        this.pick_expr.resolve_variables(this.vars_in.my_vsb, true, true) // this is needed since pick_lines runs before resolving variables
         const pick = this.pick_expr.get_value()
         assert(pick >= -1 && pick < this.in_m.lines.length, this, "Index out of range " + pick)
         if (pick === -1) {

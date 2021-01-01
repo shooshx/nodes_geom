@@ -106,10 +106,10 @@ class Parameter
     reg_expr_item(expr) {
         this.my_expr_items.push(expr)
     }
-    resolve_variables(vars_box) { // each param that has expr_items implements this to its exprs
+    resolve_variables(vars_box, do_globals, do_locals) { // each param that has expr_items implements this to its exprs
         let any_changed = false
         for(let expr of this.my_expr_items)
-            any_changed |= expr.eresolve_variables(vars_box)
+            any_changed |= expr.eresolve_variables(vars_box, do_globals, do_locals)
         if (any_changed)
             this.call_change()
     }
@@ -980,8 +980,8 @@ class ExpressionItem {
             this.expr_score = state_access.score  // score determines if the expression depends on anything
             this.etype_undecided = false  // TBD can be refactored to not be members?
             this.etype_depend_var = false
-            // if it contains reference to variables try to resolve them now, before type-check
-            this.eresolve_evaluators(this.last_resolve_varbox, true) // can fail, we'll have another chance before run
+            // if it contains reference to variables try to resolve them now, before type-check, do both global and locals
+            this.eresolve_evaluators(this.last_resolve_varbox, true, true, true) // can fail, we'll have another chance before run
             this.do_check_type() // sets etype_undecided, etype_depend_var
         }
         catch(ex) { // TBD better show the error somewhere
@@ -1155,19 +1155,27 @@ class ExpressionItem {
     }
 
     // assign the evaluators from the current expression values according to the given box or the global box
-    eresolve_evaluators(in_vars_box, allow_not_found) {
+    eresolve_evaluators(in_vars_box, allow_not_found, do_globals, do_locals) {
         let vis_dirty = false
         // go over the variables in the expr and set values to them
         for(let vename in this.variable_evaluators) 
         {
             const ve = this.variable_evaluators[vename]
+            if (do_globals)
+                ve.var_box = null //unbind it in the first stage
             let from_in = undefined
-            if (in_vars_box !== null)
+            if (do_locals && in_vars_box !== null)
                 from_in = in_vars_box.lookup(ve.varname)  // VariablesBox
-            if (from_in === undefined)
+            if (do_globals && from_in === undefined)
                 from_in = g_anim.vars_box.lookup(ve.varname) // for frame_num
+            
             if (from_in === undefined) {
-                if (allow_not_found) // when called from peval it may not be able to resolve since the variables are not there yet
+                if (ve.var_box !== null)
+                    continue // it was already bound in the globals call
+                // when called from peval it may not be able to resolve since the variables are not there yet
+                // when called with do_globals, we don't want to raise an error for something that would resolve for a local, 
+                //    do_locals is just before run so it needs to make this check
+                if (allow_not_found || do_globals) 
                     continue
                 throw new ExprErr("Unknown variable " + ve.varname, ve.line_num) // TBD add what line                
             }
@@ -1177,7 +1185,7 @@ class ExpressionItem {
         return vis_dirty
     }
 
-    eresolve_variables(in_vars_box) {
+    eresolve_variables(in_vars_box, do_globals, do_locals) {
         this.last_resolve_varbox = in_vars_box
         if ((this.expr_score & EXPR_NEED_VAR) == 0)
             return
@@ -1185,7 +1193,7 @@ class ExpressionItem {
             return // if it's not the active param, don't need to do anything, when its getting activate it's going to get peval and resolve
                    // also, resolve can be allowed to fail if this is not a active expression
         try {
-            const vis_dirty = this.eresolve_evaluators(in_vars_box, false) // should not fail, failure means the node fails
+            const vis_dirty = this.eresolve_evaluators(in_vars_box, false, do_globals, do_locals) // should not fail, failure means the node fails
             // if ov (old-v) is null, don't even bother checking if it's dirty since we need to eval anyway
             // this can happen when peval() is called (sometimes not even for parsing new expr)
             const ov = this.get_prop()

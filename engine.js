@@ -382,41 +382,6 @@ function dirty_viewport_dependents() {
     }
 }
 
-// a syncronous version of run_nodes_tree to do a pre-run of only the variable
-// nodes to set up dirtiness for the real run
-function var_run_nodes_tree(n)
-{
-    if (n._var_visited)
-        return
-    n._var_visited = true
-
-    // recursive call - first go all the way in to start from the top
-    for(let inp_t of n.inputs) {  
-        // all lines going into an input
-        for(let line of inp_t.lines) {
-            var_run_nodes_tree(line.from_term.owner)
-        }
-    }
-    n.cls.vars_in.clear()  /* without this variables names from previous runs stick around */
-    collect_terminal(n.cls.vars_in)
-    n.cls.nresolve_variables()
-
-    if (n.nkind === KIND_OBJ)  // normal objects node, don't need to do anything more, will be run after dirty analysis
-        return
-
-    n._visited = true  // don't want to do progress_io on it again
-    // variable producing node
-    const this_dirty = n.has_anything_dirty() || !n.has_cached_output()
-    if (this_dirty) {
-        collect_inputs(n, KIND_VARS) // vars input into this vars node
-        if (!n.check_params_errors())
-            throw { message: "Var Parameter error", node_cls:n.cls }
-        n.cls.var_run()
-    }
-    //progress_io(n)
-    n.clear_dirty()  // this makes it so later in the real run, we won't get to this node
-     // it needs to be after progress_io so that the VarBox dirty would propogate as false
-}
 
 function collect_line(line) {
     const obj = line.from_term.get_const()
@@ -432,40 +397,72 @@ function collect_terminal(in_t) {
 function collect_inputs(n, of_kind)
 {
     for(let in_t of n.inputs) {
-        if (in_t.kind !== of_kind)
-            continue
         collect_terminal(in_t)
     }
 }
-
-
 
 function isPromise(x) {
     return Boolean(x && typeof x.then === 'function')
 }
 
-async function run_nodes_tree(n) 
-{
-    console.assert(n._node_dirty !== null)
-    if (n._visited)
-        return
-    n._visited = true
-
-    if (n._node_dirty) {
-        const node_picking_lines = n.cls.is_picking_lines()
-        // all inputs    
-        for(let inp_t of n.inputs) {  
-            // all lines going into an input
-            if (inp_t.kind !== KIND_OBJ)
-                continue
-            let run_lines = inp_t.lines
-            if (node_picking_lines)
-                run_lines = n.cls.pick_lines(inp_t)
-            
-            for(let line of run_lines) {
-                await run_nodes_tree(line.from_term.owner)
+function lines_list_subtract(total, picked) {
+    const ret = []
+    for(let t of total) {
+        let found = false
+        for(let p of picked) {
+            if (t === p) {
+                found = true
+                break
             }
         }
+        if (!found)
+            ret.push(t)
+    }
+    return ret
+}
+
+// returns true if the argument node was dirty of out of its parents is was dirty
+async function run_nodes_tree(n, picked) 
+{
+    //console.assert(n._node_dirty !== null)
+    if (n._last_visited_fv == frame_ver)
+        return
+    n._last_visited_fv = frame_ver
+
+    const node_picking_lines = n.cls.is_picking_lines()
+    let parent_dirty = false
+
+    // all inputs, including var
+    for(let inp_t of n.inputs) {  
+        // all lines going into an input
+        let run_lines = inp_t.lines, not_picked_lines = null
+        if (node_picking_lines && inp_t.kind === KIND_OBJ) {// var terminal doesn't participate in picking (always runs)
+            run_lines = n.cls.pick_lines(inp_t)
+            not_picked_lines = lines_list_subtract(inp_t.lines, run_lines)
+        }
+        
+        for(let line of run_lines) {
+            parent_dirty |= await run_nodes_tree(line.from_term.owner, picked)
+        }
+        if (not_picked_lines !== null) {
+            // on unpicked branches, we still want to resolve variables so that online params would work (with variables)
+            for(let line of not_picked_lines) {
+                await run_nodes_tree(line.from_term.owner, false)
+            }
+        }
+    }
+
+    // resolve globals like frame_num that can affect dirtiness
+    n.cls.nresolve_variables(true) 
+
+    if (!picked)
+        return false // non-picked branch should not set dirtiness
+
+    const this_dirty = parent_dirty || n.has_anything_dirty() || !n.has_cached_output()
+
+    // if we're on a not-picked branch, don't run, the output is not going to be used
+    if (this_dirty) {
+
         // clear outputs of what's just going to run to make sure it updated its output
         // otherwise it can have something there from a previous iteration (which will stay there in case of an error)
         // shouldn't be before running the inputs since that causes error in animation loops
@@ -473,17 +470,29 @@ async function run_nodes_tree(n)
             for(let out_t of n.outputs) {
                 out_t.clear()
             }
+
+        n.cls.vars_in.clear()  // without this variables names from previous runs stick around 
         if (!node_picking_lines) // a node that's picking lines, also does its own collect
-            collect_inputs(n, KIND_OBJ)
+            collect_inputs(n)
+        else
+            collect_terminal(n.cls.vars_in) // need to do this here never the less so that resolve would work, this is ok since pick-one node isn't interested in picking the variable terminal
+        n.cls.nresolve_variables(false)
+    
         if (!n.check_params_errors())
             throw { message: "Parameter error", node_cls:n.cls }  // abort if there are any errors
-        const r = n.cls.run()
-        if (isPromise(r))
-            await r
+
+        if (n.nkind === KIND_OBJ) {
+            const r = n.cls.run()
+            if (isPromise(r))
+                await r
+        }
+        else {
+            n.cls.var_run()
+        }
         n.clear_dirty() // it finished running so it didn't throw and exception
     }
 
-    //progress_io(n, n_dirty) // needs to be outside the dirty check since otherwise its output wouldn't move to the next node if we just change the display node after running
+    return this_dirty
 }
 
 function clear_inputs_errors(prog) {
@@ -511,46 +520,7 @@ function do_clear_all(prog) {
     }
 }
 
-// first mark all flags as null so we know who we already visited
-function clear_nodes_status(prog) {
-    for(let n of prog.nodes) {
-        n._node_dirty = null // for caching of output values
-        n._visited = false   // for visiting a node during run (and distributing it's output, cached or not to the connections)
-        n._var_visited = false // visited by the variables-set recursive run
-    } 
-}
 
-// go up the tree to find from what point things start to be dirty and need to be re-run
-// when a node is found to be dirty (by its parameters), everything under it is also dirty
-function mark_dirty_tree(n) {
-    if (n._node_dirty !== null) // already been here
-        return n._node_dirty
-    n._node_dirty = false // mark visited
-
-    const node_picking_lines = n.cls.is_picking_lines()
-    // all inputs
-    for(let inp_t of n.inputs) {  
-        // all lines going into an input
-        // TBD  - only OBJ, only picked lines
-        if (inp_t.kind !== KIND_OBJ) // var terminal was already done with
-            continue
-        let run_lines = inp_t.lines
-        if (node_picking_lines)
-            run_lines = n.cls.pick_lines(inp_t)            
-        for(let line of run_lines) {
-            // if any of the higher nodes is dirty, we're dirty as well
-            if (mark_dirty_tree(line.from_term.owner)) {
-                n._node_dirty = true
-                // can't return just yet since it needs to go over all inputs to mark all as dirty or not
-            }
-        }
-    }
-    if (n._node_dirty) // found above
-        return true
-    let this_dirty = n.has_anything_dirty() || !n.has_cached_output() // no current output means it must run
-    n._node_dirty = this_dirty
-    return this_dirty
-}
 
 // happens when calling run(), clears every iteration
 function set_error(node_cls, msg) {
@@ -694,28 +664,12 @@ async function do_frame_draw(do_run, clear_all)
             }
         }
         clear_inputs_errors(program)
-        clear_nodes_status(program)
-        // first run variable node on the tree and resolve variables on normal nodes since this affects dirtiness of nodes
-        let var_run_errors = false
-        for(let node of run_root_nodes) {
-            try {
-                var_run_nodes_tree(node)    
-            }
-            catch(e) {
-                handle_node_exception(e)
-                var_run_errors = true
-            }
-        }
-        if (var_run_errors) // if type-checks failed, we don't want run to call dyn_eval and crash
-            return
-        // anayze dirtiness of the tree and keep for each node if it's dirty
-        for(let node of run_root_nodes) // first mark all as dirty
-            mark_dirty_tree(node)
-        // run the dirty nodes
+ 
         let disp_node_error = false
         for(let node of run_root_nodes) {
             try {
-                await run_nodes_tree(node)
+
+                await run_nodes_tree(node, true)
             }
             catch(e) {
                 handle_node_exception(e)
