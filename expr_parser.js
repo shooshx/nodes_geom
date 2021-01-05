@@ -10,7 +10,9 @@ const TYPE_BOOL = 2;
 const TYPE_VEC3 = 10; 
 const TYPE_VEC4 = 11;
 const TYPE_VEC2 = 12;
+const TYPE_MAT3 = 13;
 const TYPE_FUNCTION = 21;  // function 
+const TYPE_VOID = 22; // for function returns
 // returned from global check_type to mean there's not enough info to know what the type is since it depends on evaulators
 // that will be set by the cls, check_type will try again in dyn_eval
 const TYPE_UNDECIDED = 100; 
@@ -94,6 +96,8 @@ function typename(t) {
     case TYPE_VEC2: return "vec2"
     case TYPE_VEC3: return "vec3"
     case TYPE_VEC4: return "vec4"
+    case TYPE_MAT3: return "mat3"
+    case TYPE_VOID: return "void"
     case TYPE_FUNCTION: return "function"
     default: return "<" + t + ">"
     }
@@ -105,7 +109,7 @@ function numbersInType(t) {
     case TYPE_VEC2: return 2
     case TYPE_VEC3: return 3
     case TYPE_VEC4: return 4
-    default: return null
+    default: throw ExprErr("numbersInType for unexpected type " + t)
     }
 }
 
@@ -648,7 +652,7 @@ function parseOp()
 class FuncDef {
     constructor(jsfunc, num_args, type=FUNC_TYPE_BY_COMPONENT, ret_type=null) {
         this.f = jsfunc
-        this.num_args = num_args // negative means atleast that many
+        this.num_args = num_args // negative means atleast that many, list of two numbers means range
         this.dtype = type
         this.ret_type = ret_type // for FUNC_TYPE_LOOKUP - either a type or null to indicate it's the same as the input-arg type
     }
@@ -698,6 +702,13 @@ function fit11(v, nmin, nmax) { return fit(v, -1, 1, nmin, nmax) }
 
 function make_float(v) { return +v }
 function make_vec2(x, y) { return vec2.fromValues(x, y) }
+function make_mat3() {
+    const a = arguments
+    if (a.length == 0)
+        return mat3.create() // identity
+    eassert(a.length === 9, "Missing arguments, expected 9 values")
+    return mat3.fromValues(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8])
+}
 
 const make_vec3 = {
 [type_tuple(TYPE_NUM, TYPE_NUM, TYPE_NUM)]: function(x, y, z) { return vec3.fromValues(x, y, z) },
@@ -781,6 +792,17 @@ function hsv2rgb(va) {
     return [f(5),f(3),f(1)];   
 }
 
+const translate_lookup = {
+    [type_tuple(TYPE_MAT3, TYPE_NUM, TYPE_NUM)]: function(that, x, y) { mat3.translate(that, that, vec2.fromValues(x, y)) }
+}
+const rotate_lookup = {
+    [type_tuple(TYPE_MAT3, TYPE_NUM)]: function(that, v) { mat3.rotate(that, that, v) }
+}
+const scale_lookup = {
+    [type_tuple(TYPE_MAT3, TYPE_NUM, TYPE_NUM)]: function(that, x, y) { mat3.scale(that, that, vec2.fromValues(x, y)) }
+}
+
+
 
 const func_defs = {
     'cos': new FuncDef(Math.cos, 1), 'sin': new FuncDef(Math.sin, 1), 'tan': new FuncDef(Math.tan, 1),
@@ -799,23 +821,32 @@ const func_defs = {
  //   'ifelse': new FuncDef(ifelse, 3),
     'float':new FuncDef(make_float, 1, [TYPE_BOOL], TYPE_NUM),
     'vec2': new FuncDef(make_vec2, 2, [TYPE_NUM, TYPE_NUM], TYPE_VEC2), 'vec3': new FuncDef(make_vec3, [1,3], FUNC_TYPE_LOOKUP, TYPE_VEC3), 'vec4': new FuncDef(make_vec4, [1,4], FUNC_TYPE_LOOKUP, TYPE_VEC4),
+    'mat3': new FuncDef(make_mat3, [0,9], Array(9).fill(TYPE_NUM), TYPE_MAT3),
     'normalize': new FuncDef(normalize_lookup, 1, FUNC_TYPE_LOOKUP, null),
     'hsl' : new FuncDef(hsl, 3, [TYPE_NUM, TYPE_NUM, TYPE_NUM], TYPE_VEC3), 
     'hsla' : new FuncDef(hsla, 4, [TYPE_NUM, TYPE_NUM, TYPE_NUM, TYPE_NUM],TYPE_VEC4),
     'rgb2hsv' : new FuncDef(rgb2hsv, 1, [TYPE_VEC3], TYPE_VEC3), 'hsv2rgb' : new FuncDef(hsv2rgb, 1, [TYPE_VEC3], TYPE_VEC3),
     'plasma' : new FuncDef(plasma, [1,3], [TYPE_VEC2, TYPE_NUM, TYPE_VEC2] , TYPE_NUM),
-    'smoothmin' : new FuncDef(smoothmin, -3, [TYPE_NUM, TYPE_NUM, TYPE_NUM], TYPE_NUM)
+    'smoothmin' : new FuncDef(smoothmin, -3, [TYPE_NUM, TYPE_NUM, TYPE_NUM], TYPE_NUM),
 
+    'translate' : new FuncDef(translate_lookup, 3, FUNC_TYPE_LOOKUP, TYPE_VOID), 
+    "rotate": new FuncDef(rotate_lookup, 2, FUNC_TYPE_LOOKUP, TYPE_VOID),
+    "scale": new FuncDef(scale_lookup, 3, FUNC_TYPE_LOOKUP, TYPE_VOID),
 }
 // aliases
 func_defs['rgb'] = func_defs['vec3']
 func_defs['rgba'] = func_defs['vec4']
 
+
+
+
+
 // a place holder for an internal func that is returned from lookup and replaced by a FuncCallNode
 class FuncDefNode extends NodeBase {
-    constructor(def) {
+    constructor(def, that=null) {
         super()
         this.def = def
+        this.that = that
     }
     num_args() { return this.def.num_args }
     check_type() {
@@ -964,20 +995,21 @@ class InternalFuncCallNode extends NodeBase {
             eassert(Array.isArray(def_t))
             const args_type = args_check_type_lst(this.args)
 
-            if (def_t.num_args > 0) // sanity, might have been checked before
-                eassert(args_type.length === def_t.length, "Unexpected number of arguments " + args_type.length, " != " + def_t.length)
-            else {
-                eassert(args_type.length >= def_t.length, "Unexpected number of arguments " + args_type.length, " != " + def_t.length)
-                // check the last ones, if the exist, type needs to be as the last type of the in the definition
-                for(let i = def_t.length; i < args_type.length; ++i)
-                    if (args_type[i] !== def_t[def_t.length - 1])
-                        throw new TypeErr("Unexpected argument types expected arg: " + (i+1) + ": " + type_tuple_str(def_t[def_t.length - 1]) + " got " + type_tuple_str(args_type[i]))    
+            if (Number.isInteger(this.def.num_args)) // otherwise it's a range
+            {
+                if (this.def.num_args > 0) // sanity, might have been checked before
+                    eassert(args_type.length === def_t.length, "Unexpected number of arguments " + args_type.length + " != " + def_t.length)
+                else {
+                    eassert(args_type.length >= def_t.length, "Unexpected number of arguments " + args_type.length + " != " + def_t.length)
+                    // check the last ones, if the exist, type needs to be as the last type of the in the definition
+                    for(let i = def_t.length; i < args_type.length; ++i)
+                        if (args_type[i] !== def_t[def_t.length - 1])
+                            throw new TypeErr("Unexpected argument types expected arg: " + (i+1) + ": " + type_tuple_str(def_t[def_t.length - 1]) + " got " + type_tuple_str(args_type[i]))    
+                }
             }
-            for(let i = 0; i < def_t.length; ++i) // check only upto how many are given
+            for(let i = 0; i < args_type.length; ++i) // check only upto how many are given
                 if (args_type[i] !== def_t[i])  
                     throw new TypeErr("Unexpected argument types expected arg: " + (i+1) + ": " + type_tuple_str(def_t[i]) + " got " + type_tuple_str(args_type[i]))
-
-
 
             ret_t = this.def.ret_type
         }
@@ -1076,14 +1108,21 @@ class FuncObjCallNode extends NodeBase
 function parseFuncCall(func_node, func_name) {
     //if (!func_node.is_function())
     //    throw new ExprErr("Identifier " + func_name + " is not a function" )  
-    let args = []
-    // negative num_args means at least that many
-    do {
-        index_++; // first time skips the paren, after that skips the comma
-        let arg = parseExpr()
-        args.push(arg)
-        eatSpaces();
-    } while (getCharacter() == ',')
+    const args = []
+    if (func_node.that !== null)
+        args.push(func_node.that)
+    index_++; // skip open paren
+    eatSpaces();
+    if (getCharacter() !== ')') { // there are any args
+        // negative num_args means at least that many
+        do {
+            if (args.length > 0)
+                index_++; // skips the comma
+            let arg = parseExpr()
+            args.push(arg)
+            eatSpaces();
+        } while (getCharacter() == ',')
+    }
     if (getCharacter() != ')')
         throw new ExprErr("Expected closing paren for argument list at " + index_)
     ++index_; // skip paren
@@ -1143,11 +1182,16 @@ function lookupIdentifier(sb)
 
     if (g_symbol_table !== null) {
         const sps = sb.split('.')
-        const sn = g_symbol_table[sps[0]]
+        const sn = g_symbol_table[sps[0]] // symbol node
         if (sn !== undefined) {
             if (sps.length === 1) 
                 return sn
-            return new SubscriptNode(sn, sps.slice(1))
+            if (sps.length === 2) { // t.translate(x, y)
+                const def = func_defs[sps[1]]
+                if (def !== undefined)
+                    return new FuncDefNode(def, sn)
+            }
+            return new SubscriptNode(sn, sps.slice(1))  // v.x
         }    
     }
 

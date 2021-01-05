@@ -202,9 +202,9 @@ class VariableEvaluator extends EvaluatorBase
 
 }
 
-class NodeVariable extends NodeCls
+
+class NodeVarCls extends NodeCls
 {
-    static name() { return "Variable" }
     constructor(node) {
         super(node)
         node.can_display = false
@@ -213,6 +213,16 @@ class NodeVariable extends NodeCls
         node.name_xmargin = 8
         node.width = 80
         node.nkind = KIND_VARS
+    }
+}
+
+
+class NodeVariable extends NodeVarCls
+{
+    static name() { return "Variable" }
+    constructor(node) {
+        super(node)
+
         this.var_out = new VarOutTerminal(node, "variable_out")
 
         this.namer = new ParamObjStore(node, "<obj-store>", {gen_id:2, prms_lst:[1]}, ()=>{
@@ -401,7 +411,7 @@ class NodeVariable extends NodeCls
       
     }
 
-    var_run() {
+    run() {
         let vsb = null, out_obj = null
         if (this.global.get_value()) {
             // every global vars node has its own namespace in g_anim so that it can recreate all its vars every time so there won't be garbage left there

@@ -1175,9 +1175,6 @@ class NodeCls {
     run() {  // for normal kind node (nkind=KIND_OBJ)
         assert(false, this, "run() not implemented")
     }
-    var_run() { // for var kind node (nkind=KIND_VARS)
-        assert(false, this, "var_run() not implemented")
-    }
 
 }
 

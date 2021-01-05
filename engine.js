@@ -481,14 +481,10 @@ async function run_nodes_tree(n, picked)
         if (!n.check_params_errors())
             throw { message: "Parameter error", node_cls:n.cls }  // abort if there are any errors
 
-        if (n.nkind === KIND_OBJ) {
-            const r = n.cls.run()
-            if (isPromise(r))
-                await r
-        }
-        else {
-            n.cls.var_run()
-        }
+        const r = n.cls.run()
+        if (isPromise(r))
+            await r
+
         n.clear_dirty() // it finished running so it didn't throw and exception
     }
 

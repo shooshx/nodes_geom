@@ -45,8 +45,8 @@ nodes:
         e_sy: 1
     name: wheel_2
     cls_name: Physics Body
-    x: -159.15499999999992
-    y: 88.38600000000002
+    x: -153.10499999999982
+    y: 90.80600000000004
     disp_param: {}
   '4':
     params:
@@ -100,8 +100,8 @@ nodes:
         sorted_order: [0, 1]
     name: pick_one_2
     cls_name: Pick One
-    x: -6.680413223140523
-    y: 679.3025619834708
+    x: -33.41041322314053
+    y: 713.5125619834708
     disp_param: {}
   '14':
     params:
@@ -312,7 +312,7 @@ nodes:
         e_v: 0
         se_cv: return 0
       Density(kg):
-        e_v: 1
+        e_v: 0.8480000000000001
         se_cv: return 1
       Restitution:
         e_v: 0.1
@@ -766,7 +766,7 @@ nodes:
       p2_Name:
         v: radius2
       p2_Float:
-        e_v: 0.49800000000000005
+        e_v: 0.5880000000000001
         se_cv: return 1
       p2_Integer:
         e_v: 1
@@ -792,7 +792,7 @@ nodes:
       p9_Name:
         v: rot_vel2
       p9_Float:
-        e_v: 1.383
+        e_v: 1.358
         sldcfg_v:
           min: 0
           max: 3
@@ -968,7 +968,7 @@ nodes:
       p12_Name:
         v: joint_at_2
       p12_Float:
-        e_v: 0.7130000000000001
+        e_v: 0.5770000000000001
         sldcfg_v:
           min: 0
           max: 1
@@ -1120,8 +1120,8 @@ nodes:
         sel_str: Mouse left down
     name: var
     cls_name: Variable
-    x: -133.43635355043884
-    y: -105.27182295206215
+    x: -204.36816285043886
+    y: -75.03491515206214
     disp_param: {}
   '70':
     params:
@@ -1311,32 +1311,27 @@ lines:
     to_name: b2_in_defs
     to_id: 60
     uid: 67
-  - from_name: out
-    from_id: 12
-    to_name: in
-    to_id: 70
-    uid: 71
-  - from_name: out
-    from_id: 70
-    to_name: b2_in
-    to_id: 14
-    uid: 72
   - from_name: b2_defs
     from_id: 43
     to_name: in_body
     to_id: 74
     uid: 75
-  - from_name: b2_world
-    from_id: 14
-    to_name: in_world
-    to_id: 74
-    uid: 76
   - from_name: out_img
     from_id: 77
     to_name: in_dst_obj
     to_id: 74
     uid: 81
-next_node_id: 82
+  - from_name: out
+    from_id: 12
+    to_name: in
+    to_id: 70
+    uid: 83
+  - from_name: out
+    from_id: 70
+    to_name: b2_in
+    to_id: 14
+    uid: 84
+next_node_id: 85
 names_idx_s:
   Physics Merge: 2
   Physics Body: 10
@@ -1355,7 +1350,7 @@ input_node_ids: []
 glob_var_node_ids:
   - 69
 nodes_view:
-  pan_x: 57.50239999999975
-  pan_y: -402.5645999999999
-  zoom: 0.6830134553650705
+  pan_x: 487.34299999999905
+  pan_y: 136.77199999999988
+  zoom: 0.7513148009015777
 decor: []

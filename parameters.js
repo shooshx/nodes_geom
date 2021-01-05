@@ -335,6 +335,7 @@ const ED_FLOAT_OUT_ONLY=3  // when parsing ParamFloat, don't pass it throu parse
 const ED_COLOR_EXPR=4 // used for expression type check
 const ED_VEC2=5 // for code expression type check
 const ED_BOOL=6
+const ED_TRANSFORM=7
 
 function add_param_edit(line, value, type, set_func, cls=null, enter_func=null) {
     let e = document.createElement('input')
@@ -942,12 +943,14 @@ class ExpressionItem {
         this.etype = etype
         this.etype_depend_var = false  // we know it's neither of these if we got a real type, it can be both of them added at two invocations of this function
         this.etype_undecided = false
-        if (this.prop_type == ED_COLOR_EXPR)
+        if (this.prop_type === ED_COLOR_EXPR)
             eassert(this.etype === TYPE_VEC3 || this.etype === TYPE_VEC4, "Wrong type, expected a vec3/4, got " + typename(this.etype))
-        else if (this.prop_type == ED_VEC2)
+        else if (this.prop_type === ED_VEC2)
             eassert(this.etype === TYPE_VEC2, "Wrong type, expected vec2, got " + typename(this.etype))
-        else if (this.prop_type == ED_BOOL)
-            eassert(this.etype == TYPE_BOOL || this.etype == TYPE_NUM, "Wrong type, expected bool or number, got " + typename(this.etype))
+        else if (this.prop_type === ED_BOOL)
+            eassert(this.etype === TYPE_BOOL || this.etype === TYPE_NUM, "Wrong type, expected bool or number, got " + typename(this.etype))
+        else if (this.prop_type === ED_TRANSFORM)
+            eassert(this.etype === TYPE_MAT3, "Wrong type, expected mat3, got " + typename(this.etype))
         else
             eassert(this.etype === TYPE_NUM, "Wrong type, expected a number, got " + typename(this.etype)) 
     }
@@ -995,7 +998,7 @@ class ExpressionItem {
         }
 
         if (this.expr_score === EXPR_CONST) { // depends on anything?
-            if (this.do_set_prop(ExprParser.do_eval(this.e)))  // returns false if it's the same value
+            if (this.do_set_prop(this.call_eval()))  // returns false if it's the same value
                 this.in_param.pset_dirty() 
             this.need_inputs = null
         }
@@ -1006,7 +1009,7 @@ class ExpressionItem {
                 this.do_set_prop(null)
             else { // it depends only in variables do can try to eval (will succeed if all variables are there)
                 if ((this.expr_score & EXPR_GLSL_ONLY) == 0) // don't want to eval expression that is glsl only
-                    this.do_set_prop(ExprParser.do_eval(this.e))
+                    this.do_set_prop(this.call_eval())
             }
             this.in_param.pset_dirty() // TBD maybe expression didn't change?           
             if ((this.expr_score & EXPR_NEED_INPUT) != 0) {
@@ -1119,11 +1122,18 @@ class ExpressionItem {
         }
         if (this.e === null)  // error in expr or const
             return this.get_prop()
+        // the state_input was put there using the evaler before the call to here
+        call_eval()
+    }
+
+    call_eval() {
         try {
             return ExprParser.do_eval(this.e) // the state_input was put there using the evaler before the call to here
         }
         catch(ex) {
             this.eset_error(ex)
+            if (ex.node_cls === undefined)
+                ex.node_cls = this.in_param.owner.cls            
             throw ex // will be caught by the node and node error set by caller          
         }
     }
@@ -1135,6 +1145,8 @@ class ExpressionItem {
         }
         catch(ex) {
             this.eset_error(ex)
+            if (ex.node_cls === undefined)
+                ex.node_cls = this.in_param.owner.cls            
             throw ex 
         }                     
     }
@@ -1212,7 +1224,7 @@ class ExpressionItem {
                 did_change = true
             }
             else {
-                if (this.do_set_prop(ExprParser.do_eval(this.e), false)) {// don't do slider-update since we know the it's non-const expr and slider need to remain transparent
+                if (this.do_set_prop(this.call_eval(), false)) {// don't do slider-update since we know the it's non-const expr and slider need to remain transparent
                     this.in_param.pset_dirty()
                     did_change = true
                 }
@@ -1337,9 +1349,9 @@ let CodeItemMixin = (superclass) => class extends superclass {
     set_show_code(v) {
         if (v === this.show_code)
             return
+        this.show_code = v
         if (v && this.code_line === null) // need it and didn't add it
             this.add_code_elem()
-        this.show_code = v
         if (this.single_line !== null) { // displayed?
             elem_set_visible(this.single_line, !v)
             if (this.code_line !== null)
@@ -1816,32 +1828,37 @@ function toFixedMag(f) {
 }
 
 
-class ParamTransform extends Parameter {
+class ParamTransform extends CodeItemMixin(Parameter) {
     constructor(node, label, start_values={}, opts=null, change_func=null) {
-        super(node, label)
+        super(node, label, opts)
         this.translate = [0,0] // coords here are not vec2.fromValues since they need to be nullable
         this.rotate = 0
         this.scale = [1,1]
         this.v = mat3.create()
-        this.rotate_pivot = [0,0]
-        this.change_func = change_func
+        this.rotate_pivot = [0,0]   
         
         this.b2_style = (opts !== null && opts.b2_style === true) ? true : false
         this.elems = {tx:null, ty:null, r:null, sx:null, sy:null, pvx:null, pvy:null }
         this.dial = new TransformDial(this)
+        this.single_line = null
         
         const sld_conf = {allowed:false}
-        this.item_tx = new ExpressionItem(this, "tx", ED_FLOAT, (v)=>{this.translate[0] = v; this.calc_mat()}, ()=>{ return this.translate[0]}, sld_conf)
-        this.item_ty = new ExpressionItem(this, "ty", ED_FLOAT, (v)=>{this.translate[1] = v; this.calc_mat()}, ()=>{ return this.translate[1]}, sld_conf)
-        this.item_r = new ExpressionItem(this,   "r", ED_FLOAT, (v)=>{this.rotate = v; this.calc_mat()},       ()=>{ return this.rotate}, {min:0, max:360})
-        this.item_pvx = new ExpressionItem(this, "pvx", ED_FLOAT, (v)=>{ this.calc_pivot_counter(v, 0)  }, ()=>{ return this.rotate_pivot[0]}, sld_conf)
-        this.item_pvy = new ExpressionItem(this, "pvy", ED_FLOAT, (v)=>{ this.calc_pivot_counter(v, 1)  }, ()=>{ return this.rotate_pivot[1]}, sld_conf)
-        this.item_sx = new ExpressionItem(this, "sx", ED_FLOAT, (v)=>{this.scale[0] = v; this.calc_mat()}, ()=>{ return this.scale[0]}, sld_conf)
-        this.item_sy = new ExpressionItem(this, "sy", ED_FLOAT, (v)=>{this.scale[1] = v; this.calc_mat()}, ()=>{ return this.scale[1]}, sld_conf)
+        this.item_tx = new ExpressionItem(this, "tx", ED_FLOAT, (v)=>{ if (this.show_code) return; this.translate[0] = v; this.calc_mat()}, ()=>{ return this.translate[0]}, sld_conf)
+        this.item_ty = new ExpressionItem(this, "ty", ED_FLOAT, (v)=>{ if (this.show_code) return; this.translate[1] = v; this.calc_mat()}, ()=>{ return this.translate[1]}, sld_conf)
+        this.item_r = new ExpressionItem(this,   "r", ED_FLOAT, (v)=>{ if (this.show_code) return; this.rotate = v; this.calc_mat()},       ()=>{ return this.rotate}, {min:0, max:360})
+        this.item_pvx = new ExpressionItem(this, "pvx", ED_FLOAT, (v)=>{ if (this.show_code) return; this.calc_pivot_counter(v, 0)  }, ()=>{ return this.rotate_pivot[0]}, sld_conf)
+        this.item_pvy = new ExpressionItem(this, "pvy", ED_FLOAT, (v)=>{ if (this.show_code) return; this.calc_pivot_counter(v, 1)  }, ()=>{ return this.rotate_pivot[1]}, sld_conf)
+        this.item_sx = new ExpressionItem(this, "sx", ED_FLOAT, (v)=>{ if (this.show_code) return; this.scale[0] = v; this.calc_mat()}, ()=>{ return this.scale[0]}, sld_conf)
+        this.item_sy = new ExpressionItem(this, "sy", ED_FLOAT, (v)=>{ if (this.show_code) return; this.scale[1] = v; this.calc_mat()}, ()=>{ return this.scale[1]}, sld_conf)
 
         this.items = [this.item_tx, this.item_ty, this.item_r, this.item_pvx, this.item_pvy, this.item_sx, this.item_sy]
         this.item_dict = {"tx":this.item_tx, "ty":this.item_ty, "r":this.item_r, "pvx":this.item_pvx, "pvy":this.item_pvy, "sx":this.item_sx, "sy":this.item_sy }        
         
+        this.populate_code_ctx_menu(this.item_tx.ctx_menu) // needed only for x since x,y share the param_line
+        this.populate_code_ctx_menu(this.item_r.ctx_menu)
+        this.populate_code_ctx_menu(this.item_pvx.ctx_menu)
+        this.populate_code_ctx_menu(this.item_sx.ctx_menu)
+
         for(let name in start_values) {
             const item = this.item_dict[name]
             dassert(item !== undefined, "unknown name: " + name)
@@ -1851,6 +1868,29 @@ class ParamTransform extends Parameter {
             if (start_values[name] === undefined)
                 this.item_dict[name].peval_self()
         }
+
+        const code_expr = new ExpressionItem(this, "v", ED_TRANSFORM, 
+            (v)=>{
+                if (!this.show_code) 
+                    return 
+                if (v === null) this.v = null
+                mat3.copy(this.v, v)
+            },
+            ()=>{
+                if (!this.show_code) 
+                    return 
+                return this.v
+            }, null, {allowed:false})
+        this.make_code_item(code_expr, "mat3()")
+        this.change_func = change_func // reason this is here see ParamBaseExpr
+    }
+    non_code_peval_self() {
+        // take values from items
+        this.calc_mat() // TBD check after load
+    }
+    non_code_eactive(v) {
+        for(let it of this.items)
+            it.set_eactive(v)
     }
     save() { 
         let r = {} 
@@ -1858,6 +1898,7 @@ class ParamTransform extends Parameter {
         this.item_r.save_to(r)
         this.item_pvx.save_to(r); this.item_pvy.save_to(r)
         this.item_sx.save_to(r); this.item_sy.save_to(r)
+        this.save_code(r)
         return r
     }
     load(v) { 
@@ -1866,6 +1907,7 @@ class ParamTransform extends Parameter {
         this.item_pvx.load(v); this.item_pvy.load(v)
         this.item_sx.load(v); this.item_sy.load(v)
         this.calc_mat() 
+        this.load_code(v)
     }
     calc_mat() {
         mat3.identity(this.v)
@@ -1917,24 +1959,29 @@ class ParamTransform extends Parameter {
     }
     add_elems(parent) { 
         this.line_elem = add_param_multiline(parent)
-        add_elem(this.line_elem, "hr", "param_separator")
-        let line_t = add_param_line(this.line_elem)
+        this.single_line = add_param_multiline(this.line_elem)
+        elem_set_visible(this.single_line, !this.show_code)
+
+        add_elem(this.single_line, "hr", "param_separator")
+        let line_t = add_param_line(this.single_line)
         add_param_label(line_t, "Translate")
         this.item_tx.add_editbox(line_t); this.item_ty.add_editbox(line_t)
 
-        let line_r = add_param_line(this.line_elem)
+        let line_r = add_param_line(this.single_line)
         add_param_label(line_r, "Rotate")
         this.item_r.add_editbox(line_r)
 
-        let line_pv = add_param_line(this.line_elem)
+        let line_pv = add_param_line(this.single_line)
         add_param_label(line_pv, "Pivot")
         this.item_pvx.add_editbox(line_pv); this.item_pvy.add_editbox(line_pv)
 
         if (!this.b2_style) {
-            let line_s = add_param_line(this.line_elem)
+            let line_s = add_param_line(this.single_line)
             add_param_label(line_s, "Scale")
             this.item_sx.add_editbox(line_s); this.item_sy.add_editbox(line_s)
         }
+
+        this.add_code_elem()
     }
     move(dx, dy) {
         this.item_tx.set_to_const(this.translate[0] + dx); 

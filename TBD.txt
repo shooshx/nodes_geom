@@ -83,6 +83,8 @@ EXPRESSIONS
     - pen
         normal run variables - sample the transform
         transform object in expression
+            ?? things that depend on members that are not the matrix? other than physics
+            multiply matrices
     - copy
     - sample param from node in expression - to allow setting the length to set the joint as well
     - copy joint?
