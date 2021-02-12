@@ -530,13 +530,18 @@ function getCharacter() {
         return expr_[index_];
     return null;
 }
+function getCharacterAhead(offset) {
+    if (index_ + offset < expr_.length)
+        return expr_[index_ + offset];
+    return null;
+}
 
 /// Parse str at the current expression index.
 /// @throw error if parsing fails.
 ///
 function expect(str) {
     if (expr_.substr(index_, str.length) !== str)
-        new ExprErr("Syntax error: unexpected token, expected " + str)
+        throw new ExprErr("Syntax error: unexpected token, expected " + str)
     index_ += str.length;
 }
 
@@ -609,7 +614,9 @@ function parseOp()
             }
             return ops[OPERATOR_GREATER];
         case '=':
-            expect('==')
+            if (getCharacterAhead(1) != '=')
+                return ops[OPERATOR_NULL];  // assignment handled at the top level
+            //expect('==')
             return ops[OPERATOR_EQ];
         case '!':
             expect('!=')
@@ -796,7 +803,7 @@ const translate_lookup = {
     [type_tuple(TYPE_MAT3, TYPE_NUM, TYPE_NUM)]: function(that, x, y) { mat3.translate(that, that, vec2.fromValues(x, y)) }
 }
 const rotate_lookup = {
-    [type_tuple(TYPE_MAT3, TYPE_NUM)]: function(that, v) { mat3.rotate(that, that, v) }
+    [type_tuple(TYPE_MAT3, TYPE_NUM)]: function(that, v) { mat3.rotate(that, that, glm.toRadian(v)) }
 }
 const scale_lookup = {
     [type_tuple(TYPE_MAT3, TYPE_NUM, TYPE_NUM)]: function(that, x, y) { mat3.scale(that, that, vec2.fromValues(x, y)) }
@@ -1113,14 +1120,16 @@ function parseFuncCall(func_node, func_name) {
         args.push(func_node.that)
     index_++; // skip open paren
     eatSpaces();
+    let first = true
     if (getCharacter() !== ')') { // there are any args
         // negative num_args means at least that many
         do {
-            if (args.length > 0)
+            if (!first)
                 index_++; // skips the comma
             let arg = parseExpr()
             args.push(arg)
-            eatSpaces();
+            eatSpaces()
+            first = false
         } while (getCharacter() == ',')
     }
     if (getCharacter() != ')')
@@ -1151,8 +1160,20 @@ function parseFuncCall(func_node, func_name) {
     }
 }
 
+// dummy since this is just a place-holder, doesn't appear in the final AST
+class DummyReservedWord extends NodeBase {
+    constructor(_v) {
+        super()
+        this.v = _v;
+    }
+}
+
+
+
 const constants = {"PI": new NumNode(Math.PI, true), 
-                   "true": new BoolNode(true), "false":new BoolNode(false)}
+                   "true": new BoolNode(true), "false":new BoolNode(false),
+                   "if": new DummyReservedWord("if"), "return": new DummyReservedWord("return")
+                }
 
 function parseIdentifier() {
     let sb = ''
@@ -1512,6 +1533,7 @@ class SubscriptNode extends NodeBase
 }
 
 function parseAssignStmt(name) {
+    eassert(name.length > 0, "empty var in assignment")
     let assign_type = OPERATOR_NULL
     let c = getCharacter();
     switch(c) {
@@ -1568,6 +1590,7 @@ function parseIfStmt() {
 class Statement {
     constructor() {
         this.type = null
+        this.line = g_lineNum
     }
     sclear_types_cache() {
         this.type = null
@@ -1679,6 +1702,29 @@ class TrinaryOpNode extends NodeBase {
 
 }
 
+class ExpressionStatement extends Statement
+{
+    constructor(e) {
+        super()
+        this.e = e
+    }
+    invoke() {
+        this.e.eval()
+        return null // not doing return
+    }
+    sclear_types_cache() {
+        super.sclear_types_cache()
+        this.e.clear_types_cache()         
+    }
+    scheck_type() {
+        this.e.check_type()
+        return null  // not doing return
+    }
+    sto_glsl(emit_ctx) {
+        return this.e.to_glsl(emit_ctx)
+    }
+
+}
 
 
 const STMT_COMMENT = 1
@@ -1692,19 +1738,44 @@ function parseStmt() {
     let c = getCharacter();
     if (c === '}')
         return STMT_END_BLOCK
-
-    const name = parseNewIdentifier()
-    if (name === null) // comment statement
+    if (c == '#')
         return STMT_COMMENT 
+
+    //const name = parseNewIdentifier()
+    const firstExpr = parseExpr()
+    //if (name === null) // comment statement
+    //    return STMT_COMMENT 
     eatSpaces()
-    if (name === 'if') {
-        return parseIfStmt()
+    if (firstExpr.constructor == DummyReservedWord) {
+        if (firstExpr.v === 'if') {
+            return parseIfStmt()
+        }
+        if (firstExpr.v === 'return') {
+            const expr = parseExpr()
+            return new ReturnStmt(expr)
+        }
+        throw new ExprErr("unknown identifier " + firstExpr.v)
     }
-    if (name === 'return') {
-        const expr = parseExpr()
-        return new ReturnStmt(expr)
+
+    let assign_name = null
+    if (firstExpr.constructor === VariableEvaluator) {
+        assign_name = firstExpr.varname
+        // marke the variable from need_variables as an error so that if anything is using it, it would get an error
+        g_state_access.need_variables[assign_name].name_reused_error = true
     }
-    return parseAssignStmt(name)
+    else if (firstExpr.constructor === SymbolNode) {
+        assign_name = firstExpr.name
+    }
+    else if (firstExpr.constructor === SubscriptNode) {
+        eassert(firstExpr.wrapNode.constructor === SymbolNode, "Can't assign to subscript of something that's not a symbol")
+        assign_name = firstExpr.wrapNode.name + "." + firstExpr.subname
+    }
+    
+    if (assign_name !== null) {
+        return parseAssignStmt(assign_name)
+    }
+    return new ExpressionStatement(firstExpr)
+    
 }
 
 class ReturnStmt extends Statement {
@@ -1751,6 +1822,7 @@ class AssignNameStmt  extends Statement {  // not a proper node (no eval, has si
         this.vNode = null  // a new node that has the actual value assigned to the symbol
         this.first_definition = false
         if (this.symbol === undefined) { // wasn't already there
+            eassert(this.subscriptIdx === null, "Can't set subscript of non existing symbol")
             this.symbol = new SymbolNode(this.name)
             g_symbol_table[this.name] = this.symbol
             this.first_definition = true
@@ -1780,15 +1852,16 @@ class AssignNameStmt  extends Statement {  // not a proper node (no eval, has si
     }
     scheck_type() {
         this.expr_type = this.expr.check_type()
+        eassert(this.expr_type !== TYPE_VOID, "Can't assing void return value", this.line)
         if (this.subscriptIdx !== null) {
-            eassert(this.expr_type === TYPE_NUM || this.expr_type === TYPE_BOOL, "Subscript assign to `" + this.in_name + "` expects a number") // assume we don't assign things bigger than a number (no swizzle yet)
-            eassert(this.symbol.type !== null, "Trying to assign subscipt of an undefined symbol: " + this.name)
-            eassert(this.symbol.type !== TYPE_NUM && this.symbol.type !== TYPE_BOOL, "Number type symbol `" + this.name + "` can't have subscript")
-            eassert(this.subscriptIdx < numbersInType(this.symbol.type), "Assigning to non-existing subscript " + this.subscriptName + " of symbol " + this.name)
+            eassert(this.expr_type === TYPE_NUM || this.expr_type === TYPE_BOOL, "Subscript assign to `" + this.in_name + "` expects a number", this.line) // assume we don't assign things bigger than a number (no swizzle yet)
+            eassert(this.symbol.type !== null, "Trying to assign subscipt of an undefined symbol: " + this.name, this.line)
+            eassert(this.symbol.type !== TYPE_NUM && this.symbol.type !== TYPE_BOOL, "Number type symbol `" + this.name + "` can't have subscript", this.line)
+            eassert(this.subscriptIdx < numbersInType(this.symbol.type), "Assigning to non-existing subscript " + this.subscriptName + " of symbol " + this.name, this.line)
         }
         else {
             if (this.symbol.type !== null)
-                eassert(this.symbol.type === this.expr_type, "Symbol `" + this.in_name + "` can't change type (from " + typename(this.symbol.type) + " to " + typename(this.expr_type) + ")")
+                eassert(this.symbol.type === this.expr_type, "Symbol `" + this.in_name + "` can't change type (from " + typename(this.symbol.type) + " to " + typename(this.expr_type) + ")", this.line)
             // changing type of a variable won't work in glsl so we don't allow it                
             this.symbol.type = this.expr_type  // needs to be here since it's needed in the check_type of referencing this symbol
         }

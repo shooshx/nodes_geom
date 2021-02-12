@@ -6,7 +6,11 @@
 **** Expression Engine ****
 
 - Variable nodes can calculate and distribute values to other nodes
-
+- Transform code example:
+    t = mat3() 
+    t.translate(0.1, 0.2) 
+    t.rotate(20)   
+    return t
 
 **** Nodes ****
 

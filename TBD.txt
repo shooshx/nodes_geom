@@ -128,6 +128,8 @@ EXPRESSIONS
         http://www.jamesnolangandy.com/
         https://www.youtube.com/watch?v=aBIc0dE5EI0&ab_channel=Tastemade
         Harmonograph
+        https://leganerd.com/2016/03/09/cycloid-drawing-machine-lo-spirografo-dalle-possibilta-infinite/
+        
 - Function of f(t) for creating geometry
 - time program
 - camera program
@@ -403,6 +405,7 @@ key-gen music?
     https://opengameart.org/content/deus-ex-tempus
 
 cool little games - https://slicker.me/javascript/particles.htm
+generated lines - https://avinayak.github.io/art/2021/01/09/noise-planets.html
 
 Name?
 - 2dini?

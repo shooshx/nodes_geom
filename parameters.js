@@ -1173,6 +1173,8 @@ class ExpressionItem {
         for(let vename in this.variable_evaluators) 
         {
             const ve = this.variable_evaluators[vename]
+            if (!ve.is_valid())
+                continue
             if (do_globals)
                 ve.var_box = null //unbind it in the first stage
             let from_in = undefined
@@ -1873,8 +1875,10 @@ class ParamTransform extends CodeItemMixin(Parameter) {
             (v)=>{
                 if (!this.show_code) 
                     return 
-                if (v === null) this.v = null
-                mat3.copy(this.v, v)
+                if (v === null) 
+                    this.v[0] = NaN // mark as invalid
+                else 
+                    mat3.copy(this.v, v)
             },
             ()=>{
                 if (!this.show_code) 

@@ -181,6 +181,11 @@ class VariableEvaluator extends EvaluatorBase
         this.varname = varname
         this.var_box = null
         this.line_num = line_num // line of the first apperance of this variable name
+        this.name_reused_error = false // set to true if this name is also assigned to in any expression in the node
+    }
+    is_valid() {
+        // if this is set then this evaluator remains as a placeholder and should not be considered when resolving variables
+        return !this.name_reused_error
     }
     consumes_subscript() { return false }
     eval() {
@@ -189,6 +194,7 @@ class VariableEvaluator extends EvaluatorBase
         return this.var_box.v
     }
     check_type() {
+        eassert(!this.name_reused_error, "Identifier " + this.varname + " should not be used as both variable and local symbol", this.line_num)
         if (this.var_box === null)
             throw new DependOnVarErr("Unknown identifier " + this.varname) 
         return this.var_box.type

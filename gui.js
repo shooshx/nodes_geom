@@ -590,7 +590,8 @@ function setup_key_bindings()
     myAddEventListener(document, "keypress", function(e) {
         if (e.key == ' ') {
             // if ctrl is pressed, do a full clear and run, otherwise do a normal run with caches
-            trigger_frame_draw(true, e.ctrlKey)
+            // ctrl+space stopped working?
+            trigger_frame_draw(true, e.ctrlKey || e.shiftKey) 
         }
     })
 }
