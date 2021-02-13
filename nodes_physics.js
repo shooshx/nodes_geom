@@ -103,6 +103,7 @@ class B2World extends PObject
 
         this.p_draw_debug = null
         this.p_draw_shadow = null
+        this.p_draw_template = null
     }
 
     clone() {
@@ -135,6 +136,11 @@ class B2World extends PObject
     }
 
     draw_template_m(m) {
+        if (this.p_draw_template === null) {
+            this.p_draw_template = new CanvasDebugDraw(ctx_img);
+            this.p_draw_template.set_color_template(true)
+        }
+        this.do_draw(b2.DrawFlags.e_shapeBit | b2.DrawFlags.e_jointBit, this.p_draw_template)
     }
 
     can_draw_shadow() { 
@@ -142,6 +148,7 @@ class B2World extends PObject
     }
 
     draw_shadow_m(m) {
+        // used for selecting object with click in image view
         if (this.p_draw_shadow === null) {
             this.p_draw_shadow = new CanvasDebugDraw(ctx_img_shadow);
             this.p_draw_shadow.set_color_from_shape(true)
@@ -669,7 +676,6 @@ function createWorld(def, gravity, for_sim)
         // another world it will get reinited here
     }
 
-
     return w
 }
 
@@ -745,16 +751,19 @@ class NodeB2Sim extends NodeCls
 
 
 // extract the transform relative to a given body in a given world and set it to a given object
-class ExtractTransform extends NodeCls
+class ExtractTransform extends NodeVarCls
 {
     static name() { return "Extract Transform" }
     constructor(node) {
         super(node)
+        node.can_input = false
 
-        this.in_body = new InTerminal(node, "in_body")
         this.in_world = new InTerminal(node, "in_world")
-        this.in_dst_obj = new InTerminal(node, "in_dst_obj")
-        this.out_obj = new OutTerminal(node, "out_obj")
+        this.in_body = new InTerminal(node, "in_body")
+
+        this.name = new ParamStr(node, "Name", "trans")
+
+        this.var_out = new VarOutTerminal(node, "variable_out")
     }
     run() {
         const in_body = this.in_body.get_const()
@@ -763,9 +772,6 @@ class ExtractTransform extends NodeCls
         const in_world = this.in_world.get_const()
         assert(in_world !== null, this, "missing in_world")
         assert(in_world.constructor === B2World, this, "in_world needs to be a B2World")
-        const in_dst_obj = this.in_dst_obj.get_mutable()
-        assert(in_dst_obj !== null, this, "missing in_dst_obj")
-        assert(in_dst_obj.set_transform !== undefined, this, "in_dst_obj doesn't have set_transform")
 
         const body_def = in_body.bodies[0]
         const body = in_world.cnode_to_obj[body_def.cnode_id]
@@ -776,8 +782,11 @@ class ExtractTransform extends NodeCls
         mat3.translate(m, m, vec2.fromValues(pos.x, pos.y))
         mat3.rotate(m, m, angle)
 
-        in_dst_obj.set_transform(m)
-        this.out_obj.set(in_dst_obj)
+        const vsb = new VariablesBox()
+        const vb = new VarBox()
+        vsb.add(this.name.v, vb)
+        vb.vbset(m, TYPE_MAT3)
+        this.var_out.set(vsb)
     }
 }
 
@@ -793,10 +802,14 @@ class CanvasDebugDraw extends b2.Draw
       this.ctx = ctx
       this.col_from_shape = false
       this.last_shape_color = null
+      this.col_template = false
     }
 
     set_color_from_shape(v) {
         this.col_from_shape = v
+    }
+    set_color_template(v) {
+        this.col_template = v
     }
 
     NextShape(ud) {
@@ -819,7 +832,7 @@ class CanvasDebugDraw extends b2.Draw
       }
     }
 
-    resolve_color(color, alpha=null) {
+    resolve_color(color, alpha) {
         if (this.col_from_shape) {
             if (this.last_shape_color === null)
                 return "rgba(0,0,0,0)"
@@ -827,6 +840,8 @@ class CanvasDebugDraw extends b2.Draw
         }
         if (alpha === null)
             alpha = color.a
+        if (this.col_template)
+            return "rgba(" + TEMPLATE_LINE_COLOR_V[0] + "," + TEMPLATE_LINE_COLOR_V[1] + "," + TEMPLATE_LINE_COLOR_V[2] + "," + alpha + ")"
         return color.MakeStyleString(alpha)
     }
   
@@ -949,7 +964,7 @@ class CanvasDebugDraw extends b2.Draw
     DrawPoint(p, size, color) {
       const ctx = this.ctx
       if (ctx) {
-        ctx.fillStyle = this.resolve_color(color);
+        ctx.fillStyle = this.resolve_color(color, null);
         size /= image_view.viewport_zoom;
         //size /= g_camera.m_extent;
         const hsize = size / 2;
@@ -960,7 +975,7 @@ class CanvasDebugDraw extends b2.Draw
     DrawAABB(aabb, color) {
       const ctx = this.ctx
       if (ctx) {
-        ctx.strokeStyle = this.resolve_color(color);
+        ctx.strokeStyle = this.resolve_color(color, null);
         const x = aabb.lowerBound.x;
         const y = aabb.lowerBound.y;
         const w = aabb.upperBound.x - aabb.lowerBound.x;

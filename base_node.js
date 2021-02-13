@@ -10,6 +10,7 @@ const TERM_MARGIN_Y = 2
 const NODE_WIDTH = 120
 
 const TEMPLATE_LINE_COLOR = "#de77f1"
+const TEMPLATE_LINE_COLOR_V = [0xde, 0x77, 0xf1]
 
 
 // https://github.com/gdenisov/cardinal-spline-js/blob/master/curve_func.min.js

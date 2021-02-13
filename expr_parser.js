@@ -616,7 +616,7 @@ function parseOp()
         case '=':
             if (getCharacterAhead(1) != '=')
                 return ops[OPERATOR_NULL];  // assignment handled at the top level
-            //expect('==')
+            index_ += 2;
             return ops[OPERATOR_EQ];
         case '!':
             expect('!=')
@@ -1368,8 +1368,10 @@ function parseValue() {
                 val = val_
 
                 eatSpaces()
-                if (getCharacter() == '(')  {// function call - TBD shouldn't really be here. should be outside
-                    val = parseFuncCall(val, name) 
+                if (val.constructor !== DummyReservedWord) {   // reserved words are never functions
+                    if (getCharacter() == '(')  {// function call - TBD shouldn't really be here. should be outside
+                        val = parseFuncCall(val, name) 
+                    }
                 }
 
                 break;

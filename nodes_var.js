@@ -321,7 +321,7 @@ class NodeVariable extends NodeVarCls
         p.p_group = new ParamGroup(node, prefix + "group")
         p.p_group.set_group(this.v_group)
 
-        p.type = new ParamSelect(node, ["Type", prefix], 0, ['Float', 'Integer', 'Float2', 'Float2-Mouse', 'Color', 'Bool'], (sel_idx)=>{ // TBD Transform, Function
+        p.type = new ParamSelect(node, ["Type", prefix], 0, ['Float', 'Integer', 'Float2', 'Float2-Mouse', 'Color', 'Bool', 'Transform'], (sel_idx)=>{ // TBD Transform, Function
             p.expr_float.set_visible(sel_idx == 0)
             p.expr_int.set_visible(sel_idx == 1)
             p.expr_vec2.set_visible(sel_idx == 2)
@@ -329,6 +329,7 @@ class NodeVariable extends NodeVarCls
             p.mouseState.set_visible(sel_idx == 3)
             p.expr_color.set_visible(sel_idx == 4)
             p.expr_bool.set_visible(sel_idx == 5)
+            p.expr_trans.set_visible(sel_idx == 6)
 
             const prev = node.can_input
             // check if any param has input
@@ -376,6 +377,7 @@ class NodeVariable extends NodeVarCls
         p.expr_vec2_mouse = new ParamVec2(node, ["Mouse Coord", prefix], 0, 0) // want a different one since we don't want to mess with expr_vec2 being in code or not
         p.expr_vec2_mouse.set_enable(false)  // user never edits it directly
         p.expr_bool = new ParamBool(node, ["Bool", prefix], false)
+        p.expr_trans = new ParamTransform(node, ["Transform", prefix])
 
         p.mouseState = new ParamSelect(node, ["Sample At", prefix], 0, ["Mouse left down", "Mouse move"])
         p.sep = new ParamSeparator(node, prefix + "sep", "param_sep_line")
@@ -449,6 +451,7 @@ class NodeVariable extends NodeVarCls
             case 3: p.vb.vbset(p.expr_vec2_mouse.get_value(), TYPE_VEC2); break;
             case 4: p.vb.vbset(color_to_uint8arr(p.expr_color.v), TYPE_VEC4); break;
             case 5: p.vb.vbset(p.expr_bool.get_value(), TYPE_BOOL); break;
+            case 6: p.vb.vbset(p.expr_trans.get_value(), TYPE_MAT3); break;
             }
         }
         this.var_out.set(out_obj)

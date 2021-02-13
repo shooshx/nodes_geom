@@ -1401,6 +1401,7 @@ class ParamBaseExpr extends CodeItemMixin(Parameter)
             set_prop_neg = (v)=>{ if (!this.show_code) { conf.validate(v); this.v = v } }
             set_prop_pos = (v)=>{ if (this.show_code) { conf.validate(v); this.v = v } }
         }
+        this.v = null
         this.item = new ExpressionItem(this, "v", ed_type, set_prop_neg, null, conf)
         this.populate_code_ctx_menu(this.item.ctx_menu)
         this.single_line = null
@@ -2019,6 +2020,8 @@ class ParamTransform extends CodeItemMixin(Parameter) {
         this.item_sy.set_to_const(sy)
     }
     draw_dial_at_obj(obj, m) {
+        if (this.show_code)
+            return  // dial disabled if we're in code
         //if (obj === null)
        //     return // might be it's not connected so it doesn't have output - not used
         // this was replaced with pivot thing. TBD - button for starting pivot should be the center of the bbox instead of 0,0
@@ -2253,6 +2256,8 @@ class TransformDial {
 
     // called from image_find_obj
     find_obj(e) { // event coords
+        if (this.param.show_code)
+            return null
         if (this.mv === null)
             return null // not displayed yet
         const mv = this.mv, uab = this.uab, rab = this.rab, rot = this.rot, ex = e.ex, ey = e.ey
