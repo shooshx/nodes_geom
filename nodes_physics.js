@@ -761,6 +761,8 @@ class ExtractTransform extends NodeVarCls
         this.in_world = new InTerminal(node, "in_world")
         this.in_body = new InTerminal(node, "in_body")
 
+        this.offset = new ParamVec2(node, "Offset", 0, 0)
+        this.offset.dial = new PointDial((dx,dy)=>{ this.offset.increment(vec2.fromValues(dx, dy)) })
         this.name = new ParamStr(node, "Name", "trans")
 
         this.var_out = new VarOutTerminal(node, "variable_out")
@@ -774,19 +776,35 @@ class ExtractTransform extends NodeVarCls
         assert(in_world.constructor === B2World, this, "in_world needs to be a B2World")
 
         const body_def = in_body.bodies[0]
+        const def_m = mat3.create()
+        mat3.translate(def_m, def_m, vec2.fromValues(body_def.def.position.x, body_def.def.position.y))
+        mat3.rotate(def_m, def_m, body_def.def.angle)
+        mat3.invert(def_m, def_m)
+        const offset = this.offset.get_value()
+        vec2.transformMat3(offset, offset, def_m) // turns it to relative to definition
+
         const body = in_world.cnode_to_obj[body_def.cnode_id]
         assert(body !== undefined, this, "Can't find body " + body_def.cnode_id)
+        
         const pos = body.obj.GetPosition()
         const angle = body.obj.GetAngle()
         const m = mat3.create()
         mat3.translate(m, m, vec2.fromValues(pos.x, pos.y))
         mat3.rotate(m, m, angle)
+        mat3.translate(m, m, offset) // not sure why this is the right order
 
         const vsb = new VariablesBox()
         const vb = new VarBox()
         vsb.add(this.name.v, vb)
         vb.vbset(m, TYPE_MAT3)
         this.var_out.set(vsb)
+    }
+
+    draw_selection(m) {
+        this.offset.dial.draw(this.offset.x, this.offset.y, mat3.create(), m)
+    }
+    image_find_obj(e) {
+        return this.offset.dial.find_obj(e)
     }
 }
 

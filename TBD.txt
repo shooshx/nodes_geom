@@ -66,12 +66,12 @@ EXPRESSIONS
 - maybe BUG: variables loose exact accuracy on repeated load-save?
 - Box2D
     - BUG: errors don't stop previous anim
+    - BUG: change filter doesn't work!
     - joints
         - revolute limits
         - show the name of where the line comes from
     - text annotation    
     - filtering - for scissors to not bang
-    - template
     - change display shape with input geometry/image
         - setTransform to mesh
     - disp-params
@@ -321,6 +321,7 @@ NODES:
 - Variable from geometry of previous frame? - like number of vertices, derived from nodes
 
 - 3D boolean ops - http://gts.sourceforge.net/
+- 3D signed distance fields: https://github.com/fogleman/sdf
 
 PAPER.JS
 - smooth, simplify
