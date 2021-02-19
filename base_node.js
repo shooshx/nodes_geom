@@ -1053,9 +1053,14 @@ class Node {
     has_cached_output() {
         return this.outputs[0].get_const() !== null
     }
-    has_anything_dirty() { // checks if the node wants to run
-        if (this.cls.is_dirty_override)
-            return this.cls.is_dirty_override() // anim change filter
+    has_anything_dirty(parent_dirty) { // checks if the node wants to run
+        if (this.cls.is_dirty_override) {
+            const ovrd = this.cls.is_dirty_override(parent_dirty) // anim change filter
+            if (ovrd !== null)
+                return ovrd
+        }
+        if (parent_dirty)
+            return true
         if (this.self_dirty || this.cls.is_internal_dirty()) // shader
             return true
         for(let p of this.parameters)

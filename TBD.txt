@@ -67,6 +67,7 @@ EXPRESSIONS
 - Box2D
     - BUG: errors don't stop previous anim
     - BUG: change filter doesn't work!
+    - templates for defs
     - joints
         - revolute limits
         - show the name of where the line comes from

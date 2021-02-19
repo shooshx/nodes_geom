@@ -458,7 +458,7 @@ async function run_nodes_tree(n, picked)
     if (!picked)
         return false // non-picked branch should not set dirtiness
 
-    const this_dirty = parent_dirty || n.has_anything_dirty() || !n.has_cached_output()
+    const this_dirty = n.has_anything_dirty(parent_dirty) || !n.has_cached_output()
 
     // if we're on a not-picked branch, don't run, the output is not going to be used
     if (this_dirty) {

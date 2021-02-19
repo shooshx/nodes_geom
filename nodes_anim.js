@@ -75,9 +75,11 @@ class NodeChangeFilter extends NodeCls
 
     should_clear_out_before_run() { return false } // don't clear my cache
 
-    is_dirty_override() {
+    is_dirty_override(parent_dirty) { // ignored parent_dirty
         // I know better than my terminals when I want to run
-        if (this.enabled.get_value() && this.out.get_const() !== null && !this.change_expr.pis_dirty())
+        if (!this.enabled.get_value())
+            return null  // do the default behaviour
+        if (this.out.get_const() !== null && !this.change_expr.pis_dirty())
             return false
         return true
     }

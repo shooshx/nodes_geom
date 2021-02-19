@@ -72,12 +72,16 @@ class B2Def extends PObject
     ensure_world_cache() {
         if (this.p_draw_world_cache !== null)
             return
-        this.p_draw_world_cache = createWorld(this, [0,0], false) // create world just for callding DebugDraw    
+        this.p_draw_world_cache = createWorld(this, [0,0], false) // create world just for calling DebugDraw    
     }
 
     draw_m(m, disp_values) {
         this.ensure_world_cache()
         this.p_draw_world_cache.draw_mw(disp_values)
+    }
+    draw_template_m(m) {
+        this.ensure_world_cache()
+        this.p_draw_world_cache.draw_template_m(m)
     }
 
     can_draw_shadow() { 
@@ -131,7 +135,7 @@ class B2World extends PObject
         this.do_draw(flags, this.p_draw_debug)
     }
     draw_m(m, disp_values) {
-        g_current_worlds.push(this)
+        g_current_worlds.push(this) // for online updates from nodes
         this.draw_mw(disp_values, this)
     }
 
@@ -766,6 +770,7 @@ class ExtractTransform extends NodeVarCls
         this.name = new ParamStr(node, "Name", "trans")
 
         this.var_out = new VarOutTerminal(node, "variable_out")
+        this.last_tmat = null
     }
     run() {
         const in_body = this.in_body.get_const()
@@ -776,12 +781,13 @@ class ExtractTransform extends NodeVarCls
         assert(in_world.constructor === B2World, this, "in_world needs to be a B2World")
 
         const body_def = in_body.bodies[0]
-        const def_m = mat3.create()
+        /*const def_m = mat3.create()
         mat3.translate(def_m, def_m, vec2.fromValues(body_def.def.position.x, body_def.def.position.y))
         mat3.rotate(def_m, def_m, body_def.def.angle)
         mat3.invert(def_m, def_m)
+        
+        vec2.transformMat3(offset, offset, def_m) // turns it to relative to definition*/
         const offset = this.offset.get_value()
-        vec2.transformMat3(offset, offset, def_m) // turns it to relative to definition
 
         const body = in_world.cnode_to_obj[body_def.cnode_id]
         assert(body !== undefined, this, "Can't find body " + body_def.cnode_id)
@@ -789,8 +795,10 @@ class ExtractTransform extends NodeVarCls
         const pos = body.obj.GetPosition()
         const angle = body.obj.GetAngle()
         const m = mat3.create()
-        mat3.translate(m, m, vec2.fromValues(pos.x, pos.y))
+        mat3.translate(m, m, vec2.fromValues(pos.x , pos.y ))
         mat3.rotate(m, m, angle)
+        this.last_tmat = mat3.create()
+        mat3.copy(this.last_tmat, m)
         mat3.translate(m, m, offset) // not sure why this is the right order
 
         const vsb = new VariablesBox()
@@ -801,7 +809,7 @@ class ExtractTransform extends NodeVarCls
     }
 
     draw_selection(m) {
-        this.offset.dial.draw(this.offset.x, this.offset.y, mat3.create(), m)
+        this.offset.dial.draw(this.offset.x, this.offset.y, this.last_tmat, m)
     }
     image_find_obj(e) {
         return this.offset.dial.find_obj(e)
