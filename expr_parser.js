@@ -1112,11 +1112,12 @@ class FuncObjCallNode extends NodeBase
     }
 }
 
+// func_node is either FuncDefNode or GlslTextEvaluator
 function parseFuncCall(func_node, func_name) {
     //if (!func_node.is_function())
     //    throw new ExprErr("Identifier " + func_name + " is not a function" )  
     const args = []
-    if (func_node.that !== null)
+    if (func_node.that !== null && func_node.that !== undefined)
         args.push(func_node.that)
     index_++; // skip open paren
     eatSpaces();

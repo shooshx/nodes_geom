@@ -88,10 +88,11 @@ class Mesh extends PObject
         this.type = MESH_NOT_SET
         this.paths = null // list of Path2D, each corresponding to a tri/quad
         // vtx_color : Uint8Array
+        // idx can be null if it's just a points mesh
         this.arrs = { vtx_pos:null, idx:null }
         this.meta = { vtx_pos:null, idx:null } // metadata objects for every array in arrs (instead of setting properties in the array object itself which can't be cloned reasonably)
         
-        this.tcache = { vtx_pos:null, m:null }  // transformed cache
+        this.tcache = { vtx_pos:null, m:null }  // transformed cache (to display coords)
         //this.lines_cache = null  // cache lines for stroke (so that every line be repeated twice
         this.glbufs = { vtx_pos:null, idx:null }
         this.fill_objs = init_fill_objs()  // list of FillObj, used for face_fill attribute
@@ -110,6 +111,26 @@ class Mesh extends PObject
                 gl.deleteBuffer(b)
             }
         }
+    }
+
+    oclone() {
+        const m = new Mesh()
+        m.type = this.type
+        m.paths = null  // will be created as needed
+        m.arrs = clone(this.arrs)
+        m.meta = clone(this.meta)
+        m.tcache = { vtx_pos:null, m:null } // will be created as needed
+        m.glbufs = { vtx_pos:null, idx:null }
+        m.fill_objs = clone(this.fill_objs)
+        m.paper_obj = null
+        m.clipper_obj = null
+        if (this.effective_vtx_pos === this.arrs.vtx_pos)
+            m.effective_vtx_pos = m.arrs.vtx_pos
+        else
+            m.effective_vtx_pos = clone(this.effective_vtx_pos)
+        m.points_idx_cache = null
+
+        return m
     }
 
     forVec2Arrs(func) {
@@ -565,7 +586,7 @@ class Mesh extends PObject
 
     // API
     draw_m(m, disp_values) {
-        console.log("Mesh ", this.face_size(), " vtx:", this.arrs.vtx_pos.length/2, " faces:", this.face_count()) 
+        //console.log("Mesh ", this.face_size(), " vtx:", this.arrs.vtx_pos.length/2, " faces:", this.face_count()) 
         if (!disp_values)
             disp_values = { show_faces:true, show_lines:true, show_vtx:true } // hack for group to work
         //this.ensure_tcache(m)
@@ -758,6 +779,33 @@ class Mesh extends PObject
         this.clipper_obj = b.d
         //ClipperLib.JS.ScaleUpPaths(this.clipper_obj, CLIPPER_SCALE);
         return this.clipper_obj
+    }
+
+    // from NodePen
+    add_vertex(p)
+    {
+        dassert(this.effective_vtx_pos == this.arrs.vtx_pos, "Working with effective_vtx_pos not supported")
+        dassert(this.type === MESH_POINTS, "Only points mesh supported") 
+
+
+        for (let name in this.arrs) {
+            if (name === "idx")
+                continue
+            dassert(name.startsWith("vtx_"), "mesh with face attributes not supported " + name)
+            if (isTypedArray(this.arrs[name]))
+                this.arrs[name] = [...this.arrs[name]]  // change it to an array that can be pushed to
+            if (name == "vtx_pos") {
+                this.arrs.vtx_pos.push(p[0], p[1])
+                this.effective_vtx_pos = this.arrs.vtx_pos
+            }
+            else {
+                const v = get_default_value(name, this.meta[name].num_elems)
+                this.arrs[name].push(...v)
+            }
+            
+        }
+
+        //this.arrs.idx.push( (this.arrs.vtx_pos.length - 2) / 2 )
     }
 }
 

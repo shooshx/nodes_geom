@@ -66,7 +66,8 @@ EXPRESSIONS
 - maybe BUG: variables loose exact accuracy on repeated load-save?
 - Box2D
     - BUG: errors don't stop previous anim
-    - BUG: change filter doesn't work!
+    - !!! BUG - fix game of life
+    - sim button - current position to defs
     - templates for defs
     - joints
         - revolute limits
@@ -103,6 +104,7 @@ EXPRESSIONS
 - Animation
     - engine - dirty controlled by selected input in pick_one
     - single step button - smaller panel
+    - run until frame
     - full bar
     - restart from frame 0 every change
     - Separate Program of animation control

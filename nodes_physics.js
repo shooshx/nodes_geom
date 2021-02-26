@@ -21,7 +21,7 @@
 
 
 
-class B2Fixture {
+class B2FixtureDec {
     constructor(cnode_id) {
         this.def = null
         this.obj = null
@@ -29,7 +29,7 @@ class B2Fixture {
     }
 }
 
-class B2Body {
+class B2BodyDec {
     constructor(cnode_id) {
         this.name = null // for debugging
         this.def = null
@@ -43,7 +43,7 @@ class B2Body {
     }
 }
 
-class B2Joint {
+class B2JointDec {
     constructor(cnode_id) {
         this.def = null
         this.body_refA = null // B2Body objects
@@ -57,73 +57,51 @@ class B2Joint {
 // for nodes that use a b2.World for display
 
 
-class B2Def extends PObject
-{
-    constructor() {
-        super()
-        this.bodies = []  // list of B2Body
-        this.joints = []  // list of B2Joint
-
-        // kind of a hack to take advantage of the fact the world can draw itself
-        this.p_draw_world_cache = null // not copied on clone
-
-    }
-
-    ensure_world_cache() {
-        if (this.p_draw_world_cache !== null)
-            return
-        this.p_draw_world_cache = createWorld(this, [0,0], false) // create world just for calling DebugDraw    
-    }
-
-    draw_m(m, disp_values) {
-        this.ensure_world_cache()
-        this.p_draw_world_cache.draw_mw(disp_values)
-    }
-    draw_template_m(m) {
-        this.ensure_world_cache()
-        this.p_draw_world_cache.draw_template_m(m)
-    }
-
-    can_draw_shadow() { 
-        return true 
-    }
-    draw_shadow_m(m) {
-        this.ensure_world_cache()
-        this.p_draw_world_cache.draw_shadow_m()
-    }
-}
 
 class B2World extends PObject
 {
     constructor() {
         super()
+
+        //this.bodied_decs = []
+        //this.joints_decs = []
+
         this.obj = null
+        this.created_from_sim = null
         this.bodies = []
+        this.joints = []
 
         // map cnode_id of the creator node to the object it created in the context of this world
         // this is done like this so that the same def can go to different worlds
         // used by online params
-        this.cnode_to_obj = {} 
+        this.cnode_to_obj = null 
 
         this.p_draw_debug = null
         this.p_draw_shadow = null
         this.p_draw_template = null
     }
 
-    clone() {
+    oclone() {
         assert(false, this, "World object can't be cloned")
         // due to the b2 objects and multiple refs to the same objects
     }
 
+    add_body() {
+        this.bodies.push(...arguments)
+    }
+    add_joint() {
+        this.joints.push(...arguments)
+    }
 
-    do_draw(flags, drawer) {      
+    do_draw(flags, drawer) {     
+        this.ensure_objects_from_defs(false, null)
         drawer.SetFlags(flags)
         drawer.ctx.lineWidth = 1.0/image_view.viewport_zoom
         this.obj.SetDebugDraw(drawer);
         this.obj.DebugDraw()        
     }
 
-    draw_mw(disp_values) { // used by B2Defs to draw without setting the current world
+    draw_mw(disp_values) { 
         if (this.p_draw_debug === null) 
             this.p_draw_debug = new CanvasDebugDraw(ctx_img);
 
@@ -135,7 +113,7 @@ class B2World extends PObject
         this.do_draw(flags, this.p_draw_debug)
     }
     draw_m(m, disp_values) {
-        g_current_worlds.push(this) // for online updates from nodes
+        add_current_world(this) // for online updates from nodes
         this.draw_mw(disp_values, this)
     }
 
@@ -159,6 +137,62 @@ class B2World extends PObject
         }
         this.do_draw(b2.DrawFlags.e_shapeBit, this.p_draw_shadow)
     }      
+
+    //function createWorld(def, gravity, for_sim) 
+
+    ensure_objects_from_defs(from_sim, gravity)
+    {
+        if (this.obj !== null) {
+            if (!from_sim)
+                return // if it's not from_sim and we have a world, we're good
+            if (from_sim && this.created_from_sim)
+                return // if it is from_sim, make sure that we have was also created from_sim
+            // otherwise, it's forSim and what we have was not created from_sim, need to recreate it
+        }
+        if (gravity === null)
+            gravity = [0,0]
+        
+        const w = new b2.World(new b2.Vec2(gravity[0], gravity[1]))
+        this.created_from_sim = from_sim
+
+        //if (for_sim)  // don't want to register if we're just creating it for drawing since that would make the dials disapper
+        add_current_world(this) // for call_change on on_init to work
+        let index_gen = 0
+
+        this.cnode_to_obj = {}
+
+        // reset all indices before the bodies loop to avoid duplicates
+        for(let body of this.bodies)
+            body.index = null
+
+        for(let body of this.bodies) {
+            if (body.index !== null) // can happen if the same body was added more than once through multiple paths
+                continue // don't allow it to participate more than once since that complicates stuff
+            body.index  = index_gen++ // this is the index of the new B2Body in this.bodies, for reference by joints
+            this.cnode_to_obj[body.cnode_id] = body
+            body.obj = w.CreateBody(body.def)
+            for(let fixt of body.fixtures) {
+                fixt.obj = body.obj.CreateFixture(fixt.def)      
+                this.cnode_to_obj[fixt.cnode_id] = fixt              
+            }
+
+            for(let pp of body.on_init_params)
+                pp.call_change() // set config that needs the bodies 
+        }
+
+        for(let joint of this.joints) {
+            dassert(joint.body_refA.index !== null && joint.body_refB.index !== null, "bodies not in world?") // sanity
+            this.cnode_to_obj[joint.cnode_id] = joint
+            joint.body_refA = this.bodies[joint.body_refA.index]
+            joint.body_refB = this.bodies[joint.body_refB.index]
+            joint.init_call(joint.body_refA.obj, joint.body_refB.obj)
+            joint.obj = w.CreateJoint(joint.def)
+            // bodies of this world stay referenced by this joint in the input world but that doesn't really matter since if it gets to
+            // another world it will get reinited here
+        }
+        this.obj = w
+    }
+
 
 }
 
@@ -235,7 +269,7 @@ class NodeB2Body extends NodeCls
         //this.in_obj = new InTerminal(node, "in_obj")
         this.out = new OutTerminal(node, "b2_defs")
         
-        this.type = new ParamSelect(node, "Type", 0, [["Static", b2.staticBody], ["Kynematic", b2.kinematicBody], ["Dynamic",b2.dynamicBody]],(sel_idx)=>{
+        this.type = new ParamSelect(node, "Type", 0, [["Static", b2.staticBody], ["Kinematic", b2.kinematicBody], ["Dynamic",b2.dynamicBody]],(sel_idx)=>{
             this.kin_lin_velocity.set_visible(sel_idx == 1);
             this.kin_ang_velocity.set_visible(sel_idx == 1);
             this._sep2.set_visible(sel_idx == 1);
@@ -286,7 +320,7 @@ class NodeB2Body extends NodeCls
     }
     
     run() {
-        const b = new B2Body(this.node.id)
+        const b = new B2BodyDec(this.node.id)
         b.name = this.node.name
         b.def = new b2.BodyDef()
         b.def.type = this.type.get_sel_val()
@@ -306,7 +340,7 @@ class NodeB2Body extends NodeCls
         else
             assert(false, node, "not supported")
 
-        const f = new B2Fixture(this.node.id + "_f")
+        const f = new B2FixtureDec(this.node.id + "_f")
         f.def = new b2.FixtureDef()
         f.def.shape = s
         f.def.density = this.density.v
@@ -318,8 +352,8 @@ class NodeB2Body extends NodeCls
             b.on_init_params.push(this.kin_lin_velocity, this.kin_ang_velocity)
         }
         
-        const ret = new B2Def()
-        ret.bodies.push(b)
+        const ret = new B2World()
+        ret.add_body(b)
         this.out.set(ret)
     }
 
@@ -556,10 +590,10 @@ class NodeB2Joint extends NodeCls
         const defsA = this.inA.get_const()
         const defsB = this.inB.get_const()
         assert(defsA !== null && defsB !== null, this, "Missing input")
-        assert(defsA.constructor === B2Def || !isSingleBody(defsA), this, "bodyA is not a physics body")
-        assert(defsB.constructor === B2Def || !isSingleBody(defsB), this, "bodyB is not a physics body")
+        assert(defsA.constructor === B2World || !isSingleBody(defsA), this, "bodyA is not a physics body")
+        assert(defsB.constructor === B2World || !isSingleBody(defsB), this, "bodyB is not a physics body")
 
-        const j = new B2Joint(this.node.id)
+        const j = new B2JointDec(this.node.id)
         j.body_refA = defsA.bodies[0]
         j.body_refB = defsB.bodies[0]
         this.last_A_def = j.body_refA
@@ -593,9 +627,9 @@ class NodeB2Joint extends NodeCls
         else
             assert(false, this, "Unexpected type")
 
-        const ret = new B2Def()
-        ret.bodies.push(j.body_refA, j.body_refB)
-        ret.joints.push(j)
+        const ret = new B2World()
+        ret.add_body(j.body_refA, j.body_refB)
+        ret.add_joint(j)
         this.out.set(ret)
     }
 
@@ -635,53 +669,7 @@ class NodeB2Joint extends NodeCls
     }
 }
 
-function createWorld(def, gravity, for_sim) 
-{
-    const w = new B2World()
-    w.obj = new b2.World(new b2.Vec2(gravity[0], gravity[1]))
-    if (for_sim)  // don't want to register if we're just creating it for drawing since that would make the dials disapper
-        g_current_worlds.push(w) // for call_change on on_init to work
-    let index_gen = 0
 
-    for(let body of def.bodies)
-        body.index = null
-
-    for(let body of def.bodies) {
-        if (body.index !== null) // can happen if the same body was added more than once through multiple paths
-            continue // don't allow it to participate more than once since that complicates stuff
-        body.index  = index_gen++ // this is the index of the new B2Body in w.bodies, for reference by joints
-        const mb = new B2Body(body.cnode_id) // don't want to change the input one
-        w.bodies.push(mb)
-        w.cnode_to_obj[body.cnode_id] = mb
-        mb.def = body.def
-        mb.obj = w.obj.CreateBody(mb.def)
-        for(let fixt of body.fixtures) {
-            const mf = new B2Fixture()
-            mb.fixtures.push(mf)
-            mf.def = fixt.def
-            mf.obj = mb.obj.CreateFixture(mf.def)      
-            w.cnode_to_obj[fixt.cnode_id] = mf              
-        }
-
-        for(let pp of body.on_init_params)
-            pp.call_change() // set config that needs the bodies 
-    }
-
-    for(let joint of def.joints) {
-        dassert(joint.body_refA.index !== null && joint.body_refB.index !== null, "bodies not in world?") // sanity
-        const mj = new B2Joint(joint.cnode_id)
-        w.cnode_to_obj[joint.cnode_id] = mj
-        mj.def = joint.def
-        mj.body_refA = w.bodies[joint.body_refA.index]
-        mj.body_refB = w.bodies[joint.body_refB.index]
-        joint.init_call(mj.body_refA.obj, mj.body_refB.obj)
-        mj.obj = w.obj.CreateJoint(mj.def)
-        // bodies of this world stay referenced by this joint in the input world but that doesn't really matter since if it gets to
-        // another world it will get reinited here
-    }
-
-    return w
-}
 
 // merge several bodies definition to one scene
 class NodeB2Merge extends NodeCls
@@ -697,17 +685,17 @@ class NodeB2Merge extends NodeCls
     run() {
         const in_defs = this.in_defs.get_input_consts()
 
-        const udef = new B2Def();
+        const udef = new B2World();
         const body_ids = new Set()
         for(let def of in_defs) {
             assert(def !== null, this, "empty input")
             for(let b of def.bodies)  { // the same body can arrive multiple times from different joints
                 if (body_ids.has(b.cnode_id))
                     continue
-                udef.bodies.push(b)
+                udef.add_body(b)
                 body_ids.add(b.cnode_id)
             }
-            udef.joints.push(...def.joints)
+            udef.add_joint(...def.joints)
         }
         this.out.set(udef)
     }
@@ -715,9 +703,12 @@ class NodeB2Merge extends NodeCls
 
 // for online updates
 // this gets set and reset every draw with the currently drawn worlds, also on createWorld
-var g_current_worlds = []  
+var g_current_worlds = new Set()  
 function phy_reset_current_worlds() {
     g_current_worlds.length = 0
+}
+function add_current_world(w) {
+    g_current_worlds.add(w)
 }
 
 
@@ -738,24 +729,21 @@ class NodeB2Sim extends NodeCls
     run() {
         const inobj = this.in.get_const()
         assert(inobj !== null, this, "no input")
-        let w = inobj
-        if (inobj.constructor === B2Def) // first frame
-            w = createWorld(inobj, this.gravity.get_value(), true)
-        else
-            assert(inobj.constructor === B2World, this, "input not a defs or world")
+
+        inobj.ensure_objects_from_defs(true, this.gravity.get_value())
 
         const timeStep = 1.0 / 60.0
         const velocityIterations = 6
         const positionIterations = 2
-        w.obj.Step(timeStep, velocityIterations, positionIterations)
+        inobj.obj.Step(timeStep, velocityIterations, positionIterations)
         
-        this.out.set(w)
+        this.out.set(inobj)
     }
 }
 
 
 // extract the transform relative to a given body in a given world and set it to a given object
-class ExtractTransform extends NodeVarCls
+class NodeExtractTransform extends NodeVarCls
 {
     static name() { return "Extract Transform" }
     constructor(node) {
@@ -775,10 +763,10 @@ class ExtractTransform extends NodeVarCls
     run() {
         const in_body = this.in_body.get_const()
         assert(in_body !== null, this, "missing in_body")
-        assert(in_body.constructor === B2Def && in_body.bodies.length === 1, this, "in_body should be a single body definition")
+        assert(in_body.constructor === B2World && in_body.bodies.length === 1, this, "in_body should be a single body definition")
         const in_world = this.in_world.get_const()
         assert(in_world !== null, this, "missing in_world")
-        assert(in_world.constructor === B2World, this, "in_world needs to be a B2World")
+        assert(in_world.constructor === B2World, this, "in_world needs to be a B2World, it is " + in_world.constructor.name)
 
         const body_def = in_body.bodies[0]
         /*const def_m = mat3.create()
@@ -816,8 +804,32 @@ class ExtractTransform extends NodeVarCls
     }
 }
 
-//class NodePen
 
+class NodePen extends NodeCls
+{
+    static name() { return "Pen" }
+    constructor(node) {
+        super(node)
+
+        this.in_obj = new InTerminal(node, "in_obj")
+        this.out_obj = new OutTerminal(node, "out_obj")
+
+        this.pos = new ParamTransform(node, "Position", {}, { show_code: true })
+    }
+
+    run() {
+        const in_obj = this.in_obj.get_mutable()
+        assert(in_obj !== null, this, "Missing input")
+        const pos = this.pos.get_value()
+        assert(pos !== null, this, "Missing Position")
+        try {
+            in_obj.add_vertex([pos[6], pos[7]]);
+        } catch(e) {
+            assert(false, this, e.message)
+        }
+        this.out_obj.set(in_obj)
+    }
+}
 
 
 // from https://github.com/flyover/box2d.ts/blob/master/testbed/draw.ts

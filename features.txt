@@ -168,3 +168,41 @@ Node: Pick One
 - Gets multiple inputs and selects one of the inputs according to an expression returning integer
 - It's possible to rearrange the inputs
 - Expression can return -1 to keep the previously outputted object (and not update to the lates object from any input)
+
+
+
+Physics
+-------
+
+Node: Physics Body
+- Create a definition of a physical body and add a single Fixture to it
+- Type: 
+   - Dynamic - forces act upone it
+   - Kinematic - can have velocity but forces don't act on it
+   - Static - doesn't move
+- Shape either box or circle for now
+- Restitution - how bouncy the body is
+- Transform doesn't include scale since that is not supported by the engine
+
+Node: Physics Joint
+- Create a definition of a join between two bodies
+- Type:
+  - Revolute - pivot point that can rotate around an anchor
+      - it's possible to define where the two anchors are relative to each body
+        If there's a gap it would be close quickly
+      - can be a motor which applies angular force
+  - Distance - like a rubber band between two bodies
+      - can control if the two bodies connected should collide with each other
+
+Node: Physics Merge
+- Merge several definitions into a single definitions object
+
+Node: Physics Simulator
+- This is the integrator node for physics
+- Given a definition - create a world for the simulation
+- GIven a physics world from the previous frame, advance it by a single frame
+
+Node: Extract transform
+- Given a body definition and a physics world, extract the transformation of the body
+  and expose it as a variable
+- Can specify the relative offset to the body

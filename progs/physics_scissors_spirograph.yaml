@@ -9,7 +9,7 @@ nodes:
   '2':
     params:
       Type:
-        sel_str: Kynematic
+        sel_str: Kinematic
       Shape:
         sel_str: Circle
       Size(m):
@@ -43,6 +43,7 @@ nodes:
         e_pvy: 0
         e_sx: 1
         e_sy: 1
+        se_cv: return mat3()
     name: wheel_2
     cls_name: Physics Body
     x: -153.10499999999982
@@ -51,7 +52,7 @@ nodes:
   '4':
     params:
       Type:
-        sel_str: Kynematic
+        sel_str: Kinematic
       Shape:
         sel_str: Circle
       Size(m):
@@ -85,6 +86,7 @@ nodes:
         e_pvy: 0
         e_sx: 1
         e_sy: 1
+        se_cv: return mat3()
     name: wheel_1
     cls_name: Physics Body
     x: -151.2999999999999
@@ -151,6 +153,7 @@ nodes:
         e_pvy: 0
         e_sx: 1
         e_sy: 1
+        se_cv: return mat3()
     name: sic_2
     cls_name: Physics Body
     x: 128.48961983471094
@@ -328,6 +331,7 @@ nodes:
         e_pvy: 0
         e_sx: 1
         e_sy: 1
+        se_cv: return mat3()
     name: sic_1
     cls_name: Physics Body
     x: 129.47000000000017
@@ -370,6 +374,7 @@ nodes:
         e_pvy: 0
         e_sx: 1
         e_sy: 1
+        se_cv: return mat3()
     name: sic_3
     cls_name: Physics Body
     x: 347.2700000000018
@@ -457,6 +462,7 @@ nodes:
         e_pvy: 0
         e_sx: 1
         e_sy: 1
+        se_cv: return mat3()
     name: sic_4
     cls_name: Physics Body
     x: 360.5800000000011
@@ -589,6 +595,7 @@ nodes:
         e_pvy: 0
         e_sx: 1
         e_sy: 1
+        se_cv: return mat3()
     name: physics_body_9
     cls_name: Physics Body
     x: -567.5439999999985
@@ -638,6 +645,7 @@ nodes:
         e_pvy: 0
         e_sx: 1
         e_sy: 1
+        se_cv: return mat3()
     name: physics_body_10
     cls_name: Physics Body
     x: -478.6262318462002
@@ -698,12 +706,21 @@ nodes:
         v: true
       Brief View:
         v: true
+      p1_Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
       p1_Type:
         sel_str: Float
       p1_Name:
         v: radius1
       p1_Float:
-        e_v: 0.3420000000000001
+        e_v: 0.35189060240838754
         se_cv: return 1
       p1_Integer:
         e_v: 1
@@ -729,7 +746,7 @@ nodes:
       p8_Name:
         v: rot_vel1
       p8_Float:
-        e_v: 0.43700000000000006
+        e_v: 0.9157064352593338
         sldcfg_v:
           min: 0
           max: 3
@@ -759,6 +776,15 @@ nodes:
       p8_Bool:
         v: false
         e_v: 0
+      p8_Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
       p8_Sample At:
         sel_str: Mouse left down
       p2_Type:
@@ -766,7 +792,7 @@ nodes:
       p2_Name:
         v: radius2
       p2_Float:
-        e_v: 0.5880000000000001
+        e_v: 0.37910958708535264
         se_cv: return 1
       p2_Integer:
         e_v: 1
@@ -785,6 +811,15 @@ nodes:
       p2_Bool:
         v: false
         e_v: 0
+      p2_Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
       p2_Sample At:
         sel_str: Mouse left down
       p9_Type:
@@ -816,6 +851,15 @@ nodes:
       p9_Bool:
         v: false
         e_v: 0
+      p9_Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
       p9_Sample At:
         sel_str: Mouse left down
       p10_Type:
@@ -842,6 +886,15 @@ nodes:
       p10_Bool:
         v: true
         e_v: 0
+      p10_Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
       p10_Sample At:
         sel_str: Mouse left down
       p3_Type:
@@ -868,6 +921,15 @@ nodes:
       p3_Bool:
         v: false
         e_v: 0
+      p3_Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
       p3_Sample At:
         sel_str: Mouse left down
       p4_Type:
@@ -899,6 +961,15 @@ nodes:
       p4_Bool:
         v: false
         e_v: 0
+      p4_Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
       p4_Sample At:
         sel_str: Mouse left down
       p11_Type:
@@ -930,6 +1001,15 @@ nodes:
       p11_Bool:
         v: false
         e_v: 0
+      p11_Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
       p11_Sample At:
         sel_str: Mouse left down
       p5_Type:
@@ -961,6 +1041,15 @@ nodes:
       p5_Bool:
         v: false
         e_v: 0
+      p5_Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
       p5_Sample At:
         sel_str: Mouse left down
       p12_Type:
@@ -992,6 +1081,15 @@ nodes:
       p12_Bool:
         v: false
         e_v: 0
+      p12_Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
       p12_Sample At:
         sel_str: Mouse left down
       p6_Type:
@@ -1023,6 +1121,15 @@ nodes:
       p6_Bool:
         v: false
         e_v: 0
+      p6_Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
       p6_Sample At:
         sel_str: Mouse left down
       p13_Type:
@@ -1054,6 +1161,15 @@ nodes:
       p13_Bool:
         v: false
         e_v: 0
+      p13_Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
       p13_Sample At:
         sel_str: Mouse left down
       p7_Type:
@@ -1085,6 +1201,15 @@ nodes:
       p7_Bool:
         v: false
         e_v: 0
+      p7_Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
       p7_Sample At:
         sel_str: Mouse left down
       p14_Type:
@@ -1116,11 +1241,20 @@ nodes:
       p14_Bool:
         v: false
         e_v: 0
+      p14_Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
       p14_Sample At:
         sel_str: Mouse left down
     name: var
     cls_name: Variable
-    x: -204.36816285043886
+    x: -203.03716285043888
     y: -75.03491515206214
     disp_param: {}
   '70':
@@ -1138,11 +1272,17 @@ nodes:
     y: 667.8000000000008
     disp_param: {}
   '74':
-    params: {}
+    params:
+      Offset:
+        e_x: 0.22312148204916799
+        e_y: -1.0858840664375868
+        se_cv: 'return vec2(0, 0)'
+      Name:
+        v: trans
     name: extract_transform_1
     cls_name: Extract Transform
-    x: 738.3940000000013
-    y: 333.0580000000001
+    x: 701.1260000000009
+    y: 419.57300000000066
     disp_param: {}
   '77':
     params:
@@ -1163,6 +1303,7 @@ nodes:
         e_pvy: 0
         e_sx: 1
         e_sy: 1
+        se_cv: return mat3()
       Texture Edge:
         sel_str: Pad
     name: load_image_1
@@ -1180,10 +1321,61 @@ nodes:
         e_pvy: 0
         e_sx: 1
         e_sy: 1
+        se_cv: return mat3()
     name: transform_1
     cls_name: Transform
     x: 979.6399999999998
     y: 267.9740000000007
+    disp_param: {}
+  '86':
+    params:
+      Position:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        show_code: true
+        se_cv: return trans
+    name: pen_1
+    cls_name: Pen
+    x: 984.5535675048853
+    y: 573.4230000000002
+    disp_param:
+      show_vtx: true
+  '88':
+    params:
+      col_store:
+        v: [{label: vtx_color, ctor: ParamColorList}]
+      Type:
+        sel_str: Mesh
+      Add points:
+        v: true
+      vtx_pos:
+        lst: []
+      vtx_color:
+        lst: []
+      path_ranges:
+        ranges: []
+    name: manual_geometry_1
+    cls_name: Manual Geometry
+    x: 659.5234324951164
+    y: 498.62078375244016
+    disp_param: {}
+  '89':
+    params:
+      Pick Index:
+        se_v: '(frame_num == 0) ? 0 : 1'
+        show_code: true
+        se_cv: 'return (frame_num == 0) ? 0 : 1'
+      OrderInputs:
+        sorted_order: [0, 1]
+    name: pick_one_3
+    cls_name: Pick One
+    x: 735.1242974853511
+    y: 605.8994324951159
     disp_param: {}
 lines:
   - from_name: b2_defs
@@ -1316,11 +1508,6 @@ lines:
     to_name: in_body
     to_id: 74
     uid: 75
-  - from_name: out_img
-    from_id: 77
-    to_name: in_dst_obj
-    to_id: 74
-    uid: 81
   - from_name: out
     from_id: 12
     to_name: in
@@ -1331,12 +1518,37 @@ lines:
     to_name: b2_in
     to_id: 14
     uid: 84
-next_node_id: 85
+  - from_name: b2_world
+    from_id: 14
+    to_name: in_world
+    to_id: 74
+    uid: 85
+  - from_name: variable_out
+    from_id: 74
+    to_name: vars_in
+    to_id: 86
+    uid: 87
+  - from_name: out_mesh
+    from_id: 88
+    to_name: in_multi
+    to_id: 89
+    uid: 90
+  - from_name: out
+    from_id: 89
+    to_name: in_obj
+    to_id: 86
+    uid: 91
+  - from_name: out_obj
+    from_id: 86
+    to_name: in_multi
+    to_id: 89
+    uid: 92
+next_node_id: 93
 names_idx_s:
   Physics Merge: 2
   Physics Body: 10
   Physics Joint: 8
-  Pick One: 2
+  Pick One: 3
   Physics Simulator: 1
   Variable: 1
   Change Filter: 1
@@ -1344,13 +1556,16 @@ names_idx_s:
   Extract Transform: 1
   Load Image: 1
   Transform: 1
-display_node_id: 12
-tdisp_node_ids: []
+  Pen: 1
+  Manual Geometry: 1
+display_node_id: 86
+tdisp_node_ids:
+  - 12
 input_node_ids: []
 glob_var_node_ids:
   - 69
 nodes_view:
-  pan_x: 487.34299999999905
-  pan_y: 136.77199999999988
+  pan_x: -306.2759999999985
+  pan_y: -168.7989999999999
   zoom: 0.7513148009015777
 decor: []

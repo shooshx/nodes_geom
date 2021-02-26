@@ -18,6 +18,7 @@ nodes:
         e_pvy: 0
         e_sx: 1
         e_sy: 1
+        se_cv: return mat3()
       Texture Edge:
         sel_str: Pad
     name: init_image
@@ -138,15 +139,20 @@ nodes:
       order:
         sorted_order: [0]
       fade_c:
-        e_v: 0
+        se_v: var
+        sldcfg_v:
+          min: 0
+          max: 2
+          visible: true
+          allowed: true
         se_cv: return 0
       run_life:
-        v: false
+        v: true
         e_v: 0
     name: life_integrate
     cls_name: Function Fill
-    x: -2239
-    y: 1278
+    x: -2196
+    y: 1230
     disp_param: {}
   '5':
     params:
@@ -176,8 +182,8 @@ nodes:
         se_cv: return frame_num
     name: change_filter_1
     cls_name: Change Filter
-    x: -2251
-    y: 1149
+    x: -2208
+    y: 1103
     disp_param: {}
   '12':
     params:
@@ -238,6 +244,7 @@ nodes:
         e_pvy: 0
         e_sx: 1
         e_sy: 1
+        se_cv: return mat3()
     name: create_pixel_buffer_2
     cls_name: Create Pixel-Buffer
     x: -2334
@@ -345,6 +352,7 @@ nodes:
         e_pvy: 0
         e_sx: 1
         e_sy: 1
+        se_cv: return mat3()
     name: create_pixel_buffer_4
     cls_name: Create Pixel-Buffer
     x: -2002
@@ -390,9 +398,15 @@ nodes:
               ivec2 cr = toTexelCoord(v_coord);
               vec4 c = texelFetch(_u_in_tex_0, cr, 0);    
               
-              if (c.a < 0.2)
-                  c *= 4.0;
-              if (c.a == 1.0) {
+              if (c.a < 0.8) {
+                  //float v = c.a * 11.0;
+                  float v = 0.9;
+                  c.a = 1.00;
+                  c.r *= v;
+                  c.g *= v;
+                  c.b *= v;
+              }
+              else if (false) {
                   vec4 sum = vec4(0.0);
                   int count = 0;
                   for(int i = 0; i < 8; ++i) {
@@ -405,52 +419,182 @@ nodes:
                   sum = sum * (1.0 / float(count) * 4.0);
                   //sum /= 4.0;
                   c = sum;
+                  c.a = 1.0;
               }
               
               outColor = c;
           }
         panel_rect:
-          height: 322
+          height: 410
       order:
         sorted_order: [0]
     name: saturate_colors
     cls_name: Image Process
-    x: -2268
-    y: 1404
+    x: -2214.3471074380163
+    y: 1385
     disp_param: {}
   '40':
     params:
+      <obj-store>:
+        v:
+          gen_id: 2
+          prms_lst: [1]
+      Global Namespace:
+        v: false
+      Brief View:
+        v: false
+      p1_Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
+      p1_Type:
+        sel_str: Float
+      p1_Name:
+        v: var
+      p1_Float:
+        e_v: 0.97
+        sldcfg_v:
+          min: 0.8
+          max: 1.1
+          allowed: true
+          visible: true
+        se_cv: return 1
+      p1_Integer:
+        e_v: 1
+        se_cv: return 1
+      p1_Float2:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      p1_Color:
+        hex: '#CCCCCC'
+        se_cv: 'return rgb(204, 204, 204)'
+      p1_Mouse Coord:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      p1_Bool:
+        v: false
+        e_v: 0
+      p1_Sample At:
+        sel_str: Mouse left down
+    name: var
+    cls_name: Variable
+    x: -2376.3057851239673
+    y: 1279.6528925619837
+    disp_param: {}
+  '42':
+    params:
+      Shape:
+        sel_str: Rectangle
+      Size:
+        e_x: 2
+        e_y: 2
+        se_cv: 'return vec2(0.5, 0.5)'
+      Num Points:
+        e_v: 5
+        se_cv: return 5
+      Inner Point:
+        e_x: 0.22600000000000003
+        se_y: '-0.311'
+        se_cv: 'return vec2(0.226, -0.311)'
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 332.0961067107007
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
+    name: geom_primitive_2
+    cls_name: Geom Primitive
+    x: -2007.3992898188717
+    y: 1328.6380756758035
+    disp_param:
+      show_vtx: true
+      show_lines: true
+  '43':
+    params:
+      Set distance:
+        v: false
+        e_v: 0
+      Divisions:
+        e_v: 100
+        se_cv: return 4
+      Separate U-V:
+        v: false
+        e_v: 0
+      Distance:
+        e_v: 0.1
+        se_cv: return 0.1
+      Distance U-V:
+        e_x: 0.1
+        e_y: 0.1
+        se_cv: 'return vec2(0.1, 0.1)'
+      Exact:
+        v: false
+        e_v: 0
+    name: divide_1
+    cls_name: Divide
+    x: -2003.219236107939
+    y: 1424.7780353925941
+    disp_param:
+      show_vtx: false
+      show_lines: true
+  '45':
+    params:
+      npt:
+        v:
+          '0': color
+          '1': radius
+          '2': normal
+          '3': fill
+          '4': transform
+      Bind To:
+        sel_str: Faces
       Type:
-        sel_str: Bool
+        sel_str: Color
+      Edit code:
+        v: true
       Name:
-        v: run_life
+        v: color
+      Color:
+        hex: '#CCCCCC'
+        show_code: true
+        se_cv: return in_src
       Float:
-        e_v: 1
-        se_cv: return 1
-      Integer:
-        e_v: 1
-        se_cv: return 1
+        e_v: 0
+        se_cv: return 0
       Float2:
         e_x: 0
         e_y: 0
         se_cv: 'return vec2(0, 0)'
-      Color:
-        hex: '#CCCCCC'
-        se_cv: 'return rgb(204, 204, 204)'
-      Mouse Coord:
-        e_x: 0
-        e_y: 0
-        se_cv: 'return vec2(0, 0)'
-      Bool:
-        v: false
-        e_v: 0
-      Sample At:
-        sel_str: Mouse left down
-    name: run_life
-    cls_name: Variable
-    x: -2473
-    y: 1278
-    disp_param: {}
+      Select:
+        e_v: 1
+        se_cv: return 1.0
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
+    name: set_attribute_1
+    cls_name: Set Attribute
+    x: -2124.2192361079337
+    y: 1539.6180622480538
+    disp_param:
+      show_vtx: false
+      show_lines: false
+      show_faces: true
 lines:
   - from_name: out
     from_id: 5
@@ -502,22 +646,35 @@ lines:
     to_name: vars_in
     to_id: 3
     uid: 41
-next_node_id: 42
+  - from_name: out_mesh
+    from_id: 42
+    to_name: in_mesh
+    to_id: 43
+    uid: 44
+  - from_name: out_mesh
+    from_id: 43
+    to_name: in_obj
+    to_id: 45
+    uid: 46
+next_node_id: 48
 names_idx_s:
   Load Image: 1
   Create Pixel-Buffer: 4
   Function Fill: 5
   Pick One: 1
   Change Filter: 1
-  Geom Primitive: 1
+  Geom Primitive: 2
   Manual Geometry: 1
   Image Process: 3
   Variable: 1
-display_node_id: 3
-tdisp_node_ids:
-  - 3
+  Divide: 1
+  Set Attribute: 1
+display_node_id: 37
+tdisp_node_ids: []
 input_node_ids: []
+glob_var_node_ids: []
 nodes_view:
-  pan_x: 2535
-  pan_y: -1011
+  pan_x: 2448.899999999999
+  pan_y: -1042.1000000000004
+  zoom: 0.9090909090909087
 decor: []

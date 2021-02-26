@@ -933,12 +933,12 @@ class ExpressionItem {
         if (etype === TYPE_UNDECIDED) {
             this.etype = null
             this.etype_undecided = true
-            return
+            return etype
         }
         if (etype == TYPE_DEPEND_ON_VAR) {
             this.etype = null
             this.etype_depend_var = true
-            return // can't do it now, will be called again when we have the mesh
+            return etype // can't do it now, will be called again when we have the mesh
         }
         this.etype = etype
         this.etype_depend_var = false  // we know it's neither of these if we got a real type, it can be both of them added at two invocations of this function
@@ -953,6 +953,7 @@ class ExpressionItem {
             eassert(this.etype === TYPE_MAT3, "Wrong type, expected mat3, got " + typename(this.etype))
         else
             eassert(this.etype === TYPE_NUM, "Wrong type, expected a number, got " + typename(this.etype)) 
+        return etype
     }
 
     peval_self() {
@@ -1123,7 +1124,7 @@ class ExpressionItem {
         if (this.e === null)  // error in expr or const
             return this.get_prop()
         // the state_input was put there using the evaler before the call to here
-        call_eval()
+        return this.call_eval()
     }
 
     call_eval() {
@@ -1216,7 +1217,9 @@ class ExpressionItem {
 
             this.eclear_error() // clear the errors only if we're going to run check_type again              
             ExprParser.clear_types_cache(this.e) // some variable change, it's possible we need to change the type of everything
-            this.do_check_type(true)
+            const etype = this.do_check_type(do_locals) // expect_vars_resolved only when we do locals since that's the last chance. When we do_globals there's still a chance it will be resolved from locals
+            if (etype === TYPE_DEPEND_ON_VAR)
+                return // nothing more to do, it will be resolved in the locals call, can't call eval
 
             let did_change = false
             // similar to what is done at the end of peval
@@ -1312,6 +1315,8 @@ let CodeItemMixin = (superclass) => class extends superclass {
 
     add_code_elem() {
         if (!this.allowed_code)
+            return
+        if (this.line_elem === null) // add_elem was never called
             return
         if (this.code_line !== null) {
             this.line_elem.appendChild(this.code_line) // was already created and its test should be up to date with the item
