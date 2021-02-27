@@ -257,6 +257,12 @@ function add_div(parent, cls) {
     parent.appendChild(e)
     return e
 }
+function add_div_text(parent, cls, text) {
+    let e = create_div(cls)
+    parent.appendChild(e)
+    e.innerText = text
+    return e
+}
 function add_param_line(parent, param=null, cls='param_line') { 
     if (param !== null) {
         if (param.is_sharing_line_elem()) {

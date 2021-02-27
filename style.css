@@ -684,14 +684,18 @@ input {
     z-index: 100;
 }
 .dlg_title {
-    padding: 2px 0 6px 7px;
+    padding: 2px 7px 6px 7px;
     height: 21px;
     line-height: 21px; 
     cursor: move;
     overflow: hidden;
     white-space: nowrap;
     color: #fff;
-    background-color: #555;
+    background-color: #555;    
+    border-radius: 10px 10px 0 0;
+}
+.dlg_title_text {
+    padding-right: 25px; /* room for the close btn */
 }
 .dlg_client {
     display: flex;
@@ -962,6 +966,29 @@ input {
     pointer-events: none;
 }
 
+.obj_inf_dlg {
+}
+.obj_inf_class {
+    color: #ffffff;
+    font-size: 22px;
+    margin: 0 0 4px 10px;
+    font-family: monospace;
+}
+
+.obj_inf_desc {
+    margin: 0 10px 7px 10px;
+}
+.obj_inf_line {
+    margin: 0 0 0 5px;
+    color: #eeeeee;
+}
+.obj_inf_label {
+    display: inline-block;
+}
+.obj_inf_value {
+    display: inline-block;
+}
+
 .editor_error_marker {
     position:absolute;
     background: rgba(255, 74, 74, 0.49);
@@ -1081,3 +1108,4 @@ input {
     font-size: 14px;
     margin-left: 15px;
 }
+

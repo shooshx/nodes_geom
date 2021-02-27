@@ -383,6 +383,11 @@ class PObject {
             ctx_img_shadow.restore()
         }
     }
+
+    describe(parent, dlg) {
+        dlg.clear_desc()
+        add_div_text(parent, "obj_inf_none", "No description available")
+    }
 }
 
 class PHandle {
@@ -562,6 +567,7 @@ class OutTerminal extends Terminal {
         this.h = null
         this.cur_ver = 1 
         // incremented every set()
+        this.update_subscriber = null
     }
     set(v) {
         // and also save a wear-ref to it so that display would work 
@@ -570,6 +576,9 @@ class OutTerminal extends Terminal {
         else            
             this.h = new PHandle(v)
         ++this.cur_ver;    
+
+        if (this.update_subscriber !== null)
+            this.update_subscriber.obj_updated(this.get_const())
     }
     get_const() {
         if (this.h === null)
@@ -587,6 +596,11 @@ class OutTerminal extends Terminal {
     }
     get_cur_uver() {
         return this.tuid + "_" + this.cur_ver
+    }
+
+    subscribe_inf_update(prev_dest, new_dest) {
+        console.assert(this.update_subscriber === prev_dest, "unexpected non-null subscriber")
+        this.update_subscriber = new_dest
     }
 }
 
@@ -1431,11 +1445,107 @@ function ask_clear_program() {
     }}])
 }
 
+class ObjInfDlg 
+{
+    constructor() {
+        this.rect = { visible: true }
+        this.dlg = create_dialog(main_view, "", true, this.rect, (v)=>{
+            // visibility changed
+            // if it's being closed, unsubscribe. if it's going to be open again, there's going to be a new subscription in open_object_info_dlg
+            if (!v)
+                this.unsubscribe_current()
+        })
+        this.dlg.elem.classList.add("obj_inf_dlg")
+        this.name_elem = add_div(this.dlg.client, "obj_inf_class")
+        this.desc_elem = add_div(this.dlg.client, "obj_inf_desc")
+
+        this.subscribed_on_out_term = null
+        this.do_make_title = (name)=>{this.make_title() }
+        this.eobj = null
+    }
+
+    need_recreate(obj) {
+        return this.eobj === null || this.eobj.name !== obj.constructor.name()
+    }
+
+    // functions used by describe
+    clear_desc() { 
+        obj_inf_dlg.desc_elem.innerText = "" 
+        // temp state while running describe        
+        this.max_line_width = 0
+        this.added_labels = []
+        this.eobj = null  // used by the object describe() impl to store elements so that it won't need to recreate everything from scratch every frame
+    }
+
+    add_line(label) {
+        const line = add_div(obj_inf_dlg.desc_elem, "obj_inf_line")
+        const label_e = add_elem(line, 'span', 'obj_inf_label')
+        label_e.innerText = label
+        this.max_line_width = Math.max(this.max_line_width, label_e.offsetWidth)
+        this.added_labels.push(label_e)
+        const val = add_div(line, "obj_inf_value")
+        return val
+    }
+    adjust_labels() {
+        const width = this.max_line_width + 10 + "px"
+        for(let line of this.added_labels)
+            line.style.width = width
+    }
+
+    obj_updated(obj) {
+        if (obj === null) {
+            this.name_elem.innerText = "null"
+            this.clear_desc()
+            return
+        }
+        obj_inf_dlg.name_elem.innerText = obj.constructor.name()
+        obj.describe(this.desc_elem, this)
+    }
+
+    make_title() {
+        this.dlg.set_title("Output Info: " + this.subscribed_on_out_term.owner.name + " : " + this.subscribed_on_out_term.name)
+    }
+
+    unsubscribe_current() {
+        if (this.subscribed_on_out_term !== null) {
+            this.subscribed_on_out_term.subscribe_inf_update(this, null)  // object updates
+            this.subscribed_on_out_term.owner.remove_rename_observer(this.do_make_title)  // node name update
+            this.subscribed_on_out_term = null
+        }
+    }
+
+    subscribe_on(out_term) {
+        this.unsubscribe_current()
+
+        out_term.subscribe_inf_update(null, this)
+        out_term.owner.register_rename_observer(this.do_make_title)
+        this.subscribed_on_out_term = out_term
+
+        // first update
+        const obj = out_term.get_const()
+        this.obj_updated(obj)    
+        this.make_title()
+
+    }
+}
+
+var obj_inf_dlg = null
+
+
+function open_object_info_dlg(out_term)
+{
+    if (obj_inf_dlg === null)
+        obj_inf_dlg = new ObjInfDlg()
+    obj_inf_dlg.dlg.set_visible(true)
+    obj_inf_dlg.subscribe_on(out_term)
+}
+
+
 
 function nodes_context_menu(e) {
     let obj = find_node_obj(e)
     
-    let opt = null, node = null;
+    let opt = null, node = null, out_term = null;
     if (obj != null) {
         if (obj.constructor === Node)
             node = obj
@@ -1443,15 +1553,21 @@ function nodes_context_menu(e) {
             node = obj.node
         else if (obj.constructor === NameInput)
             obj = null // treat it like we pressed the background
-        else if (obj instanceof TerminalBase)
+        else if (obj instanceof TerminalBase) {
             node = obj.owner
+            if (obj instanceof OutTerminal)
+                out_term = obj
+        }
         else if (obj.ctx_menu_opts !== undefined)
             opt = obj.ctx_menu_opts()
         else
             return null
     }
-    if (node !== null)
+    if (node !== null) {
         opt = [{text:"Delete Node", func:function() { program.delete_node(node, true)} }]
+        if (out_term !== null)
+            opt.push({text:"Output Info", func:function() { open_object_info_dlg(out_term) }})
+    }
     else if (opt === null) {
         opt = [{text:"Clear", func:ask_clear_program }, {text:"-"}]
         for(let c of nodes_classes) {
@@ -1467,7 +1583,7 @@ function nodes_context_menu(e) {
         opt.push({text:"-"}, {text:"Text Note", func:()=>{ program.nodes_add_decor(new NV_TextNote(e.vx, e.vy, "text")); draw_nodes() }})
         opt.push({text:"Reset view", func:function() { nodes_view.reset_view() }})
     }
-    
+
     nodes_view.last_ctx_menu = open_context_menu(opt, e.ex, e.ey, main_view, ()=>{nodes_view.dismiss_ctx_menu()})    
     return nodes_view.last_ctx_menu
 }

@@ -8,10 +8,8 @@ GUI:
 - fix jumping of splits on page load
 - Math.round lines just before drawing to avoid thinning artifacts when zooming?
 - layout: https://github.com/golden-layout/golden-layout
-- right click? on out terminal to show info about its output
 - define camera?
 - !!!!! input nodes are only active if they are in a current display tree
-- !! ability to resize code editor and pop it out
 - global input indicator that can be quickly turned off
 - log slider (mandelbrot)
 - Display param control default vertex size
@@ -66,9 +64,8 @@ EXPRESSIONS
 - maybe BUG: variables loose exact accuracy on repeated load-save?
 - Box2D
     - BUG: errors don't stop previous anim
-    - !!! BUG - fix game of life
     - sim button - current position to defs
-    - templates for defs
+
     - joints
         - revolute limits
         - show the name of where the line comes from

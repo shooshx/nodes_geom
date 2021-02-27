@@ -22,6 +22,15 @@ function normalize_attr_name(s) {
     return r
 }
 
+function meshTypeName(t) {
+    switch(t) {
+    case MESH_NOT_SET: return "Not-Set";
+    case MESH_QUAD: return "Quads";
+    case MESH_TRI: return "Triangles";
+    case MESH_POINTS: return "Points";
+    default: return "<unknown:" + t + ">"
+    }
+}
 
 class BBox {
     constructor(min_x, min_y, max_x, max_y) {
@@ -787,7 +796,6 @@ class Mesh extends PObject
         dassert(this.effective_vtx_pos == this.arrs.vtx_pos, "Working with effective_vtx_pos not supported")
         dassert(this.type === MESH_POINTS, "Only points mesh supported") 
 
-
         for (let name in this.arrs) {
             if (name === "idx")
                 continue
@@ -802,10 +810,27 @@ class Mesh extends PObject
                 const v = get_default_value(name, this.meta[name].num_elems)
                 this.arrs[name].push(...v)
             }
-            
         }
-
         //this.arrs.idx.push( (this.arrs.vtx_pos.length - 2) / 2 )
+    }
+
+    describe(parent, dlg) {
+
+        if (dlg.need_recreate(this)) {
+            dlg.clear_desc()
+            const eobj = { name: this.constructor.name() }
+            eobj.vtxnum = dlg.add_line("Vertex Count: ")
+            eobj.type = dlg.add_line("Type: ")
+            eobj.facenum = dlg.add_line("Face Count: ")
+            dlg.eobj = eobj
+            dlg.adjust_labels()
+
+        }
+        dlg.eobj.vtxnum.innerText = this.arrs.vtx_pos.length / 2
+        dlg.eobj.type.innerText = meshTypeName(this.type)
+        dlg.eobj.facenum.innerText = this.face_count()
+
+        
     }
 }
 

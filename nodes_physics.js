@@ -60,6 +60,7 @@ class B2JointDec {
 
 class B2World extends PObject
 {
+    static name() { return "Physics World" }
     constructor() {
         super()
 
