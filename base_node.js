@@ -1464,8 +1464,13 @@ class ObjInfDlg
         this.eobj = null
     }
 
-    need_recreate(obj) {
-        return this.eobj === null || this.eobj.name !== obj.constructor.name()
+    recreate_if_needed(obj) {
+        const b = (this.eobj === null || this.eobj.name !== obj.constructor.name())
+        if (b) {
+            this.clear_desc()
+            this.eobj = { name: obj.constructor.name() }
+        }
+        return b
     }
 
     // functions used by describe
@@ -1477,13 +1482,13 @@ class ObjInfDlg
         this.eobj = null  // used by the object describe() impl to store elements so that it won't need to recreate everything from scratch every frame
     }
 
-    add_line(label) {
+    add_line(label, multi_line=false) {
         const line = add_div(obj_inf_dlg.desc_elem, "obj_inf_line")
         const label_e = add_elem(line, 'span', 'obj_inf_label')
         label_e.innerText = label
         this.max_line_width = Math.max(this.max_line_width, label_e.offsetWidth)
         this.added_labels.push(label_e)
-        const val = add_div(line, "obj_inf_value")
+        const val = add_div(line, multi_line ? "obj_inf_value_multi":"obj_inf_value")
         return val
     }
     adjust_labels() {
@@ -1525,7 +1530,13 @@ class ObjInfDlg
         const obj = out_term.get_const()
         this.obj_updated(obj)    
         this.make_title()
+    }
 
+    node_deleted(node) {
+        if (this.subscribed_on_out_term === null || this.subscribed_on_out_term.owner !== node)
+            return
+        this.dlg.dset_visible(false)
+        this.unsubscribe_current()
     }
 }
 
@@ -1536,7 +1547,7 @@ function open_object_info_dlg(out_term)
 {
     if (obj_inf_dlg === null)
         obj_inf_dlg = new ObjInfDlg()
-    obj_inf_dlg.dlg.set_visible(true)
+    obj_inf_dlg.dlg.dset_visible(true)
     obj_inf_dlg.subscribe_on(out_term)
 }
 

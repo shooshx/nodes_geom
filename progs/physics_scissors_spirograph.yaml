@@ -3,8 +3,8 @@ nodes:
     params: {}
     name: physics_merge_1
     cls_name: Physics Merge
-    x: 37.11000000000001
-    y: 574.8100000000005
+    x: 96.51000000000008
+    y: 569.3100000000004
     disp_param: {}
   '2':
     params:
@@ -720,7 +720,7 @@ nodes:
       p1_Name:
         v: radius1
       p1_Float:
-        e_v: 0.35189060240838754
+        e_v: 0.48695182689202
         se_cv: return 1
       p1_Integer:
         e_v: 1
@@ -746,7 +746,7 @@ nodes:
       p8_Name:
         v: rot_vel1
       p8_Float:
-        e_v: 0.9157064352593338
+        e_v: 0.916
         sldcfg_v:
           min: 0
           max: 3
@@ -792,7 +792,7 @@ nodes:
       p2_Name:
         v: radius2
       p2_Float:
-        e_v: 0.37910958708535264
+        e_v: 0.3309120149597705
         se_cv: return 1
       p2_Integer:
         e_v: 1
@@ -1274,15 +1274,15 @@ nodes:
   '74':
     params:
       Offset:
-        e_x: 0.22312148204916799
-        e_y: -1.0858840664375868
+        e_x: 0.22300000000000003
+        se_y: '-1.086'
         se_cv: 'return vec2(0, 0)'
       Name:
         v: trans
     name: extract_transform_1
     cls_name: Extract Transform
-    x: 701.1260000000009
-    y: 419.57300000000066
+    x: 594.6460000000002
+    y: 404.93200000000076
     disp_param: {}
   '77':
     params:
@@ -1341,8 +1341,8 @@ nodes:
         se_cv: return trans
     name: pen_1
     cls_name: Pen
-    x: 984.5535675048853
-    y: 573.4230000000002
+    x: 1032.9535675048855
+    y: 662.2370000000014
     disp_param:
       show_vtx: true
   '88':
@@ -1354,16 +1354,17 @@ nodes:
       Add points:
         v: true
       vtx_pos:
-        lst: []
-      vtx_color:
-        lst: []
+        lst: [3.961171865463257, -1.5748409032821655, 3.3972549438476562, -1.7055045366287231, 3.4591481685638428, -1.3478987216949463]
       path_ranges:
-        ranges: []
+        ranges: [0, 3, 0]
+      vtx_color:
+        lst: [204, 204, 204, 255, 204, 204, 204, 255, 204, 204, 204, 255]
     name: manual_geometry_1
     cls_name: Manual Geometry
-    x: 659.5234324951164
-    y: 498.62078375244016
-    disp_param: {}
+    x: 735.3904324951169
+    y: 566.5017837524409
+    disp_param:
+      show_vtx: true
   '89':
     params:
       Pick Index:
@@ -1374,9 +1375,11 @@ nodes:
         sorted_order: [0, 1]
     name: pick_one_3
     cls_name: Pick One
-    x: 735.1242974853511
-    y: 605.8994324951159
-    disp_param: {}
+    x: 749.7652974853513
+    y: 683.0974324951167
+    disp_param:
+      show_vtx: true
+      show_lines: true
 lines:
   - from_name: b2_defs
     from_id: 2
@@ -1518,11 +1521,6 @@ lines:
     to_name: b2_in
     to_id: 14
     uid: 84
-  - from_name: b2_world
-    from_id: 14
-    to_name: in_world
-    to_id: 74
-    uid: 85
   - from_name: variable_out
     from_id: 74
     to_name: vars_in
@@ -1543,7 +1541,17 @@ lines:
     to_name: in_multi
     to_id: 89
     uid: 92
-next_node_id: 93
+  - from_name: out
+    from_id: 12
+    to_name: in_world
+    to_id: 74
+    uid: 96
+  - from_name: variable_out
+    from_id: 74
+    to_name: vars_in
+    to_id: 88
+    uid: 98
+next_node_id: 100
 names_idx_s:
   Physics Merge: 2
   Physics Body: 10
@@ -1557,15 +1565,26 @@ names_idx_s:
   Load Image: 1
   Transform: 1
   Pen: 1
-  Manual Geometry: 1
-display_node_id: 86
+  Manual Geometry: 3
+  Geom Primitive: 1
+display_node_id: 89
 tdisp_node_ids:
   - 12
 input_node_ids: []
 glob_var_node_ids:
   - 69
 nodes_view:
-  pan_x: -306.2759999999985
-  pan_y: -168.7989999999999
-  zoom: 0.7513148009015777
-decor: []
+  pan_x: -351.1140000000005
+  pan_y: -20.019000000000464
+  zoom: 0.7513148009015774
+decor:
+  - x: 534.259567504883
+    y: 500.51000000000016
+    text: |-
+      this line is needed
+      to make a dependency
+      for frame 0
+    font_size: 16
+    color: '#ffffff'
+    type: Text
+    uid: 99

@@ -25,7 +25,7 @@ class B2FixtureDec {
     constructor(cnode_id) {
         this.def = null
         this.obj = null
-        this.cnode_id = cnode_id
+        this.cnode_id = cnode_id 
     }
 }
 
@@ -35,11 +35,22 @@ class B2BodyDec {
         this.def = null
         this.fixtures = []
         this.obj = null
-        this.cnode_id = cnode_id // create node unique-id
+        this.cnode_id = cnode_id // creating node unique-id
         this.index = null // temporary for building the world
         this.t_mat = null // not actually used
 
         this.on_init_params = [] // functions that are called just after the initialization of the world (for things that are not in the defs, kinematic velocity)
+    }
+    getPos() {
+        if (this.obj !== null)
+            return this.obj.GetPosition()
+        return this.def.position
+        
+    }
+    getAngle() {
+        if (this.obj !== null)
+            return this.obj.GetAngle()
+        return this.def.angle
     }
 }
 
@@ -50,13 +61,63 @@ class B2JointDec {
         this.body_refB = null
         this.init_call = null // function to call for initializing the joint with the two real bodies
         this.obj = null
-        this.cnode_id = cnode_id
-    }
+        this.cnode_id = cnode_id  // creating node unique-id
+    } 
 }
 
 // for nodes that use a b2.World for display
 
 
+class B2Def extends PObject
+{
+    constructor() {
+        super()
+        this.bodies = []  // list of B2BodyDec
+        this.joints = []  // list of B2JointDec
+
+        this.cnode_to_obj = []
+
+        // kind of a hack to take advantage of the fact the world can draw itself
+        this.p_draw_world_cache = null // not copied on clone
+
+    }
+    
+    add_body() {
+        for(let b of arguments) {
+            this.cnode_to_obj[b.cnode_id] = b
+            this.bodies.push(b)
+        }
+    }
+    add_joint() {
+        for(let j of arguments) {
+            this.cnode_to_obj[j.cnode_id] = j
+            this.joints.push(j)
+        }
+    }
+
+    ensure_world_cache() {
+        if (this.p_draw_world_cache !== null)
+            return
+        this.p_draw_world_cache = createWorld(this, [0,0], false) // create world just for calling DebugDraw    
+    }
+
+    draw_m(m, disp_values) {
+        this.ensure_world_cache()
+        this.p_draw_world_cache.draw_mw(disp_values)
+    }
+    draw_template_m(m) {
+        this.ensure_world_cache()
+        this.p_draw_world_cache.draw_template_m(m)
+    }
+
+    can_draw_shadow() { 
+        return true 
+    }
+    draw_shadow_m(m) {
+        this.ensure_world_cache()
+        this.p_draw_world_cache.draw_shadow_m()
+    }
+}
 
 class B2World extends PObject
 {
@@ -68,41 +129,33 @@ class B2World extends PObject
         //this.joints_decs = []
 
         this.obj = null
-        this.created_from_sim = null
         this.bodies = []
-        this.joints = []
 
         // map cnode_id of the creator node to the object it created in the context of this world
         // this is done like this so that the same def can go to different worlds
         // used by online params
-        this.cnode_to_obj = null 
+        this.cnode_to_obj = [] 
 
         this.p_draw_debug = null
         this.p_draw_shadow = null
         this.p_draw_template = null
     }
 
-    oclone() {
+    clone() {
         assert(false, this, "World object can't be cloned")
         // due to the b2 objects and multiple refs to the same objects
     }
 
-    add_body() {
-        this.bodies.push(...arguments)
-    }
-    add_joint() {
-        this.joints.push(...arguments)
-    }
 
-    do_draw(flags, drawer) {     
-        this.ensure_objects_from_defs(false, null)
+
+    do_draw(flags, drawer) {      
         drawer.SetFlags(flags)
         drawer.ctx.lineWidth = 1.0/image_view.viewport_zoom
         this.obj.SetDebugDraw(drawer);
         this.obj.DebugDraw()        
     }
 
-    draw_mw(disp_values) { 
+    draw_mw(disp_values) { // used by B2Defs to draw without setting the current world
         if (this.p_draw_debug === null) 
             this.p_draw_debug = new CanvasDebugDraw(ctx_img);
 
@@ -138,62 +191,6 @@ class B2World extends PObject
         }
         this.do_draw(b2.DrawFlags.e_shapeBit, this.p_draw_shadow)
     }      
-
-    //function createWorld(def, gravity, for_sim) 
-
-    ensure_objects_from_defs(from_sim, gravity)
-    {
-        if (this.obj !== null) {
-            if (!from_sim)
-                return // if it's not from_sim and we have a world, we're good
-            if (from_sim && this.created_from_sim)
-                return // if it is from_sim, make sure that we have was also created from_sim
-            // otherwise, it's forSim and what we have was not created from_sim, need to recreate it
-        }
-        if (gravity === null)
-            gravity = [0,0]
-        
-        const w = new b2.World(new b2.Vec2(gravity[0], gravity[1]))
-        this.created_from_sim = from_sim
-
-        //if (for_sim)  // don't want to register if we're just creating it for drawing since that would make the dials disapper
-        add_current_world(this) // for call_change on on_init to work
-        let index_gen = 0
-
-        this.cnode_to_obj = {}
-
-        // reset all indices before the bodies loop to avoid duplicates
-        for(let body of this.bodies)
-            body.index = null
-
-        for(let body of this.bodies) {
-            if (body.index !== null) // can happen if the same body was added more than once through multiple paths
-                continue // don't allow it to participate more than once since that complicates stuff
-            body.index  = index_gen++ // this is the index of the new B2Body in this.bodies, for reference by joints
-            this.cnode_to_obj[body.cnode_id] = body
-            body.obj = w.CreateBody(body.def)
-            for(let fixt of body.fixtures) {
-                fixt.obj = body.obj.CreateFixture(fixt.def)      
-                this.cnode_to_obj[fixt.cnode_id] = fixt              
-            }
-
-            for(let pp of body.on_init_params)
-                pp.call_change() // set config that needs the bodies 
-        }
-
-        for(let joint of this.joints) {
-            dassert(joint.body_refA.index !== null && joint.body_refB.index !== null, "bodies not in world?") // sanity
-            this.cnode_to_obj[joint.cnode_id] = joint
-            joint.body_refA = this.bodies[joint.body_refA.index]
-            joint.body_refB = this.bodies[joint.body_refB.index]
-            joint.init_call(joint.body_refA.obj, joint.body_refB.obj)
-            joint.obj = w.CreateJoint(joint.def)
-            // bodies of this world stay referenced by this joint in the input world but that doesn't really matter since if it gets to
-            // another world it will get reinited here
-        }
-        this.obj = w
-    }
-
 
 }
 
@@ -353,13 +350,13 @@ class NodeB2Body extends NodeCls
             b.on_init_params.push(this.kin_lin_velocity, this.kin_ang_velocity)
         }
         
-        const ret = new B2World()
+        const ret = new B2Def()
         ret.add_body(b)
         this.out.set(ret)
     }
 
     dials_hidden() {
-        return g_current_worlds.length > 0 && this.type.sel_idx != 0
+        return has_current_world() && this.type.sel_idx != 0
     }
 
     draw_selection(m) {
@@ -430,11 +427,12 @@ class MouseJointProxy
     }
 
     get_dynamic_obj() {
-        if (g_current_worlds.length === 0)
+        if (!has_current_world())
             return [null,null]
-        const w = g_current_worlds[0]
+        const w = first_current_world()
+        dassert(w !== undefined, "no current world") // sanity
         const obj = w.cnode_to_obj[this.node.id]
-        if (obj === undefined || obj.constructor !== B2Body || obj.def.type !== b2.dynamicBody)
+        if (obj === undefined || obj.constructor !== B2BodyDec || obj.def.type !== b2.dynamicBody)
             return [null,null]
         return [obj,w]
     }
@@ -591,8 +589,8 @@ class NodeB2Joint extends NodeCls
         const defsA = this.inA.get_const()
         const defsB = this.inB.get_const()
         assert(defsA !== null && defsB !== null, this, "Missing input")
-        assert(defsA.constructor === B2World || !isSingleBody(defsA), this, "bodyA is not a physics body")
-        assert(defsB.constructor === B2World || !isSingleBody(defsB), this, "bodyB is not a physics body")
+        assert(defsA.constructor === B2Def || !isSingleBody(defsA), this, "bodyA is not a physics body")
+        assert(defsB.constructor === B2Def || !isSingleBody(defsB), this, "bodyB is not a physics body")
 
         const j = new B2JointDec(this.node.id)
         j.body_refA = defsA.bodies[0]
@@ -628,14 +626,14 @@ class NodeB2Joint extends NodeCls
         else
             assert(false, this, "Unexpected type")
 
-        const ret = new B2World()
+        const ret = new B2Def()
         ret.add_body(j.body_refA, j.body_refB)
         ret.add_joint(j)
         this.out.set(ret)
     }
 
     dials_hidden() {
-        return g_current_worlds.length > 0
+        return has_current_world()
     }
 
     draw_selection(m) {
@@ -670,7 +668,53 @@ class NodeB2Joint extends NodeCls
     }
 }
 
+function createWorld(def, gravity, for_sim) 
+{
+    const w = new B2World()
+    w.obj = new b2.World(new b2.Vec2(gravity[0], gravity[1]))
+    if (for_sim)  // don't want to register if we're just creating it for drawing since that would make the dials disapper
+        add_current_world(w) // for call_change on on_init to work
+    let index_gen = 0
 
+    for(let body of def.bodies)
+        body.index = null
+
+    for(let body of def.bodies) {
+        if (body.index !== null) // can happen if the same body was added more than once through multiple paths
+            continue // don't allow it to participate more than once since that complicates stuff
+        body.index  = index_gen++ // this is the index of the new B2Body in w.bodies, for reference by joints
+        const mb = new B2BodyDec(body.cnode_id) // don't want to change the input one
+        w.bodies.push(mb)
+        w.cnode_to_obj[body.cnode_id] = mb
+        mb.def = body.def
+        mb.obj = w.obj.CreateBody(mb.def)
+        for(let fixt of body.fixtures) {
+            const mf = new B2FixtureDec()
+            mb.fixtures.push(mf)
+            mf.def = fixt.def
+            mf.obj = mb.obj.CreateFixture(mf.def)      
+            w.cnode_to_obj[fixt.cnode_id] = mf              
+        }
+
+        for(let pp of body.on_init_params)
+            pp.call_change() // set config that needs the bodies 
+    }
+
+    for(let joint of def.joints) {
+        dassert(joint.body_refA.index !== null && joint.body_refB.index !== null, "bodies not in world?") // sanity
+        const mj = new B2JointDec(joint.cnode_id)
+        w.cnode_to_obj[joint.cnode_id] = mj
+        mj.def = joint.def
+        mj.body_refA = w.bodies[joint.body_refA.index]
+        mj.body_refB = w.bodies[joint.body_refB.index]
+        joint.init_call(mj.body_refA.obj, mj.body_refB.obj)
+        mj.obj = w.obj.CreateJoint(mj.def)
+        // bodies of this world stay referenced by this joint in the input world but that doesn't really matter since if it gets to
+        // another world it will get reinited here
+    }
+
+    return w
+}
 
 // merge several bodies definition to one scene
 class NodeB2Merge extends NodeCls
@@ -686,7 +730,7 @@ class NodeB2Merge extends NodeCls
     run() {
         const in_defs = this.in_defs.get_input_consts()
 
-        const udef = new B2World();
+        const udef = new B2Def();
         const body_ids = new Set()
         for(let def of in_defs) {
             assert(def !== null, this, "empty input")
@@ -711,6 +755,12 @@ function phy_reset_current_worlds() {
 function add_current_world(w) {
     g_current_worlds.add(w)
 }
+function has_current_world() {
+    g_current_worlds.length > 0
+}
+function first_current_world() {
+    g_current_worlds.values().next().value
+}
 
 
 class NodeB2Sim extends NodeCls
@@ -730,15 +780,18 @@ class NodeB2Sim extends NodeCls
     run() {
         const inobj = this.in.get_const()
         assert(inobj !== null, this, "no input")
-
-        inobj.ensure_objects_from_defs(true, this.gravity.get_value())
+        let w = inobj
+        if (inobj.constructor === B2Def) // first frame
+            w = createWorld(inobj, this.gravity.get_value(), true)
+        else
+            assert(inobj.constructor === B2World, this, "input not a defs or world")
 
         const timeStep = 1.0 / 60.0
         const velocityIterations = 6
         const positionIterations = 2
-        inobj.obj.Step(timeStep, velocityIterations, positionIterations)
+        w.obj.Step(timeStep, velocityIterations, positionIterations)
         
-        this.out.set(inobj)
+        this.out.set(w)
     }
 }
 
@@ -764,10 +817,10 @@ class NodeExtractTransform extends NodeVarCls
     run() {
         const in_body = this.in_body.get_const()
         assert(in_body !== null, this, "missing in_body")
-        assert(in_body.constructor === B2World && in_body.bodies.length === 1, this, "in_body should be a single body definition")
+        assert(in_body.constructor === B2Def && in_body.bodies.length === 1, this, "in_body should be a single body definition")
         const in_world = this.in_world.get_const()
         assert(in_world !== null, this, "missing in_world")
-        assert(in_world.constructor === B2World, this, "in_world needs to be a B2World, it is " + in_world.constructor.name)
+        assert(in_world.constructor === B2World || in_world.constructor === B2Def, this, "in_world needs to be a B2World, it is " + in_world.constructor.name)
 
         const body_def = in_body.bodies[0]
         /*const def_m = mat3.create()
@@ -781,8 +834,8 @@ class NodeExtractTransform extends NodeVarCls
         const body = in_world.cnode_to_obj[body_def.cnode_id]
         assert(body !== undefined, this, "Can't find body " + body_def.cnode_id)
         
-        const pos = body.obj.GetPosition()
-        const angle = body.obj.GetAngle()
+        const pos = body.getPos()
+        const angle = body.getAngle()
         const m = mat3.create()
         mat3.translate(m, m, vec2.fromValues(pos.x , pos.y ))
         mat3.rotate(m, m, angle)

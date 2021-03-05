@@ -816,20 +816,19 @@ class Mesh extends PObject
 
     describe(parent, dlg) {
 
-        if (dlg.need_recreate(this)) {
-            dlg.clear_desc()
-            const eobj = { name: this.constructor.name() }
-            eobj.vtxnum = dlg.add_line("Vertex Count: ")
-            eobj.type = dlg.add_line("Type: ")
-            eobj.facenum = dlg.add_line("Face Count: ")
-            dlg.eobj = eobj
+        if (dlg.recreate_if_needed(this)) {
+            dlg.eobj.vtxnum = dlg.add_line("Vertex Count: ")
+            dlg.eobj.type = dlg.add_line("Type: ")
+            dlg.eobj.facenum = dlg.add_line("Face Count: ")
+            dlg.eobj.props = dlg.add_line("Properties:", true)
+            dlg.eobj.props.classList.add("obj_inf_prop_list")
             dlg.adjust_labels()
 
         }
         dlg.eobj.vtxnum.innerText = this.arrs.vtx_pos.length / 2
         dlg.eobj.type.innerText = meshTypeName(this.type)
         dlg.eobj.facenum.innerText = this.face_count()
-
+        dlg.eobj.props.innerText = Object.keys(this.arrs).join("\n")
         
     }
 }

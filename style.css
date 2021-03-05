@@ -981,12 +981,24 @@ input {
 .obj_inf_line {
     margin: 0 0 0 5px;
     color: #eeeeee;
+    margin-bottom: 7px;
 }
 .obj_inf_label {
     display: inline-block;
 }
 .obj_inf_value {
     display: inline-block;
+}
+.obj_inf_value_multi {
+    display: block;
+    margin-left: 25px;
+}
+.obj_inf_none {
+    color: #1a1a1a;
+}
+.obj_inf_prop_list {
+    font-family: monospace;
+    font-size: 16px;
 }
 
 .editor_error_marker {

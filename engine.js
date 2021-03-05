@@ -195,6 +195,7 @@ class Program {
             program.set_template_node(node, false)
         if (node.receives_input)
             program.set_input_node(node, false)
+        obj_inf_dlg.node_deleted(node)
         if (node.destructor)
             node.destructor()
         let index = this.nodes.indexOf(node);

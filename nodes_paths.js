@@ -521,6 +521,24 @@ class MultiPath extends PObject
         return xfer_indices
     }
 
+    describe(parent, dlg)
+    {
+        if (dlg.recreate_if_needed(this)) {
+            dlg.eobj.vtxnum = dlg.add_line("Vertex Count: ")
+            dlg.eobj.facenum = dlg.add_line("Face Count: ")
+            dlg.eobj.has_curve = dlg.add_line("Has Curves: ")
+            dlg.eobj.props = dlg.add_line("Properties:", true)
+            dlg.eobj.props.classList.add("obj_inf_prop_list")
+            dlg.adjust_labels()
+
+        }
+        dlg.eobj.vtxnum.innerText = this.arrs.vtx_pos.length / 2
+        dlg.eobj.facenum.innerText = this.face_count()
+        dlg.eobj.has_curve.innerText = this.has_curves() ? "true" : "false"
+        dlg.eobj.props.innerText = Object.keys(this.arrs).join("\n")
+        
+    }
+
 }
 
 

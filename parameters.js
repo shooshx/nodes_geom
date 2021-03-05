@@ -2870,17 +2870,17 @@ class Editor
 
     pop_out(out_v) {
         if (this.dlg === null) {
-            this.dlg = create_dialog(this.parentElem, this.opt.dlg_title, true, this.opt.dlg_rect_wrap.dlg_rect, ()=>{ this.pop_out(false) }, ()=>{ this.resize() })
+            this.dlg = create_dialog(this.parentElem, this.opt.dlg_title, true, this.opt.dlg_rect_wrap.dlg_rect, (v)=>{ this.pop_out(v) }, ()=>{ this.resize() })
             this.dlg.elem.classList.add("dlg_size_shader_edit")
             this.opt.dlg_rect_wrap.dlg_rect = this.dlg.rect
             //this.dlg.ed_elem = add_div(this.dlg.client, ["dlg_param_text_area"])
         }
         if (out_v) {
-            this.dlg.set_visible(true)
+            this.dlg.dset_visible(true)
             this.dlg.client.appendChild(this.elem)
         }
         else {
-            this.dlg.set_visible(false)
+            this.dlg.dset_visible(false)
             this.parentElem.appendChild(this.elem)
         }
 

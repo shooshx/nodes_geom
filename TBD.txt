@@ -80,6 +80,7 @@ EXPRESSIONS
     - setLinearDamping, setAngularDamping
     - test several worlds running at the same time
     - pen
+        - DESIGN BUG - frame 0 of the pen does not depend on the physics world
         normal run variables - sample the transform
         transform object in expression
             ?? things that depend on members that are not the matrix? other than physics
