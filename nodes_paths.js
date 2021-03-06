@@ -54,8 +54,39 @@ class MultiPath extends PObject
             this.invalidate_pos()
     }
 
-    invalidate_pos() {
-        this.paths = null
+    oclone() {
+        const m = new MultiPath()
+        m.paths = null  // will be created as needed
+        m.arrs = clone(this.arrs)
+        m.meta = clone(this.meta)
+        m.paths_ranges = clone(this.paths_ranges)
+        
+        m.tcache = { vtx_pos:null, m:null } // will be created as needed
+        m.fill_objs = clone(this.fill_objs)
+        m.paper_obj = null
+        m.clipper_obj = null
+
+        if (this.effective_vtx_pos === this.arrs.vtx_pos)
+            m.effective_vtx_pos = m.arrs.vtx_pos
+        else
+            m.effective_vtx_pos = clone(this.effective_vtx_pos)
+
+        if (this.eff_ctrl_to_prev === this.arrs.ctrl_to_prev)
+            m.eff_ctrl_to_prev = m.arrs.ctrl_to_prev
+        else
+            m.eff_ctrl_to_prev = clone(this.eff_ctrl_to_prev)
+
+        if (this.eff_ctrl_from_prev === this.arrs.ctrl_from_prev)
+            m.eff_ctrl_from_prev = m.arrs.ctrl_to_prev
+        else
+            m.eff_ctrl_from_prev = clone(this.eff_ctrl_from_prev)            
+
+        return m
+    }
+
+    invalidate_pos(inv_paths=true) {
+        if (inv_paths) // when doing add_vertex we update paths
+            this.paths = null
         this.paper_obj = null
         this.clipper_obj = null
         this.make_effective_vtx_pos()
@@ -253,7 +284,7 @@ class MultiPath extends PObject
         for(let vidx = start_vidx + 2; vidx < end_vidx; vidx += 2) {
             let vx = vtx[vidx], vy = vtx[vidx+1]
             if (!this.is_curve(vidx))
-                obj.lineTo(vx, vy, vidx/2) // 'L', third arg for Clipper
+                obj.lineTo(vx, vy, vidx/2) // 'L', third arg for ClipperPathsBuilder
             else 
                 obj.bezierCurveTo(prev_x+cfp[vidx], prev_y+cfp[vidx+1], vx+ctp[vidx], vy+ctp[vidx+1], vx, vy) // 'C'
             prev_x = vx; prev_y = vy
@@ -519,6 +550,20 @@ class MultiPath extends PObject
         this.invalidate_pos()
         this.clipper_obj = clipper_obj
         return xfer_indices
+    }
+
+    add_vertex(p)
+    {
+        dassert(this.effective_vtx_pos === this.arrs.vtx_pos, "Working with effective_vtx_pos not supported")
+
+        Mesh.prototype.add_vertex_props.call(this, p)
+        // extend the last range
+        this.paths_ranges[this.paths_ranges.length - 2]++
+        if (this.paths !== null) {
+            this.paths[this.paths.length - 1].lineTo(p[0], p[1])
+        }
+
+        this.invalidate_pos(false) // don't invalidate paths since we updated it
     }
 
     describe(parent, dlg)

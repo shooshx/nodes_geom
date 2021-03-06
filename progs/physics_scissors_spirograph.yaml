@@ -720,7 +720,7 @@ nodes:
       p1_Name:
         v: radius1
       p1_Float:
-        e_v: 0.48695182689202
+        e_v: 0.48700000000000004
         se_cv: return 1
       p1_Integer:
         e_v: 1
@@ -792,7 +792,7 @@ nodes:
       p2_Name:
         v: radius2
       p2_Float:
-        e_v: 0.3309120149597705
+        e_v: 0.33100000000000007
         se_cv: return 1
       p2_Integer:
         e_v: 1
@@ -1330,15 +1330,10 @@ nodes:
   '86':
     params:
       Position:
-        e_tx: 0
-        e_ty: 0
-        e_r: 0
-        e_pvx: 0
-        e_pvy: 0
-        e_sx: 1
-        e_sy: 1
+        se_x: '[object Object]'
+        se_y: '[object Object]'
         show_code: true
-        se_cv: return trans
+        se_cv: return trans.get_pos()
     name: pen_1
     cls_name: Pen
     x: 1032.9535675048855
@@ -1350,7 +1345,7 @@ nodes:
       col_store:
         v: [{label: vtx_color, ctor: ParamColorList}]
       Type:
-        sel_str: Mesh
+        sel_str: Paths
       Add points:
         v: true
       vtx_pos:
@@ -1365,6 +1360,7 @@ nodes:
     y: 566.5017837524409
     disp_param:
       show_vtx: true
+      show_lines: true
   '89':
     params:
       Pick Index:
@@ -1378,7 +1374,7 @@ nodes:
     x: 749.7652974853513
     y: 683.0974324951167
     disp_param:
-      show_vtx: true
+      show_vtx: false
       show_lines: true
 lines:
   - from_name: b2_defs
@@ -1574,8 +1570,8 @@ input_node_ids: []
 glob_var_node_ids:
   - 69
 nodes_view:
-  pan_x: -351.1140000000005
-  pan_y: -20.019000000000464
+  pan_x: -517.3750000000009
+  pan_y: -111.83900000000015
   zoom: 0.7513148009015774
 decor:
   - x: 534.259567504883

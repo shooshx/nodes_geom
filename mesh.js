@@ -110,7 +110,7 @@ class Mesh extends PObject
         this.paper_obj = null
         this.clipper_obj = null
         this.effective_vtx_pos = null // if there is vtx_transform/face_transform, this is already transformed vertices, otherwise just equal to vtx_pos
-        this.points_idx_cache = null // if not null: {idx_buf: index array, seed: seed used to generate }
+        this.points_idx_cache = null // used for shuffle, if not null: {idx_buf: index array, seed: seed used to generate }
     }
     destructor() {
         for(let bi in this.glbufs) {
@@ -790,12 +790,8 @@ class Mesh extends PObject
         return this.clipper_obj
     }
 
-    // from NodePen
-    add_vertex(p)
+    add_vertex_props(p)
     {
-        dassert(this.effective_vtx_pos == this.arrs.vtx_pos, "Working with effective_vtx_pos not supported")
-        dassert(this.type === MESH_POINTS, "Only points mesh supported") 
-
         for (let name in this.arrs) {
             if (name === "idx")
                 continue
@@ -811,6 +807,15 @@ class Mesh extends PObject
                 this.arrs[name].push(...v)
             }
         }
+    }
+
+    // from NodePen
+    add_vertex(p)
+    {
+        dassert(this.effective_vtx_pos === this.arrs.vtx_pos, "Working with effective_vtx_pos not supported")
+        dassert(this.type === MESH_POINTS, "Only points mesh supported") 
+
+        this.add_vertex_props(p)
         //this.arrs.idx.push( (this.arrs.vtx_pos.length - 2) / 2 )
     }
 

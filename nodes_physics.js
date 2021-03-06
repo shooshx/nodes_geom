@@ -534,6 +534,8 @@ class NodeB2Joint extends NodeCls
             obj.obj.m_collideConnected = v
         })
         this.damping = new PhyParamFloat(node, "Damping", 0.2, {min:0, max:1}, (w, v, obj)=>{
+            if (this.last_A_def === null || this.last_B_def === null)
+                return
             const objA = w.cnode_to_obj[this.last_A_def.cnode_id]
             const objB = w.cnode_to_obj[this.last_B_def.cnode_id]
             if (objA === undefined || objB === undefined)
@@ -868,7 +870,7 @@ class NodePen extends NodeCls
         this.in_obj = new InTerminal(node, "in_obj")
         this.out_obj = new OutTerminal(node, "out_obj")
 
-        this.pos = new ParamTransform(node, "Position", {}, { show_code: true })
+        this.pos = new ParamVec2(node, "Position", {}, { show_code: true })
     }
 
     run() {
@@ -877,7 +879,7 @@ class NodePen extends NodeCls
         const pos = this.pos.get_value()
         assert(pos !== null, this, "Missing Position")
         try {
-            in_obj.add_vertex([pos[6], pos[7]]);
+            in_obj.add_vertex(pos);
         } catch(e) {
             assert(false, this, e.message)
         }

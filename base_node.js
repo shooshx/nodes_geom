@@ -777,16 +777,7 @@ class StateAccess {
         if (top_level === undefined) {
             let known_obj = this.known_objrefs[varname]
             if (known_obj === undefined)  { 
-                // name is not in needed and not in known (which comes from state_evaluators) so it something we know nothing about
-                // default is to assume it's a variable
-                this.score |= EXPR_NEED_VAR
-                // create only 1 evaluator for any variable in an expression
-                let ve = this.need_variables[varname]
-                if (ve === undefined) {
-                    ve = new VariableEvaluator(varname, line_num) // a VarBox will be set to it in resolve_variables
-                    this.need_variables[varname] = ve
-                }
-                return ve
+                return null
             }
             top_level = this.need_inputs[varname] = this.known_objrefs[varname]
         }
@@ -800,7 +791,8 @@ class StateAccess {
             return e
         }
 
-        return null // shouldn't reach here
+        // shouldn't reach here
+        throw new ExprErr("Don't know what to do with identifier " + name + " at " + line_num + " (bug?)")        
     }
 }
 

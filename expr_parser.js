@@ -799,15 +799,10 @@ function hsv2rgb(va) {
     return [f(5),f(3),f(1)];   
 }
 
-const translate_lookup = {
-    [type_tuple(TYPE_MAT3, TYPE_NUM, TYPE_NUM)]: function(that, x, y) { mat3.translate(that, that, vec2.fromValues(x, y)) }
-}
-const rotate_lookup = {
-    [type_tuple(TYPE_MAT3, TYPE_NUM)]: function(that, v) { mat3.rotate(that, that, glm.toRadian(v)) }
-}
-const scale_lookup = {
-    [type_tuple(TYPE_MAT3, TYPE_NUM, TYPE_NUM)]: function(that, x, y) { mat3.scale(that, that, vec2.fromValues(x, y)) }
-}
+function mat3_translate(that, x, y) { mat3.translate(that, that, vec2.fromValues(x, y)) }
+function mat3_rotate(that, v) { mat3.rotate(that, that, glm.toRadian(v)) }
+function mat3_scale(that, x, y) { mat3.scale(that, that, vec2.fromValues(x, y)) }
+function mat3_get_pos(that) { return vec2.fromValues(that[6], that[7]) }
 
 
 
@@ -836,9 +831,10 @@ const func_defs = {
     'plasma' : new FuncDef(plasma, [1,3], [TYPE_VEC2, TYPE_NUM, TYPE_VEC2] , TYPE_NUM),
     'smoothmin' : new FuncDef(smoothmin, -3, [TYPE_NUM, TYPE_NUM, TYPE_NUM], TYPE_NUM),
 
-    'translate' : new FuncDef(translate_lookup, 3, FUNC_TYPE_LOOKUP, TYPE_VOID), 
-    "rotate": new FuncDef(rotate_lookup, 2, FUNC_TYPE_LOOKUP, TYPE_VOID),
-    "scale": new FuncDef(scale_lookup, 3, FUNC_TYPE_LOOKUP, TYPE_VOID),
+    'translate' : new FuncDef(mat3_translate, 3, [TYPE_MAT3, TYPE_NUM, TYPE_NUM], TYPE_VOID), 
+    "rotate": new FuncDef(mat3_rotate, 2, [TYPE_MAT3, TYPE_NUM], TYPE_VOID),
+    "scale": new FuncDef(mat3_scale, 3, [TYPE_MAT3, TYPE_NUM, TYPE_NUM], TYPE_VOID),
+    "get_pos": new FuncDef(mat3_get_pos, 1, [TYPE_MAT3], TYPE_VEC2)
 }
 // aliases
 func_defs['rgb'] = func_defs['vec3']
@@ -1195,6 +1191,18 @@ function parseIdentifier() {
     return [sb, lookupIdentifier(sb)]
 }
 
+function split_possibilites(sps, obj)
+{
+    if (sps.length === 1) 
+        return obj
+    if (sps.length === 2) { // t.translate(x, y)
+        const def = func_defs[sps[1]]
+        if (def !== undefined)
+            return new FuncDefNode(def, obj)
+    }
+    return new SubscriptNode(obj, sps.slice(1))  // v.x
+}
+
 function lookupIdentifier(sb)
 {
     if (constants[sb] !== undefined)
@@ -1202,32 +1210,37 @@ function lookupIdentifier(sb)
     if (func_defs[sb] !== undefined)
         return new FuncDefNode(func_defs[sb])
 
+    const sps = sb.split('.')
+    const varname = sps[0]
+
+    // is it a symbol?
     if (g_symbol_table !== null) {
-        const sps = sb.split('.')
-        const sn = g_symbol_table[sps[0]] // symbol node
+        const sn = g_symbol_table[varname] // symbol node
         if (sn !== undefined) {
-            if (sps.length === 1) 
-                return sn
-            if (sps.length === 2) { // t.translate(x, y)
-                const def = func_defs[sps[1]]
-                if (def !== undefined)
-                    return new FuncDefNode(def, sn)
-            }
-            return new SubscriptNode(sn, sps.slice(1))  // v.x
+            return split_possibilites(sps, sn)
         }    
     }
 
+    // try evaluators?
     let e = g_state_access.get_evaluator(sb, g_lineNum)
-    if (e === null) 
-        throw new ExprErr("Unknown identifier " + sb + " at " + index_)
-    
-    if (!e.consumes_subscript()) {
-        const sps = sb.split('.')
-        if (sps.length !== 1) 
-            return new SubscriptNode(e, sps.slice(1))        
+    if (e !== null) {
+        if (!e.consumes_subscript()) {
+            return split_possibilites(sps, e)
+        }
+        return e;
     }
 
-    return e;
+    // default is to assume it's a variable
+    g_state_access.score |= EXPR_NEED_VAR
+    // create only 1 evaluator for any variable in an expression
+    let ve = g_state_access.need_variables[varname]
+    if (ve === undefined) {
+        ve = new VariableEvaluator(varname, g_lineNum) // a VarBox will be set to it in resolve_variables
+        g_state_access.need_variables[varname] = ve
+    }
+
+    return split_possibilites(sps, ve)
+
 }
 
 function toInteger(c) {
@@ -2032,6 +2045,7 @@ function eparse(expr, state_access, opt) {
     }
     finally {
         g_state_access = null
+        g_lineNum = 1 // for any other errors, for instance type checks
     }
     return result;
 }
