@@ -105,10 +105,24 @@ Node: Function Fill
     - return coord.x
     - return in_texi(1, coord).r  with texture 1 being an image, a gradient or distance field (which can have negative values)
 
-Node Boolean Operation
+Node: Boolean Operation
 - Perform boolean operations between paths and meshs: union, intersect, subtract, xor
 - Doesn't support bezier curves intersection
 - Winding of the paths should be the same, otherwise the result may be wrong
+
+Node: Pen
+- Take as input a mesh or paths object and add vertices to it
+- Set the count of how many vertices to add
+- Set the expression for the position of the vertex using "index" variable. Example:
+    x = cos(index/50)
+    y = sin(index/85)
+    return vec2(x,y)
+- Can be used with Physics Extract Transform node to make a pen that follows a physics object. Example:
+    return trans.get_pos()  
+- Enable or disable useful in animation for discarding some points. Example:
+    Expression: frame_num > 10
+- Limit how close generated points are using the "Min Distance" parameter
+
 
 Distance fields
 ---------------

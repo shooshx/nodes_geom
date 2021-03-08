@@ -316,7 +316,7 @@ input {
     display: inline-block;
 }
 .param_checkbox_inline { /* when in the same line as something else */ 
-    margin-left: 10px;
+    margin-left: 20px;
 }
 
 .param_list_title {

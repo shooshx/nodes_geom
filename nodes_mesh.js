@@ -176,7 +176,7 @@ function add_point_select_mixin(node_cls, selected_indices, points_param) {
             }
         }
         if (node_cls.image_find_additional)
-            return node_cls.image_find_additional(e.ex, e.ey)
+            return node_cls.image_find_additional(e)
         return null
     }
     node_cls.move_selection = function(dx, dy) {
@@ -331,13 +331,16 @@ class NodeManualGeom extends NodeCls
         this.geom_type = new ParamSelect(node, "Type", 0, ["Mesh", "Paths"])
         this.add_pnts_btn = new ParamBool(node, "Add points", true, null, {allow_expr:false})
         this.add_pnts_btn.display_as_btn(true)
-        this.add_col_btn = new ParamTextMenuBtn(node, "Add Column", ["Curve Controls", "Vec2"], (opt, sel_idx)=>{
+        this.add_col_btn = new ParamTextMenuBtn(node, "Add Column", ["Curve Controls", "Vec2", "Color"], (opt, sel_idx)=>{
             if (sel_idx === 0 && this.cfp === null) {
                 this.add_additional_column(node, "ctrl_from_prev", ParamCoordList, true)
                 this.add_additional_column(node, "ctrl_to_prev", ParamCoordList, true)
             }
             else if (sel_idx === 1) {
                 this.add_additional_column(node, "vtx_normal", ParamCoordList, true)
+            }
+            else if (sel_idx === 2) {
+                this.add_additional_column(node, "line_color", ParamColorList, true)
             }
         })
         this.add_col_btn.share_line_elem_from(this.add_pnts_btn)
@@ -370,7 +373,22 @@ class NodeManualGeom extends NodeCls
         return null
     }
 
+    col_name_exists(label) {
+        for(let prm of this.node.parameters)
+            if (prm.label === label)
+                return true
+        return false
+    }
+
     add_additional_column(node, label, ctor, from_ui) {
+        // check that the name doesn't already exist
+        if (this.col_name_exists(label)) {
+            let i = 2
+            while (this.col_name_exists(label + i))
+                ++i;
+            label = label + i
+        }
+
         const prm = new ctor(node, label, this.table)
         prm.allow_title_edit = true
 
@@ -379,16 +397,17 @@ class NodeManualGeom extends NodeCls
             const def_val = prm.get_def_val()
             for(let i = 0; i < this.points.count(); ++i)
                 prm.add(def_val)
-            prm.reg_dismiss_edit_wrap() // needed because if the param was just added, this param was not there when add_elem was not called                
+            if (prm.reg_dismiss_edit_wrap) // only if it's editable with edit boxes
+                prm.reg_dismiss_edit_wrap() // needed because if the param was just added, this param was not there when add_elem was not called                
         }
         //this[var_name] = prm
         this.pnt_attrs.push(prm)
         this.columns_store.sl_add(prm)
 
         if (label === "ctrl_from_prev")
-            this.cfp_select = new DummyNodeCtrlPoints(this.points, this.cfp, true, this.paths_ranges)
+            this.cfp_select = new DummyNodeCtrlPoints(this.points, prm, true, this.paths_ranges)
         else if(label === "ctrl_to_prev")
-            this.ctp_select = new DummyNodeCtrlPoints(this.points, this.ctp, false, null)
+            this.ctp_select = new DummyNodeCtrlPoints(this.points, prm, false, null)
         return prm
     }
 

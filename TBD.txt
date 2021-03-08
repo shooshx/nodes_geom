@@ -80,10 +80,15 @@ EXPRESSIONS
     - setLinearDamping, setAngularDamping
     - test several worlds running at the same time
     - pen
-        minimum step size
+        manual geom with multi-color
+            remove column
+            test correct number of paths created
         changing color
-        boolean - enable add_vertex
+            from gradient - needs gradient sampler to variable
+        render with webgl
         normal run variables - sample the transform
+        in 3D - lorenz attractor
+            https://softology.com.au/tutorials/attractors2d/tutorial.htm
         transform object in expression
             ?? things that depend on members that are not the matrix? other than physics
             multiply matrices

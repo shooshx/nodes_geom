@@ -770,13 +770,14 @@ class StateAccess {
         this.need_variables = {} // list of VariableEvaluator in the currently parsing expr
     }
     get_evaluator(name, line_num) { // called from parser
-        let sp = name.split('.')
-        let varname = sp[0]
+        const sp = name.split('.')
+        const varname = sp[0]
         // did we already create it?
         let top_level = this.need_inputs[varname]
         if (top_level === undefined) {
             let known_obj = this.known_objrefs[varname]
             if (known_obj === undefined)  { 
+                // name is not in needed and not in known (which comes from state_evaluators) so it something we know nothing about
                 return null
             }
             top_level = this.need_inputs[varname] = this.known_objrefs[varname]

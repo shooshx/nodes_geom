@@ -867,22 +867,54 @@ class NodePen extends NodeCls
     constructor(node) {
         super(node)
 
+        node.set_state_evaluators({"index":  (m,s)=>{ return new ObjSingleEvaluator(m,s) }})
+
         this.in_obj = new InTerminal(node, "in_obj")
         this.out_obj = new OutTerminal(node, "out_obj")
 
-        this.pos = new ParamVec2(node, "Position", {}, { show_code: true })
+        this.steps = new ParamInt(node, "Steps", 1)
+        this.enable = new ParamBool(node, "Enable", true, null, { expr_visible: true })
+        this.pos = new ParamVec2(node, "Position", 0, 0, { show_code: true })
+        this.min_dist = new ParamFloat(node, "Min Distance", 0.05)
+
+        this.prev_pos = null
     }
 
-    run() {
-        const in_obj = this.in_obj.get_mutable()
-        assert(in_obj !== null, this, "Missing input")
-        const pos = this.pos.get_value()
-        assert(pos !== null, this, "Missing Position")
+    add_vtx(in_obj, pos) {
+        if (this.prev_pos !== null) {
+            const min_dist = this.min_dist.get_value()
+            if (vec2.distance(this.prev_pos, pos) < min_dist)
+                return
+        }
+        this.prev_pos = pos
         try {
             in_obj.add_vertex(pos);
         } catch(e) {
             assert(false, this, e.message)
         }
+    }
+
+    run() {
+        const in_obj = this.in_obj.get_mutable()
+        assert(in_obj !== null, this, "Missing input")
+        if (!this.enable.get_value()) {
+            // useful for skipping some frames at the beginning
+            this.out_obj.set(in_obj) // just pass through
+            return
+        }
+
+        const steps = this.steps.get_value()
+       
+        const value_need_index = this.pos.need_input_evaler("index")
+        const index_wrap = [0]
+        if (value_need_index !== null)            
+            value_need_index.dyn_set_obj(index_wrap)
+        for(let i = 0; i < steps; ++i) {
+            index_wrap[0] = i
+            const pos = this.pos.dyn_eval()
+            this.add_vtx(in_obj, pos)
+        }
+
         this.out_obj.set(in_obj)
     }
 }

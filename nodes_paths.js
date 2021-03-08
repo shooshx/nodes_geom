@@ -60,7 +60,7 @@ class MultiPath extends PObject
         m.arrs = clone(this.arrs)
         m.meta = clone(this.meta)
         m.paths_ranges = clone(this.paths_ranges)
-        
+
         m.tcache = { vtx_pos:null, m:null } // will be created as needed
         m.fill_objs = clone(this.fill_objs)
         m.paper_obj = null
@@ -98,9 +98,15 @@ class MultiPath extends PObject
     }
 
 
-    get_disp_params(disp_values) {        
-        const d = [new DispParamBool(disp_values, "Show Vertices", 'show_vtx', true), 
-                   new DispParamBool(disp_values, "Show Lines", 'show_lines', true),]
+    get_disp_params(disp_values) {
+        const sv = new DispParamBool(disp_values, "Show Vertices", 'show_vtx', true)
+        const sl = new DispParamBool(disp_values, "Show Lines", 'show_lines', true)
+        const d = [sv, sl]
+        if (this.arrs.line_color !== undefined) {
+            const colline = new DispParamBool(disp_values, "In Color", "color_lines", true)
+            colline.share_line_elem_from(sl)
+            d.push(colline)
+        }
         if (this.has_curves()) {
             const scc = new DispParamBool(disp_values, "Show Curve Controls ", 'show_ctrls', true)
             const sccp = new DispParamBool(disp_values, "Points", 'show_ctrls_pnts', true)
@@ -284,19 +290,21 @@ class MultiPath extends PObject
         for(let vidx = start_vidx + 2; vidx < end_vidx; vidx += 2) {
             let vx = vtx[vidx], vy = vtx[vidx+1]
             if (!this.is_curve(vidx))
-                obj.lineTo(vx, vy, vidx/2) // 'L', third arg for ClipperPathsBuilder
+                obj.lineTo(vx, vy, vidx/2) // 'L', third arg for ClipperPathsBuilder set to coord Z to differentiate between paths
             else 
-                obj.bezierCurveTo(prev_x+cfp[vidx], prev_y+cfp[vidx+1], vx+ctp[vidx], vy+ctp[vidx+1], vx, vy) // 'C'
+                obj.bezierCurveTo(prev_x+cfp[vidx], prev_y+cfp[vidx+1], vx+ctp[vidx], vy+ctp[vidx+1], vx, vy, vidx/2) // 'C'
             prev_x = vx; prev_y = vy
         }
         if (get_flag(this.paths_ranges[pri+2], PATH_CLOSED)) {
             const is_curve = this.is_curve(start_vidx)
             if (is_curve) {
                 let vx = vtx[start_vidx], vy = vtx[start_vidx+1]
-                obj.bezierCurveTo(prev_x+cfp[start_vidx], prev_y+cfp[start_vidx+1], vx+ctp[start_vidx], vy+ctp[start_vidx+1], vx, vy) //'C'
+                obj.bezierCurveTo(prev_x+cfp[start_vidx], prev_y+cfp[start_vidx+1], vx+ctp[start_vidx], vy+ctp[start_vidx+1], vx, vy, start_vidx/2) //'C'
             }
             obj.closePath(!is_curve) // 'Z' parameter is true if this is supposed to create a real line, for distance field
         }
+        if (obj.donePath !== undefined)
+            obj.donePath()
     }
 
     call_all_paths_commands(obj) {
@@ -352,24 +360,37 @@ class MultiPath extends PObject
         return jp;
     }
 
+    has_line_prop() {
+        return this.arrs.line_color !== undefined
+    }
     
-    draw_poly(do_lines, do_fill, lines_color="#000") {
+    draw_poly(do_lines, do_fill, lines_color, do_col_lines) {
         this.ensure_paths_created()
 
-        let line_width = 1 / image_view.viewport_zoom
+        const base_line_width = 1 / image_view.viewport_zoom
+        const line_adp = (this.has_line_prop() && do_col_lines) ? new LineColorDrawAdapter(ctx_img, this.arrs.line_color) : null
+        let pri = 0
         for(let p of this.paths) {
             if (do_fill && p.face_color !== null) {
                 ctx_img.fillStyle = p.face_color
                 ctx_img.fill(p)
-                ctx_img.lineWidth = line_width
+                ctx_img.lineWidth = base_line_width
                 ctx_img.strokeStyle = p.face_color
                 ctx_img.stroke(p) // fill antialiasing gaps
             }
             if (do_lines) {
-                ctx_img.strokeStyle = lines_color
-                ctx_img.lineWidth = MESH_DISP.line_width/image_view.viewport_zoom
-                ctx_img.stroke(p)
+                ctx_img.lineWidth = MESH_DISP.line_width * base_line_width
+                                    
+                if (!line_adp) {
+                    ctx_img.strokeStyle = lines_color
+                    ctx_img.stroke(p)
+                }
+                else {
+                    // can't use paths since I need to change the color every line
+                    this.call_path_commands(line_adp, pri)
+                }
             }
+            pri += 3
         }
     }
 
@@ -435,7 +456,7 @@ class MultiPath extends PObject
             Mesh.prototype.draw_poly_fill_clip.call(this, m)
             // do the line after the clip so it would be over it 
         if (disp_values.show_lines || disp_values.show_faces)
-            this.draw_poly(disp_values.show_lines, disp_values.show_faces)
+            this.draw_poly(disp_values.show_lines, disp_values.show_faces, "#000", disp_values.color_lines)
         if (disp_values.show_vtx) 
             Mesh.prototype.draw_vertices.call(this, "#000", true, disp_values)
         if (disp_values.show_ctrls) 
@@ -447,7 +468,7 @@ class MultiPath extends PObject
     }
 
     draw_template_m(m) {
-        this.draw_poly(true, false, TEMPLATE_LINE_COLOR)
+        this.draw_poly(true, false, TEMPLATE_LINE_COLOR, false)
         Mesh.prototype.draw_vertices.call(this, TEMPLATE_LINE_COLOR, false)
     }    
 
@@ -558,7 +579,10 @@ class MultiPath extends PObject
 
         Mesh.prototype.add_vertex_props.call(this, p)
         // extend the last range
+        if (this.paths_ranges.length == 0)
+            this.paths_ranges.push(0,0,0)
         this.paths_ranges[this.paths_ranges.length - 2]++
+        
         if (this.paths !== null) {
             this.paths[this.paths.length - 1].lineTo(p[0], p[1])
         }
@@ -582,6 +606,100 @@ class MultiPath extends PObject
         dlg.eobj.has_curve.innerText = this.has_curves() ? "true" : "false"
         dlg.eobj.props.innerText = Object.keys(this.arrs).join("\n")
         
+    }
+
+}
+
+function color_different(a, b) {
+    return a.r !== b.r || a.g !== b.g || a.b !== b.b || a.a !== b.a
+}
+
+class LineColorDrawAdapter
+{
+    constructor(ctx, line_col_arr) {
+        this.ctx = ctx
+        // 4 float values per vertex that have the color of the line that ends in the vertex
+        this.line_col = line_col_arr 
+        this.vidx = null // where we are in the line_col array
+        this.start_idx = null
+        this.began = false
+        this.prev = {r:null, g:null, b:null, a:null, x:null, y:null}
+        this.cur = {r:null, g:null, b:null, a:null, x:null, y:null}
+        this.first = null
+    }
+    moveTo(x, y, start_idx) {
+        this.vidx = start_idx * 4
+        this.start_idx = start_idx
+        this.next_col(this.prev, x, y)
+        this.first = {r:this.prev.r, g:this.prev.g, b:this.prev.b, a:this.prev.a, x:this.prev.x, y:this.prev.y}
+        if (!this.began)
+            this.ctx.beginPath()
+        this.ctx.moveTo(x,y)
+    }
+
+    next_col(into, x, y) {
+        const vidx = this.vidx
+        into.r = this.line_col[vidx]
+        into.g = this.line_col[vidx+1]
+        into.b = this.line_col[vidx+2]
+        into.a = this.line_col[vidx+3]
+        into.x = x
+        into.y = y
+        this.vidx += 4
+    }
+
+    check_changed_value(x, y) {
+        // check if the current line needs a different color
+        this.next_col(this.cur, x, y)
+        const prev = this.prev
+        const ret = color_different(this.cur, prev)
+        if (ret) {
+            this.donePath()
+            this.ctx.beginPath()
+            this.ctx.moveTo(prev.x,prev.y)
+        }
+        // swap cur to prev
+        const tmp = this.prev
+        this.prev = this.cur
+        this.cur = tmp
+        return ret
+    }
+    check_changed_with_first() {
+        const prev = this.prev
+        const ret = color_different(this.first, prev)
+        if (ret) {
+            this.donePath()
+            this.ctx.beginPath()
+            this.ctx.moveTo(prev.x,prev.y)
+        }
+        this.prev = this.first  // for donePath
+    }
+
+    lineTo(x, y) {
+        this.check_changed_value(x, y)
+        this.ctx.lineTo(x,y)
+    }
+    bezierCurveTo(px,py, nx,ny, x,y, idx) {
+        if (this.start_idx === idx)
+            this.check_changed_with_first()
+        else
+            this.check_changed_value(x, y)
+        this.ctx.bezierCurveTo(px,py, nx,ny, x,y)
+    }
+    closePath(real_line) {
+        if (!real_line)
+            return
+        this.check_changed_with_first()
+        // can't do closePath since we might have added multiple sub-paths along the way
+        this.ctx.lineTo(this.first.x, this.first.y)
+        //this.ctx.closePath()
+        
+        this.donePath()
+    }
+    donePath() {
+        const prev = this.prev
+        this.ctx.strokeStyle = "rgba(" + prev.r + "," + prev.g + "," + prev.b + "," + prev.a + ")"
+        this.ctx.stroke()
     }
 
 }

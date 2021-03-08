@@ -195,7 +195,8 @@ class Program {
             program.set_template_node(node, false)
         if (node.receives_input)
             program.set_input_node(node, false)
-        obj_inf_dlg.node_deleted(node)
+        if (obj_inf_dlg !== null)
+            obj_inf_dlg.node_deleted(node)
         if (node.destructor)
             node.destructor()
         let index = this.nodes.indexOf(node);
@@ -810,6 +811,7 @@ const nodes_classes = [
         NodeRoundCorners,
         NodeBoolOp,
         NodeOffsetPath,
+        NodePen
     ]},
     { group_name: "Image", nodes: [
         NodeLoadImage,
@@ -839,7 +841,6 @@ const nodes_classes = [
         NodeB2Merge,
         NodeB2Sim,
         NodeExtractTransform,
-        NodePen
     ]},
     NodeSetAttr, 
     NodeTransform,
