@@ -272,7 +272,7 @@ class MultiPath extends PObject
 
     is_curve(vidx) {
         let ctp = this.arrs.ctrl_to_prev, cfp = this.arrs.ctrl_from_prev
-        return ctp !== undefined && (ctp[vidx] != 0 || ctp[vidx+1] != 0 || cfp[vidx] != 0 || cfp[vidx+1] != 0)
+        return ctp !== undefined && cfp !== undefined && (ctp[vidx] != 0 || ctp[vidx+1] != 0 || cfp[vidx] != 0 || cfp[vidx+1] != 0)
     }
     has_curves() {
         // can go over the arrays and check if all zeros

@@ -297,6 +297,10 @@ class ParamColumnInfoStore extends Parameter {
         this.v.push(v)
         this.pset_dirty() 
     }
+    sl_remove(v) {
+        arr_remove_is(this.v, v)
+        this.pset_dirty() 
+    }
 }
 
 
@@ -316,7 +320,7 @@ class NodeManualGeom extends NodeCls
                 return
             // if we're loading, remove the default added color param, it will be be added by the loaded data if it's needed
             node.remove_param(this.color)
-            this.table.del_column(this.color.column_key)
+            this.table.del_column(this.color.column_key, false)
             this.color = null   
             // clear everything since we're loading all from loaded_v
             this.columns_store.v.length = 0
@@ -346,6 +350,7 @@ class NodeManualGeom extends NodeCls
         this.add_col_btn.share_line_elem_from(this.add_pnts_btn)
         this.table = new ParamTable(node, "Point List")
         this.table.with_column_title = true
+        this.table.on_remove_column = (lstprm)=>{ this.remove_column(lstprm) }
         this.points = new ParamCoordList(node, "vtx_pos", this.table, this.selected_indices)
       //  this.dummy = new ParamFloatList(node, "Dummy", this.table, this.selected_indices)
       //  this.color = new ParamColorList(node, "vtx_color", this.table)
@@ -364,6 +369,14 @@ class NodeManualGeom extends NodeCls
 
         add_point_select_mixin(this, this.selected_indices, this.points)
         this.cfp_select = this.ctp_select = null
+    }
+
+    // from table context menu
+    remove_column(lstprm) {
+        this.node.remove_param(lstprm)
+        this.table.del_column(lstprm.column_key, true)
+        this.columns_store.sl_remove(lstprm)
+        arr_remove_is(this.pnt_attrs, lstprm)
     }
 
     image_find_additional(e) {

@@ -802,8 +802,24 @@ class CustomContextMenu  // custom since it has it's own adders
         })
         param_reg_for_dismiss(()=>{dismiss_menu()})          
     }
-
 }
+
+
+function element_context_menu(parent, opts) {
+    const menu = {ctx_menu_elem:null}
+    const dismiss_menu = ()=>{
+        if (menu.ctx_menu_elem) {
+            menu.ctx_menu_elem.parentNode.removeChild(menu.ctx_menu_elem);   
+            menu.ctx_menu_elem = null
+        }
+    }
+    myAddEventListener(parent, "contextmenu", (e)=>{
+        menu.ctx_menu_elem = open_context_menu(opts, e.pageX, e.pageY, main_view, ()=>{ dismiss_menu() } )
+        e.preventDefault()
+    })
+    param_reg_for_dismiss(()=>{dismiss_menu()})          
+}
+
 
 function round_or_null(v) {
     if (v === null) 
@@ -2632,6 +2648,7 @@ class ParamTable extends Parameter {
         this.with_index_column = false
         this.with_column_sep = true
         this.with_column_title = false // don't set this and with_index_column together
+        this.on_remove_column = null // adds a context menu to the title
 
         this.sorted_order = sorted_order // list of the indices in the sorted order they are supposed to be displayed in
         this.title_edit_wrap = null // the div that wraps the edit input for the editable titles
@@ -2648,10 +2665,12 @@ class ParamTable extends Parameter {
         console.assert(this.list_params[column_key] !== undefined, "column index too high")
         return this.elem_cols[column_key]
     }
-    del_column(column_key) {
+    del_column(column_key, remake_table) {
         delete this.list_params[column_key]
         if (this.elem_cols !== null)
             delete this.elem_cols[column_key]
+        if (remake_table)
+            this.remake_table()
     }
 
     save() { return null }
@@ -2727,6 +2746,13 @@ class ParamTable extends Parameter {
         const e = create_div("param_table_col_title")
         e.innerText = lst_prm.get_column_title()
         column.insertBefore(e, column.firstChild)
+
+        // context menu
+        if (this.on_remove_column !== null) {
+            element_context_menu(e, [{text:"Remove Column", func:()=>{
+                this.on_remove_column(lst_prm)
+            } }])
+        }
     
         if (!lst_prm.allow_title_edit)
             return        

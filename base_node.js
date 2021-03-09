@@ -1112,9 +1112,7 @@ class Node {
     }
 
     remove_param(prm) {
-        const i = this.parameters.findIndex(function(p) { return Object.is(prm, p) })
-        console.assert(i !== -1)
-        this.parameters.splice(i, 1)
+        arr_remove_is(this.parameters, prm)
     }
 
     param_alias(name, prm) {
@@ -1138,6 +1136,11 @@ class Node {
     }
 }
 
+function arr_remove_is(arr, obj) {
+    const i = arr.findIndex(function(p) { return Object.is(obj, p) })
+    console.assert(i !== -1,"did not find object in array")
+    arr.splice(i, 1)
+}
 
 
 class NodeCls {

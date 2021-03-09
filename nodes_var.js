@@ -342,9 +342,7 @@ class NodeVariable extends NodeVarCls
             }
         })
         p.remove_btn = new ParamButton(node, ["[-]", prefix], ()=>{
-            const i = this.vars_prm.findIndex(function(lp) { return Object.is(lp, p) })
-            console.assert(i !== -1)
-            this.vars_prm.splice(i, 1)
+            arr_remove_is(this.vars_prm, lp)
             const ni = this.namer.v.prms_lst.findIndex(function(lid) { return lid === p.id })
             console.assert(ni !== -1)
             this.namer.v.prms_lst.splice(i, 1)            
