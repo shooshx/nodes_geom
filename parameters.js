@@ -1030,7 +1030,7 @@ class ExpressionItem {
             // if etype_depend_var is true it means we're still dependent on a variable that's not in the last box (maybe last-box is null), eval would throw
             if (this.etype_undecided || this.etype_depend_var)
                 this.do_set_prop(null)
-            else { // it depends only in variables do can try to eval (will succeed if all variables are there)
+            else { // it depends only in variables so can try to eval (will succeed if all variables are there)
                 if ((this.expr_score & EXPR_GLSL_ONLY) == 0) // don't want to eval expression that is glsl only
                     this.do_set_prop(this.call_eval())
             }
@@ -1102,7 +1102,12 @@ class ExpressionItem {
         // this.e can be null if it stayed null from ctor and there was an error in peval
         //console.assert(this.e !== null && this.e !== undefined, "missing e, should not happen, you need to peval() after ctor") 
 
-        const str_change_callback = (se)=>{this.peval(se)}
+        const str_change_callback = (se)=>{
+            try {
+                this.peval(se)
+            }
+            catch(e) {} // eval of constfailed during typing
+        }
         if (this.override_create_elem === null) {
             this.editor = new EditBoxEditor(add_param_edit(line, this.se, ED_STR, str_change_callback))
             if (this.slider_conf.allowed)

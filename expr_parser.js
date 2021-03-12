@@ -851,6 +851,7 @@ class FuncDefNode extends NodeBase {
         this.def = def
         this.that = that
     }
+    eval() { eassert(false, "function can't be used as a value", this.line ) }
     num_args() { return this.def.num_args }
     check_type() {
         return TYPE_FUNCTION

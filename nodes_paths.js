@@ -573,11 +573,11 @@ class MultiPath extends PObject
         return xfer_indices
     }
 
-    add_vertex(p)
+    add_vertex(p, props)
     {
         dassert(this.effective_vtx_pos === this.arrs.vtx_pos, "Working with effective_vtx_pos not supported")
 
-        Mesh.prototype.add_vertex_props.call(this, p)
+        Mesh.prototype.add_vertex_props.call(this, p, props)
         // extend the last range
         if (this.paths_ranges.length == 0)
             this.paths_ranges.push(0,0,0)

@@ -872,26 +872,82 @@ class NodePen extends NodeCls
         this.in_obj = new InTerminal(node, "in_obj")
         this.out_obj = new OutTerminal(node, "out_obj")
 
+        this.prop_store = new ParamObjStore(node, "<obj-store>", {gen_id:1, ids_lst:[]}, ()=>{
+             this.prop_prms.length = 0
+            const lst_copy = [...this.prop_store.v.ids_lst]
+            this.prop_store.v.ids_lst.length = 0 // going to repopulate it
+            for(let id of lst_copy)
+                this.add_property(node, id)
+            this.props_group.update_elems()
+        })
+
         this.steps = new ParamInt(node, "Steps", 1)
         this.enable = new ParamBool(node, "Enable", true, null, { expr_visible: true })
         this.pos = new ParamVec2(node, "Position", 0, 0, { show_code: true })
         this.min_dist = new ParamFloat(node, "Min Distance", 0.05)
 
+        this.first_sep = new ParamSeparator(node, "first_sep", "param_sep_line")
+
+        this.props_group = new ParamGroup(node, "vars_params")
+        this.prop_prms = [] // list of objects that contain the paramters of each prop
+
+        this.add_prm_btn = new ParamButton(node, "[+]", ()=>{
+            this.add_property(node, null)
+            this.props_group.update_elems()
+        }, ["param_btn", "param_var_add_btn"])
+
         this.prev_pos = null
     }
 
+    // similar to add_variable in NodeVariable
+    add_property(node, id) 
+    {
+        if (id === null)
+            id = this.prop_store.v.gen_id++
+        const prefix = "p" + id + "_"
+        const p = { id:id }
+        this.prop_store.v.ids_lst.push(id)
+        this.prop_prms.push(p)
+        
+        p.p_group = new ParamGroup(node, prefix + "group")
+        p.p_group.set_group(this.props_group)
+
+        p.type = new ParamSelect(node, ["Type", prefix], 0, ["Float", "Float2", "Color"], (sel_idx)=>{
+            p.expr_float.set_visible(sel_idx === 0)
+            p.expr_vec2.set_visible(sel_idx === 1)
+            p.expr_color.set_visible(sel_idx === 2)            
+        })
+
+        p.remove_btn = new ParamButton(node, ["[-]", prefix], ()=>{
+            arr_remove_is(this.prop_prms, p)
+            arr_remove_eq(this.prop_store.v.ids_lst, p.id)
+            for(let pp of p.params)
+                node.remove_param(pp)
+            this.props_group.update_elems()
+        }, ["param_btn", "param_var_rm_btn"]) 
+        p.remove_btn.share_line_elem_from(p.type)
+
+        p.name = new ParamStr(node, ["Name", prefix], "vtx_prop")
+        // TBD check name starts with vtx_, check duplicate name
+
+        p.expr_float = new ParamFloat(node, ["Float", prefix], 1.0, {show_code:true})
+        p.expr_vec2 = new ParamVec2(node, ["Float2", prefix], 0, 0, {show_code:true})
+        p.expr_color = new ParamColor(node, ["Color", prefix], "#cccccc", {show_code:true})
+        p.sep = new ParamSeparator(node, prefix + "sep", "param_sep_line")
+
+        p.params = [p.p_group, p.type, p.name, p.expr_float, p.expr_vec2, p.expr_color, p.sep, p.remove_btn]
+
+        for(let pp of p.params) {
+            if (pp === p.p_group)
+                continue // don't want to set the group to the group of this var
+            pp.set_group(p.p_group)
+            pp.call_change()            
+        }
+        return p
+    }
+
     add_vtx(in_obj, pos) {
-        if (this.prev_pos !== null) {
-            const min_dist = this.min_dist.get_value()
-            if (vec2.distance(this.prev_pos, pos) < min_dist)
-                return
-        }
-        this.prev_pos = pos
-        try {
-            in_obj.add_vertex(pos);
-        } catch(e) {
-            assert(false, this, e.message)
-        }
+
     }
 
     run() {
@@ -904,15 +960,58 @@ class NodePen extends NodeCls
         }
 
         const steps = this.steps.get_value()
-       
-        const value_need_index = this.pos.need_input_evaler("index")
+
         const index_wrap = [0]
-        if (value_need_index !== null)            
-            value_need_index.dyn_set_obj(index_wrap)
-        for(let i = 0; i < steps; ++i) {
-            index_wrap[0] = i
-            const pos = this.pos.dyn_eval()
-            this.add_vtx(in_obj, pos)
+
+        const pos_need_index = this.pos.need_input_evaler("index")
+        if (pos_need_index !== null)            
+            pos_need_index.dyn_set_obj(index_wrap)
+
+        const active_params = {} // map name to Param
+        for(let p of this.prop_prms) {
+            let ap = null
+            switch (p.type.sel_idx) {
+            case 0: ap = p.expr_float; break;
+            case 1: ap = p.expr_vec2; break;
+            case 2: ap = p.expr_color; break;
+            default: assert(false, this, "unexpected type")
+            }
+            const name = p.name.get_value();
+            assert(name.startsWith("vtx_") || name.startsWith("line_"), this, "property name needs to start with vtx_ or line_") // TBD to its own param
+            active_params[name] = ap
+            const prop_need_index = ap.need_input_evaler("index")
+            if (prop_need_index !== null)
+                prop_need_index.dyn_set_obj(index_wrap)
+        }
+
+        const prop_vals = {}
+        this.prev_pos = null
+
+        try {
+            for(let i = 0; i < steps; ++i) {
+                index_wrap[0] = i
+                const pos = this.pos.dyn_eval()
+
+                if (this.prev_pos !== null) { // TBD param to disable this
+                    const min_dist = this.min_dist.get_value()
+                    if (vec2.distance(this.prev_pos, pos) < min_dist)
+                        continue
+                }
+                this.prev_pos = pos
+
+                for(let pname in active_params) {
+                    prop_vals[pname] = active_params[pname].dyn_eval()
+                }
+
+                try {
+                    in_obj.add_vertex(pos, prop_vals);
+                } catch(e) {
+                    assert(false, this, e.message)
+                }
+            }
+        }
+        catch(e) { // dyn_eval may fail
+            assert(false, this, e.message)
         }
 
         this.out_obj.set(in_obj)

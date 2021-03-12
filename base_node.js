@@ -1141,6 +1141,11 @@ function arr_remove_is(arr, obj) {
     console.assert(i !== -1,"did not find object in array")
     arr.splice(i, 1)
 }
+function arr_remove_eq(arr, val) {
+    const ni = arr.findIndex(function(lid) { return lid === val })
+    console.assert(ni !== -1)
+    arr.splice(ni, 1)    
+}
 
 
 class NodeCls {

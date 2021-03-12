@@ -790,17 +790,33 @@ class Mesh extends PObject
         return this.clipper_obj
     }
 
-    add_vertex_props(p)
+    add_vertex_props(p, props)
     {
+        for (let name in props) {
+            if (this.arrs[name] !== undefined)
+                continue
+            this.arrs[name] = []
+            const v_count = this.vtx_count()
+            if (v_count > 0) { // adding to a property that doesn't exist
+                const v = get_default_value(name, props[name][0].length)
+                const arr = []
+                for(let i = 0; i < v_count; ++i)
+                    arr.push(...v)
+                this.arrs[name] = v
+            }
+        }
         for (let name in this.arrs) {
             if (name === "idx")
                 continue
-            dassert(name.startsWith("vtx_"), "mesh with face attributes not supported " + name)
+            dassert(is_per_vertex_prop_name(name), "mesh with face attributes not supported " + name)
             if (isTypedArray(this.arrs[name]))
                 this.arrs[name] = [...this.arrs[name]]  // change it to an array that can be pushed to
             if (name == "vtx_pos") {
                 this.arrs.vtx_pos.push(p[0], p[1])
                 this.effective_vtx_pos = this.arrs.vtx_pos
+            }
+            else if (props[name] !== undefined) {
+                this.arrs[name].push(...props[name])
             }
             else {
                 const v = get_default_value(name, this.meta[name].num_elems)
@@ -810,12 +826,12 @@ class Mesh extends PObject
     }
 
     // from NodePen
-    add_vertex(p)
+    add_vertex(p, props)
     {
         dassert(this.effective_vtx_pos === this.arrs.vtx_pos, "Working with effective_vtx_pos not supported")
         dassert(this.type === MESH_POINTS, "Only points mesh supported") 
 
-        this.add_vertex_props(p)
+        this.add_vertex_props(p, props)
         //this.arrs.idx.push( (this.arrs.vtx_pos.length - 2) / 2 )
     }
 
@@ -836,6 +852,10 @@ class Mesh extends PObject
         dlg.eobj.props.innerText = Object.keys(this.arrs).join("\n")
         
     }
+}
+
+function is_per_vertex_prop_name(name) {
+    return name.startsWith("vtx_") || name.startsWith("line_")
 }
 
 const CLIPPER_SCALE = 1

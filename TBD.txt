@@ -81,7 +81,6 @@ EXPRESSIONS
     - test several worlds running at the same time
     - pen
         manual geom with multi-color
-            remove column
             test correct number of paths created
         changing color
             from gradient - needs gradient sampler to variable
@@ -175,6 +174,8 @@ On-Image-UI
 - slider that's a box with color bar and text inside like in Box2D C++ testbed
 
 NODES:
+- Set constant property (vtx_color, line_color, vtx_radius, line_width) for geometry
+- flesh out line_ properties in SetAttr etc
 - frame buffer
     - clone object consistent with the rest of the system
     - merge create and shader?

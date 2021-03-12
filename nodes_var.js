@@ -321,7 +321,7 @@ class NodeVariable extends NodeVarCls
         p.p_group = new ParamGroup(node, prefix + "group")
         p.p_group.set_group(this.v_group)
 
-        p.type = new ParamSelect(node, ["Type", prefix], 0, ['Float', 'Integer', 'Float2', 'Float2-Mouse', 'Color', 'Bool', 'Transform'], (sel_idx)=>{ // TBD Transform, Function
+        p.type = new ParamSelect(node, ["Type", prefix], 0, ['Float', 'Integer', 'Float2', 'Float2-Mouse', 'Color', 'Bool', 'Transform'], (sel_idx)=>{ // TBD Function
             p.expr_float.set_visible(sel_idx == 0)
             p.expr_int.set_visible(sel_idx == 1)
             p.expr_vec2.set_visible(sel_idx == 2)
@@ -342,10 +342,8 @@ class NodeVariable extends NodeVarCls
             }
         })
         p.remove_btn = new ParamButton(node, ["[-]", prefix], ()=>{
-            arr_remove_is(this.vars_prm, lp)
-            const ni = this.namer.v.prms_lst.findIndex(function(lid) { return lid === p.id })
-            console.assert(ni !== -1)
-            this.namer.v.prms_lst.splice(i, 1)            
+            arr_remove_is(this.vars_prm, p)
+            arr_remove_eq(this.namer.v.prms_lst, p.id)
             for(let pp of p.params)
                 node.remove_param(pp)
             this.v_group.update_elems()
