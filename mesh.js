@@ -795,14 +795,19 @@ class Mesh extends PObject
         for (let name in props) {
             if (this.arrs[name] !== undefined)
                 continue
-            this.arrs[name] = []
+            const num_elems = props[name].length || 1  // if there's no length, it's a value
+            this.set(name, [], num_elems, false)
             const v_count = this.vtx_count()
             if (v_count > 0) { // adding to a property that doesn't exist
-                const v = get_default_value(name, props[name][0].length)
+                const v = get_default_value(name, num_elems)
                 const arr = []
-                for(let i = 0; i < v_count; ++i)
-                    arr.push(...v)
-                this.arrs[name] = v
+                if (num_elems === 1)
+                    for(let i = 0; i < v_count; ++i)
+                        arr.push(v)
+                else
+                    for(let i = 0; i < v_count; ++i)
+                        arr.push(...v)
+                this.set(name, arr, num_elems, false) // TBD test existing, TBD OpenGL
             }
         }
         for (let name in this.arrs) {
@@ -815,12 +820,15 @@ class Mesh extends PObject
                 this.arrs.vtx_pos.push(p[0], p[1])
                 this.effective_vtx_pos = this.arrs.vtx_pos
             }
-            else if (props[name] !== undefined) {
-                this.arrs[name].push(...props[name])
-            }
             else {
-                const v = get_default_value(name, this.meta[name].num_elems)
-                this.arrs[name].push(...v)
+                let v = props[name]
+                if (v === undefined) {
+                    v = get_default_value(name, this.meta[name].num_elems)
+                }
+                if (this.meta[name].num_elems == 1)
+                    this.arrs[name].push(v)  // plain value, not an array
+                else
+                    this.arrs[name].push(...v)
             }
         }
     }

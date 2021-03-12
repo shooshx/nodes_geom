@@ -2611,7 +2611,7 @@ window.ParamCoordList = class ParamCoordList extends ParamEditableValueList {
 }
 
 window.ParamFloatList = class ParamFloatList extends ParamEditableValueList {
-    constructor(node, label, table, selected_indices, changed_func_to_node=null) {
+    constructor(node, label, table, selected_indices=null, changed_func_to_node=null) {
         super(node, label, table, Float32Array, selected_indices, 1, changed_func_to_node)
         this.pneed_normalize = false
     }

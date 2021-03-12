@@ -122,7 +122,9 @@ Node: Pen
 - Enable or disable useful in animation for discarding some points. Example:
     Expression: frame_num > 10
 - Limit how close generated points are using the "Min Distance" parameter
-
+- Can add additional properties that are added to the geometry along with the position.
+  This includes "line_color", "line_width", "vtx_color" and any other vtx_ property, but not face properties since this node 
+  not produce faces (This is also possible with a separate SetAttr node)
 
 Distance fields
 ---------------

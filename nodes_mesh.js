@@ -335,15 +335,18 @@ class NodeManualGeom extends NodeCls
         this.geom_type = new ParamSelect(node, "Type", 0, ["Mesh", "Paths"])
         this.add_pnts_btn = new ParamBool(node, "Add points", true, null, {allow_expr:false})
         this.add_pnts_btn.display_as_btn(true)
-        this.add_col_btn = new ParamTextMenuBtn(node, "Add Column", ["Curve Controls", "Vec2", "Color"], (opt, sel_idx)=>{
+        this.add_col_btn = new ParamTextMenuBtn(node, "Add Column", ["Curve Controls", "Float", "Vec2", "Color"], (opt, sel_idx)=>{
             if (sel_idx === 0 && this.cfp === null) {
                 this.add_additional_column(node, "ctrl_from_prev", ParamCoordList, true)
                 this.add_additional_column(node, "ctrl_to_prev", ParamCoordList, true)
             }
             else if (sel_idx === 1) {
-                this.add_additional_column(node, "vtx_normal", ParamCoordList, true)
+                this.add_additional_column(node, "vtx_radius", ParamFloatList, true)
             }
             else if (sel_idx === 2) {
+                this.add_additional_column(node, "vtx_normal", ParamCoordList, true)
+            }
+            else if (sel_idx === 3) {
                 this.add_additional_column(node, "line_color", ParamColorList, true)
             }
         })
@@ -1051,10 +1054,12 @@ class ObjConstProxy {
     }
 }
 
-
+// if the value is a single number, it's not in a list, as per convention everywhere else
 const DEFAULT_FOR_VTX_ATTRS = {
-    "vtx_radius" : { v:[MESH_DISP.vtx_radius],  num_elems:1 },
-    "vtx_color"  : { v:DEFAULT_VTX_COLOR.arr,   num_elems:4 }
+    "vtx_radius" : { v:MESH_DISP.vtx_radius,    num_elems:1 },
+    "vtx_color"  : { v:DEFAULT_VTX_COLOR.arr,   num_elems:4 },
+    "line_width" : { v:1,                       num_elems:1 },
+    "line_color" : { v:DEFAULT_VTX_COLOR.arr,   num_elems:4 },
 }
 
 function get_default_value(name, numelems) {

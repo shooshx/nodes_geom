@@ -924,6 +924,7 @@ class NodePen extends NodeCls
             for(let pp of p.params)
                 node.remove_param(pp)
             this.props_group.update_elems()
+            this.props_group.pset_dirty(true) // node doesn't get updated without this
         }, ["param_btn", "param_var_rm_btn"]) 
         p.remove_btn.share_line_elem_from(p.type)
 

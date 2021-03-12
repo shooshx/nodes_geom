@@ -360,15 +360,24 @@ class MultiPath extends PObject
         return jp;
     }
 
-    has_line_prop() {
-        return this.arrs.line_color !== undefined
-    }
-    
+   
     draw_poly(do_lines, do_fill, lines_color, do_col_lines) {
         this.ensure_paths_created()
 
         const base_line_width = 1 / image_view.viewport_zoom
-        const line_adp = (this.has_line_prop() && do_col_lines) ? new LineColorDrawAdapter(ctx_img, this.arrs.line_color) : null
+
+        let line_adp = null
+
+        const do_line_col = this.arrs.line_color !== undefined && do_col_lines
+        const do_line_width = this.arrs.line_width !== undefined
+
+        if (do_line_col && do_line_width)
+            line_adp = new LineColorAndWidthDrawAdapter(ctx_img, this.arrs.line_color, this.arrs.line_width, base_line_width, this.vtx_count())
+        else if (do_line_col)
+            line_adp = new LineColorDrawAdapter(ctx_img, this.arrs.line_color, this.vtx_count())
+        else if (do_line_width)
+            line_adp = new LineWidthDrawAdapter(ctx_img, this.arrs.line_width, base_line_width, this.vtx_count())
+
         let pri = 0
         for(let p of this.paths) {
             if (do_fill && p.face_color !== null) {
@@ -610,49 +619,61 @@ class MultiPath extends PObject
 
 }
 
-function color_different(a, b) {
-    return a.r !== b.r || a.g !== b.g || a.b !== b.b || a.a !== b.a
-}
-
-class LineColorDrawAdapter
+class DynamicLineDrawAdapter
 {
-    constructor(ctx, line_col_arr) {
+    constructor(ctx, prop_arr, vtx_count, num_elems) {
         this.ctx = ctx
+        this.da_num_elems = num_elems
         // 4 float values per vertex that have the color of the line that ends in the vertex
-        this.line_col = line_col_arr 
+        if (prop_arr !== null)
+            dassert(prop_arr.length === vtx_count * num_elems, "Wrong element width, expected " + num_elems + " got " + prop_arr.length / vtx_count)
+        this.prop_arr = prop_arr 
         this.vidx = null // where we are in the line_col array
         this.start_idx = null
         this.began = false
-        this.prev = {r:null, g:null, b:null, a:null, x:null, y:null}
-        this.cur = {r:null, g:null, b:null, a:null, x:null, y:null}
         this.first = null
-    }
-    moveTo(x, y, start_idx) {
-        this.vidx = start_idx * 4
-        this.start_idx = start_idx
-        this.next_col(this.prev, x, y)
-        this.first = {r:this.prev.r, g:this.prev.g, b:this.prev.b, a:this.prev.a, x:this.prev.x, y:this.prev.y}
-        if (!this.began)
-            this.ctx.beginPath()
-        this.ctx.moveTo(x,y)
+        this.prev = {x:null, y:null}
+        this.cur = {x:null, y:null}
+        for(let i = 0; i < num_elems; ++i) {
+            this.prev[i] = null
+            this.cur[i] = null
+        }
     }
 
     next_col(into, x, y) {
         const vidx = this.vidx
-        into.r = this.line_col[vidx]
-        into.g = this.line_col[vidx+1]
-        into.b = this.line_col[vidx+2]
-        into.a = this.line_col[vidx+3]
+        for(let i = 0; i < this.da_num_elems; ++i)
+            into[i] = this.prop_arr[vidx + i]
         into.x = x
         into.y = y
-        this.vidx += 4
+        this.vidx += this.da_num_elems
+    }
+
+    moveTo(x, y, start_idx) {
+        this.vidx = start_idx * this.da_num_elems
+        this.start_idx = start_idx
+        this.next_col(this.prev, x, y)
+        //this.first = {r:this.prev.r, g:this.prev.g, b:this.prev.b, a:this.prev.a, x:this.prev.x, y:this.prev.y}
+        this.first = { ...this.prev }
+        if (!this.began)
+            this.ctx.beginPath()
+        this.ctx.moveTo(x,y)
+        // wide lines would product discontinuities with this
+        this.ctx.lineCap = "round"
+    }
+
+    v_different(a, b) {
+        for(let i = 0; i < this.da_num_elems; ++i)
+            if (a[i] !== b[i])
+                return true
+        return false
     }
 
     check_changed_value(x, y) {
         // check if the current line needs a different color
         this.next_col(this.cur, x, y)
         const prev = this.prev
-        const ret = color_different(this.cur, prev)
+        const ret = this.v_different(this.cur, prev)
         if (ret) {
             this.donePath()
             this.ctx.beginPath()
@@ -666,7 +687,7 @@ class LineColorDrawAdapter
     }
     check_changed_with_first() {
         const prev = this.prev
-        const ret = color_different(this.first, prev)
+        const ret = this.v_different(this.first, prev)
         if (ret) {
             this.donePath()
             this.ctx.beginPath()
@@ -674,7 +695,6 @@ class LineColorDrawAdapter
         }
         this.prev = this.first  // for donePath
     }
-
     lineTo(x, y) {
         this.check_changed_value(x, y)
         this.ctx.lineTo(x,y)
@@ -696,12 +716,63 @@ class LineColorDrawAdapter
         
         this.donePath()
     }
+
     donePath() {
         const prev = this.prev
-        this.ctx.strokeStyle = "rgba(" + prev.r + "," + prev.g + "," + prev.b + "," + prev.a + ")"
+        this.set_ctx_prop(prev)
         this.ctx.stroke()
     }
+}
 
+
+class LineColorDrawAdapter extends DynamicLineDrawAdapter
+{
+    constructor(ctx, line_col_arr, vtx_count) {
+        super(ctx, line_col_arr, vtx_count, 4)
+        // 4 float values per vertex that have the color of the line that ends in the vertex       
+    }
+
+    set_ctx_prop(v) {
+        this.ctx.strokeStyle = "rgba(" + v[0] + "," + v[1] + "," + v[2] + "," + v[3] + ")"
+    }
+}
+
+class LineWidthDrawAdapter extends DynamicLineDrawAdapter
+{
+    constructor(ctx, line_width_arr, base_width, vtx_count) {
+        super(ctx, line_width_arr, vtx_count, 1)
+        this.base_width = base_width
+    }
+
+    set_ctx_prop(v) {
+        this.ctx.lineWidth = v[0] * this.base_width
+    }
+}
+
+class LineColorAndWidthDrawAdapter extends DynamicLineDrawAdapter
+{
+    constructor(ctx, line_col_arr, line_width_arr, base_width, vtx_count) {
+        super(ctx, null, vtx_count, 5)
+        this.base_width = base_width
+        this.col_arr = line_col_arr
+        this.width_arr = line_width_arr
+    }
+
+    next_col(into, x, y) {
+        const idx = this.vidx / 5
+        const cidx = idx*4
+        for(let i = 0; i < 4; ++i)
+            into[i] = this.col_arr[cidx + i]
+        into[4] = this.width_arr[idx]
+        into.x = x
+        into.y = y
+        this.vidx += this.da_num_elems
+    }
+
+    set_ctx_prop(v) {
+        this.ctx.strokeStyle = "rgba(" + v[0] + "," + v[1] + "," + v[2] + "," + v[3] + ")"
+        this.ctx.lineWidth = v[4] * this.base_width
+    }
 }
 
 
