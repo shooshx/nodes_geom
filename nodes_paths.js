@@ -31,6 +31,8 @@ class MultiPath extends PObject
         //   for an unclosed path, both control points of the first point in the path are (0,0)
         //   all control points are relative to the point
         this.meta = { vtx_pos:null }
+        this.consts = { }
+
         this.tcache = { vtx_pos:null, m:null }  // transformed cache (for setattr)
         this.fill_objs = init_fill_objs()
         this.paper_obj = null // paper.js object
@@ -53,12 +55,16 @@ class MultiPath extends PObject
             name == "face_transform" || name == "vtx_transform")
             this.invalidate_pos()
     }
+    set_const(name, v) {
+        this.consts[name] = v
+    }
 
     oclone() {
         const m = new MultiPath()
         m.paths = null  // will be created as needed
         m.arrs = clone(this.arrs)
         m.meta = clone(this.meta)
+        m.consts = clone(this.consts)
         m.paths_ranges = clone(this.paths_ranges)
 
         m.tcache = { vtx_pos:null, m:null } // will be created as needed
@@ -113,7 +119,7 @@ class MultiPath extends PObject
             sccp.share_line_elem_from(scc)
             d.push(scc, sccp)
         }
-        if (this.arrs.face_color !== undefined)
+        if (this.arrs.face_color !== undefined || this.consts.face_color !== undefined)
             d.push(new DispParamBool(disp_values, "Show Faces", 'show_faces', true))
         this.forVec2Arrs((name, arr)=>{
             const b = new DispParamBool(disp_values, "Show " + name, 'show_' + name, true)
@@ -367,7 +373,6 @@ class MultiPath extends PObject
         const base_line_width = 1 / image_view.viewport_zoom
 
         let line_adp = null
-
         const do_line_col = this.arrs.line_color !== undefined && do_col_lines
         const do_line_width = this.arrs.line_width !== undefined
 
@@ -378,20 +383,31 @@ class MultiPath extends PObject
         else if (do_line_width)
             line_adp = new LineWidthDrawAdapter(ctx_img, this.arrs.line_width, base_line_width, this.vtx_count())
 
+        if (lines_color === null) { // not template
+            lines_color = (this.consts.line_color !== undefined) ? make_str_color(this.consts.line_color) : "#000"
+        }
+        const const_line_width = (this.consts.line_width !== undefined) ? this.consts.line_width : MESH_DISP.line_width
+
+        const has_const_face_col = this.consts.face_color !== undefined
+        let const_face_col = null
+        if (has_const_face_col)
+        const_face_col = make_str_color(this.consts.face_color)
         let pri = 0
         for(let p of this.paths) {
-            if (do_fill && p.face_color !== null) {
-                ctx_img.fillStyle = p.face_color
+            const has_arr_face_col = p.face_color !== null
+            if (do_fill && (has_arr_face_col || has_const_face_col)) {
+                const face_col = has_arr_face_col ? p.face_color : const_face_col
+                ctx_img.fillStyle = face_col
                 ctx_img.fill(p)
                 ctx_img.lineWidth = base_line_width
-                ctx_img.strokeStyle = p.face_color
+                ctx_img.strokeStyle = face_col
                 ctx_img.stroke(p) // fill antialiasing gaps
             }
             if (do_lines) {
-                ctx_img.lineWidth = MESH_DISP.line_width * base_line_width
+                ctx_img.lineWidth = const_line_width * base_line_width
+                ctx_img.strokeStyle = lines_color
                                     
                 if (!line_adp) {
-                    ctx_img.strokeStyle = lines_color
                     ctx_img.stroke(p)
                 }
                 else {
@@ -465,7 +481,7 @@ class MultiPath extends PObject
             Mesh.prototype.draw_poly_fill_clip.call(this, m)
             // do the line after the clip so it would be over it 
         if (disp_values.show_lines || disp_values.show_faces)
-            this.draw_poly(disp_values.show_lines, disp_values.show_faces, "#000", disp_values.color_lines)
+            this.draw_poly(disp_values.show_lines, disp_values.show_faces, null, disp_values.color_lines)
         if (disp_values.show_vtx) 
             Mesh.prototype.draw_vertices.call(this, "#000", true, disp_values)
         if (disp_values.show_ctrls) 
@@ -660,6 +676,7 @@ class DynamicLineDrawAdapter
         this.ctx.moveTo(x,y)
         // wide lines would product discontinuities with this
         this.ctx.lineCap = "round"
+        this.ctx.lineJoin = "round" // not required but to keep it consistent when doing small 3 point rects for instance
     }
 
     v_different(a, b) {
@@ -733,7 +750,7 @@ class LineColorDrawAdapter extends DynamicLineDrawAdapter
     }
 
     set_ctx_prop(v) {
-        this.ctx.strokeStyle = "rgba(" + v[0] + "," + v[1] + "," + v[2] + "," + v[3] + ")"
+        this.ctx.strokeStyle = make_str_color(v)
     }
 }
 
@@ -770,10 +787,11 @@ class LineColorAndWidthDrawAdapter extends DynamicLineDrawAdapter
     }
 
     set_ctx_prop(v) {
-        this.ctx.strokeStyle = "rgba(" + v[0] + "," + v[1] + "," + v[2] + "," + v[3] + ")"
+        this.ctx.strokeStyle = make_str_color(v)
         this.ctx.lineWidth = v[4] * this.base_width
     }
 }
+
 
 
 // used in NodeManualGeom
@@ -951,6 +969,7 @@ function triangulate_path(obj, node)
     return out_mesh
     
 }
+
 
 // Chaikin round corners
 // see https://simblob.blogspot.com/2019/10/chaikin-curves.html and https://sighack.com/post/chaikin-curves

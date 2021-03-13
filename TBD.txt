@@ -81,7 +81,6 @@ EXPRESSIONS
     - setLinearDamping, setAngularDamping
     - test several worlds running at the same time
     - pen
-        const width node
         changing color
             from gradient - needs gradient sampler to variable
         render with webgl
@@ -176,6 +175,7 @@ On-Image-UI
 
 NODES:
 - Set constant property (vtx_color, line_color, vtx_radius, line_width) for geometry
+    - nodes that preserve attributes should preserve constant attributes as well
 - flesh out line_ properties in SetAttr etc
 - frame buffer
     - clone object consistent with the rest of the system

@@ -1080,6 +1080,61 @@ function fill_default_value(narr, at_index, name, num_elems, count) {
     return at_index
 }
 
+class NodeConstAttr extends NodeCls
+{
+    static name() { return "Const Attribute" }
+    constructor(node) {
+        super(node)
+        this.in_obj = new InTerminal(node, "in_geom")
+        this.out_obj = new OutTerminal(node, "out_geom")
+
+        // should be above attr_name that sets it                                    
+        this.name_per_type = new ParamObjStore(node, "npt", { 0:"color", 1:"radius", 2:"normal" }) 
+
+        //this.use_code = new ParamBool(node, "Use Code", false, (v)=>{})
+        this.bind_to = new ParamSelect(node, "Bind To", 0, [["Vertices", "vtx_"], ["Faces", "face_"], ["Lines", "line_"]])
+       
+        this.attr_type = new ParamSelect(node, "Type", 0, ["Color", "Float", "Float2"], (sel_idx)=>{
+            const type_idx = this.attr_type.sel_idx
+            this.expr_color.set_visible(type_idx == 0)
+            this.expr_float.set_visible(type_idx == 1)
+            this.expr_vec2.set_visible(type_idx == 2)
+
+            this.attr_name.modify(this.name_per_type.st_get(sel_idx))
+        })
+
+        this.attr_name = new ParamStr(node, "Name", "color", (v)=>{
+            this.name_per_type.st_set(this.attr_type.sel_idx, v)
+        })
+        this.expr_color = new ParamColor(node, "Color", [DEFAULT_VTX_COLOR.hex, DEFAULT_VTX_COLOR.rgb])
+        this.expr_float = new ParamFloat(node, "Float", 5)
+        this.expr_vec2 = new ParamVec2(node, "Float2", 1, 0, true)
+
+    }
+
+    run()
+    {
+        const obj = this.in_obj.get_mutable()
+        assert(obj !== null, this, "Missing input")
+        assert(obj.constructor === Mesh || obj.constructor === MultiPath, this, "Input should be either mesh or path")
+
+        let name = this.bind_to.get_sel_val() + this.attr_name.get_value()
+        let v = null
+        switch(this.attr_type.sel_idx) {
+        case 0: v = color_to_uint8arr(this.expr_color.get_value()); break;
+        case 1: v = this.expr_float.get_value(); break;
+        case 2: v = this.expr_vec2.get_value(); break;
+        default: assert(false, this, "Unknown type")
+        }
+        
+        obj.set_const(name, v)
+        this.out_obj.set(obj)
+    }
+
+}
+
+
+
 class NodeGeomMerge extends NodeCls
 {
     static name() { return "Geom Merge" }

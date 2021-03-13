@@ -802,6 +802,8 @@ const nodes_classes = [
         NodeGeomPrimitive, 
         NodeManualGeom,
         NodeGeomDivide,
+        NodeSetAttr, 
+        NodeConstAttr,
         NodeGeomMerge,
         NodeGeomCopy,
         NodeRandomPoints,
@@ -811,7 +813,7 @@ const nodes_classes = [
         NodeRoundCorners,
         NodeBoolOp,
         NodeOffsetPath,
-        NodePen
+        NodePen,
     ]},
     { group_name: "Image", nodes: [
         NodeLoadImage,
@@ -842,7 +844,6 @@ const nodes_classes = [
         NodeB2Sim,
         NodeExtractTransform,
     ]},
-    NodeSetAttr, 
     NodeTransform,
     NodeGroupObjects,
     NodeVariable,

@@ -67,6 +67,16 @@ Node: Set Attribute
     - fill (face, with type:image-fill) - makes the input geometry a clipping path for the source
     - transform (vertex and face) - change position/rotation per vertex or per face
 
+Node: Const Attribute
+- Set a constant value to an attribute for all vertices/lines/faces of a mesh or multi-paths object
+- It makes sense for this to be a separate node from "Set Attribute" since it sets a single value
+  to all current and future instances
+- special attribute names that can be set:
+    - pos (vertex) - vertex position
+    - color (vertex, line and face) - fill color
+    - radius (vertex) - of the vertex circle
+    - width (line)
+
 Node: Geometry Merge
 - Merges one or more geometry objects into one geometry object
 - Meshes of the same type result in a mesh of the same type

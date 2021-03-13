@@ -347,6 +347,7 @@ class NodeVariable extends NodeVarCls
             for(let pp of p.params)
                 node.remove_param(pp)
             this.v_group.update_elems()
+            // TBD - need pset_dirty?
         }, ["param_btn", "param_var_rm_btn"]) 
         p.remove_btn.share_line_elem_from(p.type)
 

@@ -918,6 +918,9 @@ class NodePen extends NodeCls
             p.expr_color.set_visible(sel_idx === 2)            
         })
 
+        p.bind_to = new ParamSelect(node, ["Bind To", prefix], 0, [["Vertex", "vtx_"], ["Lines", "line_"]])
+        p.bind_to.share_line_elem_from(p.type)
+
         p.remove_btn = new ParamButton(node, ["[-]", prefix], ()=>{
             arr_remove_is(this.prop_prms, p)
             arr_remove_eq(this.prop_store.v.ids_lst, p.id)
@@ -928,7 +931,7 @@ class NodePen extends NodeCls
         }, ["param_btn", "param_var_rm_btn"]) 
         p.remove_btn.share_line_elem_from(p.type)
 
-        p.name = new ParamStr(node, ["Name", prefix], "vtx_prop")
+        p.name = new ParamStr(node, ["Name", prefix], "width")
         // TBD check name starts with vtx_, check duplicate name
 
         p.expr_float = new ParamFloat(node, ["Float", prefix], 1.0, {show_code:true})
@@ -936,7 +939,7 @@ class NodePen extends NodeCls
         p.expr_color = new ParamColor(node, ["Color", prefix], "#cccccc", {show_code:true})
         p.sep = new ParamSeparator(node, prefix + "sep", "param_sep_line")
 
-        p.params = [p.p_group, p.type, p.name, p.expr_float, p.expr_vec2, p.expr_color, p.sep, p.remove_btn]
+        p.params = [p.p_group, p.type, p.bind_to, p.name, p.expr_float, p.expr_vec2, p.expr_color, p.sep, p.remove_btn]
 
         for(let pp of p.params) {
             if (pp === p.p_group)
@@ -977,8 +980,7 @@ class NodePen extends NodeCls
             case 2: ap = p.expr_color; break;
             default: assert(false, this, "unexpected type")
             }
-            const name = p.name.get_value();
-            assert(name.startsWith("vtx_") || name.startsWith("line_"), this, "property name needs to start with vtx_ or line_") // TBD to its own param
+            const name = p.bind_to.get_sel_val() + p.name.get_value();
             active_params[name] = ap
             const prop_need_index = ap.need_input_evaler("index")
             if (prop_need_index !== null)

@@ -100,7 +100,8 @@ class Mesh extends PObject
         // idx can be null if it's just a points mesh
         this.arrs = { vtx_pos:null, idx:null }
         this.meta = { vtx_pos:null, idx:null } // metadata objects for every array in arrs (instead of setting properties in the array object itself which can't be cloned reasonably)
-        
+        this.consts = {} // attributes that are constant, don't have meta
+
         this.tcache = { vtx_pos:null, m:null }  // transformed cache (to display coords)
         //this.lines_cache = null  // cache lines for stroke (so that every line be repeated twice
         this.glbufs = { vtx_pos:null, idx:null }
@@ -128,6 +129,8 @@ class Mesh extends PObject
         m.paths = null  // will be created as needed
         m.arrs = clone(this.arrs)
         m.meta = clone(this.meta)
+        m.consts = clone(this.consts)
+
         m.tcache = { vtx_pos:null, m:null } // will be created as needed
         m.glbufs = { vtx_pos:null, idx:null }
         m.fill_objs = clone(this.fill_objs)
@@ -158,7 +161,7 @@ class Mesh extends PObject
         const d =  [ new DispParamBool(disp_values, "Show Vertices", 'show_vtx', true) ]
         if (this.arrs.idx !== undefined && this.arrs.idx !== null && this.arrs.idx.length > 0)
             d.push(new DispParamBool(disp_values, "Show Lines", 'show_lines', true))
-        if (this.arrs.face_color !== undefined || this.arrs.face_fill !== undefined)
+        if (this.arrs.face_color !== undefined || this.consts.face_color !== undefined || this.arrs.face_fill !== undefined)
             d.push(new DispParamBool(disp_values, "Show Faces", 'show_faces', true))
         this.forVec2Arrs((name, arr)=>{
             const b = new DispParamBool(disp_values, "Show " + name, 'show_' + name, true)
@@ -212,6 +215,10 @@ class Mesh extends PObject
             this.make_effective_vtx_pos()
         else if (name == "face_fill") 
             this.invalidate_fill()
+    }
+
+    set_const(name, v) {
+        this.consts[name] = v
     }
 
     set_type(v) { 
@@ -389,17 +396,30 @@ class Mesh extends PObject
             vtx_radius = this.arrs.vtx_radius
             dassert(vtx_radius.length == this.arrs.vtx_pos.length / 2, "unexpected size of vtx_radius")
         }
-        if (do_fill && this.arrs.vtx_color !== undefined) {
-            let vcol = this.arrs.vtx_color
-            dassert(vcol.length / 4 == this.arrs.vtx_pos.length / 2, "unexpected size of vtx_color")
-            for(let i = 0, vi = 0, icol = 0; vi < vtx.length; ++i, vi += 2, icol += 4) {
+        const const_radius = (this.consts.vtx_radius !== undefined) ? this.consts.vtx_radius : MESH_DISP.vtx_radius
+        const has_arr_col = this.arrs.vtx_color !== undefined
+        const has_const_col = this.consts.vtx_color !== undefined
+
+        // circle fills
+        if (do_fill && (has_arr_col || has_const_col)) {
+            let vcol
+            if (has_arr_col) { 
+                vcol = this.arrs.vtx_color
+                dassert(vcol.length / 4 == this.arrs.vtx_pos.length / 2, "unexpected size of vtx_color")
+            }
+            else 
+                vcol = this.consts.vtx_color
+ 
+            for(let i = 0, vi = 0, icol = 0; vi < vtx.length; ++i, vi += 2) {
                 // radius shouldn't be negative
-                let radius = Math.max(0, (vtx_radius !== null) ? vtx_radius[i] : MESH_DISP.vtx_radius)
+                let radius = Math.max(0, (vtx_radius !== null) ? vtx_radius[i] : const_radius)
                 radius /= image_view.viewport_zoom // radius is given in pixels, need to scale it back
                 ctx_img.beginPath();
                 ctx_img.arc(vtx[vi], vtx[vi+1], radius, 0, 2*Math.PI)
                 ctx_img.fillStyle = "rgba(" + vcol[icol] + "," + vcol[icol+1] + "," + vcol[icol+2] + "," + (vcol[icol+3]/255) + ")"
                 ctx_img.fill()
+                if (has_arr_col)
+                    icol += 4
             }
             ctx_img.lineWidth = MESH_DISP.line_width/image_view.viewport_zoom
         }
@@ -407,9 +427,10 @@ class Mesh extends PObject
             ctx_img.lineWidth = 1/image_view.viewport_zoom
         }
 
+        // circle stroke
         ctx_img.beginPath();
         for(let i = 0, vi = 0; vi < vtx.length; ++i, vi += 2) {
-            let radius = Math.max(0, (vtx_radius !== null) ? vtx_radius[i] : MESH_DISP.vtx_radius)
+            let radius = Math.max(0, (vtx_radius !== null) ? vtx_radius[i] : const_radius)
             radius /= image_view.viewport_zoom
             let x = vtx[vi], y = vtx[vi+1]
             ctx_img.moveTo(x + radius, y)
@@ -418,6 +439,7 @@ class Mesh extends PObject
         ctx_img.strokeStyle = lines_color
         ctx_img.stroke()       
 
+        // normals
         if (disp_params !== null)
         {
             this.forVec2Arrs((name, arr)=>{
@@ -483,7 +505,14 @@ class Mesh extends PObject
 
     draw_poly_fill_color() {
         this.ensure_paths_created()
-        const fcol = this.arrs.face_color
+        let fcol
+        const has_arr = this.arrs.face_color !== undefined
+        if (has_arr) {
+            fcol = this.arrs.face_color
+            dassert(fcol.length === this.paths.length * 4, "Wrong size of face_color: " + fcol.length + " expected: " + this.paths.length * 4)
+        }
+        else
+            fcol = this.consts.face_color
 
         ctx_img.lineWidth = 1 / image_view.viewport_zoom
         let vidx = 0, style
@@ -496,7 +525,8 @@ class Mesh extends PObject
             ctx_img.stroke(p) // need to stroke as well as as fill to fix the stupid stitching bug caused by per-poly antialiasing 
                              // https://stackoverflow.com/questions/15631426/svg-fill-not-filling-boundary/15638764#comment22224474_15638764
                              // This is wrong if the fill has alpha lower than 1 or ==1
-            vidx += 4
+            if (has_arr)                             
+                vidx += 4
         }
     }
 
@@ -601,7 +631,7 @@ class Mesh extends PObject
         //this.ensure_tcache(m)
 
         if (disp_values.show_faces) {
-            if (this.arrs.face_color)
+            if (this.arrs.face_color || this.consts.face_color)
                 this.draw_poly_fill_color()
             else if (this.arrs.face_fill) 
                 this.draw_poly_fill_clip(m)
@@ -799,7 +829,7 @@ class Mesh extends PObject
             this.set(name, [], num_elems, false)
             const v_count = this.vtx_count()
             if (v_count > 0) { // adding to a property that doesn't exist
-                const v = get_default_value(name, num_elems)
+                const v = (this.consts[name] !== undefined) ? this.consts[name] : get_default_value(name, num_elems)
                 const arr = []
                 if (num_elems === 1)
                     for(let i = 0; i < v_count; ++i)
