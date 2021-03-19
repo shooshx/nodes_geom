@@ -46,13 +46,16 @@ Node: Divide
 - Can set different distances for u and v coordinates
 
 Node: Set Attribute
-- Set an attribute of vertices or faces of gemortry to a constant, sampled or calculated value
-- Set attribute name, type and object to bind to (vertices or faces)
+- Set an attribute of vertices, faces or lines of gemortry to a constant, sampled or calculated value
+- Set attribute name, type and object to bind to (vertices, faces or lines)
 - types: float, vec2 (normal), color (vec4), image-fill, transform
 - Sample color value from an image or gradient using in_src in expression
     - face attribute from image is sampled at the middle of the face
     - use in_src.at(x, y) to sample the input image/gradient anywhere. y is optional, default=0
+       - argument can also be a single vec2 argument like in_src.at(in_obj.vtx_pos)
        - useful for sampling Gradient that is in "Sample" mode using some vertex/face attribute, see Marching Squares
+       - limitation when: sampling a gradient it is possible to sample coordinates outside the mesh and get a 
+         transparent color although the gradient is supposed to be infinite - TBD fix this
 - Calculate value according to vertex or face position
 - Expression possibilites:
     - Any attribute that already exists the input bound objects (in_obj.vtx_pos.x, in_obj.face_color.r)

@@ -809,11 +809,11 @@ class NodeExtractTransform extends NodeVarCls
         this.in_world = new InTerminal(node, "in_world")
         this.in_body = new InTerminal(node, "in_body")
 
+        // relative to the center of in_body
         this.offset = new ParamVec2(node, "Offset", 0, 0)
         this.offset.dial = new PointDial((dx,dy)=>{ this.offset.increment(vec2.fromValues(dx, dy)) })
         this.name = new ParamStr(node, "Name", "trans")
 
-        this.var_out = new VarOutTerminal(node, "variable_out")
         this.last_tmat = null
     }
     run() {
@@ -845,11 +845,7 @@ class NodeExtractTransform extends NodeVarCls
         mat3.copy(this.last_tmat, m)
         mat3.translate(m, m, offset) // not sure why this is the right order
 
-        const vsb = new VariablesBox()
-        const vb = new VarBox()
-        vsb.add(this.name.v, vb)
-        vb.vbset(m, TYPE_MAT3)
-        this.var_out.set(vsb)
+        out_single_var(this.name.get_value(), TYPE_MAT3, m)
     }
 
     draw_selection(m) {

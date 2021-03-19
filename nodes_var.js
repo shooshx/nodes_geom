@@ -219,6 +219,17 @@ class NodeVarCls extends NodeCls
         node.name_xmargin = 8
         node.width = 80
         node.nkind = KIND_VARS
+
+        this.var_out = new VarOutTerminal(node, "variable_out")
+
+    }
+
+    out_single_var(name, type, value) {
+        const vsb = new VariablesBox()
+        const vb = new VarBox()
+        vsb.add(name, vb)
+        vb.vbset(value, type)
+        this.var_out.set(vsb)
     }
 }
 
@@ -228,8 +239,6 @@ class NodeVariable extends NodeVarCls
     static name() { return "Variable" }
     constructor(node) {
         super(node)
-
-        this.var_out = new VarOutTerminal(node, "variable_out")
 
         this.namer = new ParamObjStore(node, "<obj-store>", {gen_id:2, prms_lst:[1]}, ()=>{
             for(let p of this.vars_prm)

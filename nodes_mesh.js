@@ -720,7 +720,7 @@ class NodeSetAttr extends NodeCls
         this.name_per_type = new ParamObjStore(node, "npt", { 0:"color", 1:"radius", 2:"normal", 3:"fill", 4:"transform" })
 
         //this.use_code = new ParamBool(node, "Use Code", false, (v)=>{})
-        this.bind_to = new ParamSelect(node, "Bind To", 0, ["Vertices", "Faces"]) // TBD also lines?
+        this.bind_to = new ParamSelect(node, "Bind To", 0, [["Vertices", "vtx_"], ["Faces", "face_"], ["Lines", "line_"]])
         // needs to be before attr_name since otherwise the loaded name goes to the initial type (color)
 
         this.attr_type = new ParamSelect(node, "Type", 0, ["Color", "Float", "Float2", "Image Fill", "Transform"], (sel_idx)=>{
@@ -810,36 +810,32 @@ class NodeSetAttr extends NodeCls
         }
     }
 
-    prop_from_input_framebuffer(prop, mesh, src, value_need_src, value_need_mesh, src_param, transform, mutate_assign) 
+    prop_from_input_framebuffer(prop, mesh, src_sampler, value_need_src, value_need_mesh, src_param, mutate_assign) 
     {
-        mesh.ensure_tcache(transform)
-        let vtx = mesh.tcache.vtx_pos
 
         // see https://www.khronos.org/opengl/wiki/Vertex_Post-Processing#Viewport_transform
         // from Xw = (w/2)*Xp + (w/2) 
-        let w = src.width(), h = src.height()
-        let wf = w/2
-        let hf = h/2
-        let pixels = src.get_pixels()
-        assert(pixels !== null, this, "Input image is empty")
+        src_sampler.do_get_pixels()
+        let w = src_sampler.width(), h = src_sampler.height()
 
-        let samp_vtx = (this.bind_to.sel_idx == 0)
+        mesh.ensure_tcache(src_sampler.transform)
+        let vtx = mesh.tcache.vtx_pos
+
+
+        const samp_vtx = (this.bind_to.sel_idx === 0 || this.bind_to.sel_idx == 2)
         //let face_sz = mesh.face_size()
-        let vtxi = 0, idxi = 0
+        let vtxi = 0
         let expr_input = { r:0, g:0, b:0, alpha:0, 
             _get_num_elem: function() { return 4 },
             _get_as_vec: function() { return vec4.fromValues(this.r, this.g, this.b, this.alpha)},
-            _call_at: function() {
-                eassert(arguments.length >= 1 && arguments.length <= 2, "Wrong number of arguments in call to at()")
-                const x = arguments[0], y = (arguments.length > 1) ? arguments[1] : 0
-                const v = vec2.fromValues(x, y)
-                vec2.transformMat3(v, v, transform)
-                const pidx = (Math.round(v[1]) * w + Math.round(v[0]) ) * 4
-                return vec4.fromValues(pixels[pidx], pixels[pidx+1], pixels[pidx+2], pixels[pidx+3])
+            _call_at: function() { // implement in_src.at(x, y)
+                return src_sampler.sample_at(...arguments)
             }
         }
         value_need_src.dyn_set_obj(expr_input)
 
+        const pixels = src_sampler.pixels
+        // implement in_src.r/g/b/a
         for(let i = 0, pi = 0; pi < prop.length; ++i, pi += prop.elem_sz) 
         {
             let x = 0, y = 0
@@ -857,17 +853,17 @@ class NodeSetAttr extends NodeCls
                 y /= vidxs.length
             }
 
-            x = Math.round(x)
-            y = Math.round(y)
+            const rx = Math.round(x)
+            const ry = Math.round(y)
 
             if (value_need_mesh !== null)
                 value_need_mesh.dyn_set_prop_index(i)
             
-            if (x < 0 || y < 0 || x >= w || y >= h) {
+            if (rx < 0 || ry < 0 || rx >= w || ry >= h) {
                 expr_input.r = expr_input.g = expr_input.b = expr_input.alpha = 0
             }
             else {
-                const pidx = (y*w + x)*4
+                const pidx = (ry*w + rx)*4
                 expr_input.r = pixels[pidx]
                 expr_input.g = pixels[pidx+1]
                 expr_input.b = pixels[pidx+2]
@@ -891,7 +887,8 @@ class NodeSetAttr extends NodeCls
             return // TBD warning
         }*/
 
-        let elem_num, attr_name;
+        let elem_num
+        let attr_name = this.bind_to.get_sel_val()
         // check that the mesh has face to bind to, otherwise this is a noop
         if (this.bind_to.sel_idx == 1) { 
             elem_num = mesh.face_count()
@@ -899,11 +896,9 @@ class NodeSetAttr extends NodeCls
                 this.out_mesh.set(mesh)
                 return  // TBD warning
             }
-            attr_name = 'face_'
         }
         else {
             elem_num = mesh.vtx_count()
-            attr_name = 'vtx_'
         }
         attr_name += this.attr_name.v
 
@@ -974,13 +969,10 @@ class NodeSetAttr extends NodeCls
         let value_need_mesh = src_param.need_input_evaler("in_obj")
         let need_inputs = value_need_src || value_need_mesh
         
-        let src = null
+        let src_sampler = null
         if (value_need_src !== null) { // make sure we have a src to get the value from
-            src = this.in_source.get_const()
-            assert(src !== null, this, "missing input source")
-            if (src.get_pixels_adapter !== undefined)
-                src = await src.get_pixels_adapter(mesh, false) // got Gradient
-            assert(src.get_pixels !== undefined, this, "expected object with pixels")
+            src_sampler = new ImgInputSampler(this.in_source, this)
+            await src_sampler.prepare(mesh)
         }
         if (value_need_mesh !== null) {
             value_need_mesh.dyn_set_obj(mesh)
@@ -989,16 +981,14 @@ class NodeSetAttr extends NodeCls
 
         // commiting to work
         const out_mesh = this.in_mesh.get_mutable()
-        if (prop.out_mesh !== undefined)
-            prop.out_mesh = out_mesh
 
         try {
             if (!need_inputs) { // from const
                 this.prop_from_const(out_mesh, prop, src_param, mutate_assign)
             }
             else if (value_need_src !== null) { // from img input
-                let transform = src.get_transform_to_pixels()
-                this.prop_from_input_framebuffer(prop, out_mesh, src, value_need_src, value_need_mesh, src_param, transform, mutate_assign)
+
+                this.prop_from_input_framebuffer(prop, out_mesh, src_sampler, value_need_src, value_need_mesh, src_param, mutate_assign)
             }
             else if (value_need_mesh !== null) {
                 this.prop_from_mesh_attr(prop, value_need_mesh, src_param, mutate_assign)

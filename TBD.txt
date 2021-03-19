@@ -81,8 +81,6 @@ EXPRESSIONS
     - setLinearDamping, setAngularDamping
     - test several worlds running at the same time
     - pen
-        changing color
-            from gradient - needs gradient sampler to variable
         render with webgl
            - pen color normalize?
         normal run variables - sample the transform

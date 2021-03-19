@@ -53,6 +53,11 @@ class Gradient extends PObject
                 ]
     }
 
+    set_spread(spreadName, via_svg) {
+        this.spread = spreadName
+        this.via_svg = via_svg
+    }
+
     need_svg() {
         return this.via_svg
     }
@@ -326,6 +331,8 @@ class GradientPixelsAdapter {
             return
         }
 
+        dassert(for_obj !== null && for_obj.get_bbox !== undefined, "Expected object with bounding box")
+        
         this.bbox = for_obj.get_bbox() // in abstract coords
         this.w_width = this.bbox.width()   
         this.w_height = this.bbox.height()
@@ -351,6 +358,7 @@ class GradientPixelsAdapter {
     }
     width() { return this.px_width }
     height() { return this.px_height }
+    get_spread() { return this.obj.spread }
 
     async make_pixels(doImageData) {
         if (this.pixels !== null) 
@@ -958,8 +966,8 @@ class NodeGradient extends NodeCls
             obj.add_stop(v, this.colors.lst.slice(ci, ci+4))
         }
         const [spreadName, via_svg] = this.spread.get_sel_val()
-        obj.spread = spreadName
-        obj.via_svg = via_svg
+        obj.set_spread(spreadName, via_svg)
+
         // making the svg (if needed) is in pre_draw or in adapter's make_pixels()
         this.out.set(obj)
     }

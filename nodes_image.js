@@ -17,7 +17,7 @@ class PImage extends FrameBuffer
             setTexParams(smooth, spread, spread)
             gl.bindTexture(gl.TEXTURE_2D, null);
         }
-        super(tex, sz_x, sz_y, smooth, "rgba")
+        super(tex, sz_x, sz_y, smooth, "rgba", spread)
         this.img = js_img
         this.pixels = null
     }
@@ -130,3 +130,138 @@ class ScaleDial extends PointDial
         super.draw(wh[0]/2, wh[1]/2, this.transform.v, m)
     }
 }
+
+
+// extract the color of a single pixel in the given coordinates of the input image or gradient into a variable
+class NodeSampleColor extends NodeVarCls
+{
+    static name() { return "Sample Color" }
+
+    constructor(node) {
+        super(node)
+        node.can_input = false
+        this.in_source = new InTerminal(node, "in_src")
+
+        this.pos = new ParamVec2(node, "Offset", 0, 0)
+        this.pos.dial = new PointDial((dx,dy)=>{ this.pos.increment(vec2.fromValues(dx, dy)) })
+        this.name = new ParamStr(node, "Name", "samp_color")
+    }
+
+    async run() {
+        const src_samp = new ImgInputSampler(this.in_source, this)
+        try {
+            await src_samp.prepare(null)
+        } catch(e) {
+            // happens with non sampler gradient. Problem - scale is viewport dependent?
+            assert(false, this, e.message)
+        }
+        src_samp.do_get_pixels()
+        const p = this.pos.get_value()
+        const value = src_samp.sample_at_v(p)
+        
+        this.out_single_var(this.name.get_value(), TYPE_VEC4, value)
+    }
+
+    draw_selection(m) {
+        if (!this.pos.show_code) // not movable when showing code
+            this.pos.dial.draw(this.pos.x, this.pos.y, null, m)
+    }
+    image_find_obj(e) {
+        if (!this.pos.show_code)
+            return this.pos.dial.find_obj(e)
+    }
+}
+
+
+class ImgInputSampler
+{
+    constructor(in_source, in_node) {
+        this.in_source = in_source
+        this.src = null
+        this.width_ = null
+        this.height_ = null
+        this.in_node = in_node
+    }
+
+    async prepare(mesh) {
+        this.src = this.in_source.get_const()
+        assert(this.src !== null, this.in_node, "missing input source")
+        if (this.src.get_pixels_adapter !== undefined)
+            this.src = await this.src.get_pixels_adapter(mesh, false) // for Gradient
+        assert(this.src.get_pixels !== undefined, this.in_node, "expected object with pixels")
+    }
+
+    width() { return this.width_ }
+    height() { return this.height_ }
+
+    do_get_pixels() {
+        this.pixels = this.src.get_pixels()
+        this.transform = this.src.get_transform_to_pixels()
+        assert(this.pixels !== null, this.in_node, "Input image is empty")
+        this.width_ = this.src.width()
+        this.height_ = this.src.height()
+    }
+
+    sample_at() {
+        // this reimplements SetAttr prop_from_input_framebuffer
+        eassert(arguments.length >= 1 && arguments.length <= 2, "Wrong number of arguments in call to at()")
+        // if there is just one argument, check if it's a vec2, otherwise assume y=0 for the case of 1D sample gradient
+        let v
+        if (arguments.length == 1) {
+            const a0 = arguments[0]
+            if (a0.length !== undefined) {
+                eassert(a0.length === 2, "expected numbers or vec2 argument")
+                v = a0
+            }
+            else 
+                v = [a0, 0]
+        }
+        else 
+            v = arguments
+        return this.sample_at_v(v)
+    }
+
+    sample_at_v(v) {
+        vec2.transformMat3(v, v, this.transform)
+        let rx = Math.round(v[0]), ry = Math.round(v[1])
+        const spread = this.src.get_spread()
+        const inrx = rx
+        rx = handle_spread(spread, rx, this.width_)
+        console.log("rx=", inrx, "->",rx)
+        ry = handle_spread(spread, ry, this.height_)
+        //if (rx < 0 || ry < 0 || rx >= this.width_ || ry >= this.height_) {
+        //    return vec4.fromValues(0,0,0,0)
+       // }
+        const pidx = (ry * this.width_ + rx) * 4
+        const pixels = this.pixels
+        return vec4.fromValues(pixels[pidx], pixels[pidx+1], pixels[pidx+2], pixels[pidx+3])
+    }
+
+}
+
+function handle_spread(spread, coord, length)
+{
+    if (coord < 0) {
+        if (spread === "pad")
+            return 0
+        if (spread === "repeat")
+            return length+(coord%length) - 1
+        if (spread === "reflect") {
+            coord = -coord
+            return ((coord%(length*2)) < length)?(coord%length):(length-(coord%length))
+        }
+        dassert(false, "unexpected spread value " + spread)
+    }
+    else if (coord >= length) {
+        if (spread === "pad")
+            return length - 1
+        if (spread === "repeat")
+            return coord%length
+        if (spread === "reflect")
+            return ((coord%(length*2)) < length)?(coord%length):(length-(coord%length) - 1)
+        dassert(false, "unexpected spread value " + spread)
+    }
+    return coord
+}
+
+

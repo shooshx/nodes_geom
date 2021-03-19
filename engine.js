@@ -824,6 +824,7 @@ const nodes_classes = [
         NodeImageProc,
         NodeGradient,
         NodePixelsToVertices,
+        NodeSampleColor
     ]},
     { group_name: "Distance Field", nodes: [
         NodeDFPrimitive,

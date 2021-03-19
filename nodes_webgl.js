@@ -28,10 +28,11 @@ function draw_rect(top_left, bottom_right, m, tmat, line_color)
 class ImageBase extends PObject
 {
     static name() { return "Image" }
-    constructor(sz_x, sz_y, smooth) {
+    constructor(sz_x, sz_y, smooth, spread) {
         super()
         this.t_mat = mat3.create() 
         this.smooth = smooth
+        this.spread = spread // "pad", "reflect", "repeat"
         this.sz_x = sz_x // logical size in world coords
         this.sz_y = sz_y
 
@@ -78,6 +79,11 @@ class ImageBase extends PObject
         return new BBox(mn[0], mn[1], mx[0], mx[1])
     }
 
+    // return "pad", "repeat" or "reflect"
+    get_spread() { 
+        return this.spread
+    }
+
     draw_border(m, line_color="#000") {
         draw_rect(this.top_left, this.bottom_right, m, this.t_mat, line_color)
     } 
@@ -85,14 +91,21 @@ class ImageBase extends PObject
     draw_template(m) {
         this.draw_border(m, TEMPLATE_LINE_COLOR)
     }
+
+    // image interface
+    width() { dassert(false, "width not implemented") }
+    height() { dassert(false, "height not implemented") }
+    get_pixels() { dassert(false, "get_pixels not implemented") }
+    
+    
 }
 
 // frame buffer is a texture that covers the canvas and only the canvas
 class FrameBuffer extends ImageBase
 {
     static name() { return "FrameBuffer" }
-    constructor(tex_obj, sz_x, sz_y, smooth, type) {
-        super(sz_x, sz_y, smooth)
+    constructor(tex_obj, sz_x, sz_y, smooth, type, spread) {
+        super(sz_x, sz_y, smooth, spread)
         this.tex_obj = tex_obj
         this.pixels = null
         this.imgBitmap = null
@@ -178,12 +191,11 @@ class FrameBuffer extends ImageBase
 class FrameBufferFactory extends ImageBase
 {
     static name() { return "FrameBufferParams" }
-    constructor(resolution_x, resolution_y, sz_x, sz_y, smooth, edge, type) {
-        super(sz_x, sz_y, smooth)
+    constructor(resolution_x, resolution_y, sz_x, sz_y, smooth, spread, type) {
+        super(sz_x, sz_y, smooth, spread)
         this.t_mat = mat3.create() 
         this.resolution_x = resolution_x
         this.resolution_y = resolution_y
-        this.edge = edge  // str (pad, reflect, repeat)
         this.type = type  // str (rgba, float)
     }
 
@@ -211,9 +223,9 @@ class FrameBufferFactory extends ImageBase
         tex.width = this.resolution_x
         tex.height = this.resolution_y
         
-        setTexParams(this.smooth, this.edge, this.edge)
+        setTexParams(this.smooth, this.spread, this.spread)
 
-        const fb = new FrameBuffer(tex, this.sz_x, this.sz_y, this.smooth, this.type)
+        const fb = new FrameBuffer(tex, this.sz_x, this.sz_y, this.smooth, this.type, this.spread)
         fb.transform(this.t_mat)
         gl.bindTexture(gl.TEXTURE_2D, null);
         return fb
