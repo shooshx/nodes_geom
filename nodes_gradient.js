@@ -332,13 +332,15 @@ class GradientPixelsAdapter {
         }
 
         dassert(for_obj !== null && for_obj.get_bbox !== undefined, "Expected object with bounding box")
-        
+
         this.bbox = for_obj.get_bbox() // in abstract coords
         this.w_width = this.bbox.width()   
         this.w_height = this.bbox.height()
 
         if (!is_fb) { // either size is coming from the texture destination or we're drawing on the viewport so the size is coming from the viewport
-            this.px_width = Math.round(this.w_width * image_view.viewport_zoom)  // TBD this is very problematic, if the viewport right now is somewhere else
+            // TBD this is very problematic, if the viewport right now is somewhere else
+            // If there is a SetAttr that is very small in the current viewport, this would cause it to have very low sampling resolution
+            this.px_width = Math.round(this.w_width * image_view.viewport_zoom)  
             this.px_height = Math.round(this.w_height * image_view.viewport_zoom)
             this.draw_scale = [image_view.viewport_zoom, image_view.viewport_zoom]
             this.dest_tmat = null

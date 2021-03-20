@@ -131,6 +131,21 @@ class ScaleDial extends PointDial
     }
 }
 
+// input mesh for ImgInputSampler that represents a single point for the sampler
+// like GradientPixelsAdapter, this is also viewport dependent
+class SinglePointMeshDummy
+{
+    constructor(x, y) {
+        this.x = x
+        this.y = y
+        const h = 1.5/image_view.viewport_zoom
+        // goal is to have it 3x3 pixels big in viewport coordinates
+        this.bbox = new BBox(this.x - h, this.y - h, this.x + h, this.y + h)
+    }
+    get_bbox() {
+        return this.bbox
+    }
+}
 
 // extract the color of a single pixel in the given coordinates of the input image or gradient into a variable
 class NodeSampleColor extends NodeVarCls
@@ -149,14 +164,14 @@ class NodeSampleColor extends NodeVarCls
 
     async run() {
         const src_samp = new ImgInputSampler(this.in_source, this)
+        const p = this.pos.get_value()
         try {
-            await src_samp.prepare(null)
+            await src_samp.prepare(new SinglePointMeshDummy(p[0], p[1]))
         } catch(e) {
             // happens with non sampler gradient. Problem - scale is viewport dependent?
             assert(false, this, e.message)
         }
         src_samp.do_get_pixels()
-        const p = this.pos.get_value()
         const value = src_samp.sample_at_v(p)
         
         this.out_single_var(this.name.get_value(), TYPE_VEC4, value)
@@ -227,7 +242,6 @@ class ImgInputSampler
         const spread = this.src.get_spread()
         const inrx = rx
         rx = handle_spread(spread, rx, this.width_)
-        console.log("rx=", inrx, "->",rx)
         ry = handle_spread(spread, ry, this.height_)
         //if (rx < 0 || ry < 0 || rx >= this.width_ || ry >= this.height_) {
         //    return vec4.fromValues(0,0,0,0)
