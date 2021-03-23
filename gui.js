@@ -109,6 +109,9 @@ class ViewBase
 
     nodes_inputevent(name, e) {
     }
+    check_rect_select() {
+        return false
+    }
 
     reset_view() {
         this.pan_x = 0
@@ -167,22 +170,28 @@ class ImageView extends ViewBase
         this.pan_redraw()
     }
     click(x, y) {
-        if (selected_node !== null)
-            selected_node.cls.image_click(x, y)
+        for(let sn of selected_nodes)
+            sn.cls.image_click(x, y)
     }
     find_obj(e) {
-        if (selected_node !== null) {
-            const hit = selected_node.cls.image_find_obj(e)
+        for(let sn of selected_nodes) {
+            const hit = sn.cls.image_find_obj(e)
             if (hit !== null)
                 return hit
         }
         return image_shadow_find_obj(e)
     }
+    // check if any of the currently selected node supports multiple selection in the image view
     check_rect_select() {
-        return selected_node !== null && selected_node.cls.rect_select !== undefined
+        for(let sn of selected_nodes)
+            if (sn.cls.rect_select !== undefined)
+                return true
+        return false
     }
     rect_select(min_x, min_y, max_x, max_y) {
-        selected_node.cls.rect_select(min_x, min_y, max_x, max_y)
+        for(let sn of selected_nodes)
+            if (sn.cls.rect_select !== undefined)
+                sn.cls.rect_select(min_x, min_y, max_x, max_y)
     }
     epnt_to_model(ex, ey) { // takes coord from mouse event
         let ti = vec2.create()
@@ -190,16 +199,25 @@ class ImageView extends ViewBase
         return ti
     }
     unselect_all() {
-        if (selected_node !== null)
-            return selected_node.cls.clear_selection()        
+        for(let sn of selected_nodes)
+            if (sn.cls.clear_selection !== undefined)
+                sn.cls.clear_selection()        
     }
 
     context_menu(e) {
         let opt = []
-        if (selected_node !== null) {
-            let sel_obj_name = selected_node.cls.selected_obj_name()
-            if (sel_obj_name !== null)
-                opt.push({text:"Delete " + sel_obj_name, func:function() { selected_node.cls.delete_selection()} })
+        let obj_names = []
+        for(let sn of selected_nodes)
+            if (sn.cls.selected_obj_name !== undefined) {
+                const name = sn.cls.selected_obj_name()
+                if (name)
+                    obj_names.push(name)
+            }
+        if (obj_names.length > 0) {
+            opt.push({text:"Delete " + obj_names.join(", "), func:function() { 
+                for(let sn of selected_nodes)
+                    sn.cls.delete_selection()} 
+            })
         }
         opt.push({text:"Reset view", func:function() { image_view.reset_view() }})
         

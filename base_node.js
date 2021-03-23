@@ -1,6 +1,12 @@
 "use strict"
 
-var selected_node = null
+var selected_nodes = []
+function add_selected_node(n) {
+    selected_nodes.push(n)
+}
+function remove_selected_node(n) {
+    arr_remove_is(selected_nodes, n)
+}
 
 
 const TERM_RADIUS = 8
@@ -800,6 +806,7 @@ class StateAccess {
 class Node {    
     constructor(x, y, name, cls, id) {
         this.rename_observers = []
+        this.is_selected_inf = null // if this node is selected, this contains a object with stuff { elem: , popups_dismiss: }. 
 
         this.x = x
         this.y = y
@@ -836,7 +843,7 @@ class Node {
         // this member is managed by the engine in its scan for dirty subtrees. should not be set by the node itself        
         this._node_dirty = true 
         // indication for the engine traversal of this node.
-          this._last_visited_fv = 0 // frame_ver
+        this._last_visited_fv = 0 // frame_ver
         // should be set by the node if anything happened that dirtied itss state (that is not a parameter)
         // used for viewport dependent nodes when viewport changes (not actaully used right now)
         this.self_dirty = false
@@ -928,7 +935,7 @@ class Node {
         ctx_nodes.stroke() 
 
         // selection border
-        if (selected_node === this) {
+        if (this.is_selected_inf !== null) {
             ctx_nodes.beginPath();            
             ctx_nodes.lineWidth = 1.5
             ctx_nodes.strokeStyle = "#FFEE00"
@@ -1009,12 +1016,25 @@ class Node {
     }
     
     select() {
-        if (selected_node === this) 
+        if (this.is_selected_inf !== null) 
             return // already selected
-        selected_node = this
-        draw_nodes() // need to paint the previous selected one
+        add_selected_node(this)
+        this.is_selected_inf = {} // be filled in show_params_of
+        draw_nodes() // need to paint the previous selected one        
         show_params_of(this)
         trigger_frame_draw(false) // if there was image display of the selected node, remove/update it (selected point)
+    }
+    unselect(redraw = true) {
+        if (this.is_selected_inf === null)
+            return
+        remove_selected_node(this)
+        remove_param_of(this)
+
+        this.is_selected_inf = null
+        if (redraw) {
+            draw_nodes()
+            trigger_frame_draw(false)
+        }
     }
     
     set_name(name) {
@@ -1053,8 +1073,14 @@ class Node {
     mouseup() {
     }
     
-    mousedown() {
-        this.select()
+    mousedown(ev) {
+        if (!ev.ctrlKey) {
+            nodes_unselect_all(false, false) // update will happen next
+        }
+        if (this.is_selected_inf === null)
+            this.select()
+        else
+            this.unselect()
     }
 
     has_cached_output() {
@@ -1199,14 +1225,14 @@ class NodeCls {
 
 }
 
-
 function nodes_unselect_all(redraw=true, trig_frame=true) {
-    if (selected_node == null)
+    if (selected_nodes.length === 0)
         return
-    selected_node = null
+    let lst_copy = [...selected_nodes] // going to modify it while iterating
+    for(let sn of lst_copy)
+        sn.unselect(false)
     if (redraw)
         draw_nodes()
-    show_params_of(null)
     if (trig_frame)
         trigger_frame_draw(false) // if there was something selected, undisplay it's selection in the image
 }

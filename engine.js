@@ -72,13 +72,41 @@ function _resize_nodes_panel(w, h) {
     draw_nodes()              
 }
 
+var main_view = null
 var hover_box = null
+var image_panel = null
+var canvas_image = null, canvas_webgl = null, canvas_img_shadow = null
+var image_splitter = null
+var edit_panel = null
+var edit_params = null
+var div_params_list = null // recreated when readding params
+var div_display_params = null // for disp_params
+var edit_splitter = null
+var edit_nodes = null
+var canvas_nodes = null, canvas_nd_shadow = null
+
 function create_global_elems() {
-    hover_box = add_div(main_view, "hover_box")
+    main_view = add_div_id(body, null, "main_view")
+      hover_box = add_div(main_view, "hover_box")
+      image_panel = add_div_id(main_view, null, "image_panel")
+        canvas_image = add_elem_id(image_panel, "canvas", null, "canvas_image")
+        canvas_webgl = add_elem(image_panel, "canvas", null, "canvas_webgl")
+        canvas_img_shadow = add_elem(image_panel, "canvas", null, "canvas_img_shadow")
+      image_splitter = add_div_id(main_view, "splitter", "image_splitter")
+      edit_panel = add_div_id(main_view, null, "edit_panel")
+        edit_params = add_div_id(edit_panel, null, "edit_params")
+          div_params_list = add_div_id(edit_params, null, "div_params_list")
+          div_display_params = add_div_id(edit_params, null, "div_display_params")
+        edit_splitter = add_div_id(edit_panel, "splitter", "edit_splitter")
+        edit_nodes = add_div(edit_panel)
+          canvas_nodes = add_elem(edit_nodes, 'canvas')
+    canvas_nd_shadow = add_elem(body, 'canvas', null, "canvas_nd_shadow")
+
 }
 
 function page_onload()
 {
+    create_global_elems()
     set_loading(true)
     preload_images()
     nodes_view = new NodesView(canvas_nodes)
@@ -89,7 +117,6 @@ function page_onload()
     ctx_img_shadow = canvas_img_shadow.getContext('2d')
     paper.project = new paper.Project(null)
 
-    create_global_elems()
     
     clear_program()
     try {
@@ -187,8 +214,8 @@ class Program {
     
     delete_node(node, redraw)
     {
-        if (selected_node == node)
-            nodes_unselect_all(false)
+        if (node.is_selected_inf !== null)
+            node.unselect()
         if (this.display_node == node) 
             program.set_display_node(null)
         if (node.disp_template)
@@ -646,8 +673,8 @@ async function do_frame_draw(do_run, clear_all)
     }
     for(let tn of program.tdisp_nodes) 
         run_root_nodes.add(tn)
-    if (selected_node !== null) 
-        run_root_nodes.add(selected_node)
+    if (selected_nodes.length > 0)
+        run_root_nodes.add(...selected_nodes)
         
     if (run_root_nodes.length == 0)
         return
@@ -711,11 +738,13 @@ async function do_frame_draw(do_run, clear_all)
                 set_error(program.display_node.cls, e.message)                    
         }
     }
-    if (selected_node !== null) {
-        try {
-            selected_node.cls.draw_selection(image_view.t_viewport)
-        } catch(e) {
-            set_error(selected_node.cls, e.message)
+    if (selected_nodes.length > 0) {
+        for(let sn of selected_nodes) {
+            try {
+                sn.cls.draw_selection(image_view.t_viewport)
+            } catch(e) {
+                set_error(sn.cls, e.message)
+            }
         }
     }
     // template displays

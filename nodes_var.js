@@ -302,8 +302,8 @@ class NodeVariable extends NodeVarCls
             }
         }
 
-        if (is_nodes_param_shown(this.node))
-            show_params_of(this.node) // refresh display labels
+        if (this.node.is_selected_inf !== null)
+            reshow_params_of(this.node) // refresh display labels
     }
     post_load_hook() {
         if (this.brief.v)

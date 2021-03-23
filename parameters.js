@@ -164,40 +164,77 @@ function clear_elem(e) {
     return cNode    
 }
 
-// list of callbacks that want to get a call
-// in the current "add_elems"
-let g_params_popups = [] 
-let g_last_show_params_of_node = null
-function show_params_of(node) {
-    g_last_show_params_of_node = node
-    // clear children
-    param_dismiss_popups() // we there just happen to be anything left, dismiss it before we forget it
-    g_params_popups.length = 0
-    let div_params_list = clear_elem_byid('div_params_list')
-    if (node === null)
-        return
-    
+
+function show_params_of(node, with_elem=null) 
+{
+    param_dismiss_popups()
+
+    const node_params_elem = (with_elem !== null) ? with_elem : add_div(div_params_list, "params_node")
+
+    const title = add_div(node_params_elem, "param_title")
+    const title_cls = add_elem(title, "span", "param_title_cls")
+    title_cls.innerText = node.cls.constructor.name() 
+    const title_name = add_elem(title, "span", "param_title_name")
+    title_name.innerText += " : " + node.name
+    const rename_func = (s)=>{ title_name.innerText = " : " + s }
+    node.register_rename_observer(rename_func)
+
+    const dismiss_list = new PopupsDismissList()
+    node.is_selected_inf.popups_dismiss = dismiss_list // needs to be there before calling add_elems since add_elems does the registering
+    node.is_selected_inf.param_elem = node_params_elem
+    node.is_selected_inf.rename_func = rename_func
+    g_params_popups.push(dismiss_list)
+
     for(let p of node.parameters) {
         if (p.group_param !== null)
             continue // the group will call add_elems
-        p.add_elems(div_params_list)
+        p.add_elems(node_params_elem)
         p.init_enable_visible()
     }
     fix_label_lengths(node.parameters)
 }
 
-// for call_change that need to do something with the UI (variables brief)
-function is_nodes_param_shown(node) {
-    return (g_last_show_params_of_node === node)
+function remove_param_of(node)
+{
+    node.is_selected_inf.param_elem.parentElement.removeChild(node.is_selected_inf.param_elem)
+    param_dismiss_popups()
+    arr_remove_is(g_params_popups, node.is_selected_inf.popups_dismiss)
+    node.remove_rename_observer(node.is_selected_inf.rename_func)
 }
 
+function reshow_params_of(node)
+{
+    // add a new elem instead of the existing one so that show_param_of won't add it at the end
+    const e = node.is_selected_inf.param_elem
+    const new_elem = create_div("params_node")
+    e.parentNode.insertBefore(new_elem, e.nextSibling);
+
+    remove_param_of(node)
+    show_params_of(node, new_elem)
+}
+
+
+class PopupsDismissList {
+    constructor() {
+        this.lst = [] // list of functions
+    }
+    dismiss_list() {
+        for(let callback of this.lst)
+            callback()
+    }
+}
+let g_params_popups = [] // list of PopupsDismissList of the selected nodes
 
 function param_dismiss_popups() {
-    for(let callback of g_params_popups)
-        callback()
+    for(let plst of g_params_popups)
+        plst.dismiss_list()
+    
 }
-function param_reg_for_dismiss(callback) {
-    g_params_popups.push(callback)
+
+// call this only after the thing to dismiss is displayed
+function param_reg_for_dismiss(node, callback) {
+    dassert(node !== null && node.is_selected_inf !== null && node.is_selected_inf.popups_dismiss !== null, "Unexpected null registering popup dismiss")
+    node.is_selected_inf.popups_dismiss.lst.push(callback)
 }
 
 // this is used to identify when the param-set is changed so it needs to be re-displayed
@@ -217,15 +254,15 @@ function show_display_params(obj, disp_node) {
     if (disp_node && obj)
         params = obj.get_disp_params(disp_node.display_values) // sets defaults if needed
     // params can have nulls or objects that don't have disp_params
-    if (obj === null || params === null || disp_node === null || disp_node !== selected_node) {
-        clear_elem_byid('div_display_params')
+    if (obj === null || params === null || disp_node === null || disp_node.is_selected_inf === null) {
+        div_display_params = clear_elem(div_display_params)
         g_prev_disp_node = null
         return
     }
     const labels_key = get_param_list_labels_key(params)
     if (disp_node === g_prev_disp_node && labels_key === g_prev_param_labels_key)
         return // same thing as before, don't need to recreate it. This is needed so that the scale ParamFloat there would be recreated while it is edited
-    const div_display_params = clear_elem_byid('div_display_params')
+    div_display_params = clear_elem(div_display_params)
     for(let p of params) {
         if (p !== null && p.add_elems) // the params of a group is an aggregate of it's members, it's not going to have that. FrameBuffer has null disp_params
             p.add_elems(div_display_params)
@@ -236,7 +273,7 @@ function show_display_params(obj, disp_node) {
 
 function create_elem(elem_type, cls) {
     let e = document.createElement(elem_type);
-    if (cls !== undefined) {
+    if (cls !== undefined && cls !== null) {
         if (!Array.isArray(cls))
             cls = [cls]
         e.classList = cls.join(" ")
@@ -248,6 +285,12 @@ function add_elem(parent, elem_type, cls) {
     parent.appendChild(e)
     return e
 }
+function add_elem_id(parent, elem_type, cls, id) {
+    let e = create_elem(elem_type, cls)
+    parent.appendChild(e)
+    e.setAttribute("id", id)
+    return e
+}
 function create_div(cls) {
     return create_elem('div', cls)
 }
@@ -255,6 +298,12 @@ function create_div(cls) {
 function add_div(parent, cls) {
     let e = create_div(cls)
     parent.appendChild(e)
+    return e
+}
+function add_div_id(parent, cls, id) {
+    let e = create_div(cls)
+    parent.appendChild(e)
+    e.setAttribute("id", id)
     return e
 }
 function add_div_text(parent, cls, text) {
@@ -633,7 +682,7 @@ class ParamBool extends Parameter {
     }
 
     make_checkbox_ctx_menu() {
-        this.ctx_menu = new CustomContextMenu() // for checkbox elem
+        this.ctx_menu = new CustomContextMenu(this.owner) // for checkbox elem
         const add_expr_checkbox = (parent, dismiss_func)=>{
             const ec_line = add_div(parent, 'prm_ctx_bexpr_line')
             let [ein,etext,edisp] = add_param_checkbox(ec_line, "Expression", this.opt.expr_visible, (v)=>{ 
@@ -775,9 +824,10 @@ function slider_conf_equal(a, b) {
 
 class CustomContextMenu  // custom since it has it's own adders
 {
-    constructor() {
+    constructor(node) {
         this.ctx_menu_elem = null // when the context menu is visible, otherwise null
         this.ctx_menu_adders = [] // list of add_elem(parent) function to populate the context menu
+        this.owner_node = node
     }
     add_to_context_menu(add_elems_func) {
         this.ctx_menu_adders.push(add_elems_func)
@@ -798,14 +848,16 @@ class CustomContextMenu  // custom since it has it's own adders
         }
         myAddEventListener(line, "contextmenu", (e)=>{
             this.ctx_menu_elem = open_context_menu([{cmake_elems: call_adders}], e.pageX, e.pageY, main_view, ()=>{ dismiss_menu() } )
+            param_reg_for_dismiss(this.owner_node, ()=>{dismiss_menu()})          
             e.preventDefault()
         })
-        param_reg_for_dismiss(()=>{dismiss_menu()})          
+
     }
+
 }
 
 
-function element_context_menu(parent, opts) {
+function element_context_menu(node, parent, opts) {
     const menu = {ctx_menu_elem:null}
     const dismiss_menu = ()=>{
         if (menu.ctx_menu_elem) {
@@ -815,9 +867,9 @@ function element_context_menu(parent, opts) {
     }
     myAddEventListener(parent, "contextmenu", (e)=>{
         menu.ctx_menu_elem = open_context_menu(opts, e.pageX, e.pageY, main_view, ()=>{ dismiss_menu() } )
+        param_reg_for_dismiss(node, ()=>{dismiss_menu()})          
         e.preventDefault()
     })
-    param_reg_for_dismiss(()=>{dismiss_menu()})          
 }
 
 
@@ -850,7 +902,7 @@ class ExpressionItem {
         this.slider_conf = normalize_slider_conf(slider_conf)
         this.initial_slider_conf = clone(this.slider_conf)
         this.slider = null // object returned by add_param_slider (has funcs to control slider)
-        this.ctx_menu = new CustomContextMenu()
+        this.ctx_menu = new CustomContextMenu(in_param.owner)
         if (this.slider_conf.allowed) {
             this.add_slider_ctx_menu()
         }
@@ -1725,7 +1777,7 @@ class ParamColor extends CodeItemMixin(Parameter)
         this.picker = null
         this.picker_elem = null
         this.picker_v = clone(this.v)  // basically the same as v, as if there's no code so that the picker state would be saved
-        this.picker_ctx_menu = new CustomContextMenu()
+        this.picker_ctx_menu = new CustomContextMenu(this.owner)
         this.populate_code_ctx_menu(this.picker_ctx_menu)
 
         const code_expr = new ExpressionItem(this, "-unused-", ED_COLOR_EXPR, 
@@ -2583,6 +2635,7 @@ class ParamEditableValueList extends ListParam {
             }
             stop_propogation_on("mousedown", this.edit_wrap)
             text_elem.parentNode.insertBefore(this.edit_wrap, text_elem.nextSibling) // re-parent
+            param_reg_for_dismiss(this.owner, ()=>{ this.dismiss_edit_wrap() }) // needs to be here since the list is reset every add_elem
         })
         return text_elem
     }
@@ -2592,13 +2645,10 @@ class ParamEditableValueList extends ListParam {
         this.edit_wrap.parentNode.removeChild(this.edit_wrap);   
         this.edit_wrap = null
     }
-    reg_dismiss_edit_wrap() {
-        param_reg_for_dismiss(()=>{ this.dismiss_edit_wrap() }) // needs to be here since the list is reset every add_elem
-    }
+
 
     add_elems(parent) {
         super.add_elems(parent) 
-        this.reg_dismiss_edit_wrap()
     }
 }
 
@@ -2698,7 +2748,6 @@ class ParamTable extends Parameter {
             return
 
         this.make_table()
-        this.reg_dismiss_title_edit()
     }
 
     remake_table() {
@@ -2754,7 +2803,7 @@ class ParamTable extends Parameter {
 
         // context menu
         if (this.on_remove_column !== null) {
-            element_context_menu(e, [{text:"Remove Column", func:()=>{
+            element_context_menu(this.owner, e, [{text:"Remove Column", func:()=>{
                 this.on_remove_column(lst_prm)
             } }])
         }
@@ -2775,6 +2824,7 @@ class ParamTable extends Parameter {
             this.title_edit_wrap.style.width = e.getBoundingClientRect().width + "px"
             stop_propogation_on("mousedown", this.title_edit_wrap) // allow user to click the edit box to edit
             column.insertBefore(this.title_edit_wrap, e.nextSibling)
+            param_reg_for_dismiss(this.owner, ()=>{ this.dismiss_title_edit() })
         })
     }
     dismiss_title_edit() {
@@ -2783,9 +2833,7 @@ class ParamTable extends Parameter {
         this.title_edit_wrap.parentNode.removeChild(this.title_edit_wrap);   
         this.title_edit_wrap = null
     }
-    reg_dismiss_title_edit() {
-        param_reg_for_dismiss(()=>{ this.dismiss_title_edit() })
-    }
+
 }
 
 
@@ -3471,10 +3519,10 @@ class ParamMenuBtn extends Parameter
                 })
                 ++idx;
             }
+            param_reg_for_dismiss(this.owner, ()=>{dismiss_menu()})
         })
         // prevent two calls to dismiss when pressing the button
         btn.addEventListener("mousedown", (ev)=>{ ev.stopPropagation() })
-        param_reg_for_dismiss(()=>{dismiss_menu()})
     }
 }
 

@@ -1,7 +1,7 @@
 GUI:
 - parameter value change with drag and right button like in houdini
 - color picker with null?
-- select *nodes* with Ctrl, rectangle (display params of multiple nodes at once?)
+- select *nodes* rectangle 
 - icons nodes view
 - node show node name class if name doesn't include it
 - progress bar for long run, abort button
@@ -13,6 +13,7 @@ GUI:
 - global input indicator that can be quickly turned off
 - log slider (mandelbrot)
 - Display param control default vertex size
+
 
 ENGINE:
 - before running - do type checking to nodes in/out terminals
@@ -30,9 +31,10 @@ ENGINE:
     - also texture destructor
 - fix spurious runs on mousemove right after change (when async?)
 - Copy-Paste nodes
+- skip check-type on everything on load
+
 
 EXPRESSIONS
-- boolean comparisons operator ?: - better than if(,,) since false side is not evaluated
 - intellisense
 - ?? in any params view that can have expressions, add a custom user parameter that can be used with a slider
     - and added to the object that carries it
@@ -52,6 +54,7 @@ EXPRESSIONS
     -none value for function
 - Sample any param from any node ???
 
+
 ****** CURRENT AGENDA ******
 - Copy
     - with existing vtx_transform, face_transform
@@ -63,6 +66,12 @@ EXPRESSIONS
 - BUG: canvases overflowing from bottom
 - BUG: label space adjust doesn't work for ParamBool, also for bool sharing a line in variables node
 - maybe BUG: variables loose exact accuracy on repeated load-save?
+
+- !!! update variable - start value, update condition, update expressionssssss
+   - different node color variables in menu
+   - output info about variables
+   - variable for coord in geometry
+- 
 - Box2D
     - BUG: errors don't stop previous anim
     - sim button - current position to defs
@@ -81,11 +90,6 @@ EXPRESSIONS
     - setLinearDamping, setAngularDamping
     - test several worlds running at the same time
     - pen
-        render with webgl
-           - pen color normalize?
-        normal run variables - sample the transform
-        in 3D - lorenz attractor
-            https://softology.com.au/tutorials/attractors2d/tutorial.htm
         transform object in expression
             ?? things that depend on members that are not the matrix? other than physics
             multiply matrices
@@ -95,14 +99,12 @@ EXPRESSIONS
     - sampled time step on startip
     - planet gravity? b2GravityController, boyancy?
 
-    - merge node - disable using checkboxes for each input
     - spirograph example: https://laughingsquid.com/the-cycloid-drawing-machine-a-device-that-uses-wooden-gears-to-create-elaborate-beautiful-designs/
     - demo - bicycle doing a loop
     - demo - double pendulum
     - demo? Newton cradle
-- Nodes view multi select
 - Nodes view copy-paste
-- variable - define in a dialog? comment about each
+- variable - comment about each
 - Animation
     - engine - dirty controlled by selected input in pick_one
     - single step button - smaller panel
@@ -135,7 +137,7 @@ EXPRESSIONS
         Harmonograph
         https://leganerd.com/2016/03/09/cycloid-drawing-machine-lo-spirografo-dalle-possibilta-infinite/
         
-- Function of f(t) for creating geometry
+
 - time program
 - camera program
 - manual geom create quads mesh
@@ -192,7 +194,6 @@ NODES:
     - delete point from list control gui
     - ??? move them even after transform?
     - primitive quad, triangle, path - between the points? by selection?
-    - point size
     - BUG - yellow line doesn't follow the selected point
     - make several versions of the arrays in the same object and a node to select version - instead of a modify node
     - with code that adds triangles? combine code and clicks somehow?
@@ -222,7 +223,6 @@ NODES:
    - fill-from-node transform fill along with the shape 
       - need a shader to avoid many many renderings - need a separate node to render this
    - fill vertices circles?
-   - !!! line color, width
    - !!!!!!!! open a table with the actual values of the vertices / faces
    - line attributes color
         - line as gradient between vertices colors
@@ -265,6 +265,12 @@ NODES:
     Atari rolling gradient effect
     in stroke (line),
     - Coon patch (not supported in chrome) http://tavmjong.free.fr/SVG/MESH/Mesh.html
+- PenNode
+    render with webgl
+        - pen color normalize?
+    in 3D - lorenz attractor
+        https://softology.com.au/tutorials/attractors2d/tutorial.htm
+
 
 - 2d color function
     - time

@@ -161,6 +161,24 @@ input {
     margin-bottom: 1px;
 }
 
+.params_node {
+    margin-bottom: 7px;
+}
+
+.param_title {
+    padding: 4px 6px 4px 10px;
+    background: #433c15;
+    border-radius: 20px 20px 0 0;
+    margin: 2px 1px;
+    text-align: center;
+    color: #f6f689;
+}
+.param_title_cls {
+    font-weight: bold;
+}
+.param_title_name {
+}
+
 .param_line {
     display: flex;
     flex-grow: 1;  /* if it's part of a flex, grows in the param_multi_line */
@@ -776,7 +794,7 @@ input {
 }
 .panel_param_text_area {
     flex-grow: 1;
-    margin: 0 10px 0 5px;
+    margin: 0 5px 0 5px;
     border-radius: 3px;
     font-size: 15px;
     /*height: 120px;*/

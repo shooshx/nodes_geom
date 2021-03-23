@@ -155,7 +155,9 @@ class PointSelectHandle
     }
     mouseup() {}
     mousemove(dx,dy, ev) {
-        this.ofnode.move_selection(dx, dy)
+        // moving all of them together
+        for(let sn of selected_nodes)
+            sn.cls.move_selection(dx, dy)
     }
 }
 
@@ -413,8 +415,6 @@ class NodeManualGeom extends NodeCls
             const def_val = prm.get_def_val()
             for(let i = 0; i < this.points.count(); ++i)
                 prm.add(def_val)
-            if (prm.reg_dismiss_edit_wrap) // only if it's editable with edit boxes
-                prm.reg_dismiss_edit_wrap() // needed because if the param was just added, this param was not there when add_elem was not called                
         }
         //this[var_name] = prm
         this.pnt_attrs.push(prm)

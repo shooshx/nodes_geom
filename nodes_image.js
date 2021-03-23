@@ -184,6 +184,7 @@ class NodeSampleColor extends NodeVarCls
     image_find_obj(e) {
         if (!this.pos.show_code)
             return this.pos.dial.find_obj(e)
+        return null
     }
 }
 
