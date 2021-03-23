@@ -1516,7 +1516,7 @@ class ObjInfDlg
         this.max_line_width = Math.max(this.max_line_width, label_e.offsetWidth)
         this.added_labels.push(label_e)
         const val = add_div(line, multi_line ? "obj_inf_value_multi":"obj_inf_value")
-        return val
+        return {value_elem: val, line: line}
     }
     adjust_labels() {
         const width = this.max_line_width + 10 + "px"

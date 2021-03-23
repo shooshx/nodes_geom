@@ -1005,6 +1005,7 @@ input {
 }
 .obj_inf_label {
     display: inline-block;
+    flex-grow: 1;
 }
 .obj_inf_value {
     display: inline-block;
@@ -1019,6 +1020,24 @@ input {
 .obj_inf_prop_list {
     font-family: monospace;
     font-size: 16px;
+}
+.obj_inf_line_flex {
+    display: flex;
+}
+.obj_inf_var_value {
+    display: inline-block;
+    flex-grow: 1;
+    margin: 0 10px 0 10px;
+}
+.obj_inf_var_matrix {
+    font-family: monospace;
+    font-size: 15px;
+    white-space: pre;
+}
+.obj_inf_var_type {
+    display: inline-block;
+    flex-grow: 1;
+    text-align: right;
 }
 
 .editor_error_marker {

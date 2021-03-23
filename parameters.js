@@ -2047,7 +2047,7 @@ class ParamTransform extends CodeItemMixin(Parameter) {
         this.calc_mat()
     }
     add_elems(parent) { 
-        this.line_elem = add_param_multiline(parent)
+        this.line_elem = add_param_multiline(parent, this)
         this.single_line = add_param_multiline(this.line_elem)
         elem_set_visible(this.single_line, !this.show_code)
 

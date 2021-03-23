@@ -876,11 +876,11 @@ class Mesh extends PObject
     describe(parent, dlg) {
 
         if (dlg.recreate_if_needed(this)) {
-            dlg.eobj.vtxnum = dlg.add_line("Vertex Count: ")
-            dlg.eobj.type = dlg.add_line("Type: ")
-            dlg.eobj.facenum = dlg.add_line("Face Count: ")
-            dlg.eobj.props = dlg.add_line("Properties:", true)
-            dlg.eobj.props.classList.add("obj_inf_prop_list")
+            dlg.eobj.vtxnum = dlg.add_line("Vertex Count: ").value_elem
+            dlg.eobj.type = dlg.add_line("Type: ").value_elem
+            dlg.eobj.facenum = dlg.add_line("Face Count: ").value_elem
+            dlg.eobj.props = dlg.add_line("Properties:", true).value_elem
+            dlg.eobj.props.classList.add("obj_inf_prop_list").value_elem
             dlg.adjust_labels()
 
         }

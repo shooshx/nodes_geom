@@ -170,7 +170,58 @@ class VariablesBox extends PObject
     draw() {}
     draw_selection() {}
     draw_template() {}
+
+    describe(parent, dlg) {
+        dlg.clear_desc()
+        for(let name in this.vb) {
+            const vb = this.vb[name]
+            const v = vb.v
+            const r = dlg.add_line(name)
+            r.line.classList.add("obj_inf_line_flex")
+            r.value_elem.classList.add("obj_inf_var_value")
+            let text, s = []
+
+            switch(vb.type) {
+            case TYPE_NUM: text = toFixedMag(v); break;
+            case TYPE_VEC2: case TYPE_VEC3:
+            case TYPE_VEC4: 
+                for(let i = 0; i < v.length; ++i)
+                    s.push(toFixedMag(v[i]))
+                text = s.join(", ")
+                break
+            case TYPE_BOOL: text = vv ? "true" : "false"; break;
+            case TYPE_MAT3: 
+                text = format_matrix(v)
+                r.value_elem.classList.add("obj_inf_var_matrix")
+                break;
+            default: text = vb.v
+            }
+
+            r.value_elem.innerText = text
+            const type_elem = add_elem(r.line, "span", "obj_inf_var_type")
+            type_elem.innerText = typename(vb.type)
+        }
+    }
     
+}
+
+function format_matrix(v) {
+    const s = []
+    for(let i = 0; i < 9; ++i)
+        s[i] = toFixedMag(v[i])
+    const colw = [Math.max(s[0].length, s[1].length, s[2].length), 
+                  Math.max(s[3].length, s[4].length, s[5].length),
+                  Math.max(s[6].length, s[7].length, s[8].length)]
+
+    let text = ""
+    for(let i = 0; i < 3; ++i) {
+        for(let j = 0; j < 3; ++j) {
+            const idx = i+3*j
+            text += s[idx] + " ".repeat(colw[j] - s[idx].length + 2)
+        }
+        text += "\n"
+    }
+    return text
 }
 
 // added into expression
@@ -389,7 +440,7 @@ class NodeVariable extends NodeVarCls
         p.sep = new ParamSeparator(node, prefix + "sep", "param_sep_line")
 
         // for easy removal
-        p.params = [p.p_group, p.type, p.remove_btn, p.up_btn, p.down_btn, p.name, p.expr_float, p.expr_int, p.expr_vec2, p.expr_color, p.expr_vec2_mouse, p.expr_bool, p.mouseState, p.sep]
+        p.params = [p.p_group, p.type, p.remove_btn, p.up_btn, p.down_btn, p.name, p.expr_float, p.expr_int, p.expr_vec2, p.expr_color, p.expr_vec2_mouse, p.expr_bool, p.expr_trans, p.mouseState, p.sep]
         for(let pp of p.params) {
             if (pp === p.p_group)
                 continue // don't want to set the group to the group of this var
