@@ -102,7 +102,7 @@ nodes:
         sorted_order: [0, 1]
     name: pick_one_2
     cls_name: Pick One
-    x: -33.41041322314053
+    x: -34.74141322314053
     y: 713.5125619834708
     disp_param: {}
   '14':
@@ -706,15 +706,6 @@ nodes:
         v: true
       Brief View:
         v: true
-      p1_Transform:
-        e_tx: 0
-        e_ty: 0
-        e_r: 0
-        e_pvx: 0
-        e_pvy: 0
-        e_sx: 1
-        e_sy: 1
-        se_cv: return mat3()
       p1_Type:
         sel_str: Float
       p1_Name:
@@ -739,6 +730,15 @@ nodes:
       p1_Bool:
         v: false
         e_v: 0
+      p1_Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
       p1_Sample At:
         sel_str: Mouse left down
       p8_Type:
@@ -1284,55 +1284,12 @@ nodes:
     x: 594.6460000000002
     y: 404.93200000000076
     disp_param: {}
-  '77':
-    params:
-      File Upload:
-        rurl: img/test_img1.png
-      size:
-        e_x: 0.8240000000000001
-        e_y: 1.812
-        se_cv: 'return vec2(2, 2)'
-      Smooth Scaling:
-        v: true
-        e_v: 1
-      Transform:
-        e_tx: 1.595
-        se_ty: '-1.462'
-        e_r: 0
-        e_pvx: 0
-        e_pvy: 0
-        e_sx: 1
-        e_sy: 1
-        se_cv: return mat3()
-      Texture Edge:
-        sel_str: Pad
-    name: load_image_1
-    cls_name: Load Image
-    x: 925.0420999999988
-    y: 169.65149999999994
-    disp_param: {}
-  '79':
-    params:
-      transform:
-        se_tx: '-0.342'
-        se_ty: '-0.178'
-        e_r: 0
-        e_pvx: 0
-        e_pvy: 0
-        e_sx: 1
-        e_sy: 1
-        se_cv: return mat3()
-    name: transform_1
-    cls_name: Transform
-    x: 979.6399999999998
-    y: 267.9740000000007
-    disp_param: {}
   '86':
     params:
       <obj-store>:
         v:
           gen_id: 13
-          ids_lst: [12]
+          ids_lst: []
       Steps:
         e_v: 1
         se_cv: return 1
@@ -1348,29 +1305,13 @@ nodes:
       Min Distance:
         e_v: 0.05000000000000001
         se_cv: return 0.05
-      p12_Type:
-        sel_str: Float
-      p12_Name:
-        v: vtx_prop
-      p12_Float:
-        e_v: 1
-        show_code: true
-        se_cv: return 1
-      p12_Float2:
-        e_x: 0
-        e_y: 0
-        show_code: true
-        se_cv: 'return vec2(0, 0)'
-      p12_Color:
-        hex: '#CCCCCC'
-        show_code: true
-        se_cv: 'return rgb(204, 204, 204)'
     name: pen_1
     cls_name: Pen
-    x: 1068.890567504891
-    y: 732.7800000000027
+    x: 1055.5805675048919
+    y: 674.216000000002
     disp_param:
-      show_vtx: true
+      show_vtx: false
+      show_lines: true
   '88':
     params:
       col_store:
@@ -1404,62 +1345,6 @@ nodes:
     cls_name: Pick One
     x: 749.7652974853513
     y: 683.0974324951167
-    disp_param:
-      show_vtx: false
-      show_lines: true
-  '100':
-    params:
-      col_store:
-        v: [{label: vtx_color, ctor: ParamColorList}]
-      Type:
-        sel_str: Paths
-      Add points:
-        v: false
-      vtx_pos:
-        lst: []
-      path_ranges:
-        ranges: []
-      vtx_color:
-        lst: []
-    name: manual_geometry_4
-    cls_name: Manual Geometry
-    x: 1144.3222974853493
-    y: 352.1250000000003
-    disp_param:
-      show_vtx: true
-      show_vtx_normal: true
-      scale_vtx_normal: 1
-      show_lines: true
-      show_ctrls: true
-      show_ctrls_pnts: true
-  '105':
-    params:
-      <obj-store>:
-        v:
-          gen_id: 1
-          ids_lst: []
-      Steps:
-        e_v: 300
-        se_cv: return 1
-      Enable:
-        v: true
-        expr_visible: true
-        e_v: true
-      Position:
-        e_x: 0
-        e_y: 0
-        show_code: true
-        se_cv: |-
-          x = sin(index*0.02)
-          y = cos(index*0.05)
-          return vec2(x, y)
-      Min Distance:
-        e_v: 0.010000000000000002
-        se_cv: return 0.05
-    name: pen_2
-    cls_name: Pen
-    x: 1166.1808649902348
-    y: 477.31378375244134
     disp_param:
       show_vtx: true
       show_lines: true
@@ -1634,36 +1519,40 @@ lines:
     to_name: vars_in
     to_id: 88
     uid: 98
-  - from_name: out_mesh
-    from_id: 100
-    to_name: in_obj
-    to_id: 105
-    uid: 106
-next_node_id: 107
+next_node_id: 165
 names_idx_s:
   Physics Merge: 2
   Physics Body: 10
   Physics Joint: 8
-  Pick One: 3
+  Pick One: 4
   Physics Simulator: 1
-  Variable: 5
+  Variable: 8
   Change Filter: 1
   Function Fill: 1
   Extract Transform: 1
-  Load Image: 1
+  Load Image: 2
   Transform: 1
-  Pen: 2
-  Manual Geometry: 4
-  Geom Primitive: 1
-display_node_id: 105
-tdisp_node_ids: []
+  Pen: 3
+  Manual Geometry: 7
+  Geom Primitive: 3
+  Point Gradient Fill: 1
+  Create Pixel-Buffer: 1
+  Const Attribute: 5
+  Divide: 2
+  Gradient: 1
+  Set Attribute: 2
+  Group Objects: 1
+  Sample Color: 1
+display_node_id: 86
+tdisp_node_ids:
+  - 12
 input_node_ids: []
 glob_var_node_ids:
   - 69
 nodes_view:
-  pan_x: -851
-  pan_y: -238
-  zoom: 0.7513148009015774
+  pan_x: -516
+  pan_y: -281
+  zoom: 0.7513148009015773
 decor:
   - x: 534.259567504883
     y: 500.51000000000016

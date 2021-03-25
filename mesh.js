@@ -873,6 +873,13 @@ class Mesh extends PObject
         //this.arrs.idx.push( (this.arrs.vtx_pos.length - 2) / 2 )
     }
 
+    get_last_vertex() {
+        const vtx = this.arrs.vtx_pos
+        if (vtx === null || vtx.length < 2)
+            return null
+        return [vtx[vtx.length-2], vtx[vtx.length-1]]
+    }
+
     describe(parent, dlg) {
 
         if (dlg.recreate_if_needed(this)) {

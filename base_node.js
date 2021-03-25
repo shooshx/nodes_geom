@@ -1511,7 +1511,7 @@ class ObjInfDlg
 
     add_line(label, multi_line=false) {
         const line = add_div(obj_inf_dlg.desc_elem, "obj_inf_line")
-        const label_e = add_elem(line, 'span', 'obj_inf_label')
+        const label_e = add_span(line, 'obj_inf_label')
         label_e.innerText = label
         this.max_line_width = Math.max(this.max_line_width, label_e.offsetWidth)
         this.added_labels.push(label_e)
@@ -1608,13 +1608,16 @@ function nodes_context_menu(e) {
     }
     else if (opt === null) {
         opt = [{text:"Clear", func:ask_clear_program }, {text:"-"}]
+        const add_node = function(into, cn) { 
+            into.push( {text: cn.name(), func:function() { program.add_node(e.vx, e.vy, null, cn); draw_nodes() }, cls: (cn.prototype instanceof NodeVarCls) ? "ctx_menu_opt_var" : undefined  } ) 
+        }
         for(let c of nodes_classes) {
             if (c.group_name === undefined)
-                opt.push( {text: c.name(), func:function() { program.add_node(e.vx, e.vy, null, c); draw_nodes() } } )
+                add_node(opt, c)
             else {
                 const nodes = []
                 for(let cn of c.nodes)
-                    nodes.push( {text: cn.name(), func:function() { program.add_node(e.vx, e.vy, null, cn); draw_nodes() } } )
+                    add_node(nodes, cn)
                 opt.push( {text: c.group_name, sub_opts: nodes })
             }
         }

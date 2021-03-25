@@ -300,6 +300,9 @@ function add_div(parent, cls) {
     parent.appendChild(e)
     return e
 }
+function add_span(parent, cls) {
+    return add_elem(parent, "span", cls)
+}
 function add_div_id(parent, cls, id) {
     let e = create_div(cls)
     parent.appendChild(e)

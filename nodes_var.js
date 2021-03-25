@@ -173,12 +173,15 @@ class VariablesBox extends PObject
 
     describe(parent, dlg) {
         dlg.clear_desc()
+        const grid = add_div(parent, "obj_inf_grid")
+
         for(let name in this.vb) {
             const vb = this.vb[name]
             const v = vb.v
-            const r = dlg.add_line(name)
-            r.line.classList.add("obj_inf_line_flex")
-            r.value_elem.classList.add("obj_inf_var_value")
+
+            const label_e = add_div(grid, "obj_inf_var_label")
+            label_e.innerText = name
+            const value_e = add_div(grid, "obj_inf_var_value")
             let text, s = []
 
             switch(vb.type) {
@@ -192,13 +195,13 @@ class VariablesBox extends PObject
             case TYPE_BOOL: text = vv ? "true" : "false"; break;
             case TYPE_MAT3: 
                 text = format_matrix(v)
-                r.value_elem.classList.add("obj_inf_var_matrix")
+                value_e.classList.add("obj_inf_var_matrix")
                 break;
             default: text = vb.v
             }
 
-            r.value_elem.innerText = text
-            const type_elem = add_elem(r.line, "span", "obj_inf_var_type")
+            value_e.innerText = text
+            const type_elem = add_div(grid, "obj_inf_var_type")
             type_elem.innerText = typename(vb.type)
         }
     }

@@ -615,6 +615,10 @@ class MultiPath extends PObject
         this.invalidate_pos(false) // don't invalidate paths since we updated it
     }
 
+    get_last_vertex() {
+        return Mesh.prototype.get_last_vertex.call(this)
+    }
+
     describe(parent, dlg)
     {
         if (dlg.recreate_if_needed(this)) {

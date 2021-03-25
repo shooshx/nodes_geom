@@ -82,6 +82,9 @@ input {
 .ctx_menu_opt:hover {  
     background-color: #888888;
 }
+.ctx_menu_opt_var {
+    color: #d8ffa5;
+}
 .ctx_menu_sep {
     margin: 3px;
 }
@@ -997,15 +1000,16 @@ input {
 
 .obj_inf_desc {
     margin: 0 10px 7px 10px;
+    color: #eeeeee;
 }
 .obj_inf_line {
     margin: 0 0 0 5px;
-    color: #eeeeee;
+    
     margin-bottom: 7px;
 }
 .obj_inf_label {
     display: inline-block;
-    flex-grow: 1;
+
 }
 .obj_inf_value {
     display: inline-block;
@@ -1021,13 +1025,24 @@ input {
     font-family: monospace;
     font-size: 16px;
 }
-.obj_inf_line_flex {
+.obj_inf_desk_flex {
     display: flex;
 }
-.obj_inf_var_value {
+.obj_inf_var_col {
     display: inline-block;
+    margin: 0 10px 0 0;
     flex-grow: 1;
-    margin: 0 10px 0 10px;
+}
+.obj_inf_grid {
+    display: grid;
+    grid-template-columns: auto auto auto;
+    grid-column-gap: 12px;
+    grid-row-gap: 10px;
+}
+.obj_inf_var_value {
+}
+.obj_inf_var_label {
+
 }
 .obj_inf_var_matrix {
     font-family: monospace;
@@ -1035,8 +1050,6 @@ input {
     white-space: pre;
 }
 .obj_inf_var_type {
-    display: inline-block;
-    flex-grow: 1;
     text-align: right;
 }
 

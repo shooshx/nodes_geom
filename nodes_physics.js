@@ -845,7 +845,7 @@ class NodeExtractTransform extends NodeVarCls
         mat3.copy(this.last_tmat, m)
         mat3.translate(m, m, offset) // not sure why this is the right order
 
-        out_single_var(this.name.get_value(), TYPE_MAT3, m)
+        this.out_single_var(this.name.get_value(), TYPE_MAT3, m)
     }
 
     draw_selection(m) {
@@ -953,6 +953,7 @@ class NodePen extends NodeCls
     run() {
         const in_obj = this.in_obj.get_mutable()
         assert(in_obj !== null, this, "Missing input")
+        assert(in_obj.add_vertex !== undefined, this, "Expected a geometry object")
         if (!this.enable.get_value()) {
             // useful for skipping some frames at the beginning
             this.out_obj.set(in_obj) // just pass through
@@ -984,7 +985,7 @@ class NodePen extends NodeCls
         }
 
         const prop_vals = {}
-        this.prev_pos = null
+        this.prev_pos = in_obj.get_last_vertex()
 
         try {
             for(let i = 0; i < steps; ++i) {
@@ -993,7 +994,8 @@ class NodePen extends NodeCls
 
                 if (this.prev_pos !== null) { // TBD param to disable this
                     const min_dist = this.min_dist.get_value()
-                    if (vec2.distance(this.prev_pos, pos) < min_dist)
+                    const d = vec2.distance(this.prev_pos, pos)
+                    if (d < min_dist)
                         continue
                 }
                 this.prev_pos = pos

@@ -475,6 +475,8 @@ function open_context_menu(options, wx, wy, parent_elem, dismiss_func, sub_menu_
         else {
             e = add_div(menu_elem, 'ctx_menu_opt')
             e.innerText = opt.text
+            if (opt.cls !== undefined)
+                e.classList.add(opt.cls)
         }
         
         if (e === undefined || e === null)

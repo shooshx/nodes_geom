@@ -68,8 +68,6 @@ EXPRESSIONS
 - maybe BUG: variables loose exact accuracy on repeated load-save?
 
 - !!! update variable - start value, update condition, update expressionssssss
-   - different node color variables in menu
-   - output info about variables
    - variable for coord in geometry
 - 
 - Box2D
