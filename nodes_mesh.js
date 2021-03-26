@@ -154,10 +154,10 @@ class PointSelectHandle
         trigger_frame_draw(false)
     }
     mouseup() {}
-    mousemove(dx,dy, ev) {
+    mousemove(ev) {
         // moving all of them together
         for(let sn of selected_nodes)
-            sn.cls.move_selection(dx, dy)
+            sn.cls.move_selection(ev)
     }
 }
 
@@ -181,11 +181,9 @@ function add_point_select_mixin(node_cls, selected_indices, points_param) {
             return node_cls.image_find_additional(e)
         return null
     }
-    node_cls.move_selection = function(dx, dy) {
-        dx /= image_view.viewport_zoom
-        dy /= image_view.viewport_zoom
+    node_cls.move_selection = function(ev) {
         for(let idx of selected_indices)
-            points_param.increment(idx, [dx, dy])
+            points_param.increment(idx, [ev.dx, ev.dy])
         trigger_frame_draw(true)
     }
 
@@ -543,8 +541,8 @@ class ObjSubscriptEvaluator extends EvaluatorBase {
 
     eval() {
         if (this.subscript === null) {
-            eassert(this.objref.obj._get_as_vec !== undefined, "Missing _get_as_vec")
-            return this.objref.obj._get_as_vec()
+            eassert(this.objref.obj.length !== undefined, "object is not an array")
+            return [...this.objref.obj] // copy it to be on the safe side, probably not needed
         }
         eassert(this.objref.obj !== null, "object not set")
         let v = this.objref.obj[this.subscript]
@@ -560,8 +558,8 @@ class ObjSubscriptEvaluator extends EvaluatorBase {
         if (this.objref.obj === null)
             throw new UndecidedTypeErr()
         else {
-            eassert(this.objref.obj._get_num_elem !== undefined, "Missing _get_num_elem")
-            const num_elems = this.objref.obj._get_num_elem()
+            eassert(this.objref.obj.length !== undefined, "Missing length")
+            const num_elems = this.objref.obj.length
             return type_from_numelems(num_elems)
         }
     }
@@ -825,12 +823,9 @@ class NodeSetAttr extends NodeCls
         const samp_vtx = (this.bind_to.sel_idx === 0 || this.bind_to.sel_idx == 2)
         //let face_sz = mesh.face_size()
         let vtxi = 0
-        let expr_input = { r:0, g:0, b:0, alpha:0, 
-            _get_num_elem: function() { return 4 },
-            _get_as_vec: function() { return vec4.fromValues(this.r, this.g, this.b, this.alpha)},
-            _call_at: function() { // implement in_src.at(x, y)
-                return src_sampler.sample_at(...arguments)
-            }
+        let expr_input = [0, 0, 0, 0]
+        expr_input._call_at = function() { // implement in_src.at(x, y)
+            return src_sampler.sample_at(...arguments)
         }
         value_need_src.dyn_set_obj(expr_input)
 
@@ -860,14 +855,14 @@ class NodeSetAttr extends NodeCls
                 value_need_mesh.dyn_set_prop_index(i)
             
             if (rx < 0 || ry < 0 || rx >= w || ry >= h) {
-                expr_input.r = expr_input.g = expr_input.b = expr_input.alpha = 0
+                expr_input[0] = expr_input[1] = expr_input[2] = expr_input[3] = 0
             }
             else {
                 const pidx = (ry*w + rx)*4
-                expr_input.r = pixels[pidx]
-                expr_input.g = pixels[pidx+1]
-                expr_input.b = pixels[pidx+2]
-                expr_input.alpha = pixels[pidx+3]
+                expr_input[0] = pixels[pidx]
+                expr_input[1] = pixels[pidx+1]
+                expr_input[2] = pixels[pidx+2]
+                expr_input[3] = pixels[pidx+3]
             }
 
             const vc = src_param.dyn_eval()

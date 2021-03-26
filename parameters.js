@@ -739,13 +739,13 @@ class ParamBool extends Parameter {
         if (label_cls_add)
             edisp.classList.toggle(label_cls_add, true)
         this.elem_input = ein
-        this.label_elem = label
+        this.label_elem = null // doesn't need to be adjusted if it's a normal checkbox
 
         // ----- expr elements ------
         if (this.opt.allow_expr) {
             this.expr_line = add_param_line(this.line_elem) // don't pass this since it's in the line_elem
             elem_set_visible(this.expr_line, this.opt.expr_visible)        
-            add_param_label(this.expr_line, this.label_display)
+            this.label_elem = add_param_label(this.expr_line, this.label_display)
             const code_elem = this.item.add_editbox(this.expr_line, true)
 
             this.ctx_menu.add_context_menu(this.line_elem)
@@ -1305,9 +1305,9 @@ class ExpressionItem {
 
             let did_change = false
             // similar to what is done at the end of peval
-            if ((this.expr_score & EXPR_NEED_INPUT) != 0) {
+            if ((this.expr_score & EXPR_NEED_INPUT) != 0) { // && this.in_param.owner.cls.needed_inputs_are_varying()) {
                 this.do_set_prop(null) // it's dynamic so best if it doesn't have a proper value from before
-                this.in_param.pset_dirty()
+                this.in_param.pset_dirty() // it's a parameter that needs input from the node, assume that it's going to change always, unless the node says otherwise
                 did_change = true
             }
             else {
@@ -1678,14 +1678,14 @@ class ParamVec2 extends CodeItemMixin(Parameter) {
         this.item_y.set_to_const(this.y + dv[1])
         this.pset_dirty() 
     }
-    modify(v, dirtyify=true) {
-        this.modify_e(v[0], v[1], dirtyify)
+    modify(v, dirtyify=true, force_change=false) { // force for mouse-delta that doesn't change much but still wants to dirty
+        this.modify_e(v[0], v[1], dirtyify, force_change)
     }
-    modify_e(x, y, dirtyify=true) {
+    modify_e(x, y, dirtyify=true, force_change=false) {
         if (this.show_code)
             return
-        let changed = false
-        changed = this.item_x.set_to_const(x)
+        let changed = force_change
+        changed |= this.item_x.set_to_const(x)
         changed |= this.item_y.set_to_const(y)
         if (changed && dirtyify)
             this.pset_dirty() 
@@ -2207,12 +2207,12 @@ class PointDial {
         if (this.zc === null || !rect_hit(ev.ex, ev.ey, this.zc)) 
             return null
         const start_ctx = this.on_start_drag()
-        return new DialMoveHandle(null, true, true, (dx, dy, e)=>{
+        return new DialMoveHandle(null, true, true, (e)=>{
             // dx,dy is not oriented with the object
             let iv = mat3.clone(this.obj_t_mat)
             iv[6] = 0; iv[7] = 0  // make a normals matrix to get the dv vector in the proper orientation. TBD good for shear?
             mat3.invert(iv, iv)
-            let dv = vec2.fromValues(dx, dy)
+            let dv = vec2.fromValues(e.dx, e.dy)
             vec2.transformMat3(dv, dv, iv)
             this.on_move(dv[0], dv[1], start_ctx, e)  
         })
@@ -2258,9 +2258,8 @@ class DialMoveHandle {
     }
     mousedown() {}
     mouseup() {}
-    mousemove(dx,dy, ev) {
-        dx /= image_view.viewport_zoom
-        dy /= image_view.viewport_zoom
+    mousemove(ev) {
+        let dx = ev.dx, dy = ev.dy
         if (!this.do_x)
             dx = 0
         if (!this.do_y)
@@ -2272,7 +2271,7 @@ class DialMoveHandle {
                 this.param.move(dx, dy)
         }
         else
-            this.callback(dx, dy, ev)
+            this.callback(ev)
         trigger_frame_draw(true)
     }
 }
@@ -2287,7 +2286,7 @@ class DialRotHandle {
         //console.log("start-angle", this.start_angle, this.cx, this.cy, '--', vx, vy)
     }
     mouseup() {}
-    mousemove(dx,dy, e) {
+    mousemove(e) {
         let angle = Math.atan2(e.ey-this.cy, e.ex-this.cx) * 180 / Math.PI
         let d_angle = angle - this.prev_angle
         if (d_angle > 180) d_angle -= 360

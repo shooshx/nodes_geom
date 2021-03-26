@@ -1,0 +1,140 @@
+nodes:
+  '1':
+    params:
+      Shape:
+        sel_str: Rectangle
+      Size:
+        e_x: 0.5
+        e_y: 0.5
+        se_cv: 'return vec2(0.5, 0.5)'
+      Num Points:
+        e_v: 5
+        se_cv: return 5
+      Inner Point:
+        e_x: 0.22600000000000003
+        se_y: '-0.311'
+        se_cv: 'return vec2(0.226, -0.311)'
+      Transform:
+        se_tx: pos.x
+        se_ty: pos.y
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
+    name: geom_primitive_1
+    cls_name: Geom Primitive
+    x: 285.5923730434137
+    y: 185.0003297952957
+    disp_param:
+      show_vtx: true
+      show_lines: true
+  '2':
+    params:
+      <obj-store>:
+        v:
+          gen_id: 2
+          prms_lst: [1]
+      Global Namespace:
+        v: false
+      Brief View:
+        v: false
+      p1_Type:
+        sel_str: Float2-Mouse-Delta
+      p1_Name:
+        v: dpos
+      p1_Float:
+        e_v: 1
+        se_cv: return 1
+      p1_Integer:
+        e_v: 1
+        se_cv: return 1
+      p1_Float2:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      p1_Color:
+        hex: '#CCCCCC'
+        se_cv: 'return rgb(204, 204, 204)'
+      p1_Mouse Coord:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      p1_Bool:
+        v: false
+        e_v: 0
+      p1_Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
+      p1_Sample At:
+        sel_str: Mouse left down
+    name: dpos
+    cls_name: Variable
+    x: -44.37992675781251
+    y: 104.37098779296886
+    disp_param: {}
+  '4':
+    params:
+      Type:
+        sel_str: Float2
+      Name:
+        v: pos
+      Reset Condition:
+        v: true
+        expr_visible: true
+        se_v: frame_num == 0
+      Start Float:
+        e_v: 0
+        se_cv: return 0
+      Start Float2:
+        e_x: 0.5
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      Update Float:
+        e_v: 0
+        se_cv: return 0
+      Update Float2:
+        e_x: 0
+        e_y: 0
+        show_code: true
+        se_cv: return prev_value + dpos
+    name: variable_step_1
+    cls_name: Variable Step
+    x: 104.75202441406134
+    y: 141.8760122070318
+    disp_param: {}
+lines:
+  - from_name: variable_out
+    from_id: 2
+    to_name: vars_in
+    to_id: 4
+    uid: 7
+  - from_name: variable_out
+    from_id: 4
+    to_name: vars_in
+    to_id: 1
+    uid: 8
+next_node_id: 9
+names_idx_s:
+  Geom Primitive: 1
+  Variable: 1
+  Variable Step: 1
+  Manual Geometry: 1
+  Gradient: 1
+display_node_id: 1
+tdisp_node_ids: []
+input_node_ids:
+  - 2
+glob_var_node_ids: []
+nodes_view:
+  pan_x: 146
+  pan_y: 3
+  zoom: 1
+decor: []

@@ -67,8 +67,9 @@ EXPRESSIONS
 - BUG: label space adjust doesn't work for ParamBool, also for bool sharing a line in variables node
 - maybe BUG: variables loose exact accuracy on repeated load-save?
 
-- !!! update variable - start value, update condition, update expressionssssss
-   - variable for coord in geometry
+- variable for coord inside geometry (path contains)
+- BUG hover doesn't work!!
+      - hover only in canvas area!
 - 
 - Box2D
     - BUG: errors don't stop previous anim

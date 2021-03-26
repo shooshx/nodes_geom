@@ -408,7 +408,7 @@ class MouseJointProxy
         const [obj,w] = this.get_dynamic_obj()
         return obj !== null
     }
-    mousemove(dx, dy, e) {
+    mousemove(e) {
         if (this.joint === null)
             return
         const mpnt = image_view.epnt_to_model(e.ex, e.ey)
@@ -804,8 +804,6 @@ class NodeExtractTransform extends NodeVarCls
     static name() { return "Extract Transform" }
     constructor(node) {
         super(node)
-        node.can_input = false
-
         this.in_world = new InTerminal(node, "in_world")
         this.in_body = new InTerminal(node, "in_body")
 

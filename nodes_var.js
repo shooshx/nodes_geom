@@ -268,7 +268,7 @@ class NodeVarCls extends NodeCls
     constructor(node) {
         super(node)
         node.can_display = false
-        node.can_input = true
+        node.can_input = false
         node.can_global = false
         node.name_xmargin = 8
         node.width = 80
@@ -366,7 +366,7 @@ class NodeVariable extends NodeVarCls
 
     any_prm_need_input() {
         for(let p of this.vars_prm)
-            if (p.type.sel_idx == 3)
+            if (p.type.sel_idx === 3 || p.type.sel_idx == 4)
                 return true
         return false
     }
@@ -384,15 +384,15 @@ class NodeVariable extends NodeVarCls
         p.p_group = new ParamGroup(node, prefix + "group")
         p.p_group.set_group(this.v_group)
 
-        p.type = new ParamSelect(node, ["Type", prefix], 0, ['Float', 'Integer', 'Float2', 'Float2-Mouse', 'Color', 'Bool', 'Transform'], (sel_idx)=>{ // TBD Function
+        p.type = new ParamSelect(node, ["Type", prefix], 0, ['Float', 'Integer', 'Float2', 'Float2-Mouse', 'Float2-Mouse-Delta', 'Color', 'Bool', 'Transform'], (sel_idx)=>{ // TBD Function
             p.expr_float.set_visible(sel_idx == 0)
             p.expr_int.set_visible(sel_idx == 1)
             p.expr_vec2.set_visible(sel_idx == 2)
-            p.expr_vec2_mouse.set_visible(sel_idx == 3)
-            p.mouseState.set_visible(sel_idx == 3)
-            p.expr_color.set_visible(sel_idx == 4)
-            p.expr_bool.set_visible(sel_idx == 5)
-            p.expr_trans.set_visible(sel_idx == 6)
+            p.expr_vec2_mouse.set_visible(sel_idx == 3 || sel_idx == 4)
+            p.mouseState.set_visible(sel_idx == 3 || sel_idx == 4)
+            p.expr_color.set_visible(sel_idx == 5)
+            p.expr_bool.set_visible(sel_idx == 6)
+            p.expr_trans.set_visible(sel_idx == 7)
 
             const prev = node.can_input
             // check if any param has input
@@ -508,10 +508,11 @@ class NodeVariable extends NodeVarCls
             case 0: p.vb.vbset(p.expr_float.get_value(), TYPE_NUM); break;
             case 1: p.vb.vbset(p.expr_int.get_value(), TYPE_NUM); break;
             case 2: p.vb.vbset(p.expr_vec2.get_value(), TYPE_VEC2); break;
-            case 3: p.vb.vbset(p.expr_vec2_mouse.get_value(), TYPE_VEC2); break;
-            case 4: p.vb.vbset(color_to_uint8arr(p.expr_color.v), TYPE_VEC4); break;
-            case 5: p.vb.vbset(p.expr_bool.get_value(), TYPE_BOOL); break;
-            case 6: p.vb.vbset(p.expr_trans.get_value(), TYPE_MAT3); break;
+            case 3: 
+            case 4: p.vb.vbset(p.expr_vec2_mouse.get_value(), TYPE_VEC2); break;
+            case 5: p.vb.vbset(color_to_uint8arr(p.expr_color.v), TYPE_VEC4); break;
+            case 6: p.vb.vbset(p.expr_bool.get_value(), TYPE_BOOL); break;
+            case 7: p.vb.vbset(p.expr_trans.get_value(), TYPE_MAT3); break;
             }
         }
         this.var_out.set(out_obj)
@@ -522,13 +523,14 @@ class NodeVariable extends NodeVarCls
             p.vb.vclear_dirty();
     }
 
-    move_action(e, p) {
-        const cp = image_view.epnt_to_model(e.pageX, e.pageY)
-        p.expr_vec2_mouse.modify(cp)
-    }
-
     inputevent(name, e) {
         if (name == "mousedown" || name == "mouseup") {
+            if (name == "mouseup") {
+                for(let p of this.vars_prm) {
+                    if (p.type.sel_idx === 4)
+                        p.expr_vec2_mouse.modify_e(0, 0, true, true) // don't keep it with constant delta since if there's animation, it will continue moving
+                }
+            }                
             if (e.button == 0) {
                 for(let p of this.vars_prm)
                     if (p.mouseState.sel_idx == 0)
@@ -541,8 +543,15 @@ class NodeVariable extends NodeVarCls
 
         let did_anything = false
         const move_action = (e, p)=>{
-            const cp = image_view.epnt_to_model(e.pageX, e.pageY)
-            p.expr_vec2_mouse.modify(cp)
+            if (p.type.sel_idx === 3) {
+                const cp = image_view.epnt_to_model(e.ex, e.ey)
+                p.expr_vec2_mouse.modify(cp)
+            }
+            else if (p.type.sel_idx === 4) {
+                p.expr_vec2_mouse.modify_e(e.dx, e.dy, true, true) // force change since dx and dy can be the same if mouse is moving slowly in one axis
+            }
+            else
+                assert(false, this, "unexpected type")
             did_anything = true
         }
 
@@ -550,11 +559,56 @@ class NodeVariable extends NodeVarCls
         //  Otherwise, capture from node canvas and drag to image canvas would also move it
         for(let p of this.vars_prm) {
             if (p.mouseState.sel_idx == 0 && ((e.buttons & 1) != 0) && e.img_canvas_capture === true)
-                this.move_action(e, p)
+                move_action(e, p)
             else if (p.mouseState.sel_idx == 1)
-                this.move_action(e, p)
+                move_action(e, p)
         }
         return did_anything
 
+    }
+}
+
+
+// create a variable and update its value
+class NodeVarStep extends NodeVarCls
+{
+    static name() { return "Variable Step" }
+    constructor(node) {
+        super(node)
+        node.set_state_evaluators({"prev_value":  (m,s)=>{ return new ObjSubscriptEvaluator(m,s) }})
+
+        this.type = new ParamSelect(node, "Type", 0, [["Float", TYPE_NUM], ["Float2", TYPE_VEC2]], (sel_idx)=>{
+            this.start_float.set_visible(sel_idx === 0)
+            this.update_float.set_visible(sel_idx === 0)
+            this.start_vec2.set_visible(sel_idx === 1)
+            this.update_vec2.set_visible(sel_idx === 1)
+        })
+        this.name = new ParamStr(node, "Name", "var")
+        this.reset_cond = new ParamBool(node, "Reset Condition", false, null, { expr_visible:true })
+        this.start_float = new ParamFloat(node, "Start Float", 0)
+        this.start_vec2 = new ParamVec2(node, "Start Float2", 0, 0)
+        this.update_float = new ParamFloat(node, "Update Float", 0)
+        this.update_vec2 = new ParamVec2(node, "Update Float2", 0, 0)
+
+        this.v = [{value:null, prm_start:this.start_float, prm_update:this.update_float, make_ret:(v)=>{ return v[0] } },
+                  {value:null, prm_start:this.start_vec2,  prm_update:this.update_vec2,  make_ret:(v)=>{ return vec2.fromValues(v[0], v[1])} }]
+    }
+
+    run() { // BUG - if reset_cond depends on frame_num, itegrates even if mouse didn't move
+        const sel_type = this.type.sel_idx
+        let v = this.v[sel_type]
+        if (v.value === null || this.reset_cond.get_value()) {
+            v.value = v.prm_start.get_value()
+            if (sel_type === 0)
+                v.value = [v.value] // number needs to be wrapped
+        }
+        else {
+            const need_prev = v.prm_update.need_input_evaler("prev_value")
+            if (need_prev !== null)
+                need_prev.dyn_set_obj(v.value)
+            v.value = v.prm_update.dyn_eval()
+        }
+        const v_ret = v.make_ret(v.value)
+        this.out_single_var(this.name.get_value(), this.type.get_sel_val(), v_ret)
     }
 }

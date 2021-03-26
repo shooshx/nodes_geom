@@ -135,6 +135,10 @@ class NodesView extends ViewBase
         this.hover = nodes_hover
     }
 
+    zoom_for_coords() {
+        return this.zoom
+    }
+
     dismiss_popups() {
         nodes_dismiss_text_input()
         param_dismiss_popups()
@@ -160,6 +164,10 @@ class ImageView extends ViewBase
         // used for centering the viewport
         this.margin_x = 0
         this.margin_y = 0
+    }
+
+    zoom_for_coords() {
+        return this.viewport_zoom
     }
 
     pan_redraw() {
@@ -348,27 +356,33 @@ function panel_mouse_control(view, canvas)
             return
         }
         did_move = true
+        const z = view.zoom_for_coords()
+        dx /= z
+        dy /= z
         if (panning) {
-            view.pan_x += dx / view.zoom
-            view.pan_y += dy / view.zoom
+            view.pan_x += dx
+            view.pan_y += dy
             view.pan_redraw()
         }
         else if (hit !== null && is_mousemovable(hit)) {
             let cvs_x = e.pageX - view.rect.left, cvs_y = e.pageY - view.rect.top
             const ev = {vx:view.view_x(e.pageX), vy:view.view_y(e.pageY), ex:e.pageX, ey:e.pageY, cvs_x:cvs_x, cvs_y:cvs_y,
-                        shiftKey: e.shiftKey, ctrlKey:e.ctrlKey}
-            hit.mousemove(dx, dy, ev)
+                        shiftKey: e.shiftKey, ctrlKey:e.ctrlKey,
+                        dx: dx, dy: dy}
+            hit.mousemove(ev)
         }
         
         if (view.hover !== undefined) {
             let cvs_x = e.pageX - view.rect.left, cvs_y = e.pageY - view.rect.top // relative to canvas
-            const ev = {vx:0, vy:0, ex:e.pageX, ey:e.pageY, cvs_x:cvs_x, cvs_y:cvs_y}
-            view.hover(ev)
+            if (cvs_x >= 0 && cvs_y >= 0 && cvs_x < view.rect.width && cvs_y < view.rect.height) { // only if it's inside the canvas
+                const ev = {vx:0, vy:0, ex:e.pageX, ey:e.pageY, cvs_x:cvs_x, cvs_y:cvs_y}
+                view.hover(ev)
+            }
         }
 
         if (node_capture || is_point_in_rect(e.pageX, e.pageY, view.rect) && e.target === canvas_image) {
-            e.img_canvas_capture = node_capture
-            view.nodes_inputevent('mousemove', e)
+            const ev = { ex:e.pageX, ey:e.pageY, dx:dx, dy:dy, img_canvas_capture: node_capture, buttons:e.buttons }
+            view.nodes_inputevent('mousemove', ev)
         }
     })
     

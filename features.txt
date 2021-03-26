@@ -3,14 +3,25 @@
 - Display the output of a single selected node marked with the blue display flag
 - Display outline of any number of "template" outputs of nodes marked with the template flag
 
-**** Expression Engine ****
+**** Expression and Variables Engine ****
 
 - Variable nodes can calculate and distribute values to other nodes
+  - can set global variables that are accessible without connection
+  - allows getting input from the mouse when its in the image view
+
+- Variable Step node
+  - allow modification of a variable based on its previous value (integration)
+  - use "prev_value" in the update expression
+    example move an object according to the mouse relative movement: 
+      Variable Node with Float2-Mouse-Delta outputting "dpos"
+      Variable Step with Float2 update: "return prev_value + dpos"
+
 - Transform code example:
     t = mat3() 
     t.translate(0.1, 0.2) 
     t.rotate(20)   
     return t
+
 
 **** Nodes ****
 

@@ -154,7 +154,6 @@ class NodeSampleColor extends NodeVarCls
 
     constructor(node) {
         super(node)
-        node.can_input = false
         this.in_source = new InTerminal(node, "in_src")
 
         this.pos = new ParamVec2(node, "Offset", 0, 0)

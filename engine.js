@@ -87,7 +87,6 @@ var canvas_nodes = null, canvas_nd_shadow = null
 
 function create_global_elems() {
     main_view = add_div_id(body, null, "main_view")
-      hover_box = add_div(main_view, "hover_box")
       image_panel = add_div_id(main_view, null, "image_panel")
         canvas_image = add_elem_id(image_panel, "canvas", null, "canvas_image")
         canvas_webgl = add_elem(image_panel, "canvas", null, "canvas_webgl")
@@ -101,7 +100,7 @@ function create_global_elems() {
         edit_nodes = add_div(edit_panel)
           canvas_nodes = add_elem(edit_nodes, 'canvas')
     canvas_nd_shadow = add_elem(body, 'canvas', null, "canvas_nd_shadow")
-
+    hover_box = add_div(main_view, "hover_box")
 }
 
 function page_onload()
@@ -874,9 +873,12 @@ const nodes_classes = [
         NodeB2Sim,
         NodeExtractTransform,
     ]},
+    { group_name: "Variables", nodes: [
+        NodeVariable,
+        NodeVarStep
+    ]},
     NodeTransform,
     NodeGroupObjects,
-    NodeVariable,
 ]
 var nodes_classes_by_name = {}
 for(let c of nodes_classes) {

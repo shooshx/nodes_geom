@@ -267,7 +267,7 @@ class TerminalBase {
         ctx_nd_shadow.fill()        
     }
     
-    mousemove(dx, dy, e) {
+    mousemove(e) {
         let linkto = find_node_obj(e)
         this.line_pending = null
         draw_nodes()
@@ -1063,9 +1063,9 @@ class Node {
         this.theight = this.height + TERM_RADIUS * 4 + TERM_MARGIN_Y*2
     }
 
-    mousemove(dx, dy) {
-        this.x += dx / nodes_view.zoom
-        this.y += dy / nodes_view.zoom
+    mousemove(ev) {
+        this.x += ev.dx 
+        this.y += ev.dy 
         this.recalc_bounding_box()      
         draw_nodes()
     }
@@ -1399,9 +1399,9 @@ class NodeFlagProxy
         if (this.notifyNode)
             this.node.mouseup()
     }
-    mousemove(a,b,c,d) {
+    mousemove(ev) {
         if (this.notifyNode)
-            this.node.mousemove(a,b,c,d)
+            this.node.mousemove(ev)
     }
 }
 
@@ -1445,7 +1445,7 @@ function find_node_obj(e) {
             }
             if (n.can_input) {
                 if (px <= n.x + NODE_FLAG_INPUT.width)
-                    return new NodeFlagProxy(n, (n)=>{ program.set_input_node(n) }, false) // don't select node since that's only annying most of the time
+                    return new NodeFlagProxy(n, (n)=>{ program.set_input_node(n) }, false) // don't select node since that's only annoying most of the time, also means node can't be moved from the input flag
             }
             if (n.can_global) {
                 if (px >= n.x + NODE_GLOBAL_FLAG.offset)
