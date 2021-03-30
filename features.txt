@@ -8,6 +8,12 @@
 - Variable nodes can calculate and distribute values to other nodes
   - can set global variables that are accessible without connection
   - allows getting input from the mouse when its in the image view
+  - Types:
+    - Float2-Mouse-Delta - The dx,dy movement of the mouse. This value is used alow Variable-Step node 
+      for relative mouse movement.
+      when "Sample At" is set to mouse left down, the value is zeroed when the mouse button lifts. 
+      This prevents endless movement when animation is ongoing
+    - Bool-Pulse variable - a boolean variable that turns to 1 for a single frame when it is triggered
 
 - Variable Step node
   - allow modification of a variable based on its previous value (integration)

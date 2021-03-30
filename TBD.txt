@@ -291,8 +291,6 @@ NODES:
     - choose one input or another depending on expression
     - For loop?
 - physics
-    - Box2D
-        https://github.com/flyover/box2d.ts
     - 3D - https://schteppe.github.io/cannon.js/
     - https://github.com/liabru/matter-js
 - SVG in WebGL?
@@ -328,8 +326,7 @@ NODES:
 
 - nodes the produce transform, invert it
 
-- Variable with global memory - initialization (when?) and change trigger
-    - use case - maintaining position using dx,dy drag from mouse, mouse wheel, for mandelbrot
+- variables global - should be in program, not in g_anim
 
 - Variable from geometry of previous frame? - like number of vertices, derived from nodes
 

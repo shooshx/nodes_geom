@@ -308,6 +308,7 @@ class Program {
             trigger_frame_draw(true)
     }
 
+    // every global variables node has its own glob_ namespace and can be enabled or disabled using the flag
     set_glob_var_node(node, do_draw=true) {
         node.global_active = !node.global_active 
         if (node.global_active) {

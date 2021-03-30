@@ -99,20 +99,37 @@ class VarBox {
         this.v = null
         this.type = null
         this.vdirtied_at_ver = null // this is used for determining dirtyness in a way that doesn't require clear()
+
+        this.pulse_need_reset = false
     }
     vbset(v, type) {
         this.v = v
         this.type = type
         this.vdirtied_at_ver = frame_ver
     }
+
+    // implement pulse functionality, this is not a separate class since I don't to need to recreate the VarBox on type change
+    trigger() {
+        this.pulse_need_reset = true
+        this.vbset(true, TYPE_BOOL)        
+    }
+
     vclear_dirty() {
         //this.vis_dirty = false
     }
     vis_dirty() {
-        return this.vdirtied_at_ver == frame_ver
+        let ret = this.vdirtied_at_ver == frame_ver
+        if (!ret && this.pulse_need_reset) {
+            this.vbset(false, TYPE_BOOL)
+            this.pulse_need_reset = false
+            ret = this.vdirtied_at_ver == frame_ver
+        }
+        return ret
     }
 }
 
+
+// for namespace for global var nodes
 class VariableInnerBox {
     constructor() {
         this.vb = {}
@@ -384,15 +401,16 @@ class NodeVariable extends NodeVarCls
         p.p_group = new ParamGroup(node, prefix + "group")
         p.p_group.set_group(this.v_group)
 
-        p.type = new ParamSelect(node, ["Type", prefix], 0, ['Float', 'Integer', 'Float2', 'Float2-Mouse', 'Float2-Mouse-Delta', 'Color', 'Bool', 'Transform'], (sel_idx)=>{ // TBD Function
-            p.expr_float.set_visible(sel_idx == 0)
-            p.expr_int.set_visible(sel_idx == 1)
-            p.expr_vec2.set_visible(sel_idx == 2)
-            p.expr_vec2_mouse.set_visible(sel_idx == 3 || sel_idx == 4)
-            p.mouseState.set_visible(sel_idx == 3 || sel_idx == 4)
-            p.expr_color.set_visible(sel_idx == 5)
-            p.expr_bool.set_visible(sel_idx == 6)
-            p.expr_trans.set_visible(sel_idx == 7)
+        p.type = new ParamSelect(node, ["Type", prefix], 0, ['Float', 'Integer', 'Float2', 'Float2-Mouse', 'Float2-Mouse-Delta', 'Color', 'Bool', 'Bool-Pulse', 'Transform'], (sel_idx)=>{ // TBD Function
+            p.expr_float.set_visible(sel_idx === 0)
+            p.expr_int.set_visible(sel_idx === 1)
+            p.expr_vec2.set_visible(sel_idx === 2)
+            p.expr_vec2_mouse.set_visible(sel_idx === 3 || sel_idx === 4)
+            p.mouseState.set_visible(sel_idx === 3 || sel_idx === 4)
+            p.expr_color.set_visible(sel_idx === 5)
+            p.expr_bool.set_visible(sel_idx === 6)
+            p.btn_bool_pulse.set_visible(sel_idx === 7)
+            p.expr_trans.set_visible(sel_idx === 8)
 
             const prev = node.can_input
             // check if any param has input
@@ -410,7 +428,7 @@ class NodeVariable extends NodeVarCls
             for(let pp of p.params)
                 node.remove_param(pp)
             this.v_group.update_elems()
-            // TBD - need pset_dirty?
+            this.v_group.pset_dirty() // otherwise it wouldn't be saved
         }, ["param_btn", "param_var_rm_btn"]) 
         p.remove_btn.share_line_elem_from(p.type)
 
@@ -437,13 +455,14 @@ class NodeVariable extends NodeVarCls
         p.expr_vec2_mouse = new ParamVec2(node, ["Mouse Coord", prefix], 0, 0) // want a different one since we don't want to mess with expr_vec2 being in code or not
         p.expr_vec2_mouse.set_enable(false)  // user never edits it directly
         p.expr_bool = new ParamBool(node, ["Bool", prefix], false)
+        p.btn_bool_pulse = new ParamButton(node, ["Trigger", prefix], ()=>{ p.vb.trigger(); p.btn_bool_pulse.pset_dirty() })
         p.expr_trans = new ParamTransform(node, ["Transform", prefix])
 
         p.mouseState = new ParamSelect(node, ["Sample At", prefix], 0, ["Mouse left down", "Mouse move"])
         p.sep = new ParamSeparator(node, prefix + "sep", "param_sep_line")
 
         // for easy removal
-        p.params = [p.p_group, p.type, p.remove_btn, p.up_btn, p.down_btn, p.name, p.expr_float, p.expr_int, p.expr_vec2, p.expr_color, p.expr_vec2_mouse, p.expr_bool, p.expr_trans, p.mouseState, p.sep]
+        p.params = [p.p_group, p.type, p.remove_btn, p.up_btn, p.down_btn, p.name, p.expr_float, p.expr_int, p.expr_vec2, p.expr_color, p.expr_vec2_mouse, p.expr_bool, p.btn_bool_pulse, p.expr_trans, p.mouseState, p.sep]
         for(let pp of p.params) {
             if (pp === p.p_group)
                 continue // don't want to set the group to the group of this var
@@ -512,7 +531,7 @@ class NodeVariable extends NodeVarCls
             case 4: p.vb.vbset(p.expr_vec2_mouse.get_value(), TYPE_VEC2); break;
             case 5: p.vb.vbset(color_to_uint8arr(p.expr_color.v), TYPE_VEC4); break;
             case 6: p.vb.vbset(p.expr_bool.get_value(), TYPE_BOOL); break;
-            case 7: p.vb.vbset(p.expr_trans.get_value(), TYPE_MAT3); break;
+            case 8: p.vb.vbset(p.expr_trans.get_value(), TYPE_MAT3); break;
             }
         }
         this.var_out.set(out_obj)
@@ -558,6 +577,8 @@ class NodeVariable extends NodeVarCls
         // push and drag can be used only if the press was captured in the image canvase. 
         //  Otherwise, capture from node canvas and drag to image canvas would also move it
         for(let p of this.vars_prm) {
+            if (p.type.sel_idx !== 3 && p.type.sel_idx !== 4)
+                continue
             if (p.mouseState.sel_idx == 0 && ((e.buttons & 1) != 0) && e.img_canvas_capture === true)
                 move_action(e, p)
             else if (p.mouseState.sel_idx == 1)
@@ -594,7 +615,7 @@ class NodeVarStep extends NodeVarCls
                   {value:null, prm_start:this.start_vec2,  prm_update:this.update_vec2,  make_ret:(v)=>{ return vec2.fromValues(v[0], v[1])} }]
     }
 
-    run() { // BUG - if reset_cond depends on frame_num, itegrates even if mouse didn't move
+    run() {
         const sel_type = this.type.sel_idx
         let v = this.v[sel_type]
         if (v.value === null || this.reset_cond.get_value()) {

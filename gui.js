@@ -81,6 +81,7 @@ class ViewBase
         this.pan_y = null
         this.zoom = 1
         this.rect = null
+        this.viewport_zoom = 1
 
         this.last_ctx_menu = null
     }
@@ -135,10 +136,6 @@ class NodesView extends ViewBase
         this.hover = nodes_hover
     }
 
-    zoom_for_coords() {
-        return this.zoom
-    }
-
     dismiss_popups() {
         nodes_dismiss_text_input()
         param_dismiss_popups()
@@ -164,10 +161,6 @@ class ImageView extends ViewBase
         // used for centering the viewport
         this.margin_x = 0
         this.margin_y = 0
-    }
-
-    zoom_for_coords() {
-        return this.viewport_zoom
     }
 
     pan_redraw() {
@@ -313,6 +306,7 @@ function panel_mouse_control(view, canvas)
             }
             did_move = false
             panning = true
+            //console.log("down ", panning)
         }
     });
     myAddEventListener(canvas, 'mouseup', function(e) {
@@ -329,6 +323,7 @@ function panel_mouse_control(view, canvas)
     });
     myAddEventListener(document, 'mouseup', function(e) {
         panning = false;
+        //console.log("up ", panning)
         if (hit !== null && hit.mouseup !== undefined)
             hit.mouseup()  // commit line pending
         else if (!did_move)
@@ -356,9 +351,10 @@ function panel_mouse_control(view, canvas)
             return
         }
         did_move = true
-        const z = view.zoom_for_coords()
-        dx /= z
-        dy /= z
+        const edx = dx / view.viewport_zoom, edy = dy / view.viewport_zoom
+        dx /= view.zoom
+        dy /= view.zoom
+        //console.log("move ", panning)
         if (panning) {
             view.pan_x += dx
             view.pan_y += dy
@@ -368,7 +364,7 @@ function panel_mouse_control(view, canvas)
             let cvs_x = e.pageX - view.rect.left, cvs_y = e.pageY - view.rect.top
             const ev = {vx:view.view_x(e.pageX), vy:view.view_y(e.pageY), ex:e.pageX, ey:e.pageY, cvs_x:cvs_x, cvs_y:cvs_y,
                         shiftKey: e.shiftKey, ctrlKey:e.ctrlKey,
-                        dx: dx, dy: dy}
+                        dx: edx, dy: edy}
             hit.mousemove(ev)
         }
         
@@ -381,7 +377,7 @@ function panel_mouse_control(view, canvas)
         }
 
         if (node_capture || is_point_in_rect(e.pageX, e.pageY, view.rect) && e.target === canvas_image) {
-            const ev = { ex:e.pageX, ey:e.pageY, dx:dx, dy:dy, img_canvas_capture: node_capture, buttons:e.buttons }
+            const ev = { ex:e.pageX, ey:e.pageY, dx:edx, dy:edy, img_canvas_capture: node_capture, buttons:e.buttons }
             view.nodes_inputevent('mousemove', ev)
         }
     })
