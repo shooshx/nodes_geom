@@ -620,8 +620,8 @@ class MeshPropEvaluator extends EvaluatorBase
     resolve_attr() {
         if (this.valindex === -1) 
             return
-        if (this.attr !== null && this.last_obj_ver === this.meshref.dirty_obj_ver) 
-            return // don't need an update 
+        if (this.type !== null && this.attr !== null && this.last_obj_ver === this.meshref.dirty_obj_ver) 
+            return // don't need an update since the object was not changed (unless type was cleared)
         eassert(this.meshref.obj !== null, "unexpected null object")
         if (this.param_bind_to.sel_idx == 0) // vertices  TBD this is not invalidated if bind_to changes
             eassert(this.attrname.startsWith("vtx_"), "bind to Vertices can only sample vertex attribute: " + this.attrname)
@@ -682,8 +682,12 @@ class MeshPropEvaluator extends EvaluatorBase
                 throw new UndecidedTypeErr() // would cause a call to here when there's a mesh set (rather than only after parse)
                 // happens for instance for `p = in_obj.face_center`
             this.resolve_attr()
+            dassert(this.type !== null, "resolve_attr didn't set type (bug)")
         }
         else {
+            if (this.meshref.idx === null)
+                throw new UndecidedTypeErr() 
+                // in this case the type is known but we still throw that to prevent eval() since we can't eval without the obj idx
             this.type = TYPE_NUM
         }
         return this.type
@@ -876,6 +880,8 @@ class NodeSetAttr extends NodeCls
         //assert(this.source_sel.sel_idx != -1, this, "'Bind To' not set")
         let mesh = this.in_mesh.get_const()
         assert(mesh, this, "missing in_mesh")
+        assert(mesh.constructor === Mesh || mesh.constructor === MultiPath, this, "Expected input geometry")
+
 
         /*if (this.source_sel.sel_idx == 0 && this.expr_color.v === null) {
             this.out_mesh.set(mesh)
@@ -1400,6 +1406,157 @@ class NodeGeomMerge extends NodeCls
     }
 }
 
+
+// split a single mesh or paths to several paths in a group 
+class NodeGeomSplit extends NodeCls
+{
+    static name() { return "Geom Split" }
+    constructor(node) {
+        super(node)
+        this.in_obj = new InTerminal(node, "in_obj")
+        this.out_group = new OutTerminal(node, "out_group")
+
+        this.bind_to = { sel_idx: 0 } // only vertices for now
+        node.set_state_evaluators({ "in_obj": (m,s)=>{ return new MeshPropEvaluator(m,s, this.bind_to) }})
+
+        // TBD - by face
+        this.sel_index = new ParamInt(node, "Split By\nIndex", 0, {show_code: true})
+    }
+
+    run()
+    {
+        const obj = this.in_obj.get_const()
+        assert(obj, this, "missing input")
+        assert(obj.constructor === Mesh || obj.constructor === MultiPath, this, "Expected input geometry")
+
+        const out = new PObjGroup();
+        const out_objs = {}
+
+        const add_to_out = (obj, key)=>{
+            out_objs[key] = obj
+            out.add(obj, key)
+            if (this.node.display_values[key] === undefined)
+                this.node.display_values[key] = {}  // TBD only keep the disp values that are relevant
+        }
+
+        const need_mesh = this.sel_index.need_input_evaler("in_obj")
+
+        const vtx_count = obj.vtx_count()
+        if (vtx_count === 0 || need_mesh === null) {
+            const key = this.sel_index.v
+            add_to_out(obj, key)
+            this.out_group.set(out);
+            return
+        }
+
+        need_mesh.dyn_set_obj(obj)
+
+        const out_objs_defs = {}  // for every output object, its key maps to an object with its arrays
+        const vtx_idx_to_obj = [] // for every index, what object it went to 
+
+        for(let i = 0; i < vtx_count; ++i) 
+        {
+            need_mesh.dyn_set_prop_index(i)
+            // this vertex of index i, goes to which object
+            const sidx = this.sel_index.dyn_eval()
+            vtx_idx_to_obj.push(sidx)
+            let to_def = out_objs_defs[sidx]
+            if (to_def === undefined) {
+                to_def = { darrs: { vtx_pos: [] }, vidx_map: {}, vcount: 0 }
+                out_objs_defs[sidx] = to_def
+            }
+            to_def.vidx_map[i] = to_def.vcount++
+            const to_arrs = to_def.darrs
+            for(let aname in obj.arrs) {
+                if (to_arrs[aname] === undefined)
+                    to_arrs[aname] = []
+                if (aname.startsWith("face_") || aname == "idx") {
+                    continue
+                }
+
+                const num_elem = obj.meta[aname].num_elems   
+                const vi = i * num_elem
+                for(let ei = 0; ei < num_elem; ++ei)
+                    to_arrs[aname].push(obj.arrs[aname][vi+ei])
+            }
+
+        }
+
+        const face_attr_names = []
+         
+        for(let aname in obj.arrs) {
+            if (aname.startsWith("face_")) {
+                face_attr_names.push(aname)
+            }
+        }
+
+        // reconstruct faces
+        if (obj.constructor === Mesh) {
+            const fsize = obj.face_size()
+            if (fsize > 1) {
+                // divide the faces to the objects
+                const idx_count = obj.arrs.idx.length
+                for(let iidx = 0, fidx = 0; iidx < idx_count; iidx += fsize, ++fidx) {
+                    let to_obj_idx = vtx_idx_to_obj[obj.arrs.idx[iidx]]
+                    for(let ei = 1; ei < fsize; ++ei) { // check all vertices agree on the same obj
+                        if (to_obj_idx !== vtx_idx_to_obj[obj.arrs.idx[iidx + ei]]) {
+                            to_obj_idx = null // they don't agree
+                            break
+                        }
+                    }
+                    if (to_obj_idx === null) // don't agree, don't add this face anywhere
+                        continue
+                    const to_def = out_objs_defs[to_obj_idx]
+                    const to_arrs = to_def.darrs               
+                    const to_vmap = to_def.vidx_map
+                    for(let ei = 0; ei < fsize; ++ei)
+                        to_arrs.idx.push(to_vmap[obj.arrs.idx[iidx + ei]])
+
+                    for(let faname of face_attr_names) {
+                        const num_elem = obj.meta[faname].num_elems   
+                        for(let ei = 0; ei < num_elem; ++ei)
+                            to_arrs[faname].push(obj.arrs[faname][fidx*num_elem + ei])
+                    }
+                }
+                for(let key in out_objs_defs) {
+                    const obj_def = out_objs_defs[key]
+                    const obj_arrs = obj_def.darrs
+                    for(let name in obj_arrs) 
+                        if (name.startsWith("face_"))
+                            assert(obj_arrs[name].length === obj_arrs.idx.length / fsize * obj.meta[name].num_elems, this, "unexpected face attr size")
+                }
+            }
+        }
+
+
+        for(let key in out_objs_defs) {
+            const kobj = new obj.constructor()
+            const arrs = out_objs_defs[key].darrs
+            for(let name in arrs) {
+                const orig_meta = obj.meta[name]
+                const arrCls = obj.arrs[name].constructor
+                let arr = arrs[name]
+                if (arrCls !== Array)  // it's a typed array (if it's just an Array, don't want to do this, it will create a list of 1 elem)
+                    arr = new arrCls(arr)
+                kobj.set(name, arr, orig_meta.num_elems, orig_meta.need_normalize)
+            }
+
+            if (obj.constructor === Mesh) {
+                kobj.type = obj.type
+            }
+
+
+            add_to_out(kobj, key)
+        }
+
+
+        this.out_group.set(out);
+    }
+
+}
+
+
+
 const VTX_NUM_ELEM = 2
 
 function repeat_arr(arr, count) {
@@ -1410,7 +1567,7 @@ function repeat_arr(arr, count) {
 }
 
 
-// common functionality for NodeGeomCopy and D
+// common functionality for NodeGeomCopy and DFCopy
 let CopyNodeMixin =  (superclass) => class extends superclass 
 {
     add_terminal_and_params(node) {
@@ -1579,6 +1736,11 @@ class NodeGeomCopy extends CopyNodeMixin(NodeCls)
     }
 }
 
+class PGroupDispPrms {
+    constructor() {
+        this.v = {}
+    }
+}
 
 // TBD: a slightly better way to do this is to own PHandle and have a custom clone
 //      that clones only objects with more than 1 refcount
@@ -1589,27 +1751,40 @@ class PObjGroup extends PObject{
         this.v = []
         this.disp_params = []
     }
+    add(obj, key) { // key should be integer index
+        dassert(key !== undefined, "missing key for group add")
+        this.v[key] = obj
+    }
+    get(key) {
+        const v = this.v[key]
+        if (v === undefined)
+            return null
+        return v
+    }
     transform(m) {
         for(let obj of this.v) {
             obj.transform(m)
         }
     }
     async pre_draw(m, display_values) {
-        console.assert(display_values.length == this.v.length, "display_values length mismatch")
+        //console.assert(Object.keys(display_values).length == this.v.length, "display_values length mismatch")
         for(let i in this.v) {
+            dassert(display_values[i] !== undefined, "display_values doesn't include key " + i)
             await this.v[i].pre_draw(m, display_values[i])
         }        
     }
     draw(m, display_values) {
-        console.assert(display_values.length == this.v.length, "display_values length mismatch")
+        //console.assert(Object.keys(display_values).length == this.v.length, "display_values length mismatch")
         for(let i in this.v) {
+            dassert(display_values[i] !== undefined, "display_values doesn't include key " + i)
             this.v[i].draw(m, display_values[i])
         }
     }
     get_disp_params(values) {
-        let r = []
+        let r = new PGroupDispPrms()
         for(let i in this.v) {
-            r.push(this.v[i].get_disp_params(values[i]))
+            dassert(values[i] !== undefined, "missing disp_params in values index " + i)
+            r.v[i] = this.v[i].get_disp_params(values[i])
         }
         return r 
     }
@@ -1617,6 +1792,20 @@ class PObjGroup extends PObject{
         for(let i in this.v) {
             this.v[i].draw_template(m)
         }        
+    }
+
+    describe(parent, dlg) {
+        dlg.clear_desc()
+        dlg.add_line("Group size: ").value_elem.innerText = Object.keys(this.v).length
+        for(let k in this.v) {
+            const v = this.v[k]
+            const e = add_div(parent, "obj_inf_grp_obj")
+            add_div(e, "obj_inf_grp_name").innerText = k + ": " + v.constructor.name()
+            if (v.constructor === Mesh || v.constructor === MultiPath) {
+                add_div(e, "obj_inf_grp_detail").innerText = "vertices: " + v.vtx_count();
+                add_div(e, "obj_inf_grp_detail").innerText = "faces: " + v.face_count();
+            }
+        }
     }
 }
 
@@ -1815,20 +2004,43 @@ class NodeGroupObjects extends NodeCls {
         mixin_multi_reorder_control(node, this, this.sorted_order, this.in_m)
     }
     run() {
-        this.node.display_values = []
+        this.node.display_values = {}
         let r = new PObjGroup()
         //for(let line of this.in_m.lines) {
         for(let idx of this.sorted_order) {
             const line = this.in_m.lines[idx]
             const obj = line.to_term.get_const()
-            r.v.push(obj)
+            r.add(obj, idx)
             // gather the display nodes from the nodes that output the thing
-            this.node.display_values.push(line.from_term.owner.display_values) 
+            this.node.display_values[idx] = line.from_term.owner.display_values
         }
         this.out.set(r)
     }
+}
+
+class NodeGroupSelect extends NodeCls {
+    static name() { return "Group Select" }
+    constructor(node) {
+        super(node)
+        this.in_g = new InTerminal(node, "in_group")
+        this.out = new OutTerminal(node, "out_obj")
+
+        this.key_sel = new ParamInt(node, "Select Index", 0)
+    }
+    run() {
+        const g = this.in_g.get_const();
+        assert(g !== null, this, "missing input")
+        assert(g.constructor === PObjGroup, this, "Expected group input")
+
+        const key = this.key_sel.get_value()
+        const v = g.get(key)
+        assert(v !== null, this, "Index doesn't exist in group")
+        this.out.set(v)
+    }
 
 }
+
+
 
 // maybe wrap with a proxy?
 class NodeTransform extends NodeCls

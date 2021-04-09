@@ -19,9 +19,7 @@ ENGINE:
 - before running - do type checking to nodes in/out terminals
 - serialization - save only if something is changed
 - save to SVG
-- !!!!!! save to PNG
 - !!! download all saves backup
-- Animation using frame variable
 - https://jshint.com/
 - texture leaks?
 - !!! frame buffer transform??
@@ -54,8 +52,44 @@ EXPRESSIONS
     -none value for function
 - Sample any param from any node ???
 
+**** Animation program ****
+  - new kind of node
+  - span node
+    - timing: 
+        - normal frame rate 
+        - max frame rate
+    - render: bool
+    - stop at: 
+        - condition 
+        - elapsed duration
+           - duration: number of frames  
+  - action node
+     - sets global variable (frame_num = X)
+  - start trigger node?
+    - animation reset (pressed play when frame_num == 0)   
+    - some pulse? (button press)? overrides normal anim?
+  - subroutine call on trigger?  
+
+**** loop ****
+- reduce - collect is always to a group object
+  - geom merge can take a group and make merge it
+- new kind of terminal for reduce
+- for over range
+- for over vertices in an object
+- for node produces an iterator object? 
+    - contains details about the current vertex,  
+    - is a variable
+    - can be end iterator
+    - distributed to several?
+- engine magic when seeing an iterator object
+   - if a node outputs an iterator object, it gets run calls as long as it didn't output and end iterator
+   - run iterator gets run calls 
+- collector permanently connected with the loop var node
+- collector triggers engine to start the chain above it again, as long as it's not seeing an end iterator
+
 
 ****** CURRENT AGENDA ******
+
 - Copy
     - with existing vtx_transform, face_transform
     - in features.txt
@@ -68,9 +102,15 @@ EXPRESSIONS
 - maybe BUG: variables loose exact accuracy on repeated load-save?
 
 - variable for coord inside geometry (path contains)
-- BUG hover doesn't work!!
-      - hover only in canvas area!
-- 
+- BUG: output dialog of mesh doen't align lines
+- demo idea: user presses anywhere, some animation starts where he pressed ?
+    copy node can set take attribute of the position points and add them as attr per path??
+    need for loop
+    variable - just on mouse up
+    node - get variable from geom
+    SplitGeom - doesn't do disp_params
+    GroupObj describe
+    Mesh describe - size, type of arrays
 - Box2D
     - BUG: errors don't stop previous anim
     - sim button - current position to defs
@@ -288,7 +328,6 @@ NODES:
     - with expression depending on vtx_pos or any other attr
 - Shader distance from path
 - Flow control 
-    - choose one input or another depending on expression
     - For loop?
 - physics
     - 3D - https://schteppe.github.io/cannon.js/

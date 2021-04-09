@@ -543,24 +543,24 @@ class NodeVariable extends NodeVarCls
     }
 
     inputevent(name, e) {
-        if (name == "mousedown" || name == "mouseup") {
-            if (name == "mouseup") {
-                for(let p of this.vars_prm) {
-                    if (p.type.sel_idx === 4)
-                        p.expr_vec2_mouse.modify_e(0, 0, true, true) // don't keep it with constant delta since if there's animation, it will continue moving
-                }
-            }                
-            if (e.button == 0) {
-                for(let p of this.vars_prm)
-                    if (p.mouseState.sel_idx == 0)
-                        return true // want to capture
+        let want_capture = false
+        if (name == "mouseup") {
+            // reset on up
+            for(let p of this.vars_prm) {
+                if (p.type.sel_idx === 4)
+                    p.expr_vec2_mouse.modify_e(0, 0, true, true) // don't keep it with constant delta since if there's animation, it will continue moving
             }
-            return false
+            return
+        }           
+        if (name == "mousedown" && e.e.button == 0) {
+            for(let p of this.vars_prm)
+                if (p.mouseState.sel_idx == 0)
+                    want_capture = true // want to capture
         }
-        if (name != "mousemove") 
-            return false
 
-        let did_anything = false
+        // mousedown and mousemove
+
+        //let did_anything = false
         const move_action = (e, p)=>{
             if (p.type.sel_idx === 3) {
                 const cp = image_view.epnt_to_model(e.ex, e.ey)
@@ -571,7 +571,7 @@ class NodeVariable extends NodeVarCls
             }
             else
                 assert(false, this, "unexpected type")
-            did_anything = true
+            //did_anything = true
         }
 
         // push and drag can be used only if the press was captured in the image canvase. 
@@ -579,12 +579,12 @@ class NodeVariable extends NodeVarCls
         for(let p of this.vars_prm) {
             if (p.type.sel_idx !== 3 && p.type.sel_idx !== 4)
                 continue
-            if (p.mouseState.sel_idx == 0 && ((e.buttons & 1) != 0) && e.img_canvas_capture === true)
+            if (p.mouseState.sel_idx == 0 && ((e.buttons & 1) != 0) && (want_capture || e.img_canvas_capture === true))
                 move_action(e, p)
-            else if (p.mouseState.sel_idx == 1)
+            else if (p.mouseState.sel_idx == 1) // any mouse move
                 move_action(e, p)
         }
-        return did_anything
+        return want_capture
 
     }
 }

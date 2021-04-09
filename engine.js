@@ -80,7 +80,7 @@ var image_splitter = null
 var edit_panel = null
 var edit_params = null
 var div_params_list = null // recreated when readding params
-var div_display_params = null // for disp_params
+var div_display_params_cont = null // for disp_params
 var edit_splitter = null
 var edit_nodes = null
 var canvas_nodes = null, canvas_nd_shadow = null
@@ -95,7 +95,7 @@ function create_global_elems() {
       edit_panel = add_div_id(main_view, null, "edit_panel")
         edit_params = add_div_id(edit_panel, null, "edit_params")
           div_params_list = add_div_id(edit_params, null, "div_params_list")
-          div_display_params = add_div_id(edit_params, null, "div_display_params")
+          div_display_params_cont = add_div(edit_params, "div_display_params_cont")
         edit_splitter = add_div_id(edit_panel, "splitter", "edit_splitter")
         edit_nodes = add_div(edit_panel)
           canvas_nodes = add_elem(edit_nodes, 'canvas')
@@ -451,6 +451,7 @@ function lines_list_subtract(total, picked) {
 }
 
 // returns true if the argument node was dirty of out of its parents is was dirty
+// picked = false if this is an un-picked branch (which still needs to resolve variables)
 async function run_nodes_tree(n, picked) 
 {
     //console.assert(n._node_dirty !== null)
@@ -834,6 +835,7 @@ const nodes_classes = [
         NodeSetAttr, 
         NodeConstAttr,
         NodeGeomMerge,
+        NodeGeomSplit,
         NodeGeomCopy,
         NodeRandomPoints,
         NodeScatter2,
@@ -878,8 +880,11 @@ const nodes_classes = [
         NodeVariable,
         NodeVarStep
     ]},
+    { group_name: "Groups", nodes: [
+        NodeGroupObjects,
+        NodeGroupSelect
+    ]},
     NodeTransform,
-    NodeGroupObjects,
 ]
 var nodes_classes_by_name = {}
 for(let c of nodes_classes) {

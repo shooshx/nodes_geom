@@ -240,9 +240,20 @@ function param_reg_for_dismiss(node, callback) {
 // this is used to identify when the param-set is changed so it needs to be re-displayed
 function get_param_list_labels_key(params) {
     let ret = ""
-    for(let p of params)
-        if (p !== null)
-            ret += p.label + "_"
+    if (params.constructor === PGroupDispPrms) {
+        for(let pkey in params.v) {
+            ret += pkey + "::"
+            const parr = params.v[pkey]
+            for(let p of parr)
+                if (p !== null)
+                    ret += p.label + "_"
+        }
+    }
+    else {
+        for(let p of params)
+            if (p !== null)
+                ret += p.label + "_"
+    }
     return ret
 }
 // display_values is held per-node and is a map of string to value
@@ -255,17 +266,31 @@ function show_display_params(obj, disp_node) {
         params = obj.get_disp_params(disp_node.display_values) // sets defaults if needed
     // params can have nulls or objects that don't have disp_params
     if (obj === null || params === null || disp_node === null || disp_node.is_selected_inf === null) {
-        div_display_params = clear_elem(div_display_params)
+        div_display_params_cont.innerHTML = ""
         g_prev_disp_node = null
         return
     }
     const labels_key = get_param_list_labels_key(params)
     if (disp_node === g_prev_disp_node && labels_key === g_prev_param_labels_key)
         return // same thing as before, don't need to recreate it. This is needed so that the scale ParamFloat there would be recreated while it is edited
-    div_display_params = clear_elem(div_display_params)
-    for(let p of params) {
-        if (p !== null && p.add_elems) // the params of a group is an aggregate of it's members, it's not going to have that. FrameBuffer has null disp_params
-            p.add_elems(div_display_params)
+    div_display_params_cont.innerHTML = "" // = clear_elem(div_display_params)
+
+    const add_single_obj_params = (parr)=>{
+        const so_prms = add_div(div_display_params_cont, "div_display_params")
+        for(let p of parr) {
+            if (p !== null && p.add_elems !== undefined) // the params of a group is an aggregate of it's members, it's not going to have that. FrameBuffer has null disp_params
+                p.add_elems(so_prms)
+        }
+    }
+
+    if (params.constructor === PGroupDispPrms) { // from PObjGroup
+        for(let pkey in params.v) {
+            const parr = params.v[pkey]
+            add_single_obj_params(parr)
+        }
+    }
+    else { // it's an array of params
+        add_single_obj_params(params)
     }
     g_prev_disp_node = disp_node
     g_prev_param_labels_key = labels_key

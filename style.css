@@ -948,16 +948,19 @@ input {
     margin: 5px 5px 0 5px;
 }
 
-#div_display_params {
+.div_display_params_cont {
+
+}
+.div_display_params {
     margin-top: 10px;
     background-color: rgba(0,161,247,0.3);
     position: relative;
     padding-bottom: 5px;    
 }
-#div_display_params:empty {
+.div_display_params:empty {
     display:none;
 }
-#div_display_params:before {
+.div_display_params:before {
     position: absolute;
     width: 20px;
     content: "";
@@ -969,11 +972,11 @@ input {
     box-sizing: border-box;
 }
 
-#div_display_params .param_line {
+.div_display_params .param_line {
     height: 20px;
     min-height: initial;
 }
-#div_display_params .param_line > .param_editbox {
+.div_display_params .param_line > .param_editbox {
     height: 20px;
     background-color: rgb(85, 85, 85, 50%);
 }

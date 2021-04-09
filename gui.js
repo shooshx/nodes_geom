@@ -109,6 +109,7 @@ class ViewBase
     }
 
     nodes_inputevent(name, e) {
+        return false
     }
     check_rect_select() {
         return false
@@ -282,7 +283,7 @@ function panel_mouse_control(view, canvas)
     let node_capture = false
     
     myAddEventListener(canvas, 'mousedown', function(e) {
-        if (view.nodes_inputevent('mousedown', e) && e.target === canvas_image) {
+        if (e.target === canvas_image && view.nodes_inputevent('mousedown', {e:e, ex:e.pageX, ey: e.pageY, buttons:e.buttons})) {
             node_capture = true // variable-node mouse move
             return
         }
@@ -293,7 +294,7 @@ function panel_mouse_control(view, canvas)
             }
             prev_x = e.pageX; prev_y = e.pageY
             down_x = e.pageX; down_y = e.pageY
-            let vx=view.view_x(e.pageX), vy=view.view_y(e.pageY)
+            const vx=view.view_x(e.pageX), vy=view.view_y(e.pageY)
             const cvs_x = e.pageX - view.rect.left, cvs_y = e.pageY - view.rect.top
             const ev = { vx:vx, vy:vy, ex:e.pageX, ey: e.pageY, cvs_x:cvs_x, cvs_y:cvs_y, e:e, ctrlKey:e.ctrlKey }
             hit = view.find_obj(ev);

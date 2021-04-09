@@ -887,7 +887,7 @@ class Mesh extends PObject
             dlg.eobj.type = dlg.add_line("Type: ").value_elem
             dlg.eobj.facenum = dlg.add_line("Face Count: ").value_elem
             dlg.eobj.props = dlg.add_line("Properties:", true).value_elem
-            dlg.eobj.props.classList.add("obj_inf_prop_list").value_elem
+            dlg.eobj.props.classList.add("obj_inf_prop_list")
             dlg.adjust_labels()
 
         }

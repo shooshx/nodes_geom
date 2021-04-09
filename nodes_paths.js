@@ -626,7 +626,7 @@ class MultiPath extends PObject
             dlg.eobj.facenum = dlg.add_line("Face Count: ").value_elem
             dlg.eobj.has_curve = dlg.add_line("Has Curves: ").value_elem
             dlg.eobj.props = dlg.add_line("Properties:", true).value_elem
-            dlg.eobj.props.classList.add("obj_inf_prop_list").value_elem
+            dlg.eobj.props.classList.add("obj_inf_prop_list")
             dlg.adjust_labels()
 
         }
