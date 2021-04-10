@@ -108,9 +108,12 @@ EXPRESSIONS
     need for loop
     variable - just on mouse up
     node - get variable from geom
-    SplitGeom - doesn't do disp_params
+    
+    SplitGeom - path
     GroupObj describe
     Mesh describe - size, type of arrays
+    
+    pulse on variable change?
 - Box2D
     - BUG: errors don't stop previous anim
     - sim button - current position to defs

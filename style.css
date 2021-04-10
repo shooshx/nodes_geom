@@ -1045,7 +1045,6 @@ input {
 .obj_inf_var_value {
 }
 .obj_inf_var_label {
-
 }
 .obj_inf_var_matrix {
     font-family: monospace;
@@ -1055,6 +1054,14 @@ input {
 .obj_inf_var_type {
     text-align: right;
 }
+
+.obj_inf_grp_obj {
+    margin: 0 0 10px 6px;
+}
+.obj_inf_grp_detail {
+    margin-left: 10px;
+}
+
 
 .editor_error_marker {
     position:absolute;

@@ -1462,7 +1462,7 @@ class NodeGeomSplit extends NodeCls
             vtx_idx_to_obj.push(sidx)
             let to_def = out_objs_defs[sidx]
             if (to_def === undefined) {
-                to_def = { darrs: { vtx_pos: [] }, vidx_map: {}, vcount: 0 }
+                to_def = { darrs: { vtx_pos: [] }, vidx_map: {}, vcount: 0, paths_ranges:[] }
                 out_objs_defs[sidx] = to_def
             }
             to_def.vidx_map[i] = to_def.vcount++
@@ -1489,9 +1489,17 @@ class NodeGeomSplit extends NodeCls
                 face_attr_names.push(aname)
             }
         }
+        const copy_face_attr = (obj, to_arrs, fidx)=>{
+            for(let faname of face_attr_names) {
+                const num_elem = obj.meta[faname].num_elems   
+                for(let ei = 0; ei < num_elem; ++ei)
+                    to_arrs[faname].push(obj.arrs[faname][fidx*num_elem + ei])
+            }
+        }
 
         // reconstruct faces
-        if (obj.constructor === Mesh) {
+        if (obj.constructor === Mesh) 
+        {
             const fsize = obj.face_size()
             if (fsize > 1) {
                 // divide the faces to the objects
@@ -1506,32 +1514,48 @@ class NodeGeomSplit extends NodeCls
                     }
                     if (to_obj_idx === null) // don't agree, don't add this face anywhere
                         continue
-                    const to_def = out_objs_defs[to_obj_idx]
-                    const to_arrs = to_def.darrs               
+                    const to_def = out_objs_defs[to_obj_idx]             
                     const to_vmap = to_def.vidx_map
+                    // populate idx array
                     for(let ei = 0; ei < fsize; ++ei)
                         to_arrs.idx.push(to_vmap[obj.arrs.idx[iidx + ei]])
 
-                    for(let faname of face_attr_names) {
-                        const num_elem = obj.meta[faname].num_elems   
-                        for(let ei = 0; ei < num_elem; ++ei)
-                            to_arrs[faname].push(obj.arrs[faname][fidx*num_elem + ei])
-                    }
-                }
-                for(let key in out_objs_defs) {
-                    const obj_def = out_objs_defs[key]
-                    const obj_arrs = obj_def.darrs
-                    for(let name in obj_arrs) 
-                        if (name.startsWith("face_"))
-                            assert(obj_arrs[name].length === obj_arrs.idx.length / fsize * obj.meta[name].num_elems, this, "unexpected face attr size")
+                    copy_face_attr(obj, to_def.darrs, fidx)
                 }
             }
         }
+        else // MultiPath
+        {
+            for(let pri = 0, fidx = 0; pri < obj.paths_ranges.length; pri += 3, ++fidx) 
+            {
+                const start_idx = obj.paths_ranges[pri]
+                const end_idx = obj.paths_ranges[pri+1]
+                const flags = obj.paths_ranges[pri+2]
 
+                let to_obj_idx = vtx_idx_to_obj[start_idx]
+                for(let iidx = start_idx+1; iidx < end_idx; ++iidx) 
+                {
+                    if (to_obj_idx !== vtx_idx_to_obj[iidx]) {
+                        to_obj_idx = null // they don't agree
+                        break
+                    }
+                }
+                if (to_obj_idx === null) // don't agree, don't add this face anywhere
+                    continue
+                const to_def = out_objs_defs[to_obj_idx]  
+                const to_vmap = to_def.vidx_map
+                const path_len = end_idx - start_idx
+                
+                to_def.paths_ranges.push(to_vmap[start_idx], to_vmap[start_idx] + path_len, flags)
+                copy_face_attr(obj, to_def.darrs, fidx)
+            }
+        }
 
+        // create output objects
         for(let key in out_objs_defs) {
             const kobj = new obj.constructor()
-            const arrs = out_objs_defs[key].darrs
+            const def = out_objs_defs[key]
+            const arrs = def.darrs
             for(let name in arrs) {
                 const orig_meta = obj.meta[name]
                 const arrCls = obj.arrs[name].constructor
@@ -1543,6 +1567,9 @@ class NodeGeomSplit extends NodeCls
 
             if (obj.constructor === Mesh) {
                 kobj.type = obj.type
+            }
+            else {
+                kobj.paths_ranges = def.paths_ranges
             }
 
 
@@ -2023,6 +2050,7 @@ class NodeGroupSelect extends NodeCls {
     constructor(node) {
         super(node)
         this.in_g = new InTerminal(node, "in_group")
+        this.in_default = new InTerminal(node, "in_default")
         this.out = new OutTerminal(node, "out_obj")
 
         this.key_sel = new ParamInt(node, "Select Index", 0)
@@ -2033,8 +2061,11 @@ class NodeGroupSelect extends NodeCls {
         assert(g.constructor === PObjGroup, this, "Expected group input")
 
         const key = this.key_sel.get_value()
-        const v = g.get(key)
-        assert(v !== null, this, "Index doesn't exist in group")
+        let v = g.get(key)
+        if (v === null) {
+            v = this.in_default.get_const();
+        }
+        assert(v !== null, this, "Index doesn't exist in group and no default")
         this.out.set(v)
     }
 

@@ -391,7 +391,7 @@ class MultiPath extends PObject
         const has_const_face_col = this.consts.face_color !== undefined
         let const_face_col = null
         if (has_const_face_col)
-        const_face_col = make_str_color(this.consts.face_color)
+            const_face_col = make_str_color(this.consts.face_color)
         let pri = 0
         for(let p of this.paths) {
             const has_arr_face_col = p.face_color !== null
