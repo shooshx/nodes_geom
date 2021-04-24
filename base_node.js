@@ -14,6 +14,7 @@ const TERM_MARGIN_X = 20
 const TERM_MARGIN_Y = 2
 
 const NODE_WIDTH = 120
+const NODE_HEIGHT = 30
 
 const TEMPLATE_LINE_COLOR = "#de77f1"
 const TEMPLATE_LINE_COLOR_V = [0xde, 0x77, 0xf1]
@@ -260,7 +261,7 @@ class TerminalBase {
         ctx_nodes.stroke()
         nodes_draw_end()
     }
-    draw_shadow() {
+    draw_nshadow() {
         ctx_nd_shadow.beginPath();
         this.draw_path(ctx_nd_shadow)
         ctx_nd_shadow.fillStyle = color_from_uid(this.tuid)
@@ -722,7 +723,8 @@ const NODE_NAME_PROPS = { font:"14px Verdana", margin_top:3, margin_left:5, heig
 const NODE_FLAG_DISPLAY = {offset: 105, color: "#00A1F7" }
 const NODE_FLAG_TEMPLATE = {offset: 90, color: "#de77f1" }
 const NODE_FLAG_INPUT = { width: 15, color: "#8AE600" }
-const NODE_GLOBAL_FLAG = { offset: 60, color: "#339933" }
+const NODE_ENABLE_GLOB_FLAG = { offset: 60, color: "#339933" }
+const NODE_ENABLE_ANIM_FLAG = { offset: 90, color: "#339933" }
 
 
 function wrapText(context, text, x, center_y, maxWidth, lineHeight) {
@@ -804,20 +806,30 @@ class StateAccess {
 }
 
 class Node {    
-    constructor(x, y, name, cls, id) {
+    constructor(x, y, name, cls, id, of_prog) {
+        this.of_program = of_prog
         this.rename_observers = []
         this.is_selected_inf = null // if this node is selected, this contains a object with stuff { elem: , popups_dismiss: }. 
 
         this.x = x
         this.y = y
         this.width = NODE_WIDTH
-        this.height = 30
+        this.height = NODE_HEIGHT
         this.set_name(name)
         this.color = "#ccc"
         this.id = id  // used for identification in the program and serialization
+
         this.can_display = true // vars nodes can't display, set in cls ctor
         this.can_input = false  // vars node can get mouse input
-        this.can_global = false // vars node sets variables to global namespace, same as template display, only in the first flag place
+        this.can_enable = false // NodeVarCls: vars node sets variables to global namespace, same as template display, only in the first flag place
+                                // NodeAnimCls: start animation flow enable
+
+        this.follow_target = null // for Flow nodes (NodeAnimCls) instance of FollowTarget, if this is null, node can't be followed
+        this.snap_suggest = null // null or {x:,y:} of where to draw the snap suggestion block
+        this.can_follow = false // Flow node, can this node follow another
+        this.followed_by_node = null // who follows me
+        this.following_node = null // who am I following 
+
         this.name_xmargin = 0   // distance of name from node, use for var input node
         this.nkind = KIND_OBJ
 
@@ -853,7 +865,7 @@ class Node {
 
         this.disp_template = false
         this.receives_input = false // depends on can_input
-        this.global_active = false // depends on can_global
+        this.global_active = false // depends on can_enable for NodeVarCls
 
         if (this.state_access === null)
             this.set_state_evaluators([]) // if cls ctor did not call it
@@ -866,6 +878,19 @@ class Node {
         return this.state_access
     }
 
+    follow(node) {
+        node.followed_by_node = this
+        this.following_node = node
+    }
+    unfollow() {
+        if (this.following_node === null)
+            return
+        this.following_node.followed_by_node = null
+        this.following_node = null
+    }
+    is_following() {
+        return this.following_node !== null
+    }
 
     make_term_offset(lst) {
         if (lst.length == 0)
@@ -911,6 +936,13 @@ class Node {
     
     draw() {
         let px = this.px(), py = this.py()
+        if (this.snap_suggest !== null) {
+            ctx_nodes.beginPath();
+            rounded_rect(ctx_nodes, this.snap_suggest.x, this.snap_suggest.y, this.width, this.height, 5)
+            ctx_nodes.fillStyle = "rgba(200,200,200,0.4)"
+            ctx_nodes.fill()
+        }
+
         if (this.cls.get_error() !== null) {
             ctx_nodes.beginPath();
             ctx_nodes.arc(px, py + this.height*0.5, 40, 0, 2*Math.PI)
@@ -986,18 +1018,19 @@ class Node {
             ctx_nodes.lineTo(px + NODE_FLAG_INPUT.width, py+this.height)
             ctx_nodes.stroke()
         }
-        if (this.can_global) // variable
+        if (this.can_enable) // variable
         {
-            if (this.global_active) { // place of display flag but controlled by the template flag
+            const shape = (this.cls.constructor === NodeVarCls) ? NODE_ENABLE_GLOB_FLAG : NODE_ENABLE_ANIM_FLAG
+            if (this.global_active || program.anim_flow_start === this) { // place of display flag but controlled by the enable flag
                 ctx_nodes.beginPath();
-                rounded_rect_f(ctx_nodes, px + NODE_GLOBAL_FLAG.offset, py, this.width - NODE_GLOBAL_FLAG.offset, this.height, 0, 0, 5, 5)
-                ctx_nodes.fillStyle = NODE_GLOBAL_FLAG.color
+                rounded_rect_f(ctx_nodes, px + shape.offset, py, this.width - shape.offset, this.height, 0, 0, 5, 5)
+                ctx_nodes.fillStyle = shape.color
                 ctx_nodes.fill()
                 ctx_nodes.stroke()  // looks bad without this
             }
             ctx_nodes.beginPath();
-            ctx_nodes.moveTo(px + NODE_GLOBAL_FLAG.offset, py)
-            ctx_nodes.lineTo(px + NODE_GLOBAL_FLAG.offset, py+this.height)
+            ctx_nodes.moveTo(px + shape.offset, py)
+            ctx_nodes.lineTo(px + shape.offset, py+this.height)
             ctx_nodes.stroke()
         }
 
@@ -1009,10 +1042,12 @@ class Node {
         ctx_nodes.fillText(this.name, this.namex(), this.namey())
     }
 
-    draw_shadow() {
+    draw_nshadow() {
         for(let t of this.terminals) {
-            t.draw_shadow()
+            t.draw_nshadow()
         }
+        if (this.follow_target !== null)
+            this.follow_target.draw_nshadow()
     }
     
     select() {
@@ -1063,14 +1098,28 @@ class Node {
         this.theight = this.height + TERM_RADIUS * 4 + TERM_MARGIN_Y*2
     }
 
-    mousemove(ev) {
-        this.x += ev.dx 
+    mousemove(ev, draw = true) {
+        this.x += ev.dx
         this.y += ev.dy 
-        this.recalc_bounding_box()      
-        draw_nodes()
+        this.recalc_bounding_box()
+        if (this.cls.node_move_hook !== undefined)
+            this.cls.node_move_hook(ev)
+        if (this.followed_by_node !== null)
+            this.followed_by_node.mousemove(ev, false)
+        if (draw)
+            draw_nodes(false)
+    }
+
+    set_pos(x, y) {
+        this.x = x
+        this.y = y
+        this.recalc_bounding_box()
     }
     
-    mouseup() {
+    mouseup(ev) {
+        if (this.cls.node_mouse_up_hook !== undefined) 
+            this.cls.node_mouse_up_hook(ev)
+        save_state() // since we didn't save on mousemove
     }
     
     mousedown(ev) {
@@ -1301,7 +1350,7 @@ class NV_TextNote
         this.edit_elem.style.height = this.height + this.lineHeight + 5 + "px"
         this.elem_input.setAttribute("rows", this.lines.length)           
     }
-    draw_shadow() {
+    draw_nshadow() {
         const px = this.px(), py = this.py()
         ctx_nd_shadow.beginPath();
         ctx_nd_shadow.fillStyle = color_from_uid(this.uid)
@@ -1447,9 +1496,18 @@ function find_node_obj(e) {
                 if (px <= n.x + NODE_FLAG_INPUT.width)
                     return new NodeFlagProxy(n, (n)=>{ program.set_input_node(n) }, false) // don't select node since that's only annoying most of the time, also means node can't be moved from the input flag
             }
-            if (n.can_global) {
-                if (px >= n.x + NODE_GLOBAL_FLAG.offset)
-                    return new NodeFlagProxy(n, (n)=>{ program.set_glob_var_node(n) })
+            if (n.can_enable) {
+                const shape = (n.cls.constructor === NodeVarCls) ? NODE_ENABLE_GLOB_FLAG : NODE_ENABLE_ANIM_FLAG
+                if (px >= n.x + shape.offset) {
+                    return new NodeFlagProxy(n, (n)=>{ 
+                        if (n.cls.constructor === NodeVarCls)
+                            program.set_glob_var_node(n) 
+                        else if (n.cls instanceof NodeAnimCls) 
+                            program.set_anim_node(n)
+                        else
+                            dassert(false, "unexpected enable")
+                    })
+                }
             }
             if (px >= n.x)                
                 return n
@@ -1631,6 +1689,8 @@ function nodes_context_menu(e) {
 
 let last_nodes_hover_obj = null
 function nodes_hover(e) {
+    if (e.buttons !== 0)
+        return // nothing to find really if we're draging a node
     let obj = nodes_find_obj_shadow(e)
     if (obj !== null && obj.hover !== undefined) {
         if (obj !== last_nodes_hover_obj)
@@ -1666,9 +1726,10 @@ function nodes_draw_end() {
     ctx_nd_shadow.restore()
 }
 
-function draw_nodes()
+function draw_nodes(and_save = true)
 {   
-    save_state()
+    if (and_save)
+        save_state()
     ctx_nodes.lineWidth = 1
     ctx_nodes.fillStyle = '#312F31'
     ctx_nodes.fillRect(0, 0, canvas_nodes.width, canvas_nodes.height)
@@ -1710,10 +1771,10 @@ function draw_nodes()
 
     // in the shadow canvas nodes should be above lines so that the lines don't obscure the terminals
     for(let n of program.nodes_decor) {
-        n.draw_shadow()        
+        n.draw_nshadow()        
     }   
     for(let n of program.nodes) {
-        n.draw_shadow()
+        n.draw_nshadow()
     }
 
     nodes_draw_end()

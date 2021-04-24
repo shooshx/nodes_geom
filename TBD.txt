@@ -107,12 +107,7 @@ EXPRESSIONS
     copy node can set take attribute of the position points and add them as attr per path??
     need for loop
     variable - just on mouse up
-    node - get variable from geom
-    
-    SplitGeom - path
-    GroupObj describe
-    Mesh describe - size, type of arrays
-    
+    node - get variable from geom    
     pulse on variable change?
 - Box2D
     - BUG: errors don't stop previous anim
@@ -138,7 +133,7 @@ EXPRESSIONS
     - copy
     - sample param from node in expression - to allow setting the length to set the joint as well
     - copy joint?
-    - sampled time step on startip
+    - sampled time step on startup
     - planet gravity? b2GravityController, boyancy?
 
     - spirograph example: https://laughingsquid.com/the-cycloid-drawing-machine-a-device-that-uses-wooden-gears-to-create-elaborate-beautiful-designs/

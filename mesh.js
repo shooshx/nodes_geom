@@ -894,7 +894,10 @@ class Mesh extends PObject
         dlg.eobj.vtxnum.innerText = this.arrs.vtx_pos.length / 2
         dlg.eobj.type.innerText = meshTypeName(this.type)
         dlg.eobj.facenum.innerText = this.face_count()
-        dlg.eobj.props.innerText = Object.keys(this.arrs).join("\n")
+        const prop_lines = []
+        for(let name in this.arrs)
+            prop_lines.push(name + ": " + this.arrs[name].constructor.name + "(" + this.arrs[name].length + ")")
+        dlg.eobj.props.innerText = prop_lines.join("\n")
         
     }
 }

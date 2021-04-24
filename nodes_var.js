@@ -286,7 +286,7 @@ class NodeVarCls extends NodeCls
         super(node)
         node.can_display = false
         node.can_input = false
-        node.can_global = false
+        node.can_enable = false
         node.name_xmargin = 8
         node.width = 80
         node.nkind = KIND_VARS
@@ -323,7 +323,7 @@ class NodeVariable extends NodeVarCls
             this.v_group.update_elems()
         })
         this.global = new ParamBool(node, "Global Namespace", false, (v)=>{
-            node.can_global = v
+            node.can_enable = v
             draw_nodes()
         }, {allow_expr:false})
         this.brief = new ParamBool(node, "Brief View", false, (v)=>{

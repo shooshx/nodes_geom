@@ -372,7 +372,7 @@ function panel_mouse_control(view, canvas)
         if (view.hover !== undefined) {
             let cvs_x = e.pageX - view.rect.left, cvs_y = e.pageY - view.rect.top // relative to canvas
             if (cvs_x >= 0 && cvs_y >= 0 && cvs_x < view.rect.width && cvs_y < view.rect.height) { // only if it's inside the canvas
-                const ev = {vx:0, vy:0, ex:e.pageX, ey:e.pageY, cvs_x:cvs_x, cvs_y:cvs_y}
+                const ev = {vx:0, vy:0, ex:e.pageX, ey:e.pageY, cvs_x:cvs_x, cvs_y:cvs_y, buttons:e.buttons}
                 view.hover(ev)
             }
         }

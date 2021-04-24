@@ -89,8 +89,8 @@ function create_global_elems() {
     main_view = add_div_id(body, null, "main_view")
       image_panel = add_div_id(main_view, null, "image_panel")
         canvas_image = add_elem_id(image_panel, "canvas", null, "canvas_image")
-        canvas_webgl = add_elem(image_panel, "canvas", null, "canvas_webgl")
-        canvas_img_shadow = add_elem(image_panel, "canvas", null, "canvas_img_shadow")
+        canvas_webgl = add_elem_id(image_panel, "canvas", null, "canvas_webgl")
+        canvas_img_shadow = add_elem_id(image_panel, "canvas", null, "canvas_img_shadow")
       image_splitter = add_div_id(main_view, "splitter", "image_splitter")
       edit_panel = add_div_id(main_view, null, "edit_panel")
         edit_params = add_div_id(edit_panel, null, "edit_params")
@@ -98,8 +98,8 @@ function create_global_elems() {
           div_display_params_cont = add_div(edit_params, "div_display_params_cont")
         edit_splitter = add_div_id(edit_panel, "splitter", "edit_splitter")
         edit_nodes = add_div(edit_panel)
-          canvas_nodes = add_elem(edit_nodes, 'canvas')
-    canvas_nd_shadow = add_elem(body, 'canvas', null, "canvas_nd_shadow")
+          canvas_nodes = add_elem_id(edit_nodes, 'canvas', null, "canvas_nodes")
+    canvas_nd_shadow = add_elem_id(body, 'canvas', null, "canvas_nd_shadow")
     hover_box = add_div(main_view, "hover_box")
 }
 
@@ -117,7 +117,6 @@ function page_onload()
     paper.project = new paper.Project(null)
 
     
-    clear_program()
     try {
         load_state()
     }
@@ -168,6 +167,7 @@ class Program {
         this.tdisp_nodes = [] // template display
         this.input_nodes = []
         this.nodes_decor = [] // non-functional decorations in the nodes view
+        this.anim_flow_start = null
     }
 
     // for objects who's id is serialized (node, line)
@@ -177,8 +177,10 @@ class Program {
     }
     // for objects who's id is not serialized (terminals)
     // counter not saved, different namespace but all go into the same obj_map
-    alloc_ephemeral_obj_id() {
-        return "e" + this.next_eph_obj_id++
+    alloc_ephemeral_obj_id(t) {
+        const id = "e" + this.next_eph_obj_id++
+        this.obj_map[id] = t
+        return id
     }
 
     add_node(x, y, name, cls, id) 
@@ -196,13 +198,12 @@ class Program {
         else {
             console.assert(this.obj_map[id] === undefined, "node-id already exists")
         }
-        let node = new Node(x, y, name, cls, id)
+        let node = new Node(x, y, name, cls, id, this)
         this.obj_map[node.id] = node
         this.nodes.push(node)
 
         for(let t of node.terminals) {
-            t.tuid = this.alloc_ephemeral_obj_id() // not saving these ids anywhere because they're only for display of hover, not referenced by something else
-            this.obj_map[t.tuid] = t
+            t.tuid = this.alloc_ephemeral_obj_id(t) // not saving these ids anywhere because they're only for display of hover, not referenced by something else
         }
         if (this.nodes.length === 1) // first node, display it (also happens in internal programs)
             this.set_display_node(node)
@@ -225,8 +226,7 @@ class Program {
             obj_inf_dlg.node_deleted(node)
         if (node.destructor)
             node.destructor()
-        let index = this.nodes.indexOf(node);
-        this.nodes.splice(index, 1);        
+        arr_remove_is(this.nodes, node)
         delete this.obj_map[node.id];
         for(let t of node.terminals) {
             while(t.lines.length > 0)
@@ -261,14 +261,11 @@ class Program {
         try { // might do console.assert to check stuff, don't want it to mess with us
             line.to_term.get_attachee().tdoing_disconnect(line)
         } catch(e) {}
-        line.from_term.lines.splice(line.from_term.lines.indexOf(line), 1)
-        line.to_term.lines.splice(line.to_term.lines.indexOf(line), 1)
+        arr_remove_is(line.from_term.lines, line)
+        arr_remove_is(line.to_term.lines, line)
         line.to_term.clear()
         line.to_term.tset_dirty(true)
-
-        const pos = this.lines.indexOf(line)
-        dassert(pos !== -1, "line not found")
-        this.lines.splice(pos, 1)
+        arr_remove_is(this.lines, line)
         delete this.obj_map[line.uid]
 
         try { // might do console.assert to check stuff, don't want it to mess with us
@@ -300,9 +297,7 @@ class Program {
         if (node.disp_template)
             this.tdisp_nodes.push(node)
         else {
-            const idx = program.tdisp_nodes.indexOf(node)
-            console.assert(idx !== -1)
-            this.tdisp_nodes.splice(idx, 1);
+            arr_remove_is(program.tdisp_nodes, node)
         }
         if (do_draw)
             trigger_frame_draw(true)
@@ -317,12 +312,18 @@ class Program {
         }
         else {
             g_anim.vars_box.remove_ns("glob_" + node.id)
-            const idx = program.glob_var_nodes.indexOf(node)
-            console.assert(idx !== -1) 
-            this.glob_var_nodes.splice(idx, 1);
+            arr_remove_is(program.glob_var_nodes, mode)
         }
         if (do_draw)
             trigger_frame_draw(true)
+    }
+
+    set_anim_node(node)
+    {
+        if (this.anim_flow_start === node)
+            this.anim_flow_start = null
+        else
+            this.anim_flow_start = node
     }
     
     set_input_node(node, do_draw=true) {
@@ -330,9 +331,7 @@ class Program {
         if (node.receives_input)
             this.input_nodes.push(node)
         else {
-            const idx = program.input_nodes.indexOf(node)
-            console.assert(idx !== -1)
-            this.input_nodes.splice(idx, 1)
+            arr_remove_is(program.input_nodes, node)
         }
         if (do_draw)
             draw_nodes()
@@ -346,9 +345,7 @@ class Program {
         this.obj_map[obj.uid] = obj
     }
     delete_decor(obj) {
-        const pos = this.nodes_decor.indexOf(obj)
-        dassert(pos !== -1, "object not found")
-        this.nodes_decor.splice(pos, 1)
+        arr_remove_is(this.nodes_decor, obj)
         delete this.obj_map[obj.uid];
         draw_nodes()
     }
@@ -867,7 +864,9 @@ const nodes_classes = [
     ]},
     { group_name: "Flow", nodes: [
         NodePickOne,
-        NodeChangeFilter
+        NodeChangeFilter,
+        AnimStartFlow,
+        AnimSpan
     ]},
     { group_name: "Physics", nodes: [
         NodeB2Body,

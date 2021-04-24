@@ -1516,11 +1516,12 @@ class NodeGeomSplit extends NodeCls
                         continue
                     const to_def = out_objs_defs[to_obj_idx]             
                     const to_vmap = to_def.vidx_map
+                    const to_arrs = to_def.darrs
                     // populate idx array
                     for(let ei = 0; ei < fsize; ++ei)
                         to_arrs.idx.push(to_vmap[obj.arrs.idx[iidx + ei]])
 
-                    copy_face_attr(obj, to_def.darrs, fidx)
+                    copy_face_attr(obj, to_arrs, fidx)
                 }
             }
         }

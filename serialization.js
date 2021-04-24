@@ -17,7 +17,9 @@ function save_program() {
             const ov = p.save()
             if (ov !== null)
                 sn.params[p.label] = ov
-        }        
+        }
+        if (n.following_node !== null)
+            sn.following = n.following_node.id 
         sprog.nodes[n.id] = sn
     }
     for(let line of program.lines) {
@@ -182,7 +184,12 @@ function _load_program(sprog)
         }
         newprog.add_line(new Line(from_term.get_attachment(), to_term.get_attachment()), sl.uid, false)
     }
-
+    // need to do this after all nodes were created
+    for(let nid in sprog.nodes) {
+        let sn = sprog.nodes[nid]
+        if (sn.following !== undefined)
+            newprog.obj_map[nid].follow(newprog.obj_map[sn.following])
+    }
     for(let n of newprog.nodes) {
         if (n.cls.post_load_hook)
             n.cls.post_load_hook()
