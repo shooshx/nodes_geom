@@ -168,7 +168,8 @@ class Program {
         this.tdisp_nodes = [] // template display
         this.input_nodes = []
         this.nodes_decor = [] // non-functional decorations in the nodes view
-        this.anim_flow_start = null
+
+        this.anim_flow = new AnimFlow()
     }
 
     // for objects who's id is serialized (node, line)
@@ -319,14 +320,7 @@ class Program {
             trigger_frame_draw(true)
     }
 
-    set_anim_node(node)
-    {
-        if (this.anim_flow_start === node)
-            this.anim_flow_start = null
-        else
-            this.anim_flow_start = node
-    }
-    
+   
     set_input_node(node, do_draw=true) {
         node.receives_input = !node.receives_input
         if (node.receives_input)
@@ -619,11 +613,11 @@ function stop_propogation_on(event_name, ...elems) {
 var in_draw = false
 
 
-function call_frame_draw(do_run, clear_all, done_callback=null) {  // callback for save PNG
+function call_frame_draw(do_run, clear_all, done_callback=null, do_draw=true) {  // callback for save PNG
     if (in_draw)
         return // avoid starting a call if the previous async call didn't finish yet (indicated several triggers from the same stack)
     in_draw = true
-    do_frame_draw(do_run, clear_all).then(()=>{
+    do_frame_draw(do_run, clear_all, do_draw).then(()=>{
         if (done_callback)
             done_callback(true)
     }).catch((err)=>{
@@ -653,7 +647,7 @@ function get_display_object() { // for shadow select
 var frame_ver = 1 // always ascending id of the frame, for modern dirty analysis
 
 // called whenever the display needs to be updated to reflect a change
-async function do_frame_draw(do_run, clear_all) 
+async function do_frame_draw(do_run, clear_all, do_draw) 
 {
     let run_root_nodes = new Set()
     let disp_obj = null
@@ -694,7 +688,6 @@ async function do_frame_draw(do_run, clear_all)
         let disp_node_error = false
         for(let node of run_root_nodes) {
             try {
-
                 await run_nodes_tree(node, true)
             }
             catch(e) {
@@ -708,6 +701,9 @@ async function do_frame_draw(do_run, clear_all)
         else if (program.display_node !== null)
             disp_obj = program.display_node.outputs[0].get_const() // in case it was null
     }
+
+    if (!do_draw)
+        return
 
     // do this before obj draw so that if there are missing display params, they'll get a default value
     show_display_params(disp_obj, program.display_node) 
@@ -765,6 +761,75 @@ async function do_frame_draw(do_run, clear_all)
     ++frame_ver
 }
 
+function get_output_term_of_kind(node, kind) {
+    for(let tn of node.outputs)
+        if (tn.kind == kind) 
+            return tn
+    return null
+}
+
+class AnimFlow
+{
+    constructor() {
+        this.start_node = null
+        this.current_node = null
+        this.reset_ver = 1 // used for knowing which nodes were visited by reset_anim_rec
+
+        this.default_anim_traits = new AnimTraits()
+        this.default_dummy_node = { get_anim_traits: ()=>{ return this.default_anim_traits } }
+    }
+
+    set_anim_node(node)
+    {
+        if (this.start_node === node)
+            this.start_node = null
+        else
+            this.start_node = node
+        this.reset_anim_flow()
+    }
+
+    reset_anim_rec(n) {
+        if (n.at_reset_ver === this.reset_ver)
+            return
+        n.cls.anim_reset()
+        n.at_reset_ver = this.reset_ver
+        for(let out_t of n.outputs)
+            if (out_t.kind === KIND_FLOW_ANIM)
+                for (let l of out_t.lines)
+                    this.reset_anim_rec(l.to_term.owner)
+    }
+
+    reset_anim_flow()
+    {
+        this.current_node = this.start_node
+        ++this.reset_ver
+        if (this.current_node !== null)
+            this.reset_anim_rec(this.current_node)
+    }
+
+    pget_anim_traits()
+    {
+        if (this.current_node === null)
+            return this.default_anim_traits
+        let t = null
+        do {
+            // find flow output
+            t = this.current_node.cls.get_anim_traits()
+            if (t.next) {
+                let next_node = get_output_term_of_kind(this.current_node, KIND_FLOW_ANIM)
+                if (next_node.lines.length === 0) // nothing to transfer to, go to default
+                    this.current_node = this.default_dummy_node
+                else                    
+                    this.current_node = next_node.lines[0].to_term.owner
+                //console.log("Flowed to ", this.current_node.name)
+            }
+            // TBD detect loop?
+        } while(t.next)
+
+        return t
+    }
+}
+
 class Animation {
     constructor() {
         this.frame_num = 0;
@@ -782,6 +847,7 @@ class Animation {
         this.frame_num = 0
         const did_run = this.run
         this.run = false
+        program.anim_flow.reset_anim_flow()
         if (!did_run)
             window.requestAnimationFrame(anim_frame)
     }
@@ -814,16 +880,36 @@ var g_anim = new Animation()
 
 function anim_frame()
 {
+    const anim_traits = program.anim_flow.pget_anim_traits()
     //g_anim.frame_time = performance.now() - g_anim.start_time
     g_anim.notify_pre_draw()
 
-    call_frame_draw(true, false)
+    call_frame_draw(true, false, null, anim_traits.render)
     g_anim.frame_num_box.vclear_dirty() // clean it like node variables are cleaned
     if (!g_anim.run)
         return
     ++g_anim.frame_num;
-    window.requestAnimationFrame(anim_frame)
+    if (anim_traits.frame_rate === FRAME_RATE_NORMAL)
+        window.requestAnimationFrame(anim_frame)
+    else if (anim_traits.frame_rate === FRAME_RATE_MAX)
+        //window.setTimeout(anim_frame, 0)
+        setZeroTimeout()
+    else
+        assert(false, "unexpected frame_rate")
 }
+
+
+const messageName = 424242;
+function setZeroTimeout() {
+    window.postMessage(messageName, "*");
+}
+function handleMessage(event) {
+    if (event.source == window && event.data == messageName) {
+        event.stopPropagation();
+        anim_frame()
+    }
+}
+window.addEventListener("message", handleMessage, true);
 
 
 

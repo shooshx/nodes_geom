@@ -101,9 +101,8 @@ EXPRESSIONS
 - BUG: canvases overflowing from bottom
 - BUG: label space adjust doesn't work for ParamBool, also for bool sharing a line in variables node
 - maybe BUG: variables loose exact accuracy on repeated load-save?
-
 - variable for coord inside geometry (path contains)
-- BUG: output dialog of mesh doen't align lines
+- BUG: output info dialog of mesh doen't align lines
 - demo idea: user presses anywhere, some animation starts where he pressed ?
     copy node can set take attribute of the position points and add them as attr per path??
     need for loop
@@ -113,7 +112,6 @@ EXPRESSIONS
 - Box2D
     - BUG: errors don't stop previous anim
     - sim button - current position to defs
-
     - joints
         - revolute limits
         - show the name of where the line comes from
@@ -136,7 +134,6 @@ EXPRESSIONS
     - copy joint?
     - sampled time step on startup
     - planet gravity? b2GravityController, boyancy?
-
     - spirograph example: https://laughingsquid.com/the-cycloid-drawing-machine-a-device-that-uses-wooden-gears-to-create-elaborate-beautiful-designs/
     - demo - bicycle doing a loop
     - demo - double pendulum
@@ -174,14 +171,13 @@ EXPRESSIONS
         https://www.youtube.com/watch?v=aBIc0dE5EI0&ab_channel=Tastemade
         Harmonograph
         https://leganerd.com/2016/03/09/cycloid-drawing-machine-lo-spirografo-dalle-possibilta-infinite/
-        
-
 - time program
 - camera program
 - manual geom create quads mesh
 - balls that know their end color
     - box2d
     - matter.js - https://brm.io/matter-js/
+    - with video playing inside them - nyan cat?
 - BoolParam 
     fix in SetAttr fill from ParamFloat to ParamBool with code
 - Mandelbrot

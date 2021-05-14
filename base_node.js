@@ -298,8 +298,12 @@ class TerminalBase {
             this.line_pending.draw()
         }        
     }
+
+    pre_add_line_hook() { // used for flow terminal that need to disconnect other outputs
+    }
     mouseup() {
         if (this.line_pending !== null) {
+            this.pre_add_line_hook()
             program.add_line(this.line_pending, null, true)
             this.line_pending = null
         }
@@ -1025,7 +1029,7 @@ class Node {
         if (this.can_enable) // variable
         {
             const shape = (this.cls.constructor === NodeVarCls) ? NODE_ENABLE_GLOB_FLAG : NODE_ENABLE_ANIM_FLAG
-            if (this.global_active || program.anim_flow_start === this) { // place of display flag but controlled by the enable flag
+            if (this.global_active || program.anim_flow.start_node === this) { // place of display flag but controlled by the enable flag
                 ctx_nodes.beginPath();
                 rounded_rect_f(ctx_nodes, px + shape.offset, py, this.width - shape.offset, this.height, 0, 0, 5, 5)
                 ctx_nodes.fillStyle = shape.color
@@ -1502,7 +1506,7 @@ function find_node_obj(e) {
                         if (n.cls.constructor === NodeVarCls)
                             program.set_glob_var_node(n) 
                         else if (n.cls instanceof NodeAnimCls) 
-                            program.set_anim_node(n)
+                            program.anim_flow.set_anim_node(n)
                         else
                             dassert(false, "unexpected enable")
                     })

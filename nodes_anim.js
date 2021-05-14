@@ -155,7 +155,12 @@ class NodeAnimCls extends NodeCls
         node.can_display = false
         //node.can_follow = true
         node.can_run = false
+
+        this.at_reset_ver = null // used for recursive propogation of anim_reset()
     }  
+
+    anim_reset() {}
+    get_anim_traits() {}
 }
 
 class AnimInTerminal extends InTerminal
@@ -174,6 +179,12 @@ class AnimOutTerminal extends OutTerminal
         this.kind = KIND_FLOW_ANIM
         this.color = TERM_COLOR_ANIM_FLOW
     }
+    // there can be only one output line, delete any existing
+    pre_add_line_hook() {
+        const lines_copy = [...this.lines]
+        for(let line of lines_copy)
+            program.delete_line(line, false) 
+    }
 }
 
 const FRAME_RATE_NORMAL = -1 // normal rate from requestAnimationFrame
@@ -190,6 +201,7 @@ class AnimTraits
 }
 
 
+// controls program.anim_flow.start_node
 class AnimStartFlow extends NodeAnimCls
 {
     static name() {
@@ -220,11 +232,11 @@ class AnimSpan extends NodeAnimCls
         this.next = new AnimOutTerminal(node, "next")
 
         this.frame_rate = new ParamSelect(node, "Frame Rate", 0, [["Normal", FRAME_RATE_NORMAL], ["Maximum", FRAME_RATE_MAX]])
-        this.render = new ParamBool(node, "Render")
+        this.render = new ParamBool(node, "Render", true)
         this.stop_at = new ParamSelect(node, "Stop", 0, ["Never", "Frame Count", "Condition"], (sel_idx)=>{
             this.stop_at_count.set_visible(sel_idx === 1)
         })
-        this.stop_at_count = new ParamInt(node, "Stop After Count", 0) 
+        this.stop_at_count = new ParamInt(node, "After Count", 0) 
 
         this.traits = new AnimTraits()
         this.first_frame = null // for frame_count
