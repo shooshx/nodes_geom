@@ -86,8 +86,10 @@ function connector_line(fx, fy, fxoffset, tx, ty, txoffset, free, uid, kind) { /
         ctx_nodes.lineTo(p2_x, p2_y)
     }
 
-    if (kind == KIND_VARS)
+    if (kind === KIND_VARS)
         ctx_nodes.strokeStyle = LINE_COLOR_VARS
+    else if (kind === KIND_FLOW_ANIM)
+        ctx_nodes.strokeStyle = LINE_COLOR_ANIM_FLOW
     else
         ctx_nodes.strokeStyle = "#aaa"
     ctx_nodes.lineWidth = 1.5
@@ -176,6 +178,7 @@ class Line {
 
 const KIND_OBJ = 0   // terminal that passes renderable objects
 const KIND_VARS = 1  // terminal that passes variable packs
+const KIND_FLOW_ANIM = 2 // terminal for animation flow
 
 // does just the graphics
 class TerminalBase {
@@ -823,6 +826,7 @@ class Node {
         this.can_input = false  // vars node can get mouse input
         this.can_enable = false // NodeVarCls: vars node sets variables to global namespace, same as template display, only in the first flag place
                                 // NodeAnimCls: start animation flow enable
+        this.can_run = true     // implements run()
 
         this.follow_target = null // for Flow nodes (NodeAnimCls) instance of FollowTarget, if this is null, node can't be followed
         this.snap_suggest = null // null or {x:,y:} of where to draw the snap suggestion block
@@ -897,14 +901,14 @@ class Node {
             return;
         let count = 0
         for(let t of lst)
-            if (t.kind == KIND_OBJ && t.tvisible)
+            if (t.kind != KIND_VARS && t.tvisible)
                 ++count
 
         const step = (this.width - TERM_MARGIN_X*2) / (count - 1)
         let cidx = 0
         for(let i = 0; i < lst.length; ++i) {
             let term = lst[i]
-            if (term.kind != KIND_OBJ || !term.tvisible)
+            if (term.kind === KIND_VARS || !term.tvisible)
                 continue
             if (term.xoffset === null) {
                 if (count == 1)
@@ -1098,22 +1102,16 @@ class Node {
         this.theight = this.height + TERM_RADIUS * 4 + TERM_MARGIN_Y*2
     }
 
-    mousemove(ev, draw = true) {
+    mousemove(ev, is_cascading = false) {
         this.x += ev.dx
-        this.y += ev.dy 
+        this.y += ev.dy
         this.recalc_bounding_box()
         if (this.cls.node_move_hook !== undefined)
-            this.cls.node_move_hook(ev)
+            this.cls.node_move_hook(ev, is_cascading)
         if (this.followed_by_node !== null)
-            this.followed_by_node.mousemove(ev, false)
-        if (draw)
+            this.followed_by_node.mousemove(ev, true)
+        if (!is_cascading)
             draw_nodes(false)
-    }
-
-    set_pos(x, y) {
-        this.x = x
-        this.y = y
-        this.recalc_bounding_box()
     }
     
     mouseup(ev) {
@@ -1475,7 +1473,8 @@ function nodes_find_obj_shadow(e) {
 
 function find_node_obj(e) {
     const px = e.vx, py = e.vy
-    for(let n of program.nodes) {
+    for (let ni = program.nodes.length - 1; ni >= 0; --ni) {  // iterate in reverse order so that we get the front nodes first
+        const n = program.nodes[ni] 
         // in this node (including terminals and name input) ?
         if (px < n.tx || px > n.tx + n.twidth || py < n.ty || py >  n.ty + n.theight) {
             continue;

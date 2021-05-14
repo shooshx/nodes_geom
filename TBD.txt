@@ -55,9 +55,10 @@ EXPRESSIONS
 **** Animation program ****
   - new kind of node
   - span node
-    - timing: 
-        - normal frame rate 
-        - max frame rate
+    - frame rate: 
+        - normal 
+        - max
+        - custom?
     - render: bool
     - stop at: 
         - condition 

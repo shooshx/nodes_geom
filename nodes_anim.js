@@ -111,33 +111,29 @@ class FollowTarget {
     }
 }
 
-
-class NodeAnimCls extends NodeCls 
+function add_follow_target(inst)
 {
-    constructor(node) {
-        super(node)
-        node.can_display = false
-        node.can_follow = true
-        node.follow_target = new FollowTarget(node)
-    }
-    node_move_hook(ev) {
-        if (!this.node.can_follow || this.node.is_following())
+    inst.node.follow_target = new FollowTarget(node)
+    inst.node_move_hook = (ev, is_cascading)=>{
+        if (!this.node.can_follow || is_cascading) // if it's a move due to the followee moving, don't need to do anything
             return
+        this.node.unfollow() // start moving due to a user drag, disconnect it immediately
         const center_e = { cvs_x: (this.node.x + nodes_view.pan_x + NODE_WIDTH*0.5)*nodes_view.zoom,
-                           cvs_y: (this.node.y + nodes_view.pan_y + NODE_HEIGHT*0.5)*nodes_view.zoom }
+                        cvs_y: (this.node.y + nodes_view.pan_y + NODE_HEIGHT*0.5)*nodes_view.zoom }
         const obj = nodes_find_obj_shadow(center_e)
-        if (obj === null || obj.constructor !== FollowTarget || obj === this.node.follow_target) {
+        if (obj === null || obj.constructor !== FollowTarget || obj === this.node.follow_target || obj.node.followed_by_node !== null) {
             this.node.snap_suggest = null
             return
         }
         this.node.snap_suggest = {x:obj.node.x, y:obj.node.y + obj.node.height, obj:obj.node }
         console.log("FOUND " + obj.node.name)
     }
-    node_mouse_up_hook(ev) {
+    inst.node_mouse_up_hook = (ev)=>{
         if (this.node.snap_suggest !== null) {
             const of_node = this.node.snap_suggest.obj
+            this.node.unfollow()
             this.node.follow(of_node)
-            this.node.set_pos(of_node.x, of_node.y + of_node.height + 1)
+            this.node.mousemove( { dx: of_node.x - this.node.x, dy: of_node.y + of_node.height + 1 - this.node.y }, true)
             this.node.snap_suggest = null
             
             draw_nodes()
@@ -148,6 +144,52 @@ class NodeAnimCls extends NodeCls
     }
 }
 
+
+const LINE_COLOR_ANIM_FLOW = "#ACFFEC"
+const TERM_COLOR_ANIM_FLOW = "#ACFFEC"
+
+class NodeAnimCls extends NodeCls 
+{
+    constructor(node) {
+        super(node)
+        node.can_display = false
+        //node.can_follow = true
+        node.can_run = false
+    }  
+}
+
+class AnimInTerminal extends InTerminal
+{
+    constructor(node, name) {
+        super(node, name)
+        this.kind = KIND_FLOW_ANIM
+        this.color = TERM_COLOR_ANIM_FLOW
+    }
+}
+
+class AnimOutTerminal extends OutTerminal
+{
+    constructor(node, name) {
+        super(node, name)
+        this.kind = KIND_FLOW_ANIM
+        this.color = TERM_COLOR_ANIM_FLOW
+    }
+}
+
+const FRAME_RATE_NORMAL = -1 // normal rate from requestAnimationFrame
+const FRAME_RATE_MAX = -2
+
+// returned from get_anim_traits()
+class AnimTraits
+{
+    constructor() {
+        this.next = false //should skip to next flow node and call again on it
+        this.frame_rate = FRAME_RATE_NORMAL
+        this.render = true
+    }
+}
+
+
 class AnimStartFlow extends NodeAnimCls
 {
     static name() {
@@ -156,8 +198,15 @@ class AnimStartFlow extends NodeAnimCls
     constructor(node) {
         super(node)
         node.can_enable = true
-        node.can_follow = false // start node can't follow anything else
+        this.start = new AnimOutTerminal(node, "start")
+        this.traits = new AnimTraits()
+        this.traits.next = true // start does nothing but go to the first
     }
+
+    get_anim_traits() {
+        return this.traits
+    }
+
 }
 
 class AnimSpan extends NodeAnimCls
@@ -167,6 +216,40 @@ class AnimSpan extends NodeAnimCls
     }
     constructor(node) {
         super(node)
+        this.prev = new AnimInTerminal(node, "previous")
+        this.next = new AnimOutTerminal(node, "next")
+
+        this.frame_rate = new ParamSelect(node, "Frame Rate", 0, [["Normal", FRAME_RATE_NORMAL], ["Maximum", FRAME_RATE_MAX]])
+        this.render = new ParamBool(node, "Render")
+        this.stop_at = new ParamSelect(node, "Stop", 0, ["Never", "Frame Count", "Condition"], (sel_idx)=>{
+            this.stop_at_count.set_visible(sel_idx === 1)
+        })
+        this.stop_at_count = new ParamInt(node, "Stop After Count", 0) 
+
+        this.traits = new AnimTraits()
+        this.first_frame = null // for frame_count
     }
 
+    anim_reset() {
+        this.first_frame = null
+    }
+
+    get_anim_traits() {
+        if (this.stop_at.sel_idx === 1) {
+            const now_frame_num = g_anim.frame_num
+            if (this.first_frame === null)
+                this.first_frame = now_frame_num
+            else {
+                const check_count = this.stop_at_count.get_value()
+                if (now_frame_num - this.first_frame > check_count) {
+                    this.traits.next = true
+                    return this.traits
+                }
+            }
+        }
+        this.traits.frame_rate = this.frame_rate.get_sel_val()
+        this.traits.render = this.render.get_value()
+        this.traits.next = false
+        return this.traits
+    }
 }

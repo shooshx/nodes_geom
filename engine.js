@@ -116,6 +116,7 @@ function page_onload()
     ctx_img_shadow = canvas_img_shadow.getContext('2d')
     paper.project = new paper.Project(null)
 
+    clear_program()  // for the case of completely empty state
     
     try {
         load_state()
@@ -672,7 +673,9 @@ async function do_frame_draw(do_run, clear_all)
     for(let tn of program.tdisp_nodes) 
         run_root_nodes.add(tn)
     if (selected_nodes.length > 0)
-        run_root_nodes.add(...selected_nodes)
+        for(let sn of selected_nodes)
+            if (sn.can_run)
+                run_root_nodes.add(sn)
         
     if (run_root_nodes.length == 0)
         return
