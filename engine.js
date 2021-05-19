@@ -207,7 +207,7 @@ class Program {
         for(let t of node.terminals) {
             t.tuid = this.alloc_ephemeral_obj_id(t) // not saving these ids anywhere because they're only for display of hover, not referenced by something else
         }
-        if (this.nodes.length === 1) // first node, display it (also happens in internal programs)
+        if (this.nodes.length === 1 && node.kind === KIND_OBJ) // first node, display it (also happens in internal programs)
             this.set_display_node(node)
 
         return node
@@ -314,7 +314,7 @@ class Program {
         }
         else {
             g_anim.vars_box.remove_ns("glob_" + node.id)
-            arr_remove_is(program.glob_var_nodes, mode)
+            arr_remove_is(program.glob_var_nodes, node)
         }
         if (do_draw)
             trigger_frame_draw(true)
@@ -369,7 +369,9 @@ function dassert(cond, msg) {
     }
 }
 
-
+function is_obj_p(p) {
+    return p.kind === KIND_OBJ || p.kind === KIND_VARS
+}
 
 function calc_img_viewport() {
     let t_viewport = mat3.create()
@@ -418,6 +420,8 @@ function collect_terminal(in_t) {
 function collect_inputs(n, of_kind)
 {
     for(let in_t of n.inputs) {
+        if (!is_obj_p(in_t))
+            continue
         collect_terminal(in_t)
     }
 }
@@ -456,6 +460,8 @@ async function run_nodes_tree(n, picked)
 
     // all inputs, including var
     for(let inp_t of n.inputs) {  
+        if (!is_obj_p(inp_t))
+            continue // flow nodes are not supposed to be run recursively (relevant when resolving vars for a flow node)
         // all lines going into an input
         let run_lines = inp_t.lines, not_picked_lines = null
         if (node_picking_lines && inp_t.kind === KIND_OBJ) {// var terminal doesn't participate in picking (always runs)
@@ -480,7 +486,7 @@ async function run_nodes_tree(n, picked)
     if (!picked)
         return false // non-picked branch should not set dirtiness
 
-    const this_dirty = n.has_anything_dirty(parent_dirty) || !n.has_cached_output()
+    const this_dirty = n.has_anything_dirty(parent_dirty) || (is_obj_p(n) && !n.has_cached_output())
 
     // if we're on a not-picked branch, don't run, the output is not going to be used
     if (this_dirty) {
@@ -613,21 +619,28 @@ function stop_propogation_on(event_name, ...elems) {
 var in_draw = false
 
 
-function call_frame_draw(do_run, clear_all, done_callback=null, do_draw=true) {  // callback for save PNG
+async function call_frame_draw(do_run, clear_all, done_callback=null) {  // callback for save PNG
     if (in_draw)
-        return // avoid starting a call if the previous async call didn't finish yet (indicated several triggers from the same stack)
+        return null // avoid starting a call if the previous async call didn't finish yet (indicated several triggers from the same stack)
     in_draw = true
-    do_frame_draw(do_run, clear_all, do_draw).then(()=>{
+
+    try {
+        const ret = await do_frame_draw(do_run, clear_all)
         if (done_callback)
             done_callback(true)
-    }).catch((err)=>{
+        return ret
+    }
+    catch (err) {
         if (done_callback)
             done_callback(false)
         console.error(err)
-    }).finally( ()=>{ 
+        return null
+    }
+    finally {
         in_draw = false 
         //clear_draw_req()
-    })
+    }
+    
 }
 
 function handle_node_exception(e) {
@@ -646,14 +659,11 @@ function get_display_object() { // for shadow select
 
 var frame_ver = 1 // always ascending id of the frame, for modern dirty analysis
 
-// called whenever the display needs to be updated to reflect a change
-async function do_frame_draw(do_run, clear_all, do_draw) 
-{
-    let run_root_nodes = new Set()
-    let disp_obj = null
 
-    fps_counter_update()
-    canvas_webgl.reset_to_latest_max()
+function get_nodes_to_run()
+{
+    const run_root_nodes = new Set()
+    let disp_obj = null
 
     for(let gn of program.glob_var_nodes) // these need to be first so that global would be there for eval. Set is order preserving
         run_root_nodes.add(gn)
@@ -664,23 +674,37 @@ async function do_frame_draw(do_run, clear_all, do_draw)
         run_root_nodes.add(program.display_node)
         disp_obj = program.display_node.outputs[0].get_const() // if there's no output object
     }
+
     for(let tn of program.tdisp_nodes) 
         run_root_nodes.add(tn)
     if (selected_nodes.length > 0)
         for(let sn of selected_nodes)
             if (sn.can_run)
                 run_root_nodes.add(sn)
-        
-    if (run_root_nodes.length == 0)
-        return
+    return [run_root_nodes, disp_obj]
+}
 
-    if (do_run || disp_obj === null) { // last-term: do_run will be false on select but if we don't have anything to display, we still need to run, do this only for the main display object and not for select or template
+function clear_img_canvas() {
+    ctx_img.fillStyle = '#fff'
+    ctx_img.fillRect(0, 0, canvas_image.width, canvas_image.height)
+}
+
+// called whenever the display needs to be updated to reflect a change
+async function do_frame_draw(do_run, clear_all) 
+{
+    fps_counter_update()
+    canvas_webgl.reset_to_latest_max()
+
+    let [run_root_nodes, disp_obj] = get_nodes_to_run()
+        
+
+    if (run_root_nodes.size > 0 && (do_run || disp_obj === null)) { // last-term: do_run will be false on select but if we don't have anything to display, we still need to run, do this only for the main display object and not for select or template
         if (clear_all) {
             try {
                 do_clear_all(program)
             }
             catch(e) { // can happen if some peval failed
-                return
+                return null
             }
         }
         clear_inputs_errors(program)
@@ -702,8 +726,10 @@ async function do_frame_draw(do_run, clear_all, do_draw)
             disp_obj = program.display_node.outputs[0].get_const() // in case it was null
     }
 
-    if (!do_draw)
-        return
+    const anim_traits = await program.anim_flow.pget_anim_traits()
+
+    if (!anim_traits.render)
+        return anim_traits
 
     // do this before obj draw so that if there are missing display params, they'll get a default value
     show_display_params(disp_obj, program.display_node) 
@@ -713,7 +739,7 @@ async function do_frame_draw(do_run, clear_all, do_draw)
     }
 
     // do async stuff before the actual draw so that draw can be synchronous
-    if (disp_obj !== null) { // can happen if there are only template displays
+    if (disp_obj !== null) { // can get here if there are only template displays do need to do this check
         try {
             await disp_obj.pre_draw(image_view.t_viewport, program.display_node.display_values)
         } catch(ex) {
@@ -723,8 +749,7 @@ async function do_frame_draw(do_run, clear_all, do_draw)
     }
 
     // all syncronouse from here on (don't want to clear the canvas and then leave for a promise, that would cause fliker)
-    ctx_img.fillStyle = '#fff'
-    ctx_img.fillRect(0, 0, canvas_image.width, canvas_image.height)
+    clear_img_canvas()
     phy_reset_current_worlds() // draw of the world re-adds only the active ones
 
     if (disp_obj !== null) {
@@ -759,6 +784,7 @@ async function do_frame_draw(do_run, clear_all, do_draw)
     }    
 
     ++frame_ver
+    return anim_traits
 }
 
 function get_output_term_of_kind(node, kind) {
@@ -776,7 +802,6 @@ class AnimFlow
         this.reset_ver = 1 // used for knowing which nodes were visited by reset_anim_rec
 
         this.default_anim_traits = new AnimTraits()
-        this.default_dummy_node = { get_anim_traits: ()=>{ return this.default_anim_traits } }
     }
 
     set_anim_node(node)
@@ -807,18 +832,24 @@ class AnimFlow
             this.reset_anim_rec(this.current_node)
     }
 
-    pget_anim_traits()
+    async pget_anim_traits()
     {
         if (this.current_node === null)
             return this.default_anim_traits
         let t = null
         do {
-            // find flow output
-            t = this.current_node.cls.get_anim_traits()
+            // anything connected to the vars_in? if so, need to run it
+            if (this.current_node === null)
+                t = this.default_anim_traits
+            else {
+                await run_nodes_tree(this.current_node, true)
+                t = this.current_node.cls.get_anim_traits()
+            }
+
             if (t.next) {
                 let next_node = get_output_term_of_kind(this.current_node, KIND_FLOW_ANIM)
                 if (next_node.lines.length === 0) // nothing to transfer to, go to default
-                    this.current_node = this.default_dummy_node
+                    this.current_node = null
                 else                    
                     this.current_node = next_node.lines[0].to_term.owner
                 //console.log("Flowed to ", this.current_node.name)
@@ -870,7 +901,6 @@ class Animation {
         this.pre_draw_handlers.push(func)
     }
     notify_pre_draw() {
-        this.frame_num_box.vbset(this.frame_num, TYPE_NUM)
         for(let handler of this.pre_draw_handlers)  // update UI
             handler(this.frame_num, this.frame_time, this.run)        
     }
@@ -878,24 +908,28 @@ class Animation {
 
 var g_anim = new Animation()
 
-function anim_frame()
+async function anim_frame()
 {
-    const anim_traits = program.anim_flow.pget_anim_traits()
-    //g_anim.frame_time = performance.now() - g_anim.start_time
+    g_anim.frame_num_box.vbset(g_anim.frame_num, TYPE_NUM)
     g_anim.notify_pre_draw()
 
-    call_frame_draw(true, false, null, anim_traits.render)
+    //g_anim.frame_time = performance.now() - g_anim.start_time
+
+    const anim_traits = await call_frame_draw(true, false, null)
+
     g_anim.frame_num_box.vclear_dirty() // clean it like node variables are cleaned
+    ++g_anim.frame_num;
+
     if (!g_anim.run)
         return
-    ++g_anim.frame_num;
+
     if (anim_traits.frame_rate === FRAME_RATE_NORMAL)
         window.requestAnimationFrame(anim_frame)
     else if (anim_traits.frame_rate === FRAME_RATE_MAX)
         //window.setTimeout(anim_frame, 0)
         setZeroTimeout()
     else
-        assert(false, "unexpected frame_rate")
+        dassert(false, "unexpected frame_rate")
 }
 
 

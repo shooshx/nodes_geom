@@ -85,6 +85,9 @@ input {
 .ctx_menu_opt_var {
     color: #d8ffa5;
 }
+.ctx_menu_opt_anim {
+    color: #a5f9ff;
+}
 .ctx_menu_sep {
     margin: 3px;
 }

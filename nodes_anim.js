@@ -160,7 +160,10 @@ class NodeAnimCls extends NodeCls
     }  
 
     anim_reset() {}
-    get_anim_traits() {}
+    get_anim_traits() { dassert(false, "unimplemented") }
+
+    run() { // do nothing
+    }
 }
 
 class AnimInTerminal extends InTerminal
@@ -169,6 +172,9 @@ class AnimInTerminal extends InTerminal
         super(node, name)
         this.kind = KIND_FLOW_ANIM
         this.color = TERM_COLOR_ANIM_FLOW
+    }
+    is_dirty() {
+        return false // doesn't transport object so it's never dirty
     }
 }
 

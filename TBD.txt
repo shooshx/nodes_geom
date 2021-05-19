@@ -53,17 +53,12 @@ EXPRESSIONS
 - Sample any param from any node ???
 
 **** Animation program ****
-  - new kind of node
   - span node
     - frame rate: 
-        - normal 
-        - max
         - custom?
-    - render: bool
     - stop at: 
         - condition 
-        - elapsed duration
-           - duration: number of frames  
+            - variable trigger
   - action node
      - sets global variable (frame_num = X)
   - start trigger node?

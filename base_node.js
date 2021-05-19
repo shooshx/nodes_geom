@@ -1028,7 +1028,7 @@ class Node {
         }
         if (this.can_enable) // variable
         {
-            const shape = (this.cls.constructor === NodeVarCls) ? NODE_ENABLE_GLOB_FLAG : NODE_ENABLE_ANIM_FLAG
+            const shape = (this.cls instanceof NodeVarCls) ? NODE_ENABLE_GLOB_FLAG : NODE_ENABLE_ANIM_FLAG
             if (this.global_active || program.anim_flow.start_node === this) { // place of display flag but controlled by the enable flag
                 ctx_nodes.beginPath();
                 rounded_rect_f(ctx_nodes, px + shape.offset, py, this.width - shape.offset, this.height, 0, 0, 5, 5)
@@ -1500,10 +1500,10 @@ function find_node_obj(e) {
                     return new NodeFlagProxy(n, (n)=>{ program.set_input_node(n) }, false) // don't select node since that's only annoying most of the time, also means node can't be moved from the input flag
             }
             if (n.can_enable) {
-                const shape = (n.cls.constructor === NodeVarCls) ? NODE_ENABLE_GLOB_FLAG : NODE_ENABLE_ANIM_FLAG
+                const shape = (n.cls instanceof NodeVarCls) ? NODE_ENABLE_GLOB_FLAG : NODE_ENABLE_ANIM_FLAG
                 if (px >= n.x + shape.offset) {
                     return new NodeFlagProxy(n, (n)=>{ 
-                        if (n.cls.constructor === NodeVarCls)
+                        if (n.cls instanceof NodeVarCls)
                             program.set_glob_var_node(n) 
                         else if (n.cls instanceof NodeAnimCls) 
                             program.anim_flow.set_anim_node(n)
@@ -1639,7 +1639,14 @@ function open_object_info_dlg(out_term)
     obj_inf_dlg.subscribe_on(out_term)
 }
 
-
+function nodes_menu_color(ncls)
+{
+    if (ncls.prototype instanceof NodeVarCls)
+        return "ctx_menu_opt_var"
+    if (ncls.prototype instanceof NodeAnimCls)
+        return "ctx_menu_opt_anim"
+    return undefined 
+}
 
 function nodes_context_menu(e) {
     let obj = find_node_obj(e)
@@ -1670,7 +1677,7 @@ function nodes_context_menu(e) {
     else if (opt === null) {
         opt = [{text:"Clear", func:ask_clear_program }, {text:"-"}]
         const add_node = function(into, cn) { 
-            into.push( {text: cn.name(), func:function() { program.add_node(e.vx, e.vy, null, cn); draw_nodes() }, cls: (cn.prototype instanceof NodeVarCls) ? "ctx_menu_opt_var" : undefined  } ) 
+            into.push( {text: cn.name(), func:function() { program.add_node(e.vx, e.vy, null, cn); draw_nodes() }, cls: nodes_menu_color(cn)} ) 
         }
         for(let c of nodes_classes) {
             if (c.group_name === undefined)

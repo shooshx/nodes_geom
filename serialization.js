@@ -4,10 +4,11 @@ function save_program() {
     let sprog = { nodes: {}, lines:[], 
         next_node_id: program.next_obj_id, 
         names_idx_s: program.names_indices,
-        display_node_id: (program.display_node == null) ? null : program.display_node.id,
+        display_node_id: (program.display_node === null) ? null : program.display_node.id,
         tdisp_node_ids: [], 
         input_node_ids: [],
         glob_var_node_ids: [],
+        anim_flow_start_node_id: (program.anim_flow.start_node === null) ? null : program.anim_flow.start_node.id,
         nodes_view: nodes_view.save(),  // part of the program so the user won't need to start looking for the nodes
         decor: []
     }
@@ -198,10 +199,15 @@ function _load_program(sprog)
                 p.post_load_hook()
     }
 
-    if (sprog.display_node_id == null || newprog.obj_map[sprog.display_node_id] === undefined)
+    if (sprog.display_node_id === null || newprog.obj_map[sprog.display_node_id] === undefined)
         newprog.set_display_node(null)
     else
         newprog.set_display_node(newprog.obj_map[sprog.display_node_id])
+
+    if (sprog.anim_flow_start_node_id === null || sprog.anim_flow_start_node_id === undefined || newprog.obj_map[sprog.anim_flow_start_node_id] === undefined)
+        newprog.anim_flow.set_anim_node(null)
+    else
+        newprog.anim_flow.set_anim_node(newprog.obj_map[sprog.anim_flow_start_node_id])
 
     newprog.tdisp_nodes = []
     if (sprog.tdisp_node_ids !== undefined) {
