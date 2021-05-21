@@ -1135,6 +1135,13 @@ input {
     margin: 2px 0px 4px 10px;
 }
 
+.anim_one_next_btn {
+    background-image: url(img/anim_one_next.png);
+    background-position: 2px 0;
+    width: 30px;
+    margin: 2px 10px 4px 0px;
+}
+
 .anim_play_btn {
     background-image: url(img/play_anim.png);
     background-position: 6px 0;

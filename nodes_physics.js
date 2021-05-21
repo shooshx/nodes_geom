@@ -966,6 +966,7 @@ class NodePen extends NodeCls
         if (pos_need_index !== null)            
             pos_need_index.dyn_set_obj(index_wrap)
 
+        // populate active params
         const active_params = {} // map name to Param
         for(let p of this.prop_prms) {
             let ap = null
@@ -986,6 +987,7 @@ class NodePen extends NodeCls
         this.prev_pos = in_obj.get_last_vertex()
 
         try {
+            // add vertices with properties
             for(let i = 0; i < steps; ++i) {
                 index_wrap[0] = i
                 const pos = this.pos.dyn_eval()

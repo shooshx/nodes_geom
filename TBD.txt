@@ -85,6 +85,7 @@ EXPRESSIONS
 
 
 ****** CURRENT AGENDA ******
+- non-caching output terminal for pen
 
 - Copy
     - with existing vtx_transform, face_transform

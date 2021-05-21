@@ -207,7 +207,7 @@ class Program {
         for(let t of node.terminals) {
             t.tuid = this.alloc_ephemeral_obj_id(t) // not saving these ids anywhere because they're only for display of hover, not referenced by something else
         }
-        if (this.nodes.length === 1 && node.kind === KIND_OBJ) // first node, display it (also happens in internal programs)
+        if (this.nodes.length === 1 && node.nkind === KIND_OBJ) // first node, display it (also happens in internal programs)
             this.set_display_node(node)
 
         return node
@@ -728,8 +728,10 @@ async function do_frame_draw(do_run, clear_all)
 
     const anim_traits = await program.anim_flow.pget_anim_traits()
 
-    if (!anim_traits.render)
+    if (!anim_traits.render) {
+        ++frame_ver
         return anim_traits
+    }
 
     // do this before obj draw so that if there are missing display params, they'll get a default value
     show_display_params(disp_obj, program.display_node) 
@@ -890,6 +892,11 @@ class Animation {
     pause() {
         this.run = false
     }
+    one_next() {
+        this.run = false
+        window.requestAnimationFrame(anim_frame)
+    }
+
     set_frame_num(num) { //from UI
         if (this.run)
             return
@@ -910,15 +917,27 @@ var g_anim = new Animation()
 
 async function anim_frame()
 {
-    g_anim.frame_num_box.vbset(g_anim.frame_num, TYPE_NUM)
-    g_anim.notify_pre_draw()
+    let anim_traits = null
+    let frames_at_once = 1, iter = 0
 
-    //g_anim.frame_time = performance.now() - g_anim.start_time
+    while(iter < frames_at_once)
+    {
+        g_anim.frame_num_box.vbset(g_anim.frame_num, TYPE_NUM)
+        g_anim.notify_pre_draw()
 
-    const anim_traits = await call_frame_draw(true, false, null)
+        //g_anim.frame_time = performance.now() - g_anim.start_time
 
-    g_anim.frame_num_box.vclear_dirty() // clean it like node variables are cleaned
-    ++g_anim.frame_num;
+        anim_traits = await call_frame_draw(true, false, null)
+
+        g_anim.frame_num_box.vclear_dirty() // clean it like node variables are cleaned
+        ++g_anim.frame_num
+
+        ++iter
+        if (anim_traits.frame_rate === FRAME_RATE_MAX && g_anim.run)
+            frames_at_once = 100
+        else 
+            break
+    }
 
     if (!g_anim.run)
         return

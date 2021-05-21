@@ -974,6 +974,11 @@ function create_anim_bar()
             g_anim.pause()
     })
 
+    const one_next = add_div(anim_bar, ["anim_btn", "anim_one_next_btn"])
+    myAddEventListener(one_next, "click", function() {
+         g_anim.one_next()
+    })
+
     const frame_disp_wrap = add_div(anim_bar, 'anim_frame_disp_wrap') // needed for the tooltip
     const frame_disp = add_elem(frame_disp_wrap, 'input', "anim_frame_disp")
     frame_disp.type = 'text'
