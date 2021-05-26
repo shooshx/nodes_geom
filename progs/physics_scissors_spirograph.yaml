@@ -1307,11 +1307,12 @@ nodes:
         se_cv: return 0.05
     name: pen_1
     cls_name: Pen
-    x: 1055.5805675048919
-    y: 674.216000000002
+    x: 1059.5805675048919
+    y: 629.216000000002
     disp_param:
       show_vtx: false
       show_lines: true
+    non_caching_out: [0]
   '88':
     params:
       col_store:
@@ -1348,6 +1349,48 @@ nodes:
     disp_param:
       show_vtx: true
       show_lines: true
+    non_caching_out: [0]
+  '165':
+    params: {}
+    name: start_flow_1
+    cls_name: Start Flow
+    x: 907.9000000000002
+    y: 181.10000000000005
+    disp_param: {}
+  '166':
+    params:
+      Frame Rate:
+        sel_str: Normal
+      Render:
+        v: true
+        se_v: '1'
+      Stop:
+        sel_str: Frame Count
+      After Count:
+        e_v: 10
+        se_cv: return 0
+    name: flow_span_1
+    cls_name: Flow Span
+    x: 913.7000000000003
+    y: 273.20000000000005
+    disp_param: {}
+  '168':
+    params:
+      Frame Rate:
+        sel_str: Maximum
+      Render:
+        v: false
+        se_v: '1'
+      Stop:
+        sel_str: Frame Count
+      After Count:
+        e_v: 10000
+        se_cv: return 0
+    name: flow_span_2
+    cls_name: Flow Span
+    x: 920.3000000000002
+    y: 355.9000000000001
+    disp_param: {}
 lines:
   - from_name: b2_defs
     from_id: 2
@@ -1519,7 +1562,17 @@ lines:
     to_name: vars_in
     to_id: 88
     uid: 98
-next_node_id: 165
+  - from_name: start
+    from_id: 165
+    to_name: previous
+    to_id: 166
+    uid: 167
+  - from_name: next
+    from_id: 166
+    to_name: previous
+    to_id: 168
+    uid: 169
+next_node_id: 170
 names_idx_s:
   Physics Merge: 2
   Physics Body: 10
@@ -1543,16 +1596,19 @@ names_idx_s:
   Set Attribute: 2
   Group Objects: 1
   Sample Color: 1
+  Start Flow: 1
+  Flow Span: 2
 display_node_id: 86
 tdisp_node_ids:
   - 12
 input_node_ids: []
 glob_var_node_ids:
   - 69
+anim_flow_start_node_id: 165
 nodes_view:
-  pan_x: -516
-  pan_y: -281
-  zoom: 0.7513148009015773
+  pan_x: -544
+  pan_y: -133
+  zoom: 0.9090909090909086
 decor:
   - x: 534.259567504883
     y: 500.51000000000016

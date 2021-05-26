@@ -404,35 +404,72 @@ class PObject {
     }
 }
 
+// every object has a single CtrlBlock
+// used for non-caching output terminals to steal the object for better performance
+class CtrlBlock
+{
+    constructor(obj, is_caching) {
+        dassert(obj.constructor !== CtrlBlock, "bug nested CtrlBlock")
+        // true means it is caching and object should not be stolen
+        // false means it's non caching and the object can be stolen
+        // null means it's was created in a InTerminal by get_mutable and should be asked about this
+        this.caching_ref = is_caching
+        this.po = obj // can be null
+    }
+}
+
 class PHandle {
-    constructor(obj) {
-        this.p = obj
-        if (obj !== null)
-            obj.refcount += 1
+    constructor(obj, is_caching) {
+        if (obj === null)
+            this.p = null
+        else if (obj.constructor === CtrlBlock)
+            this.p = obj
+        else
+            this.p = new CtrlBlock(obj, is_caching)
+
+        if (this.p !== null)
+            this.p.po.refcount += 1
     }
     get_const() {
-        return this.p
+        if (this.p === null)
+            return null
+        return this.p.po
     }
-    get_mutable(caching) {
-        if (this.p === null || this.p.refcount == 1)
-            return this.p
-        let copy = clone(this.p)
-        copy.refcount = 1
-        this.p.refcount -= 1
-        this.p = copy
-        return copy
+    get_mutable() {
+        if (this.p === null)
+            return null
+        if (this.p.po === null || this.p.po.refcount == 1)
+            return this.p.po
+        if (this.p.caching_ref == true) { // if this is a caching ref we must clone, can't steal from it
+            const copy = clone(this.p.po)
+            copy.refcount = 1
+            this.p.po.refcount -= 1
+            this.p = new CtrlBlock(copy, null)
+        }
+        else {  
+            dassert(this.p.caching_ref === false, "caching_ref shouldn't be null here")
+            // steal from the non-caching CtrlBlock pointer 
+            // communicate to all PHandles that hold this object that we're stealing it
+            const obj = this.p.po
+            const oldCtrl = this.p
+            oldCtrl.po = null
+            const newCtrl = new CtrlBlock(obj, null)
+            this.p = newCtrl
+            obj.refcount = 1
+        }
+        return this.p.po
     }
     clear() {
         if (this.p === null)
             return
-        this.p.refcount -= 1
-        if (this.p.refcount == 0 && this.p.destructor)
-            this.p.destructor()
+        if (this.p.po !== null) {
+            this.p.po.refcount -= 1
+            if (this.p.po.refcount == 0 && this.p.po.destructor)
+                this.p.po.destructor()
+        }
         this.p = null
     }
-    is_null() {
-        return this.p == null
-    }
+
 }
 
 function isTypedArray(obj) {
@@ -478,18 +515,16 @@ function clone(obj) {
 }
 
 class PWeakHandle {
-    constructor(obj) {
-        this.p = obj
+    constructor(ctrl_block) {
+        this.p = ctrl_block
     }
     get_const() {
-        return this.p
+        return this.p.po
     }
     clear() {
         this.p = null
     }
-    is_null() {
-        return this.p == null
-    }    
+ 
 }
 
 
@@ -504,8 +539,18 @@ class Terminal extends TerminalBase
         return px >= this.center_x() - TERM_RADIUS && px <= this.center_x() + TERM_RADIUS && 
                py >= this.center_y() - TERM_RADIUS && py <= this.center_y() + TERM_RADIUS
     }
+}
 
 
+function make_weak_handle(v) {
+    if (v.constructor === CtrlBlock)
+        return new PWeakHandle(v)
+    else if (v.constructor === PHandle)
+        return new PWeakHandle(v.p)
+    else if (v.constructor === PWeakHandle)
+        return new PWeakHandle(v.p) // copy ctor
+    else            
+        return new PWeakHandle(new CtrlBlock(v, null)) // happens on force_set?
 }
 
 // inputs by default have a weak handle that can be upgraded to a counting handle
@@ -525,10 +570,7 @@ class InTerminal extends Terminal {
         assert(this.lines.length <= 1, this.owner.cls, "too many lines connected to input " + this.name)
         const dirty = (this.last_uver_seen === null || uver === null || uver !== this.last_uver_seen)
         this.last_uver_seen = uver
-        if (v.constructor === PHandle || v.constructor === PWeakHandle)
-            this.h = new PWeakHandle(v.p) // copy ctor
-        else            
-            this.h = new PWeakHandle(v)
+        this.h = make_weak_handle(v)
         this.tset_dirty(dirty)  // see design_concepts
     }    
     get_const() {
@@ -540,7 +582,7 @@ class InTerminal extends Terminal {
         if (this.h === null)
             return null        
         if (this.h.constructor === PWeakHandle) // need upgrade
-            this.h = new PHandle(this.h.p)
+            this.h = new PHandle(this.h.p, null)
         return this.h.get_mutable()
     }
     clear() {
@@ -588,7 +630,7 @@ class OutTerminal extends Terminal {
         this.cur_ver = 1 
         // incremented every set()
         this.update_subscriber = null
-        this.caching = true //default
+        this.caching = true // default
     }
     is_caching() {
         return this.caching
@@ -605,9 +647,9 @@ class OutTerminal extends Terminal {
     set(v) {
         // and also save a wear-ref to it so that display would work 
         if (v.constructor === PHandle || v.constructor === PWeakHandle)
-            this.h = new PHandle(v.p) // copy ctor
+            this.h = new PHandle(v.p, this.caching) // copy ctor
         else            
-            this.h = new PHandle(v)
+            this.h = new PHandle(v, this.caching)
         ++this.cur_ver;    
 
         if (this.update_subscriber !== null)
@@ -617,6 +659,11 @@ class OutTerminal extends Terminal {
         if (this.h === null)
             return null
         return this.h.get_const()
+    }
+    get_ctrl_block() {
+        if (this.h === null || this.h.p === null)
+            return null
+        return this.h.p
     }
     get_mutable() { //not ever being called
         dassert("shouldn't even be called")
@@ -639,6 +686,7 @@ class OutTerminal extends Terminal {
 }
 
 const TERM_MULTI_HWIDTH = 30
+
 
 class InAttachMulti {
     constructor(owner_term) {
@@ -664,10 +712,7 @@ class InAttachMulti {
     intr_set(v, uver) {
         const dirty = (this.last_uver_seen === null || uver !== this.last_uver_seen) // dirty also if the incoming and prev are null
         this.last_uver_seen = uver
-        if (v.constructor === PHandle || v.constructor === PWeakHandle)
-            this.h = new PWeakHandle(v.p) // copy ctor
-        else            
-            this.h = new PWeakHandle(v)
+        this.h = make_weak_handle(v)
         this.tset_dirty(dirty)  //  this is needed to give the correct is_dirty indication to the node if it queries about it
     }
     force_set(v) { // generated object into internal nodes
@@ -683,7 +728,7 @@ class InAttachMulti {
         if (this.h === null)
             return null        
         if (this.h.constructor === PWeakHandle) // need upgrade
-            this.h = new PHandle(this.h.p)
+            this.h = new PHandle(this.h.p, null)
         return this.h.get_mutable()
     }
     clear() {

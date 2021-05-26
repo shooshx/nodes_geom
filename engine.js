@@ -407,7 +407,7 @@ function dirty_viewport_dependents() {
 
 
 function collect_line(line) {
-    const obj = line.from_term.get_const()
+    const obj = line.from_term.get_ctrl_block()
     assert(obj !== null, line.from_term.owner.cls, "No output from node " + line.from_term.owner.name)
     line.to_term.intr_set(obj, line.from_term.get_cur_uver())
 }
@@ -499,7 +499,7 @@ async function run_nodes_tree(n, picked)
                 out_t.clear()
             }
 
-        n.cls.vars_in.clear()  // without this variables names from previous runs stick around 
+        n.cls.vars_in.vclear()  // without this variables names from previous runs stick around 
         if (!node_picking_lines) // a node that's picking lines, also does its own collect
             collect_inputs(n)
         else

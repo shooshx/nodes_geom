@@ -32,7 +32,7 @@ class VarsInTerminal extends InTerminal
         this.color = TERM_COLOR_VARS
 
         this.my_vsb = new VariablesBox()
-        this.h = new PHandle(this.my_vsb) // my own box that contains stuff from all the inputs
+        this.h = new PHandle(this.my_vsb, null) // my own box that contains stuff from all the inputs
     }
     draw_path(ctx, force) {
         if (this.lines.length == 0 && !force)
@@ -43,7 +43,8 @@ class VarsInTerminal extends InTerminal
         draw_curve(ctx, pnts)
     }
 
-    intr_set(obj, uver) { // from collect_line
+    intr_set(cblock, uver) { // from collect_line
+        const obj = cblock.po
         assert(obj.constructor === VariablesBox, this.owner.cls, "Unexpected object type")
         let any_dirty = false
         for(let name in obj.vb) {
@@ -71,8 +72,8 @@ class VarsInTerminal extends InTerminal
     // - set() is called for each of its its var input
     // - do_run() called, vars are resolved
     // - clear() is called at the end of the run
-    clear() { 
-        this.h.p.clear()
+    vclear() { 
+        this.h.p.po.clear()
     }
     
     /*empty() {
