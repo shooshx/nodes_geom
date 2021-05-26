@@ -413,7 +413,7 @@ class PHandle {
     get_const() {
         return this.p
     }
-    get_mutable() {
+    get_mutable(caching) {
         if (this.p === null || this.p.refcount == 1)
             return this.p
         let copy = clone(this.p)
@@ -572,6 +572,12 @@ class InTerminal extends Terminal {
     }
 }
 
+function draw_polygon(ctx, x, y, r, n) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);          
+    for (let i = 1; i <= n; ++i) 
+      ctx.lineTo(x + r * Math.cos(i * 2 * Math.PI / n), y + r * Math.sin(i * 2 * Math.PI / n))
+}
 
 // outputs are by default owning because they are going to need this object
 // as a cache for the next frame
@@ -582,6 +588,19 @@ class OutTerminal extends Terminal {
         this.cur_ver = 1 
         // incremented every set()
         this.update_subscriber = null
+        this.caching = true //default
+    }
+    is_caching() {
+        return this.caching
+    }
+    set_caching(v) {
+        this.caching = v
+    }
+    draw_path(ctx) {
+        if (this.caching)
+            super.draw_path(ctx)
+        else
+            draw_polygon(ctx, this.px(), this.py() , TERM_RADIUS, 4)
     }
     set(v) {
         // and also save a wear-ref to it so that display would work 
@@ -599,10 +618,11 @@ class OutTerminal extends Terminal {
             return null
         return this.h.get_const()
     }
-    get_mutable() {
-        if (this.h === null)
+    get_mutable() { //not ever being called
+        dassert("shouldn't even be called")
+       /* if (this.h === null)
             return null        
-        return this.h.get_mutable()
+        return this.h.get_mutable()*/
     }    
     clear() {
         if (this.h !== null)
@@ -1669,10 +1689,21 @@ function nodes_context_menu(e) {
         else
             return null
     }
+    const dismiss_func =  ()=>{nodes_view.dismiss_ctx_menu()}
     if (node !== null) {
         opt = [{text:"Delete Node", func:function() { program.delete_node(node, true)} }]
-        if (out_term !== null)
-            opt.push({text:"Output Info", func:function() { open_object_info_dlg(out_term) }})
+        if (out_term !== null) {
+            const add_cache_term_checkbox = (parent)=>{
+                const ec_line = add_div(parent, 'prm_ctx_bexpr_line')
+                add_param_checkbox(ec_line, "Caching Terminal", out_term.is_caching(), (v)=>{ 
+                    out_term.set_caching(v)
+                    dismiss_func()
+                    draw_nodes()
+                })
+            }
+            opt.push({text:"Output Info", func:function() { open_object_info_dlg(out_term) }},
+                     {cmake_elems: add_cache_term_checkbox})
+        }
     }
     else if (opt === null) {
         opt = [{text:"Clear", func:ask_clear_program }, {text:"-"}]
@@ -1693,7 +1724,7 @@ function nodes_context_menu(e) {
         opt.push({text:"Reset view", func:function() { nodes_view.reset_view() }})
     }
 
-    nodes_view.last_ctx_menu = open_context_menu(opt, e.ex, e.ey, main_view, ()=>{nodes_view.dismiss_ctx_menu()})    
+    nodes_view.last_ctx_menu = open_context_menu(opt, e.ex, e.ey, main_view, dismiss_func)    
     return nodes_view.last_ctx_menu
 }
 

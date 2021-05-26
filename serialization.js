@@ -21,6 +21,12 @@ function save_program() {
         }
         if (n.following_node !== null)
             sn.following = n.following_node.id 
+        for(let i = 0; i < n.outputs.length; ++i)
+            if (!n.outputs[i].caching) { // default is true
+                if (sn.non_caching_out == undefined)
+                    sn.non_caching_out = []
+                sn.non_caching_out.push(i)
+            }
         sprog.nodes[n.id] = sn
     }
     for(let line of program.lines) {
@@ -155,6 +161,9 @@ function _load_program(sprog)
                 console.warn("Failed load of parameter", p.label, "in node", sn.name, ':', e)
             }
         }
+        if (sn.non_caching_out !== undefined)
+            for(let oidx of sn.non_caching_out)
+                n.outputs[oidx].set_caching(false)
         //if (n.cls.post_load_hook)  moved below
         //    n.cls.post_load_hook()
         if (sn.disp_param)
