@@ -647,11 +647,16 @@ class ParamStr extends Parameter {
 
 function normalize_bool_opt(opt) {
     if (opt === null)
-        return {allow_expr:true, expr_visible:false}
+        return {allow_expr:true, expr_visible:false, as_btn:false, pulse_btn:false}
     if (opt.allow_expr === undefined)
         opt.allow_expr = true
     if (opt.expr_visible === undefined)
         opt.expr_visible = false
+    if (opt.as_btn === undefined)
+        opt.as_btn = false
+    if (opt.pulse_btn === undefined)
+        opt.pulse_btn = false
+    dassert(!(opt.as_btn && opt.pulse_btn), "can't have both as_btn and pulse_btn")
     return opt
 }
 
@@ -660,7 +665,6 @@ class ParamBool extends Parameter {
         super(node, label)
         this.v = start_v
         this.change_func = change_func
-        this.as_btn = false
         this.elem_input = null
         this.opt = normalize_bool_opt(opt)
 
@@ -686,6 +690,7 @@ class ParamBool extends Parameter {
         }
         this.checkbox_line = null
         this.expr_line = null
+        this.pulse_need_reset = false
     }
 
     set_show_expr(v) {
@@ -706,7 +711,8 @@ class ParamBool extends Parameter {
     }
 
     non_code_peval_self() {
-        this.v = this.elem_input.checked
+        if (this.elem_input !== null)  // will be null with pulse button
+            this.v = this.elem_input.checked
     }
 
     make_checkbox_ctx_menu() {
@@ -720,7 +726,6 @@ class ParamBool extends Parameter {
         }
         this.ctx_menu.add_to_context_menu(add_expr_checkbox)
     }
-    display_as_btn(v) { this.as_btn = v }
     save() { 
         const d =  {v:this.v}
         if (this.opt.expr_visible)
@@ -730,7 +735,8 @@ class ParamBool extends Parameter {
         return d
     }
     load(v) { 
-        this.v = v.v; 
+        if (!this.opt.pulse_btn) // for pulse, the long term value is always false but the saved might be true so we don't want it
+            this.v = v.v; 
         this.opt.expr_visible = v.expr_visible || false
         this.opt = normalize_bool_opt(this.opt) // Temp fix
         if (this.opt.allow_expr && this.item !== null) {
@@ -752,20 +758,30 @@ class ParamBool extends Parameter {
         let label_cls_add = null
         if (!this.is_sharing_line_elem()) 
             add_param_label(this.checkbox_line, null)
-        else if (!this.as_btn)
+        else if (!this.opt.as_btn)
             label_cls_add = "param_checkbox_inline" // for margin
 
-        let add_func = this.as_btn ? add_checkbox_btn : add_param_checkbox
-        const [ein,label,edisp] = add_func(this.checkbox_line, this.label_display, this.v, (v) => {
-            this.v = v; 
-            this.call_change()
-            this.pset_dirty()
-        })
-        if (label_cls_add)
-            edisp.classList.toggle(label_cls_add, true)
-        this.elem_input = ein
-        this.label_elem = null // doesn't need to be adjusted if it's a normal checkbox
+        if (!this.opt.pulse_btn)
+        {
+            const add_func = this.opt.as_btn ? add_checkbox_btn : add_param_checkbox
+            const [ein,label,edisp] = add_func(this.checkbox_line, this.label_display, this.v, (v) => {
+                this.v = v; 
+                this.call_change()
+                this.pset_dirty()
+            })
+            if (label_cls_add && edisp !== null)
+                edisp.classList.toggle(label_cls_add, true)
+            this.elem_input = ein
+        }
+        else {
+            const btn = add_push_btn(this.checkbox_line, this.label_display, ()=>{
+                this.v = true
+                this.pulse_need_reset = true
+                this.pset_dirty()
+            })
+        }
 
+        this.label_elem = null // doesn't need to be adjusted if it's a normal checkbox
         // ----- expr elements ------
         if (this.opt.allow_expr) {
             this.expr_line = add_param_line(this.line_elem) // don't pass this since it's in the line_elem
@@ -792,6 +808,16 @@ class ParamBool extends Parameter {
     gl_set_value(loc) {
         gl.uniform1i(loc, this.get_value())
     }  
+
+    pclear_dirty() {
+        super.pclear_dirty()
+        if (this.pulse_need_reset) {
+            this.v = false
+            this.pulse_need_reset = false
+            this.pset_dirty(false)
+        }
+    }
+
 }
 
 function get_default(m, k, d) {

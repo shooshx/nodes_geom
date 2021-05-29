@@ -155,12 +155,13 @@ class NodeAnimCls extends NodeCls
         node.can_display = false
         //node.can_follow = true
         node.can_run = false
-
-        this.at_reset_ver = null // used for recursive propogation of anim_reset()
     }  
 
-    anim_reset() {}
+    // called when flow just enters this node
+    entered() {}
     get_anim_traits() { dassert(false, "unimplemented") }
+    // for event
+    want_flow_hijack() { dassert(false, "unimplemented") }
 
     run() { // do nothing
     }
@@ -203,6 +204,8 @@ class AnimTraits
         this.next = false //should skip to next flow node and call again on it
         this.frame_rate = FRAME_RATE_NORMAL
         this.render = true
+        this.blocking_frames = 1
+        this.jump_here = false // relevant only for EventFlow
     }
 }
 
@@ -224,8 +227,35 @@ class AnimStartFlow extends NodeAnimCls
     get_anim_traits() {
         return this.traits
     }
-
 }
+
+class AnimEventFlow extends NodeAnimCls
+{
+    static name() {
+        return "Event Flow"
+    }
+    constructor(node) {
+        super(node)
+        node.can_enable = true
+        this.start = new AnimOutTerminal(node, "start")
+        this.trigger_on = new ParamBool(node, "Trigger", false, null, {pulse_btn:true})
+
+        this.traits = new AnimTraits()
+        this.traits.next = true
+        this.current_trigger_value = null
+    }
+    get_anim_traits() {
+        return this.traits
+    }
+    want_flow_hijack() {
+        return this.current_trigger_value
+    }
+    run() {
+        // need to cache it in run, before the dirty flag is cleared and the pulse ends
+        this.current_trigger_value = this.trigger_on.get_value()
+    }
+}
+
 
 class AnimSpan extends NodeAnimCls
 {
@@ -237,7 +267,11 @@ class AnimSpan extends NodeAnimCls
         this.prev = new AnimInTerminal(node, "previous")
         this.next = new AnimOutTerminal(node, "next")
 
-        this.frame_rate = new ParamSelect(node, "Frame Rate", 0, [["Normal", FRAME_RATE_NORMAL], ["Maximum", FRAME_RATE_MAX]])
+        this.frame_rate = new ParamSelect(node, "Frame Rate", 0, [["Normal", FRAME_RATE_NORMAL], ["Maximum", FRAME_RATE_MAX]], (sel_idx)=>{
+            this.blocking_frames.set_visible(sel_idx === 1)
+        })
+        // number of frames to run at the same time without returning
+        this.blocking_frames = new ParamInt(node, "Block Frames", 1)
         this.render = new ParamBool(node, "Render", true)
         this.stop_at = new ParamSelect(node, "Stop", 0, ["Never", "Frame Count", "Condition"], (sel_idx)=>{
             this.stop_at_count.set_visible(sel_idx === 1)
@@ -248,7 +282,7 @@ class AnimSpan extends NodeAnimCls
         this.first_frame = null // for frame_count
     }
 
-    anim_reset() {
+    entered() {
         this.first_frame = null
     }
 
@@ -266,8 +300,14 @@ class AnimSpan extends NodeAnimCls
             }
         }
         this.traits.frame_rate = this.frame_rate.get_sel_val()
+        if (this.traits.frame_rate === FRAME_RATE_MAX) {
+            const blf = this.blocking_frames.get_value()
+            assert(blf >= 1, this, "Block Frames can't be less than 1")
+            this.traits.blocking_frames = blf
+        }
         this.traits.render = this.render.get_value()
         this.traits.next = false
+        this.traits.blocking_frames = 1 // reset to default
         return this.traits
     }
 }

@@ -938,7 +938,10 @@ class Node {
 
         this.disp_template = false
         this.receives_input = false // depends on can_input
-        this.global_active = false // depends on can_enable for NodeVarCls
+        // depends on can_enable 
+        // for NodeVarCls this flags if its global variables
+        // for AnimEventFlow this flags if the node is enabled
+        this.enable_active = false 
 
         if (this.state_access === null)
             this.set_state_evaluators([]) // if cls ctor did not call it
@@ -1094,7 +1097,7 @@ class Node {
         if (this.can_enable) // variable
         {
             const shape = (this.cls instanceof NodeVarCls) ? NODE_ENABLE_GLOB_FLAG : NODE_ENABLE_ANIM_FLAG
-            if (this.global_active || program.anim_flow.start_node === this) { // place of display flag but controlled by the enable flag
+            if (this.enable_active || program.anim_flow.start_node === this) { // place of display flag but controlled by the enable flag
                 ctx_nodes.beginPath();
                 rounded_rect_f(ctx_nodes, px + shape.offset, py, this.width - shape.offset, this.height, 0, 0, 5, 5)
                 ctx_nodes.fillStyle = shape.color
@@ -1570,8 +1573,10 @@ function find_node_obj(e) {
                     return new NodeFlagProxy(n, (n)=>{ 
                         if (n.cls instanceof NodeVarCls)
                             program.set_glob_var_node(n) 
-                        else if (n.cls instanceof NodeAnimCls) 
+                        else if (n.cls instanceof AnimStartFlow) 
                             program.anim_flow.set_anim_node(n)
+                        else if (n.cls instanceof AnimEventFlow)
+                            program.anim_flow.toggle_event_node(n)
                         else
                             dassert(false, "unexpected enable")
                     })

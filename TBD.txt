@@ -53,6 +53,14 @@ EXPRESSIONS
 - Sample any param from any node ???
 
 **** Animation program ****
+  - Restart event node 
+        flag for enable
+        parameter for internal enable
+        pulse event?
+        start is just an event for pulse variable controlled by the button
+  - visualize where control is
+  - start node for variable change
+  - asserts in flow nodes
   - span node
     - frame rate: 
         - custom?
@@ -85,7 +93,7 @@ EXPRESSIONS
 
 
 ****** CURRENT AGENDA ******
-- non-caching output terminal for pen
+- !!!!!BUG - moving nodes while zoom is not 1!!!
 
 - Copy
     - with existing vtx_transform, face_transform
@@ -119,6 +127,7 @@ EXPRESSIONS
         - menu to enable select with click on image
     - snap to middle point, edges, corner, edge-width
     - merge - disable node
+    - hall-effect sensor? proximity sensor giving distance as variable
     - setLinearDamping, setAngularDamping
     - test several worlds running at the same time
     - pen

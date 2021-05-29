@@ -333,8 +333,7 @@ class NodeManualGeom extends NodeCls
             this.columns_store.loaded_v = null
         })
         this.geom_type = new ParamSelect(node, "Type", 0, ["Mesh", "Paths"])
-        this.add_pnts_btn = new ParamBool(node, "Add points", true, null, {allow_expr:false})
-        this.add_pnts_btn.display_as_btn(true)
+        this.add_pnts_btn = new ParamBool(node, "Add points", true, null, {allow_expr:false, as_btn:true})
         this.add_col_btn = new ParamTextMenuBtn(node, "Add Column", ["Curve Controls", "Float", "Vec2", "Color"], (opt, sel_idx)=>{
             if (sel_idx === 0 && this.cfp === null) {
                 this.add_additional_column(node, "ctrl_from_prev", ParamCoordList, true)

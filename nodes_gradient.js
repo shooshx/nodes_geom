@@ -883,8 +883,7 @@ class NodeGradient extends NodeCls
         const presets_btn = new ParamImageSelectBtn(node, "Presets", GRADIENT_PRESETS, make_preset_img, (pr)=>{this.load_preset(pr)})
         this.add_stops_btn = new ParamBool(node, "Add stops", true, (v)=>{
             this.print_stops()
-        }, {allow_expr:false})
-        this.add_stops_btn.display_as_btn(true)
+        }, {allow_expr:false, as_btn:true})
         this.add_stops_btn.share_line_elem_from(presets_btn)
         this.table = new ParamTable(node, "Stops", this.sorted_order)
         this.values = new ParamFloatList(node, "Value", this.table, this.selected_indices, ()=>{this.redo_sort()})

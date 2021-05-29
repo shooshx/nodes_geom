@@ -307,8 +307,8 @@ class Program {
 
     // every global variables node has its own glob_ namespace and can be enabled or disabled using the flag
     set_glob_var_node(node, do_draw=true) {
-        node.global_active = !node.global_active 
-        if (node.global_active) {
+        node.enable_active = !node.enable_active 
+        if (node.enable_active) {
             this.glob_var_nodes.push(node)
             g_anim.vars_box.add_ns("glob_" + node.id)
         }
@@ -801,7 +801,7 @@ class AnimFlow
     constructor() {
         this.start_node = null
         this.current_node = null
-        this.reset_ver = 1 // used for knowing which nodes were visited by reset_anim_rec
+        this.event_nodes = []
 
         this.default_anim_traits = new AnimTraits()
     }
@@ -815,45 +815,61 @@ class AnimFlow
         this.reset_anim_flow()
     }
 
-    reset_anim_rec(n) {
-        if (n.at_reset_ver === this.reset_ver)
-            return
-        n.cls.anim_reset()
-        n.at_reset_ver = this.reset_ver
-        for(let out_t of n.outputs)
-            if (out_t.kind === KIND_FLOW_ANIM)
-                for (let l of out_t.lines)
-                    this.reset_anim_rec(l.to_term.owner)
+    toggle_event_node(node) 
+    {
+        node.enable_active = !node.enable_active 
+        if (node.enable_active) {
+            this.event_nodes.push(node)
+        }
+        else {
+            arr_remove_is(this.event_nodes, node)
+        }
     }
+
 
     reset_anim_flow()
     {
         this.current_node = this.start_node
-        ++this.reset_ver
-        if (this.current_node !== null)
-            this.reset_anim_rec(this.current_node)
+    }
+
+    async check_events() {
+        for(let evn of this.event_nodes) {
+            await run_nodes_tree(evn, true)
+            const want = evn.cls.want_flow_hijack()
+            if (want) {
+                this.current_node = evn
+                return
+            }
+        }
     }
 
     async pget_anim_traits()
     {
-        if (this.current_node === null)
-            return this.default_anim_traits
+        await this.check_events() // event can change current_node
+        if (this.current_node === null) {
+            if (this.current_node === null)
+                return this.default_anim_traits
+        }
         let t = null
-        do {
+        // loop until we find a node that doesn't forward to next
+        do { 
             // anything connected to the vars_in? if so, need to run it
             if (this.current_node === null)
                 t = this.default_anim_traits
             else {
                 await run_nodes_tree(this.current_node, true)
+                console.log("calling ", this.current_node.cls.constructor.name())
                 t = this.current_node.cls.get_anim_traits()
             }
 
             if (t.next) {
-                let next_node = get_output_term_of_kind(this.current_node, KIND_FLOW_ANIM)
+                const next_node = get_output_term_of_kind(this.current_node, KIND_FLOW_ANIM)
                 if (next_node.lines.length === 0) // nothing to transfer to, go to default
                     this.current_node = null
-                else                    
+                else {
                     this.current_node = next_node.lines[0].to_term.owner
+                    this.current_node.cls.entered()
+                }
                 //console.log("Flowed to ", this.current_node.name)
             }
             // TBD detect loop?
@@ -934,7 +950,7 @@ async function anim_frame()
 
         ++iter
         if (anim_traits.frame_rate === FRAME_RATE_MAX && g_anim.run)
-            frames_at_once = 100
+            frames_at_once = anim_traits.blocking_frames
         else 
             break
     }
@@ -1008,7 +1024,8 @@ const nodes_classes = [
         NodePickOne,
         NodeChangeFilter,
         AnimStartFlow,
-        AnimSpan
+        AnimEventFlow,
+        AnimSpan,
     ]},
     { group_name: "Physics", nodes: [
         NodeB2Body,
