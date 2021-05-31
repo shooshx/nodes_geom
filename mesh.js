@@ -880,8 +880,8 @@ class Mesh extends PObject
         return [vtx[vtx.length-2], vtx[vtx.length-1]]
     }
 
-    describe(parent, dlg) {
-
+    describe(parent, dlg) 
+    {
         if (dlg.recreate_if_needed(this)) {
             dlg.eobj.vtxnum = dlg.add_line("Vertex Count: ").value_elem
             dlg.eobj.type = dlg.add_line("Type: ").value_elem

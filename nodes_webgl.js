@@ -185,6 +185,28 @@ class FrameBuffer extends ImageBase
         mat3.copy(this.tex_obj.t_mat, this.t_mat)
         return this.tex_obj
     }
+
+    describe(parent, dlg)
+    {
+        if (dlg.recreate_if_needed(this)) {
+            dlg.eobj.px_sz = dlg.add_line("Size in Pixels: ").value_elem
+            dlg.eobj.log_sz = dlg.add_line("Size in Units: ").value_elem
+            dlg.eobj.type = dlg.add_line("Type: ").value_elem
+            dlg.eobj.smooth = dlg.add_line("Smoothing: ").value_elem
+            dlg.eobj.spread = dlg.add_line("Spread: ").value_elem
+            dlg.eobj.tr = dlg.add_line("Transform: ", true).value_elem
+            dlg.eobj.tr.classList.add("obj_inf_var_matrix")
+            dlg.adjust_labels()
+        }
+        dlg.eobj.px_sz.innerText = this.width() + " x " + this.height()
+        const log_sz = this.logical_size()
+        dlg.eobj.log_sz.innerText = log_sz[0] + " x " + log_sz[1]
+        dlg.eobj.type.innerText = this.type
+        dlg.eobj.smooth.innerText = this.smooth
+        dlg.eobj.spread.innerText = this.spread
+
+        dlg.eobj.tr.innerText = format_matrix(this.t_mat)
+    }
 }
 
 // tells whoever gets it how to create the initial plain texture to draw on
@@ -1078,8 +1100,12 @@ class TerminalProxy extends Terminal
         this.width = wterm.width
         this.lines = wterm.lines // not sure if needed...
         this.is_input = wterm.is_input
+        this.update_subscriber = wterm.update_subscriber
+        this.caching = wterm.caching
         copy_members(wterm, this, wterm, ["set", "get_const", "get_mutable", "clear", "tset_dirty", "is_dirty", 
-                                          "get_input_consts", "intr_set", "get_cur_uver", "force_set"])
+                                          "get_input_consts", "intr_set", "get_cur_uver", "force_set",
+                                          "is_caching", "is_out_term", "subscribe_inf_update"])
+                                          // "set_caching" not supported since it needs to modify the internal node which is not being saved
 
         copy_members(wterm, this, this, ["draw_path"])
             

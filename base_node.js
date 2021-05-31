@@ -219,6 +219,8 @@ class TerminalBase {
     center_y() { return this.owner.y + this.yoffset }
     center_offset() { return this.xoffset }
 
+    is_out_term() { return false } // can't just use instanceof to find this since that would not work for ProxyTerminal
+
     is_connected_to(other_term) {
         for(let l of this.lines) {
             if (l.from_term === other_term || l.to_term === other_term)
@@ -632,6 +634,7 @@ class OutTerminal extends Terminal {
         this.update_subscriber = null
         this.caching = true // default
     }
+    is_out_term() { return true }
     is_caching() {
         return this.caching
     }
@@ -1731,7 +1734,7 @@ function nodes_context_menu(e) {
             obj = null // treat it like we pressed the background
         else if (obj instanceof TerminalBase) {
             node = obj.owner
-            if (obj instanceof OutTerminal)
+            if (obj.is_out_term())
                 out_term = obj
         }
         else if (obj.ctx_menu_opts !== undefined)
@@ -1742,17 +1745,21 @@ function nodes_context_menu(e) {
     const dismiss_func =  ()=>{nodes_view.dismiss_ctx_menu()}
     if (node !== null) {
         opt = [{text:"Delete Node", func:function() { program.delete_node(node, true)} }]
-        if (out_term !== null) {
-            const add_cache_term_checkbox = (parent)=>{
-                const ec_line = add_div(parent, 'prm_ctx_bexpr_line')
-                add_param_checkbox(ec_line, "Caching Terminal", out_term.is_caching(), (v)=>{ 
-                    out_term.set_caching(v)
-                    dismiss_func()
-                    draw_nodes()
-                })
+        if (out_term !== null) 
+        {
+            opt.push({text:"Output Info", func:function() { open_object_info_dlg(out_term) }})
+            if (out_term.set_caching !== undefined) // not defined for ProxyTerminal
+            {
+                const add_cache_term_checkbox = (parent)=>{
+                    const ec_line = add_div(parent, 'prm_ctx_bexpr_line')
+                    add_param_checkbox(ec_line, "Caching Terminal", out_term.is_caching(), (v)=>{ 
+                        out_term.set_caching(v)
+                        dismiss_func()
+                        draw_nodes()
+                    })
+                }
+                opt.push({cmake_elems: add_cache_term_checkbox})
             }
-            opt.push({text:"Output Info", func:function() { open_object_info_dlg(out_term) }},
-                     {cmake_elems: add_cache_term_checkbox})
         }
     }
     else if (opt === null) {

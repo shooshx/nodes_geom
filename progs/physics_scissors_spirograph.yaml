@@ -334,8 +334,8 @@ nodes:
         se_cv: return mat3()
     name: sic_1
     cls_name: Physics Body
-    x: 129.47000000000017
-    y: -2.909999999999994
+    x: 117.47000000000017
+    y: -12.909999999999997
     disp_param: {}
   '43':
     params:
@@ -1281,8 +1281,8 @@ nodes:
         v: trans
     name: extract_transform_1
     cls_name: Extract Transform
-    x: 594.6460000000002
-    y: 404.93200000000076
+    x: 565.6460000000002
+    y: 396.93200000000076
     disp_param: {}
   '86':
     params:
@@ -1347,23 +1347,26 @@ nodes:
     x: 749.7652974853513
     y: 683.0974324951167
     disp_param:
-      show_vtx: true
+      show_vtx: false
       show_lines: true
     non_caching_out: [0]
   '165':
     params: {}
     name: start_flow_1
     cls_name: Start Flow
-    x: 907.9000000000002
+    x: 910.9000000000002
     y: 181.10000000000005
     disp_param: {}
   '166':
     params:
       Frame Rate:
         sel_str: Normal
+      Block Frames:
+        e_v: 1
+        se_cv: return 1
       Render:
         v: true
-        se_v: '1'
+        e_v: 1
       Stop:
         sel_str: Frame Count
       After Count:
@@ -1378,18 +1381,82 @@ nodes:
     params:
       Frame Rate:
         sel_str: Maximum
+      Block Frames:
+        e_v: 100
+        se_cv: return 1
       Render:
-        v: false
-        se_v: '1'
+        v: true
+        expr_visible: true
+        se_v: (frame_num % 100) == 0
       Stop:
         sel_str: Frame Count
       After Count:
-        e_v: 10000
+        e_v: 50
         se_cv: return 0
     name: flow_span_2
     cls_name: Flow Span
     x: 920.3000000000002
-    y: 355.9000000000001
+    y: 372.9000000000001
+    disp_param: {}
+  '170':
+    params:
+      <obj-store>:
+        v:
+          gen_id: 2
+          prms_lst: [1]
+      Global Namespace:
+        v: false
+      Brief View:
+        v: false
+      p1_Type:
+        sel_str: Bool-Pulse
+      p1_Name:
+        v: var
+      p1_Float:
+        e_v: 1
+        se_cv: return 1
+      p1_Integer:
+        e_v: 1
+        se_cv: return 1
+      p1_Float2:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      p1_Color:
+        hex: '#CCCCCC'
+        se_cv: 'return rgb(204, 204, 204)'
+      p1_Mouse Coord:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      p1_Bool:
+        v: false
+        e_v: 0
+      p1_Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
+      p1_Sample At:
+        sel_str: Mouse left down
+    name: var
+    cls_name: Variable
+    x: 691.3000000000001
+    y: 48.500000000000085
+    disp_param: {}
+  '171':
+    params:
+      Trigger:
+        v: false
+        e_v: 0
+    name: event_flow_1
+    cls_name: Event Flow
+    x: 718.6
+    y: 186.0000000000001
     disp_param: {}
 lines:
   - from_name: b2_defs
@@ -1572,14 +1639,19 @@ lines:
     to_name: previous
     to_id: 168
     uid: 169
-next_node_id: 170
+  - from_name: start
+    from_id: 171
+    to_name: previous
+    to_id: 166
+    uid: 174
+next_node_id: 176
 names_idx_s:
   Physics Merge: 2
   Physics Body: 10
   Physics Joint: 8
   Pick One: 4
   Physics Simulator: 1
-  Variable: 8
+  Variable: 9
   Change Filter: 1
   Function Fill: 1
   Extract Transform: 1
@@ -1588,7 +1660,7 @@ names_idx_s:
   Pen: 3
   Manual Geometry: 7
   Geom Primitive: 3
-  Point Gradient Fill: 1
+  Point Gradient Fill: 2
   Create Pixel-Buffer: 1
   Const Attribute: 5
   Divide: 2
@@ -1598,7 +1670,8 @@ names_idx_s:
   Sample Color: 1
   Start Flow: 1
   Flow Span: 2
-display_node_id: 86
+  Event Flow: 2
+display_node_id: 89
 tdisp_node_ids:
   - 12
 input_node_ids: []
@@ -1606,8 +1679,8 @@ glob_var_node_ids:
   - 69
 anim_flow_start_node_id: 165
 nodes_view:
-  pan_x: -544
-  pan_y: -133
+  pan_x: -473
+  pan_y: 115
   zoom: 0.9090909090909086
 decor:
   - x: 534.259567504883
