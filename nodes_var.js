@@ -31,7 +31,7 @@ class VarsInTerminal extends InTerminal
         this.xoffset = -4
         this.color = TERM_COLOR_VARS
 
-        this.my_vsb = new VariablesBox()
+        this.my_vsb = new VariablesObj()
         this.h = new PHandle(this.my_vsb, null) // my own box that contains stuff from all the inputs
     }
     draw_path(ctx, force) {
@@ -45,7 +45,7 @@ class VarsInTerminal extends InTerminal
 
     intr_set(cblock, uver) { // from collect_line
         const obj = cblock.po
-        assert(obj.constructor === VariablesBox, this.owner.cls, "Unexpected object type")
+        assert(obj.constructor === VariablesObj, this.owner.cls, "Unexpected object type")
         let any_dirty = false
         for(let name in obj.vb) {
             // TBD assert(this.my_vsb.vb[name] === undefined, this.owner.cls, "Variable of this name already exists here")
@@ -95,6 +95,28 @@ function vb_equals(a, b) {
     throw new Error("VarBox unknown type in vb_equals")
 }
 
+// like a shared_ptr for VarBox, holds a single ref count 
+// use for global variables so that there won't be garbage left there
+// not needed in non-global VariableObj since it is reacreated every frame
+class VBRef {
+    constructor(vso, name) {
+        this.name = name    // VarBox
+        this.vso = vso  // VariablesObj
+        ++this.vso.vb[name].vref_count
+    }
+    destroy() {
+        if (this.vso === null)
+            return
+        const vb = this.vso.vb[this.name]
+        if (--vb.vref_count === 0) {
+            vb.vbset_invalid()
+            this.vso.remove(this.name)
+        }
+        this.vso = null
+    }
+}
+
+
 class VarBox {
     constructor() {
         this.v = null
@@ -102,11 +124,17 @@ class VarBox {
         this.vdirtied_at_ver = null // this is used for determining dirtyness in a way that doesn't require clear()
 
         this.pulse_need_reset = false
+        this.vref_count = 0
     }
     vbset(v, type) {
         this.v = v
         this.type = type
         this.vdirtied_at_ver = frame_ver
+    }
+    vbset_invalid() {  // signals dirtiness to all expressions that still hold this var
+        this.v = null
+        this.type = null
+        this.vdirtied_at_ver = frame_ver 
     }
 
     // implement pulse functionality, this is not a separate class since I don't to need to recreate the VarBox on type change
@@ -115,9 +143,7 @@ class VarBox {
         this.vbset(true, TYPE_BOOL)        
     }
 
-    vclear_dirty() {
-        //this.vis_dirty = false
-    }
+
     vis_dirty() {
         let ret = this.vdirtied_at_ver == frame_ver
         if (!ret && this.pulse_need_reset) {
@@ -130,60 +156,45 @@ class VarBox {
 }
 
 
-// for namespace for global var nodes
-class VariableInnerBox {
-    constructor() {
-        this.vb = {}
-    }
-    add(name, vb) {
-        this.vb[name] = vb
-    }
-    vclear() {
-        this.vb = {}
-    }
-}
 
-class VariablesBox extends PObject
+
+class VariablesObj extends PObject
 {
     static name() { return "Variables" }
     constructor() {
         super()
         this.vb = {} // map variable name to VarBox where type is of TYPE_xxx
-        this.nss = new Map()  // namespaces for gloval var nodes
-        //this.empty = true // not used
+
     }
     lookup(name) {
         let r = this.vb[name]
         if (r !== undefined)
             return r
-        // one level recursive
-        for(let m of this.nss.values()) {
-            r = m.vb[name]
-            if (r !== undefined)
-                return r
+        return null
+    }
+
+    set_value(name, value, type) {
+        if (this.vb[name] === undefined) {
+            const nv = new VarBox()
+            this.vb[name] = nv
+            nv.vbset(value, type)
+        }
+        else {
+            this.vb[name].vbset(value, type)
         }
     }
-
-    get_ns(name) {
-        return this.nss.get(name)
-    }
-
-    add_ns(name) {
-        const vb = new VariableInnerBox()
-        this.nss.set(name, vb)
-        return vb
-    }
-    remove_ns(name) {
-        delete this.nss.delete(name)
+    make_ref(name) {
+        return new VBRef(this, name)
     }
 
     add(name, vb) {
-        this.vb[name] = vb
-        //this.empty = false
+        this.vb[name] = vb  // VarBox
+    }
+    remove(name) {
+        delete this.vb[name]
     }
     clear() {
         this.vb = {}
-        //this.empty = true
     }
     draw() {}
     draw_selection() {}
@@ -297,7 +308,7 @@ class NodeVarCls extends NodeCls
     }
 
     out_single_var(name, type, value) {
-        const vsb = new VariablesBox()
+        const vsb = new VariablesObj()
         const vb = new VarBox()
         vsb.add(name, vb)
         vb.vbset(value, type)
@@ -347,7 +358,20 @@ class NodeVariable extends NodeVarCls
             if (this.vars_prm.length == 1)
                 this.vars_prm[0].name.modify(newname)
         })
+
+        // if we're setting global variables, these are the VBRefs last created
+        this.cur_glob_refs = []
     }
+
+    toggle_enable_flag(do_draw) {
+        this.node.of_program.set_glob_var_node(this.node, do_draw)
+        this.node.set_self_dirty()
+        if (!this.node.enable_active) {
+            // just deactivated, need to remove all current global references, not rely on run() to do it since we might not get run and if we do it's due to selection and too late
+            this.del_cur_refs()
+        }
+    }
+
 
     set_brief(v) 
     {
@@ -419,7 +443,7 @@ class NodeVariable extends NodeVarCls
             if (prev != node.can_input) { // was changed?
                 draw_nodes()
                 if (!node.can_input && node.receives_input) { // just changed out of it, make sure it no longer receives input
-                    program.set_input_node(node)
+                    this.node.of_program.set_input_node(node)
                 }
             }
         })
@@ -456,7 +480,7 @@ class NodeVariable extends NodeVarCls
         p.expr_vec2_mouse = new ParamVec2(node, ["Mouse Coord", prefix], 0, 0) // want a different one since we don't want to mess with expr_vec2 being in code or not
         p.expr_vec2_mouse.set_enable(false)  // user never edits it directly
         p.expr_bool = new ParamBool(node, ["Bool", prefix], false)
-        p.btn_bool_pulse = new ParamButton(node, ["Trigger", prefix], ()=>{ p.vb.trigger(); p.btn_bool_pulse.pset_dirty() })
+        p.btn_bool_pulse = new ParamButton(node, ["Trigger", prefix], ()=>{ p.vb.trigger(); p.btn_bool_pulse.pset_dirty() }) // TBD
         p.expr_trans = new ParamTransform(node, ["Transform", prefix])
 
         p.mouseState = new ParamSelect(node, ["Sample At", prefix], 0, ["Mouse left down", "Mouse move"])
@@ -471,7 +495,7 @@ class NodeVariable extends NodeVarCls
             pp.call_change()            
         }
 
-        p.vb = new VarBox()
+        //p.vb = new VarBox()
 
         return p
     }
@@ -500,48 +524,66 @@ class NodeVariable extends NodeVarCls
     }
 
     run() {
-        let vsb = null, out_obj = null
-        if (this.global.get_value()) {
-            // every global vars node has its own namespace in g_anim so that it can recreate all its vars every time so there won't be garbage left there
-            out_obj = g_anim.vars_box
-            vsb = g_anim.vars_box.get_ns("glob_" + this.node.id)
-            if (vsb !== undefined)
-                vsb.vclear()
-            // can be undefined if the node is just selected but not marked active, in that case, just do the output terminal
+        let out_obj = null
+        const is_global = this.global.get_value()
+        if (is_global) {
+            out_obj = g_anim.globals_vars_box
+            if (!this.node.enable_active) { // if it's not enabled, it shouldn't run, just return the global variables unchanged
+                this.del_cur_refs()
+                this.var_out.set(out_obj)
+                return
+            }
         }
-        
-        if (vsb === null || vsb === undefined) {
-            vsb = new VariablesBox()
-            out_obj = vsb
+        else {
+            out_obj =  new VariablesObj()
         }
 
-        let name_set = new Set()
+        const name_set = new Set()
         for(let p of this.vars_prm)
         {
             const name = p.name.v
             assert(name.length > 0, this, "Name can't be empty")
             assert(!name_set.has(name), this, "Name defined multiple times: " + name)
             name_set.add(name)
-            vsb.add(name, p.vb)
 
             switch(p.type.sel_idx) {
-            case 0: p.vb.vbset(p.expr_float.get_value(), TYPE_NUM); break;
-            case 1: p.vb.vbset(p.expr_int.get_value(), TYPE_NUM); break;
-            case 2: p.vb.vbset(p.expr_vec2.get_value(), TYPE_VEC2); break;
+            case 0: out_obj.set_value(name, p.expr_float.get_value(), TYPE_NUM); break;
+            case 1: out_obj.set_value(name, p.expr_int.get_value(), TYPE_NUM); break;
+            case 2: out_obj.set_value(name, p.expr_vec2.get_value(), TYPE_VEC2); break;
             case 3: 
-            case 4: p.vb.vbset(p.expr_vec2_mouse.get_value(), TYPE_VEC2); break;
-            case 5: p.vb.vbset(color_to_uint8arr(p.expr_color.v), TYPE_VEC4); break;
-            case 6: p.vb.vbset(p.expr_bool.get_value(), TYPE_BOOL); break;
-            case 8: p.vb.vbset(p.expr_trans.get_value(), TYPE_MAT3); break;
+            case 4: out_obj.set_value(name, p.expr_vec2_mouse.get_value(), TYPE_VEC2); break;
+            case 5: out_obj.set_value(name, color_to_uint8arr(p.expr_color.v), TYPE_VEC4); break;
+            case 6: out_obj.set_value(name, p.expr_bool.get_value(), TYPE_BOOL); break;
+            case 8: out_obj.set_value(name, p.expr_trans.get_value(), TYPE_MAT3); break;
             }
         }
+
+        // manage references to global vars
+        const new_refs = []
+        if (is_global)
+        {
+            // add refs to all current ones
+            for(let p of this.vars_prm)
+                new_refs.push(out_obj.make_ref(p.name.v))
+        }
+        // remove ref from all the previous ones, if they existed
+        this.del_cur_refs()
+        this.cur_glob_refs = new_refs
+
         this.var_out.set(out_obj)
     }
 
-    cclear_dirty() {  // c for cls
-        for(let p of this.vars_prm)
-            p.vb.vclear_dirty();
+    del_cur_refs() {
+        for (let r of this.cur_glob_refs)
+            r.destroy()
+        this.cur_glob_refs = []            
     }
+
+    // API
+    destructor() {
+        this.del_cur_refs()
+    }
+
 
     inputevent(name, e) {
         let want_capture = false

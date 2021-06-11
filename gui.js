@@ -820,9 +820,6 @@ function save_as(parent) {
     })
 }
 
-function export_svg(parent) {
-
-}
 
 var downloadLink = null
 
@@ -918,7 +915,46 @@ function export_png() {
     height_input.value = canvas_image.height
 }
 
+
+function export_svg()
+{
+    if (program.display_node === null) {
+        message_box("Error", "No display node selected", {text:"OK"})
+        return
+    }
+    const disp_obj = program.display_node.outputs[0].get_const()
+    if (disp_obj === null) {
+        message_box("Error", "No output object generated", {text:"OK"})
+        return
+    }
+    const backup = ctx_img
+    const ctx_svg = new C2S(canvas_image.width, canvas_image.height);
+    ctx_svg.need_antialias_gap_fill = false
+    ctx_img = ctx_svg
+    try {
+        if (disp_obj.invalidate_pos !== undefined)
+            disp_obj.invalidate_pos() // force paths to be recreated
+        canvas_transform(ctx_svg, image_view.t_viewport)
+        disp_obj.draw_m(image_view.t_viewport, program.display_node.display_values)
+    }
+    catch(e) {
+        message_box("Error", e.message, [{text:"OK"}])
+        return
+    }
+    finally {
+        if (disp_obj.invalidate_pos !== undefined)
+            disp_obj.invalidate_pos() // force paths to be recreated
+        ctx_img = backup
+    }
+    const text = ctx_svg.getSerializedSvg(true)
+    const dl_lnk = add_elem(main_view, "a", "dl_lnk_hidden")
+    saveFile("image.svg", "image/svg+xml", text)
+}
+
+
+
 var open_top_menus = []
+
 
 function create_top_menu(parent) {
     let menu_btn = add_div(parent, ['top_menu', 'top_menu_file'])
@@ -929,7 +965,8 @@ function create_top_menu(parent) {
         let opt = [//{text:"Save As...", func:function() { save_as(parent) }},
                    {text:"Export Program...", func:export_prog },
                    {text:"Import Program...", func:import_prog, type:"file-in" },
-                   {text:"Export PNG...", func:export_png }
+                   {text:"Export PNG...", func:export_png },
+                   {text:"Export SVG...", func:export_svg }
                    //{text:"Export State...", func: ()=>{ export_entire_state(parent) }},
                    //{text:"Export SVG...", func: ()=>{ export_svg(parent) }},
                    //{text:'-'}

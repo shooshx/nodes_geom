@@ -108,7 +108,7 @@ class Parameter
     }
     resolve_variables(vars_box, do_globals, do_locals) { // each param that has expr_items implements this to its exprs
         let any_changed = false
-        for(let expr of this.my_expr_items)
+        for(let expr of this.my_expr_items)  // TBD only active
             any_changed |= expr.eresolve_variables(vars_box, do_globals, do_locals)
         if (any_changed)
             this.call_change()
@@ -1313,18 +1313,23 @@ class ExpressionItem {
                 ve.var_box = null //unbind it in the first stage
             let from_in = undefined
             if (do_locals && in_vars_box !== null)
-                from_in = in_vars_box.lookup(ve.varname)  // VariablesBox
+                from_in = in_vars_box.lookup(ve.varname)  // VariablesObj
             if (do_globals && from_in === undefined)
-                from_in = g_anim.vars_box.lookup(ve.varname) // for frame_num
+                from_in = g_anim.globals_vars_box.lookup(ve.varname) // for frame_num
             
-            if (from_in === undefined) {
+            if (from_in === null) {
                 if (ve.var_box !== null)
                     continue // it was already bound in the globals call
                 // when called from peval it may not be able to resolve since the variables are not there yet
-                // when called with do_globals, we don't want to raise an error for something that would resolve for a local, 
-                //    do_locals is just before run so it needs to make this check
-                if (allow_not_found || do_globals) 
+                if (allow_not_found)
                     continue
+                // when called with do_globals, we don't want to raise an error for something that would resolve for a local, 
+                // we want to make sure though that local is called so marking as dirty (changing the global variable to make it not visible to here is what made this node "dirty")
+                //    do_locals is just before run so it needs to make this check
+                if (do_globals) {
+                    this.in_param.pset_dirty()
+                    continue
+                }
                 throw new ExprErr("Unknown variable " + ve.varname, ve.line_num) // TBD add what line                
             }
             ve.var_box = from_in

@@ -53,10 +53,9 @@ EXPRESSIONS
 - Sample any param from any node ???
 
 **** Animation program ****
+  - global variables with ref-count rather than namespaces which is silly
   - Restart event node 
-        flag for enable
         parameter for internal enable
-        pulse event?
         start is just an event for pulse variable controlled by the button
   - visualize where control is
   - start node for variable change
@@ -94,7 +93,11 @@ EXPRESSIONS
 
 ****** CURRENT AGENDA ******
 - !!!!!BUG - moving nodes while zoom is not 1!!!
-
+- !!!!!BUG - SetAttr bind to vertices messes with round path control points
+- BUG - save PNG with different size does wrong translation
+- Save to SVG with paths
+    rets from bool op?
+- load SVG to multi-path
 - Copy
     - with existing vtx_transform, face_transform
     - in features.txt
@@ -453,6 +456,7 @@ free music: https://freepd.com/
     https://www.youtube.com/watch?v=GSmZHaw9cTs
 key-gen music?
     https://opengameart.org/content/deus-ex-tempus
+screen-capture - OBS Studio
 
 cool little games - https://slicker.me/javascript/particles.htm
 generated lines - https://avinayak.github.io/art/2021/01/09/noise-planets.html

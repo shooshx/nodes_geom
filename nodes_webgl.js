@@ -1104,7 +1104,7 @@ class TerminalProxy extends Terminal
         this.caching = wterm.caching
         copy_members(wterm, this, wterm, ["set", "get_const", "get_mutable", "clear", "tset_dirty", "is_dirty", 
                                           "get_input_consts", "intr_set", "get_cur_uver", "force_set",
-                                          "is_caching", "is_out_term", "subscribe_inf_update"])
+                                          "is_caching", "is_out_term", "subscribe_inf_update", "get_ctrl_block"])
                                           // "set_caching" not supported since it needs to modify the internal node which is not being saved
 
         copy_members(wterm, this, this, ["draw_path"])

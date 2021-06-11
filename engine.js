@@ -116,6 +116,9 @@ function page_onload()
     ctx_img_shadow = canvas_img_shadow.getContext('2d')
     paper.project = new paper.Project(null)
 
+    ctx_img.makePath2D = function() { return new Path2D } // allow mocking for SVG save
+    ctx_img.need_antialias_gap_fill = true
+
     clear_program()  // for the case of completely empty state
     
     try {
@@ -224,6 +227,9 @@ class Program {
             program.set_template_node(node, false)
         if (node.receives_input)
             program.set_input_node(node, false)
+        if (node.enable_active) {
+            node.cls.toggle_enable_flag()
+        }
         if (obj_inf_dlg !== null)
             obj_inf_dlg.node_deleted(node)
         if (node.destructor)
@@ -305,15 +311,12 @@ class Program {
             trigger_frame_draw(true)
     }
 
-    // every global variables node has its own glob_ namespace and can be enabled or disabled using the flag
     set_glob_var_node(node, do_draw=true) {
         node.enable_active = !node.enable_active 
         if (node.enable_active) {
             this.glob_var_nodes.push(node)
-            g_anim.vars_box.add_ns("glob_" + node.id)
         }
         else {
-            g_anim.vars_box.remove_ns("glob_" + node.id)
             arr_remove_is(program.glob_var_nodes, node)
         }
         if (do_draw)
@@ -679,7 +682,7 @@ function get_nodes_to_run()
         run_root_nodes.add(tn)
     if (selected_nodes.length > 0)
         for(let sn of selected_nodes)
-            if (sn.can_run)
+            if (sn.can_run_on_select)
                 run_root_nodes.add(sn)
     return [run_root_nodes, disp_obj]
 }
@@ -808,6 +811,8 @@ class AnimFlow
 
     set_anim_node(node)
     {
+        if (node !== null)
+            node.enable_active = !node.enable_active 
         if (this.start_node === node)
             this.start_node = null
         else
@@ -885,12 +890,13 @@ class Animation {
         //this.frame_time = 0;
         this.run = false;
         this.pre_draw_handlers = []
-        this.vars_box = new VariablesBox()
+        this.globals_vars_box = new VariablesObj()
         this.frame_num_box = new VarBox()
         this.frame_num_box.vbset(0, TYPE_NUM)
-        this.vars_box.add("frame_num", this.frame_num_box)
+        this.globals_vars_box.add("frame_num", this.frame_num_box)
         this.start_time = null
         this.frame_time = 0
+        this.fixed_refs = [ this.globals_vars_box.make_ref("frame_num") ] // prevent these from releasing by taking a reference to them
     }
     rewind() {
         this.frame_num = 0

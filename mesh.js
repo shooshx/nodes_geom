@@ -473,7 +473,7 @@ class Mesh extends PObject
         let i = 0
         if (this.type == MESH_QUAD) {
             while(i < idxs.length) {
-                let p = new Path2D()
+                let p = ctx_img.makePath2D()
                 let idx = idxs[i++]<<1; p.moveTo(vtx[idx], vtx[idx+1])
                 idx = idxs[i++]<<1; p.lineTo(vtx[idx], vtx[idx+1])
                 idx = idxs[i++]<<1; p.lineTo(vtx[idx], vtx[idx+1])
@@ -484,7 +484,7 @@ class Mesh extends PObject
         }
         else if (this.type == MESH_TRI) {
             while(i < idxs.length) {
-                let p = new Path2D()
+                let p = ctx_img.makePath2D()
                 let idx = idxs[i++]<<1; p.moveTo(vtx[idx], vtx[idx+1])
                 idx = idxs[i++]<<1; p.lineTo(vtx[idx], vtx[idx+1])
                 idx = idxs[i++]<<1; p.lineTo(vtx[idx], vtx[idx+1])
@@ -533,7 +533,7 @@ class Mesh extends PObject
     make_clip_path(face_fill, foi) {
         let vtx = this.effective_vtx_pos
         let idxs = this.arrs.idx        
-        let p = new Path2D(), idx
+        let p = ctx_img.makePath2D(), idx
         if (this.type == MESH_QUAD) {
             for(let vi = 0, i = 0; vi < idxs.length; vi += 4, ++i) {
                 if (face_fill[i] != foi)

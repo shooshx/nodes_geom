@@ -154,7 +154,7 @@ class NodeAnimCls extends NodeCls
         super(node)
         node.can_display = false
         //node.can_follow = true
-        node.can_run = false
+        node.can_run_on_select = false // doesn't run when selected
     }  
 
     // called when flow just enters this node
@@ -224,6 +224,10 @@ class AnimStartFlow extends NodeAnimCls
         this.traits.next = true // start does nothing but go to the first
     }
 
+    toggle_enable_flag(do_draw) {
+        this.node.of_program.anim_flow.set_anim_node(this.node)
+    }
+
     get_anim_traits() {
         return this.traits
     }
@@ -244,6 +248,11 @@ class AnimEventFlow extends NodeAnimCls
         this.traits.next = true
         this.current_trigger_value = null
     }
+
+    toggle_enable_flag(do_draw) {
+        this.node.of_program.anim_flow.toggle_event_node(this.node)
+    }
+
     get_anim_traits() {
         return this.traits
     }
@@ -310,4 +319,32 @@ class AnimSpan extends NodeAnimCls
         this.traits.blocking_frames = 1 // reset to default
         return this.traits
     }
+}
+
+
+
+class FlowVariable extends NodeVariable
+{
+    static name() {
+        return "Flow Set Variable"
+    }
+    constructor(node) {
+        super(node)
+        node.can_display = false
+        //node.can_follow = true
+        node.can_run_on_select = false // doesn't run when selected
+
+        this.prev = new AnimInTerminal(node, "previous")
+        this.next = new AnimOutTerminal(node, "next")
+
+        this.traits = new AnimTraits()
+        this.traits.next = true
+    }  
+
+    // called when flow just enters this node
+    get_anim_traits() { 
+        return this.traits
+     }
+
+
 }

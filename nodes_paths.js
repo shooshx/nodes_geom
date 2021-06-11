@@ -343,7 +343,7 @@ class MultiPath extends PObject
                 cidx += 4            
             }
             if (!continue_prev) {
-                jp = new Path2D()
+                jp = ctx_img.makePath2D()
                 jp.face_color = col  // take just the color of the first face, ignore the potential case that the other faces can have a different color
             }
             else
@@ -357,7 +357,7 @@ class MultiPath extends PObject
     
     make_clip_path(face_fill, foi) 
     {
-        let jp = new Path2D()
+        let jp = ctx_img.makePath2D()
         for(let pri = 0, i = 0; pri < this.paths_ranges.length; pri += 3, ++i) {
             if (face_fill[i] != foi)
                 continue
@@ -401,7 +401,8 @@ class MultiPath extends PObject
                 ctx_img.fill(p)
                 ctx_img.lineWidth = base_line_width
                 ctx_img.strokeStyle = face_col
-                ctx_img.stroke(p) // fill antialiasing gaps
+                if (ctx_img.need_antialias_gap_fill) // not needed for SVG saver
+                    ctx_img.stroke(p) // fill antialiasing gaps
             }
             if (do_lines) {
                 ctx_img.lineWidth = const_line_width * base_line_width
@@ -576,11 +577,12 @@ class MultiPath extends PObject
                     xfer_indices.push(pnt.Z)
                     ++cur_idx
                 }
-                ranges.push(start_idx, cur_idx, path.IsOpen ? 0 : PATH_CLOSED) // Paths are implicitly closed
+                ranges.push(start_idx, cur_idx, path.IsOpen ? 0 : PATH_CLOSED) 
+                path.closed = !path.IsOpen
             }    
 
         }
-        else {
+        else { // it's an array
             for(let path of clipper_obj) {
                 const start_idx = cur_idx
                 for(let pnt of path) {
@@ -589,6 +591,7 @@ class MultiPath extends PObject
                     ++cur_idx
                 }
                 ranges.push(start_idx, cur_idx, PATH_CLOSED) // Paths are implicitly closed
+                path.closed = true // simulate what it would look like if we created it
             }    
         }
         this.set('vtx_pos', new TVtxArr(vtx), 2)

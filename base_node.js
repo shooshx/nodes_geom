@@ -898,7 +898,7 @@ class Node {
         this.can_input = false  // vars node can get mouse input
         this.can_enable = false // NodeVarCls: vars node sets variables to global namespace, same as template display, only in the first flag place
                                 // NodeAnimCls: start animation flow enable
-        this.can_run = true     // implements run()
+        this.can_run_on_select = true     // should run when selected? false for flow nodes
 
         this.follow_target = null // for Flow nodes (NodeAnimCls) instance of FollowTarget, if this is null, node can't be followed
         this.snap_suggest = null // null or {x:,y:} of where to draw the snap suggestion block
@@ -932,8 +932,8 @@ class Node {
         this._node_dirty = true 
         // indication for the engine traversal of this node.
         this._last_visited_fv = 0 // frame_ver
-        // should be set by the node if anything happened that dirtied itss state (that is not a parameter)
-        // used for viewport dependent nodes when viewport changes (not actaully used right now)
+        // should be set by the node if anything happened that dirtied its state (that is not a parameter)
+        // used for global vars enable flag
         this.self_dirty = false
         // key-value of parameters for displaying any sort of object.
         // kept per-node since every node can want something different
@@ -948,6 +948,11 @@ class Node {
 
         if (this.state_access === null)
             this.set_state_evaluators([]) // if cls ctor did not call it
+    }
+
+    set_self_dirty() {
+        this.self_dirty = true
+        trigger_frame_draw(true)
     }
 
     set_state_evaluators(d) { // called in cls ctor to configure how StateAccess accesses state
@@ -1060,7 +1065,7 @@ class Node {
         if (this.can_display) 
         {
             // display flag
-            if (program.display_node === this) {
+            if (this.of_program.display_node === this) {
                 ctx_nodes.beginPath();
                 rounded_rect_f(ctx_nodes, px + NODE_FLAG_DISPLAY.offset, py, this.width - NODE_FLAG_DISPLAY.offset, this.height, 0, 0, 5, 5)
                 ctx_nodes.fillStyle = NODE_FLAG_DISPLAY.color
@@ -1100,7 +1105,7 @@ class Node {
         if (this.can_enable) // variable
         {
             const shape = (this.cls instanceof NodeVarCls) ? NODE_ENABLE_GLOB_FLAG : NODE_ENABLE_ANIM_FLAG
-            if (this.enable_active || program.anim_flow.start_node === this) { // place of display flag but controlled by the enable flag
+            if (this.enable_active || this.of_program.anim_flow.start_node === this) { // place of display flag but controlled by the enable flag
                 ctx_nodes.beginPath();
                 rounded_rect_f(ctx_nodes, px + shape.offset, py, this.width - shape.offset, this.height, 0, 0, 5, 5)
                 ctx_nodes.fillStyle = shape.color
@@ -1329,6 +1334,7 @@ class NodeCls {
     is_picking_lines() { return false } // should the engine run and collect all inputs before run(), if not the node decides which inputs to run using select_lines
     pick_lines() { assert(false, this, "not selecting lines") }
     should_clear_out_before_run() { return true }
+    toggle_enable_flag(do_draw) { dassert(false, "unexpected enable") }
 
     nresolve_variables(do_globals) {
         try {
@@ -1573,16 +1579,7 @@ function find_node_obj(e) {
             if (n.can_enable) {
                 const shape = (n.cls instanceof NodeVarCls) ? NODE_ENABLE_GLOB_FLAG : NODE_ENABLE_ANIM_FLAG
                 if (px >= n.x + shape.offset) {
-                    return new NodeFlagProxy(n, (n)=>{ 
-                        if (n.cls instanceof NodeVarCls)
-                            program.set_glob_var_node(n) 
-                        else if (n.cls instanceof AnimStartFlow) 
-                            program.anim_flow.set_anim_node(n)
-                        else if (n.cls instanceof AnimEventFlow)
-                            program.anim_flow.toggle_event_node(n)
-                        else
-                            dassert(false, "unexpected enable")
-                    })
+                    return new NodeFlagProxy(n, (n)=>{ n.cls.toggle_enable_flag(true) })
                 }
             }
             if (px >= n.x)                

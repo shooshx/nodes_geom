@@ -7,13 +7,18 @@ function save_program() {
         display_node_id: (program.display_node === null) ? null : program.display_node.id,
         tdisp_node_ids: [], 
         input_node_ids: [],
-        glob_var_node_ids: [],
-        anim_flow_start_node_id: (program.anim_flow.start_node === null) ? null : program.anim_flow.start_node.id,
+        //glob_var_node_ids: [],
+        //anim_flow_start_node_id: (program.anim_flow.start_node === null) ? null : program.anim_flow.start_node.id,
         nodes_view: nodes_view.save(),  // part of the program so the user won't need to start looking for the nodes
         decor: []
     }
     for(let n of program.nodes) {
-        let sn = { params: {}, name:n.name, cls_name: n.cls.constructor.name(), x:n.x, y:n.y, disp_param:n.display_values }
+        let sn = { params: {}, 
+                   name:n.name, 
+                   cls_name: n.cls.constructor.name(), 
+                   x:n.x, y:n.y, 
+                   disp_param:n.display_values,
+                   enable_active: n.enable_active }
         for(let p of n.parameters) {
             const ov = p.save()
             if (ov !== null)
@@ -42,9 +47,9 @@ function save_program() {
     for(let inn of program.input_nodes) {
         sprog.input_node_ids.push(inn.id)
     }
-    for(let gnn of program.glob_var_nodes) {
+    /*for(let gnn of program.glob_var_nodes) {
         sprog.glob_var_node_ids.push(gnn.id)
-    }
+    }*/
     for(let dec of program.nodes_decor) {
         const r = dec.save()
         r.type = dec.constructor.name()
@@ -166,6 +171,8 @@ function _load_program(sprog)
                 n.outputs[oidx].set_caching(false)
         //if (n.cls.post_load_hook)  moved below
         //    n.cls.post_load_hook()
+        if (sn.enable_active)
+            n.cls.toggle_enable_flag(false)
         if (sn.disp_param)
             n.display_values = sn.disp_param
     }
@@ -213,11 +220,11 @@ function _load_program(sprog)
     else
         newprog.set_display_node(newprog.obj_map[sprog.display_node_id])
 
-    if (sprog.anim_flow_start_node_id === null || sprog.anim_flow_start_node_id === undefined || newprog.obj_map[sprog.anim_flow_start_node_id] === undefined)
+    /*if (sprog.anim_flow_start_node_id === null || sprog.anim_flow_start_node_id === undefined || newprog.obj_map[sprog.anim_flow_start_node_id] === undefined)
         newprog.anim_flow.set_anim_node(null)
     else
         newprog.anim_flow.set_anim_node(newprog.obj_map[sprog.anim_flow_start_node_id])
-
+*/
     newprog.tdisp_nodes = []
     if (sprog.tdisp_node_ids !== undefined) {
         for(let tnid of sprog.tdisp_node_ids) {
@@ -235,13 +242,13 @@ function _load_program(sprog)
             newprog.set_input_node(inn, false)
         }
     }
-    if (sprog.glob_var_node_ids !== undefined) {
+    /*if (sprog.glob_var_node_ids !== undefined) {
         for(let gnid of sprog.glob_var_node_ids) {
             const gnn = newprog.obj_map[gnid]
             console.assert(gnn !== undefined, "global var node not found")
             newprog.set_glob_var_node(gnn, false)
         }
-    }
+    }*/
 
     if (sprog.nodes_view !== undefined) // old progs don't have it
         nodes_view.load(sprog.nodes_view)
