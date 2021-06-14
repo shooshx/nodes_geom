@@ -1,0 +1,852 @@
+nodes:
+  '1':
+    params:
+      Shape:
+        sel_str: Rectangle
+      Size:
+        se_x: sqrt(2)
+        e_y: 1
+        se_cv: 'return vec2(0.5, 0.5)'
+      Num Points:
+        e_v: 5
+        se_cv: return 5
+      Inner Point:
+        e_x: 0.22600000000000003
+        se_y: '-0.311'
+        se_cv: 'return vec2(0.226, -0.311)'
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
+    name: geom_primitive_1
+    cls_name: Geom Primitive
+    x: 331
+    y: 162
+    disp_param:
+      show_vtx: true
+      show_lines: true
+    enable_active: false
+  '2':
+    params:
+      Seed:
+        e_v: 1
+        se_cv: return 1
+      Min Distance:
+        e_v: 0.04500000000000001
+        sldcfg_v:
+          min: 0.001
+          max: 0.1
+          visible: true
+          allowed: true
+        se_cv: return 0.02
+    name: scatter_uniform_1
+    cls_name: Scatter Uniform
+    x: 345
+    y: 261
+    disp_param:
+      show_vtx: true
+    enable_active: false
+  '4':
+    params: {}
+    name: triangulate_1
+    cls_name: Triangulate
+    x: 344
+    y: 351
+    disp_param:
+      show_vtx: false
+      show_lines: true
+    enable_active: false
+  '6':
+    params:
+      Margin:
+        e_x: 0.010000000000000002
+        e_y: 0.010000000000000002
+        se_cv: 'return vec2(0.2, 0.2)'
+    name: voronoi_1
+    cls_name: Voronoi
+    x: 343
+    y: 445
+    disp_param:
+      show_vtx: false
+      show_lines: true
+    enable_active: false
+  '9':
+    params:
+      Offset:
+        se_v: offset
+        sldcfg_v:
+          min: -0.02
+          max: 0.02
+          visible: true
+          allowed: true
+        se_cv: return 0.1
+      Point Type:
+        sel_str: Square
+      Closed Paths:
+        sel_str: Polygon
+      Open Paths:
+        sel_str: Square
+      Miter Thresh:
+        e_v: 2
+        se_cv: return 2
+      Arc Step:
+        e_v: 0.002
+        se_cv: return 0.002
+      Allow over-shoot:
+        v: false
+        e_v: 0
+    name: offset_path_1
+    cls_name: Offset Path
+    x: 386
+    y: 533
+    disp_param:
+      show_vtx: false
+      show_lines: true
+    enable_active: false
+  '12':
+    params:
+      col_store:
+        v: [{label: vtx_color, ctor: ParamColorList}]
+      Type:
+        sel_str: Mesh
+      Add points:
+        v: true
+      vtx_pos:
+        lst: [0.79296875, -0.51171875, -0.01171875, -0.6484375, -0.923828125, -0.310546875, -0.755859375, 0.55078125, 0.75, 0.548828125, 0.01171875, 0.0625, -0.7136350870132446, -0.5715765953063965]
+      path_ranges:
+        ranges: [0, 7, 0]
+      vtx_color:
+        lst: [243, 174, 12, 255, 254, 8, 8, 255, 241, 53, 255, 255, 58, 128, 255, 255, 95, 255, 93, 255, 255, 215, 173, 255, 241, 53, 255, 255]
+    name: manual_geometry_1
+    cls_name: Manual Geometry
+    x: 78
+    y: 381
+    disp_param:
+      show_vtx: true
+    enable_active: false
+  '13':
+    params: {}
+    name: triangulate_2
+    cls_name: Triangulate
+    x: 85
+    y: 486
+    disp_param:
+      show_vtx: true
+      show_lines: true
+    enable_active: false
+  '15':
+    params:
+      Resolution:
+        x: 1024
+        y: 1024
+      Size:
+        e_x: 2
+        e_y: 2
+        se_cv: 'return vec2(2, 2)'
+      Smooth Scaling:
+        v: true
+        e_v: 1
+      Texture Edge:
+        sel_str: Pad
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
+    name: create_pixel_buffer_1
+    cls_name: Create Pixel-Buffer
+    x: 151
+    y: 565
+    disp_param: {}
+    enable_active: false
+  '16':
+    params: {}
+    name: point_gradient_fill_1
+    cls_name: Point Gradient Fill
+    x: 150
+    y: 650
+    disp_param: {}
+    enable_active: false
+  '19':
+    params:
+      npt:
+        v:
+          '0': color
+          '1': radius
+          '2': normal
+          '3': fill
+          '4': transform
+      Bind To:
+        sel_str: Faces
+      Type:
+        sel_str: Color
+      Edit code:
+        v: true
+      Name:
+        v: color
+      Color:
+        hex: '#CCCCCC'
+        show_code: true
+        se_cv: return in_src
+      Float:
+        e_v: 0
+        se_cv: return 0
+      Float2:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      Select:
+        e_v: 1
+        se_cv: return 1.0
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
+    name: set_attribute_1
+    cls_name: Set Attribute
+    x: 364
+    y: 904
+    disp_param:
+      show_vtx: false
+      show_lines: false
+      show_ctrls: false
+      show_ctrls_pnts: true
+      show_faces: true
+    enable_active: false
+  '22':
+    params:
+      Shape:
+        sel_str: Star
+      Size:
+        e_x: 0.22300000000000003
+        e_y: 0.22100000000000003
+        se_cv: 'return vec2(0.5, 0.5)'
+      Num Points:
+        e_v: 5
+        se_cv: return 5
+      Inner Point:
+        e_x: 0.22600000000000003
+        se_y: '-0.311'
+        se_cv: 'return vec2(0.226, -0.311)'
+      Transform:
+        e_tx: 0.5981334681496463
+        e_ty: 0.3901112234580385
+        e_r: 23.217000000000002
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
+    name: geom_primitive_2
+    cls_name: Geom Primitive
+    x: 1040
+    y: 315
+    disp_param:
+      show_vtx: false
+      show_lines: true
+    enable_active: false
+  '23':
+    params:
+      Operation:
+        sel_str: Subtract
+      Swap:
+        v: false
+        e_v: 0
+    name: boolean_operation_1
+    cls_name: Boolean Operation
+    x: 641
+    y: 614
+    disp_param:
+      show_vtx: false
+      show_lines: true
+    enable_active: false
+  '29':
+    params:
+      Algorithm:
+        sel_str: Chaikin
+      Factor:
+        e_v: 0.5
+        se_cv: return 0.5
+    name: round_corners_2
+    cls_name: Round Corners
+    x: 761
+    y: 796
+    disp_param:
+      show_vtx: false
+      show_lines: true
+      show_ctrls: false
+      show_ctrls_pnts: false
+    enable_active: false
+  '32':
+    params:
+      col_store:
+        v: []
+      Type:
+        sel_str: Paths
+      Add points:
+        v: true
+      vtx_pos:
+        lst: [0.5762702822685242, -0.725821852684021, 0.8953128457069397, -0.7577261328697205, 1.0967085361480713, -0.5184442400932312, 0.9092709422111511, -0.3728811740875244]
+      path_ranges:
+        ranges: [0, 4, 1]
+    name: manual_geometry_2
+    cls_name: Manual Geometry
+    x: 616
+    y: 381
+    disp_param:
+      show_vtx: false
+      show_lines: true
+    enable_active: false
+  '35':
+    params:
+      Operation:
+        sel_str: Union
+      Swap:
+        v: false
+        e_v: 0
+    name: boolean_operation_2
+    cls_name: Boolean Operation
+    x: 827
+    y: 698
+    disp_param:
+      show_vtx: false
+      show_lines: true
+    enable_active: false
+  '40':
+    params:
+      Offset:
+        se_v: offset*2
+        se_cv: return 0.1
+      Point Type:
+        sel_str: Square
+      Closed Paths:
+        sel_str: Polygon
+      Open Paths:
+        sel_str: Square
+      Miter Thresh:
+        e_v: 2
+        se_cv: return 2
+      Arc Step:
+        e_v: 0.002
+        se_cv: return 0.002
+      Allow over-shoot:
+        v: false
+        e_v: 0
+    name: offset_path_3
+    cls_name: Offset Path
+    x: 960
+    y: 556
+    disp_param:
+      show_vtx: true
+      show_lines: true
+    enable_active: false
+  '43':
+    params:
+      <obj-store>:
+        v:
+          gen_id: 2
+          prms_lst: [1]
+      Global Namespace:
+        v: false
+      Brief View:
+        v: false
+      p1_Type:
+        sel_str: Float
+      p1_Name:
+        v: offset
+      p1_Float:
+        se_v: '-0.00126'
+        sldcfg_v:
+          min: -0.02
+          max: 0.02
+          allowed: true
+          visible: true
+        se_cv: return 1
+      p1_Integer:
+        e_v: 1
+        se_cv: return 1
+      p1_Float2:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      p1_Color:
+        hex: '#CCCCCC'
+        se_cv: 'return rgb(204, 204, 204)'
+      p1_Mouse Coord:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      p1_Bool:
+        v: false
+        e_v: 0
+      p1_Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
+      p1_Sample At:
+        sel_str: Mouse left down
+    name: offset
+    cls_name: Variable
+    x: 541
+    y: 455
+    disp_param: {}
+    enable_active: false
+  '48':
+    params:
+      Deduplicate Points (Output mesh):
+        v: false
+        e_v: 0
+      Dedup epsilon:
+        e_v: 0.00001
+        se_cv: return 0.00001
+      OrderInputs:
+        sorted_order: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    name: geom_merge_1
+    cls_name: Geom Merge
+    x: 955.9883500000001
+    y: 425.2921500000001
+    disp_param:
+      show_vtx: false
+      show_lines: true
+    enable_active: false
+  '53':
+    params:
+      Shape:
+        sel_str: Star
+      Size:
+        e_x: 0.19500000000000003
+        e_y: 0.19500000000000003
+        se_cv: 'return vec2(0.5, 0.5)'
+      Num Points:
+        e_v: 5
+        se_cv: return 5
+      Inner Point:
+        e_x: 0.22600000000000003
+        se_y: '-0.311'
+        se_cv: 'return vec2(0.226, -0.311)'
+      Transform:
+        e_tx: 0.612978766430738
+        e_ty: -0.3951344792719919
+        e_r: 335.572
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
+    name: geom_primitive_3
+    cls_name: Geom Primitive
+    x: 1036.6693500000003
+    y: 249.43915000000004
+    disp_param: {}
+    enable_active: false
+  '55':
+    params:
+      Shape:
+        sel_str: Star
+      Size:
+        e_x: 0.131
+        e_y: 0.131
+        se_cv: 'return vec2(0.5, 0.5)'
+      Num Points:
+        e_v: 5
+        se_cv: return 5
+      Inner Point:
+        e_x: 0.22600000000000003
+        se_y: '-0.311'
+        se_cv: 'return vec2(0.226, -0.311)'
+      Transform:
+        e_tx: -0.3873114256825076
+        e_ty: 0.31500000000000006
+        e_r: 28.134000000000004
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
+    name: geom_primitive_4
+    cls_name: Geom Primitive
+    x: 1031.9443499999998
+    y: 196.55115000000035
+    disp_param: {}
+    enable_active: false
+  '57':
+    params:
+      Shape:
+        sel_str: Star
+      Size:
+        e_x: 0.10700000000000001
+        e_y: 0.10700000000000001
+        se_cv: 'return vec2(0.5, 0.5)'
+      Num Points:
+        e_v: 5
+        se_cv: return 5
+      Inner Point:
+        e_x: 0.22600000000000003
+        se_y: '-0.311'
+        se_cv: 'return vec2(0.226, -0.311)'
+      Transform:
+        se_tx: '-0.604'
+        e_ty: 0.43400000000000005
+        e_r: 13.912
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
+    name: geom_primitive_5
+    cls_name: Geom Primitive
+    x: 889.3593499999997
+    y: 174.85415000000026
+    disp_param: {}
+    enable_active: false
+  '59':
+    params:
+      Shape:
+        sel_str: Star
+      Size:
+        e_x: 0.17
+        e_y: 0.17
+        se_cv: 'return vec2(0.5, 0.5)'
+      Num Points:
+        e_v: 5
+        se_cv: return 5
+      Inner Point:
+        e_x: 0.22600000000000003
+        se_y: '-0.311'
+        se_cv: 'return vec2(0.226, -0.311)'
+      Transform:
+        e_tx: -0.5105783619817997
+        e_ty: -0.04179979777553085
+        e_r: 338.247
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
+    name: geom_primitive_6
+    cls_name: Geom Primitive
+    x: 882.0353499999998
+    y: 236.62815000000026
+    disp_param: {}
+    enable_active: false
+  '61':
+    params:
+      Shape:
+        sel_str: Star
+      Size:
+        e_x: 0.14100000000000001
+        e_y: 0.14100000000000001
+        se_cv: 'return vec2(0.5, 0.5)'
+      Num Points:
+        e_v: 6
+        se_cv: return 5
+      Inner Point:
+        e_x: 0.254
+        se_y: '-0.268'
+        se_cv: 'return vec2(0.226, -0.311)'
+      Transform:
+        e_tx: -0.6343801820020225
+        e_ty: -0.43400000000000005
+        e_r: 12.957
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
+    name: geom_primitive_7
+    cls_name: Geom Primitive
+    x: 889.4993500000002
+    y: 290.8331500000002
+    disp_param:
+      show_vtx: true
+      show_lines: true
+    enable_active: false
+  '63':
+    params:
+      Shape:
+        sel_str: Star
+      Size:
+        e_x: 0.16100000000000003
+        e_y: 0.16100000000000003
+        se_cv: 'return vec2(0.5, 0.5)'
+      Num Points:
+        e_v: 5
+        se_cv: return 5
+      Inner Point:
+        e_x: 0.276
+        se_y: '-0.218'
+        se_cv: 'return vec2(0.226, -0.311)'
+      Transform:
+        e_tx: -0.0860222446916077
+        e_ty: -0.2645328614762387
+        e_r: 13.446
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
+    name: geom_primitive_8
+    cls_name: Geom Primitive
+    x: 1031.8980000000001
+    y: 121.23400000000007
+    disp_param: {}
+    enable_active: false
+  '65':
+    params:
+      Shape:
+        sel_str: Star
+      Size:
+        e_x: 0.131
+        e_y: 0.131
+        se_cv: 'return vec2(0.5, 0.5)'
+      Num Points:
+        e_v: 5
+        se_cv: return 5
+      Inner Point:
+        e_x: 0.16400000000000003
+        se_y: '-0.522'
+        se_cv: 'return vec2(0.226, -0.311)'
+      Transform:
+        e_tx: 0.2098432760364004
+        e_ty: -0.3859777553083924
+        e_r: 347.17400000000004
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
+    name: geom_primitive_9
+    cls_name: Geom Primitive
+    x: 885.8330000000002
+    y: 106.53700000000006
+    disp_param: {}
+    enable_active: false
+  '67':
+    params:
+      transform:
+        se_tx: '-0.275'
+        e_ty: 0.30000000000000004
+        e_r: 48.875
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
+    name: transform_1
+    cls_name: Transform
+    x: 749.6980000000002
+    y: 160.13600000000005
+    disp_param: {}
+    enable_active: false
+  '70':
+    params:
+      transform:
+        e_tx: 0.1683104145601618
+        e_ty: 0.5770000000000001
+        e_r: 323.209
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
+    name: transform_2
+    cls_name: Transform
+    x: 1227.9840000000002
+    y: 184.4110000000001
+    disp_param: {}
+    enable_active: false
+lines:
+  - from_name: out_mesh
+    from_id: 1
+    to_name: in_obj
+    to_id: 2
+    uid: 3
+  - from_name: out_mesh
+    from_id: 2
+    to_name: in_obj
+    to_id: 4
+    uid: 5
+  - from_name: out_mesh
+    from_id: 4
+    to_name: in_mesh
+    to_id: 6
+    uid: 7
+  - from_name: out_paths
+    from_id: 6
+    to_name: in_obj
+    to_id: 9
+    uid: 10
+  - from_name: out_mesh
+    from_id: 12
+    to_name: in_obj
+    to_id: 13
+    uid: 14
+  - from_name: out_mesh
+    from_id: 13
+    to_name: in_mesh
+    to_id: 16
+    uid: 17
+  - from_name: out_tex
+    from_id: 15
+    to_name: in_fb
+    to_id: 16
+    uid: 18
+  - from_name: out_texture
+    from_id: 16
+    to_name: in_src
+    to_id: 19
+    uid: 21
+  - from_name: out_mesh
+    from_id: 32
+    to_name: in_obj_subject
+    to_id: 23
+    uid: 33
+  - from_name: out_obj
+    from_id: 9
+    to_name: in_obj_subject
+    to_id: 23
+    uid: 34
+  - from_name: out_paths
+    from_id: 23
+    to_name: in_obj_subject
+    to_id: 35
+    uid: 36
+  - from_name: out_obj
+    from_id: 40
+    to_name: in_obj_clip
+    to_id: 35
+    uid: 42
+  - from_name: variable_out
+    from_id: 43
+    to_name: vars_in
+    to_id: 9
+    uid: 44
+  - from_name: variable_out
+    from_id: 43
+    to_name: vars_in
+    to_id: 40
+    uid: 45
+  - from_name: out_paths
+    from_id: 35
+    to_name: in_obj
+    to_id: 29
+    uid: 46
+  - from_name: out_paths
+    from_id: 29
+    to_name: in_obj
+    to_id: 19
+    uid: 47
+  - from_name: out_mesh
+    from_id: 48
+    to_name: in_obj
+    to_id: 40
+    uid: 50
+  - from_name: out_mesh
+    from_id: 48
+    to_name: in_obj_clip
+    to_id: 23
+    uid: 51
+  - from_name: out_mesh
+    from_id: 22
+    to_name: in_multi_mesh
+    to_id: 48
+    uid: 52
+  - from_name: out_mesh
+    from_id: 53
+    to_name: in_multi_mesh
+    to_id: 48
+    uid: 54
+  - from_name: out_mesh
+    from_id: 55
+    to_name: in_multi_mesh
+    to_id: 48
+    uid: 56
+  - from_name: out_mesh
+    from_id: 57
+    to_name: in_multi_mesh
+    to_id: 48
+    uid: 58
+  - from_name: out_mesh
+    from_id: 59
+    to_name: in_multi_mesh
+    to_id: 48
+    uid: 60
+  - from_name: out_mesh
+    from_id: 61
+    to_name: in_multi_mesh
+    to_id: 48
+    uid: 62
+  - from_name: out_mesh
+    from_id: 63
+    to_name: in_multi_mesh
+    to_id: 48
+    uid: 64
+  - from_name: out_mesh
+    from_id: 65
+    to_name: in_multi_mesh
+    to_id: 48
+    uid: 66
+  - from_name: out_mesh
+    from_id: 65
+    to_name: input
+    to_id: 67
+    uid: 68
+  - from_name: output
+    from_id: 67
+    to_name: in_multi_mesh
+    to_id: 48
+    uid: 69
+  - from_name: out_mesh
+    from_id: 63
+    to_name: input
+    to_id: 70
+    uid: 71
+  - from_name: output
+    from_id: 70
+    to_name: in_multi_mesh
+    to_id: 48
+    uid: 72
+next_node_id: 73
+names_idx_s:
+  Geom Primitive: 9
+  Scatter Uniform: 1
+  Triangulate: 2
+  Voronoi: 1
+  Round Corners: 2
+  Offset Path: 3
+  Manual Geometry: 2
+  Create Pixel-Buffer: 1
+  Point Gradient Fill: 1
+  Set Attribute: 1
+  Boolean Operation: 3
+  Variable: 1
+  Geom Merge: 1
+  Geom Split: 1
+  Transform: 2
+display_node_id: 19
+tdisp_node_ids: []
+input_node_ids: []
+nodes_view:
+  pan_x: -788.3040000000001
+  pan_y: 87.53100000000002
+  zoom: 0.7513148009015777
+decor: []

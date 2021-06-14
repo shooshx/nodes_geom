@@ -375,6 +375,9 @@ function dassert(cond, msg) {
 function is_obj_p(p) {
     return p.kind === KIND_OBJ || p.kind === KIND_VARS
 }
+function is_obj_n(p) {
+    return p.nkind === KIND_OBJ || p.nkind === KIND_VARS
+}
 
 function calc_img_viewport() {
     let t_viewport = mat3.create()
@@ -489,7 +492,7 @@ async function run_nodes_tree(n, picked)
     if (!picked)
         return false // non-picked branch should not set dirtiness
 
-    const this_dirty = n.has_anything_dirty(parent_dirty) || (is_obj_p(n) && !n.has_cached_output())
+    const this_dirty = n.has_anything_dirty(parent_dirty) || (is_obj_n(n) && !n.has_cached_output())
 
     // if we're on a not-picked branch, don't run, the output is not going to be used
     if (this_dirty) {

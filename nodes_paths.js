@@ -31,7 +31,7 @@ class MultiPath extends PObject
         //   for an unclosed path, both control points of the first point in the path are (0,0)
         //   all control points are relative to the point
         this.meta = { vtx_pos:null }
-        this.consts = { }
+        this.consts = { } // instead of value per vertex or per face, just a single constant value
 
         this.tcache = { vtx_pos:null, m:null }  // transformed cache (for setattr)
         this.fill_objs = init_fill_objs()
@@ -83,7 +83,7 @@ class MultiPath extends PObject
             m.eff_ctrl_to_prev = clone(this.eff_ctrl_to_prev)
 
         if (this.eff_ctrl_from_prev === this.arrs.ctrl_from_prev)
-            m.eff_ctrl_from_prev = m.arrs.ctrl_to_prev
+            m.eff_ctrl_from_prev = m.arrs.ctrl_from_prev
         else
             m.eff_ctrl_from_prev = clone(this.eff_ctrl_from_prev)            
 
@@ -344,7 +344,7 @@ class MultiPath extends PObject
             }
             if (!continue_prev) {
                 jp = ctx_img.makePath2D()
-                jp.face_color = col  // take just the color of the first face, ignore the potential case that the other faces can have a different color
+                jp.face_color = col  // used in draw_poly() take just the color of the first face, ignore the potential case that the other faces can have a different color
             }
             else
                 dassert(jp !== null, "continue-prev must have previous path")

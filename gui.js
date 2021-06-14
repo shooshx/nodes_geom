@@ -639,18 +639,19 @@ function create_dialog(parent, title, resizable, rect, visible_changed, size_cha
     const title_text = add_elem(title_line, 'span', 'dlg_title_text')
     title_text.innerText = title
     const close_btn = add_div(title_line, "dlg_close_btn")
-    myAddEventListener(close_btn, 'click', () => {
-        rect.visible = false
-        if (visible_changed)
-            visible_changed(rect.visible)
-        repos()
-    })
-    const client = add_div(dlg, "dlg_client")
 
     const set_visible = (v) => {
         rect.visible = v;
+        if (visible_changed)
+            visible_changed(rect.visible)
         repos()
     }
+    myAddEventListener(close_btn, 'click', () => {
+        set_visible(false)
+    })
+    const client = add_div(dlg, "dlg_client")
+
+
     const set_title = (v) => {
         title_text.innerText = v
     }
@@ -803,6 +804,7 @@ function message_box(title, text, opts)
         })
         sb.classList.add("dlg_button")
     }
+    return dlg
 }
 
 function save_as(parent) {

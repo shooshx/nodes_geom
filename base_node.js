@@ -280,9 +280,6 @@ class TerminalBase {
         if (linkto === this) { // should not connect to itself
             return
         }
-        if (linkto !== null) {
-            let i = 0;
-        }
         if (linkto !== null && linkto.owner === undefined && this.kind == KIND_VARS && linkto.cls !== undefined) {
             // when linking a vars line, target the whole node
             linkto = linkto.cls.vars_in
@@ -1183,8 +1180,8 @@ class Node {
     }
 
     mousemove(ev, is_cascading = false) {
-        this.x += ev.dx
-        this.y += ev.dy
+        this.x += ev.dx / nodes_view.zoom
+        this.y += ev.dy / nodes_view.zoom
         this.recalc_bounding_box()
         if (this.cls.node_move_hook !== undefined)
             this.cls.node_move_hook(ev, is_cascading)
@@ -1596,10 +1593,14 @@ function find_node_obj(e) {
     return nodes_find_obj_shadow(e)
 }
 
+var ask_clear_dlg = null
 function ask_clear_program() {
-    message_box("Clear", "Are you sure you want\nto clear everything?", [{text: "Cancel"}, {text:"Clear", func:()=>{
+    if (ask_clear_dlg !== null)
+        ask_clear_dlg.dset_visible(false)
+    ask_clear_dlg = message_box("Clear", "Are you sure you want\nto clear everything?", [{text: "Cancel"}, {text:"Clear", func:()=>{
         clear_program()
         draw_nodes()
+        ask_clear_dlg = null
     }}])
 }
 

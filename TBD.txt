@@ -92,8 +92,6 @@ EXPRESSIONS
 
 
 ****** CURRENT AGENDA ******
-- !!!!!BUG - moving nodes while zoom is not 1!!!
-- !!!!!BUG - SetAttr bind to vertices messes with round path control points
 - BUG - save PNG with different size does wrong translation
 - Save to SVG with paths
     rets from bool op?
