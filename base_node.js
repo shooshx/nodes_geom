@@ -952,6 +952,11 @@ class Node {
         trigger_frame_draw(true)
     }
 
+    set_enable_active_dirty(v) {
+        this.enable_active = v
+        this.set_self_dirty()
+    }
+
     set_state_evaluators(d) { // called in cls ctor to configure how StateAccess accesses state
         this.state_evaluators = d
         // evaluators created in the cls ctor

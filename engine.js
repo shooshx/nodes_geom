@@ -312,7 +312,7 @@ class Program {
     }
 
     set_glob_var_node(node, do_draw=true) {
-        node.enable_active = !node.enable_active 
+        node.set_enable_active_dirty(!node.enable_active)
         if (node.enable_active) {
             this.glob_var_nodes.push(node)
         }
@@ -701,9 +701,11 @@ async function do_frame_draw(do_run, clear_all)
     fps_counter_update()
     canvas_webgl.reset_to_latest_max()
 
+    // needs to be first so that variable nodes in the flow would have a chance to run first
+    const anim_traits = await program.anim_flow.pget_anim_traits()
+
     let [run_root_nodes, disp_obj] = get_nodes_to_run()
         
-
     if (run_root_nodes.size > 0 && (do_run || disp_obj === null)) { // last-term: do_run will be false on select but if we don't have anything to display, we still need to run, do this only for the main display object and not for select or template
         if (clear_all) {
             try {
@@ -732,7 +734,6 @@ async function do_frame_draw(do_run, clear_all)
             disp_obj = program.display_node.outputs[0].get_const() // in case it was null
     }
 
-    const anim_traits = await program.anim_flow.pget_anim_traits()
 
     if (!anim_traits.render) {
         ++frame_ver
@@ -866,7 +867,7 @@ class AnimFlow
                 t = this.default_anim_traits
             else {
                 await run_nodes_tree(this.current_node, true)
-                console.log("calling ", this.current_node.cls.constructor.name())
+                console.log("calling ", this.current_node.name)
                 t = this.current_node.cls.get_anim_traits()
             }
 
@@ -875,8 +876,12 @@ class AnimFlow
                 if (next_node.lines.length === 0) // nothing to transfer to, go to default
                     this.current_node = null
                 else {
-                    this.current_node = next_node.lines[0].to_term.owner
-                    this.current_node.cls.entered()
+                    const nx = next_node.lines[0].to_term.owner
+                    if (nx !== this.current_node) {
+                        this.current_node.cls.exiting()
+                        this.current_node = nx
+                        this.current_node.cls.entered()
+                    }
                 }
                 //console.log("Flowed to ", this.current_node.name)
             }
@@ -954,7 +959,7 @@ async function anim_frame()
 
         anim_traits = await call_frame_draw(true, false, null)
 
-        g_anim.frame_num_box.vclear_dirty() // clean it like node variables are cleaned
+        //g_anim.frame_num_box.vclear_dirty() not needed in new dirty mechanism // clean it like node variables are cleaned
         ++g_anim.frame_num
 
         ++iter
@@ -1035,6 +1040,7 @@ const nodes_classes = [
         AnimStartFlow,
         AnimEventFlow,
         AnimSpan,
+        FlowVariable
     ]},
     { group_name: "Physics", nodes: [
         NodeB2Body,

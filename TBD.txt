@@ -53,13 +53,15 @@ EXPRESSIONS
 - Sample any param from any node ???
 
 **** Animation program ****
-  - global variables with ref-count rather than namespaces which is silly
-  - Restart event node 
+  - set var
+        unify var and span
+        internal enable that's not saved, what about inital value?
+  - event node 
         parameter for internal enable
         start is just an event for pulse variable controlled by the button
+        interrupt event
   - visualize where control is
-  - start node for variable change
-  - asserts in flow nodes
+  - assert()s in flow nodes
   - span node
     - frame rate: 
         - custom?
@@ -92,6 +94,7 @@ EXPRESSIONS
 
 
 ****** CURRENT AGENDA ******
+- BUG: can't rename var-nodes
 - BUG - save PNG with different size does wrong translation
 - Save to SVG with paths
     rets from bool op?

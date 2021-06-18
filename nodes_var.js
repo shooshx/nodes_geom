@@ -73,7 +73,8 @@ class VarsInTerminal extends InTerminal
     // - do_run() called, vars are resolved
     // - clear() is called at the end of the run
     vclear() { 
-        this.h.p.po.clear()
+        if (this.h.p !== null)
+            this.h.p.po.clear()
     }
     
     /*empty() {
@@ -171,6 +172,9 @@ class VariablesObj extends PObject
         if (r !== undefined)
             return r
         return null
+    }
+    exists(name) {
+        return this.vb[name] !== undefined
     }
 
     set_value(name, value, type) {
@@ -361,11 +365,11 @@ class NodeVariable extends NodeVarCls
 
         // if we're setting global variables, these are the VBRefs last created
         this.cur_glob_refs = []
+        this.set_only_if_missing = false // for FlowVariable
     }
 
     toggle_enable_flag(do_draw) {
         this.node.of_program.set_glob_var_node(this.node, do_draw)
-        this.node.set_self_dirty()
         if (!this.node.enable_active) {
             // just deactivated, need to remove all current global references, not rely on run() to do it since we might not get run and if we do it's due to selection and too late
             this.del_cur_refs()
@@ -546,6 +550,11 @@ class NodeVariable extends NodeVarCls
             assert(!name_set.has(name), this, "Name defined multiple times: " + name)
             name_set.add(name)
 
+            if (this.set_only_if_missing) {
+                if (out_obj.exists(name))
+                    continue
+            }
+
             switch(p.type.sel_idx) {
             case 0: out_obj.set_value(name, p.expr_float.get_value(), TYPE_NUM); break;
             case 1: out_obj.set_value(name, p.expr_int.get_value(), TYPE_NUM); break;
@@ -559,18 +568,22 @@ class NodeVariable extends NodeVarCls
         }
 
         // manage references to global vars
+        this.manage_global_refs(is_global)
+
+        this.var_out.set(out_obj)
+    }
+
+    manage_global_refs(is_global) {
         const new_refs = []
         if (is_global)
         {
             // add refs to all current ones
             for(let p of this.vars_prm)
-                new_refs.push(out_obj.make_ref(p.name.v))
+                new_refs.push(g_anim.globals_vars_box.make_ref(p.name.v))
         }
         // remove ref from all the previous ones, if they existed
         this.del_cur_refs()
         this.cur_glob_refs = new_refs
-
-        this.var_out.set(out_obj)
     }
 
     del_cur_refs() {
