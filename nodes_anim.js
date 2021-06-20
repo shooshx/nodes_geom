@@ -298,12 +298,14 @@ class AnimSpan extends NodeAnimCls
 
     get_anim_traits() {
         if (this.stop_at.sel_idx === 1) {
-            const now_frame_num = g_anim.frame_num
-            if (this.first_frame === null)
+            const now_frame_num = g_anim.frame_num_box.v
+            if (this.first_frame === null) {
                 this.first_frame = now_frame_num
+                console.log("  first-get ", this.node.name, " at frame ", this.first_frame)
+            }
             else {
                 const check_count = this.stop_at_count.get_value()
-                if (now_frame_num - this.first_frame > check_count) {
+                if (now_frame_num - this.first_frame >= check_count) {
                     this.traits.next = true
                     return this.traits
                 }
@@ -341,9 +343,9 @@ class FlowVariable extends NodeVariable
         this.next_traits = new AnimTraits()
         this.next_traits.next = true
 
-        this.run_frame_traits = new AnimTraits()
-        this.run_frame_traits.render = true
-        this.run_frame_traits.frame_rate = FRAME_RATE_NORMAL // TODO param these
+      //  this.run_frame_traits = new AnimTraits()
+      //  this.run_frame_traits.render = true
+      //  this.run_frame_traits.frame_rate = FRAME_RATE_NORMAL // TODO param these
 
         this.cur_traits = null
         this.flowing = false
@@ -351,9 +353,9 @@ class FlowVariable extends NodeVariable
 
     // called when flow just enters this node
     get_anim_traits() { 
-        const t =  this.cur_traits
-        this.cur_traits = this.next_traits  // TBD bad since it resets on redraw
-        return t
+        //const t =  this.cur_traits
+        //this.cur_traits = this.next_traits  // TBD bad since it resets on redraw
+        return this.next_traits
     }
 
     // need to implement things from NodeAnimCls
@@ -361,7 +363,7 @@ class FlowVariable extends NodeVariable
         //this.node.set_enable_active_dirty(true)
         this.flowing = true
         this.node.set_self_dirty()
-        this.cur_traits = this.run_frame_traits 
+        //this.cur_traits = this.run_frame_traits 
         //draw_nodes()
     }
 
@@ -378,7 +380,7 @@ class FlowVariable extends NodeVariable
         if (!this.flowing) {
             const is_global = this.global.get_value()
             if (is_global)
-                this.set_only_if_missing = true
+                this.set_only_if_missing = true // make run() do nothing by update with the latest param (but don't output variables)
             else {
                 this.var_out.set(new VariablesObj())
                 return

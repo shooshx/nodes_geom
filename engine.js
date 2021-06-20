@@ -149,7 +149,8 @@ function page_onload()
     calc_img_viewport()
 
     // manually draw since we're not wrapped in a handler that will call it
-    call_frame_draw(true, true)
+    //call_frame_draw(true, true)
+    anim_frame()
     clear_draw_req()
 
     set_loading(false)
@@ -894,7 +895,6 @@ class AnimFlow
 
 class Animation {
     constructor() {
-        this.frame_num = 0;
         //this.frame_time = 0;
         this.run = false;
         this.pre_draw_handlers = []
@@ -907,7 +907,7 @@ class Animation {
         this.fixed_refs = [ this.globals_vars_box.make_ref("frame_num") ] // prevent these from releasing by taking a reference to them
     }
     rewind() {
-        this.frame_num = 0
+        this.frame_num_box.vbset(0, TYPE_NUM)
         const did_run = this.run
         this.run = false
         program.anim_flow.reset_anim_flow()
@@ -930,7 +930,7 @@ class Animation {
     set_frame_num(num) { //from UI
         if (this.run)
             return
-        this.frame_num = num
+        this.frame_num_box.vbset(num, TYPE_NUM)    
         window.requestAnimationFrame(anim_frame)
     }
 
@@ -939,7 +939,7 @@ class Animation {
     }
     notify_pre_draw() {
         for(let handler of this.pre_draw_handlers)  // update UI
-            handler(this.frame_num, this.frame_time, this.run)        
+            handler(g_anim.frame_num_box.v, this.frame_time, this.run)        
     }
 }
 
@@ -952,15 +952,13 @@ async function anim_frame()
 
     while(iter < frames_at_once)
     {
-        g_anim.frame_num_box.vbset(g_anim.frame_num, TYPE_NUM)
         g_anim.notify_pre_draw()
 
         //g_anim.frame_time = performance.now() - g_anim.start_time
 
         anim_traits = await call_frame_draw(true, false, null)
 
-        //g_anim.frame_num_box.vclear_dirty() not needed in new dirty mechanism // clean it like node variables are cleaned
-        ++g_anim.frame_num
+        g_anim.frame_num_box.vbset(g_anim.frame_num_box.v + 1, TYPE_NUM)
 
         ++iter
         if (anim_traits.frame_rate === FRAME_RATE_MAX && g_anim.run)
