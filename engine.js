@@ -229,7 +229,7 @@ class Program {
         if (node.receives_input)
             program.set_input_node(node, false)
         if (node.enable_active) {
-            node.cls.toggle_enable_flag()
+            node.cls.toggle_enable_flag(false, false)
         }
         if (obj_inf_dlg !== null)
             obj_inf_dlg.node_deleted(node)
@@ -312,8 +312,8 @@ class Program {
             trigger_frame_draw(true)
     }
 
-    set_glob_var_node(node, do_draw=true) {
-        node.set_enable_active_dirty(!node.enable_active)
+    set_glob_var_node(node, do_draw, to_value) {
+        node.set_enable_active_dirty(to_value)
         if (node.enable_active) {
             this.glob_var_nodes.push(node)
         }
@@ -418,18 +418,13 @@ function collect_line(line) {
     assert(obj !== null, line.from_term.owner.cls, "No output from node " + line.from_term.owner.name)
     line.to_term.intr_set(obj, line.from_term.get_cur_uver())
 }
-function collect_terminal(in_t) {
-    // go over all lines coming into this input terminal
-    for(let line of in_t.lines) {
-        collect_line(line)
-    }
-}
-function collect_inputs(n, of_kind)
+
+function collect_inputs(n)
 {
     for(let in_t of n.inputs) {
         if (!is_obj_p(in_t))
             continue
-        collect_terminal(in_t)
+        in_t.collect_terminal()
     }
 }
 
@@ -510,7 +505,7 @@ async function run_nodes_tree(n, picked)
         if (!node_picking_lines) // a node that's picking lines, also does its own collect
             collect_inputs(n)
         else
-            collect_terminal(n.cls.vars_in) // need to do this here never the less so that resolve would work, this is ok since pick-one node isn't interested in picking the variable terminal
+            n.cls.vars_in.collect_terminal() // need to do this here never-the-less so that resolve would work, this is ok since pick-one node isn't interested in picking the variable terminal
         n.cls.nresolve_variables(false)
     
         if (!n.check_params_errors())

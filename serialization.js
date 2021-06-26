@@ -172,7 +172,7 @@ function _load_program(sprog)
         //if (n.cls.post_load_hook)  moved below
         //    n.cls.post_load_hook()
         if (sn.enable_active)
-            n.cls.toggle_enable_flag(false)
+            n.cls.toggle_enable_flag(false, true)
         if (sn.disp_param)
             n.display_values = sn.disp_param
     }
@@ -242,13 +242,6 @@ function _load_program(sprog)
             newprog.set_input_node(inn, false)
         }
     }
-    /*if (sprog.glob_var_node_ids !== undefined) {
-        for(let gnid of sprog.glob_var_node_ids) {
-            const gnn = newprog.obj_map[gnid]
-            console.assert(gnn !== undefined, "global var node not found")
-            newprog.set_glob_var_node(gnn, false)
-        }
-    }*/
 
     if (sprog.nodes_view !== undefined) // old progs don't have it
         nodes_view.load(sprog.nodes_view)

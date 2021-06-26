@@ -225,7 +225,7 @@ class AnimStartFlow extends NodeAnimCls
         this.traits.next = true // start does nothing but go to the first
     }
 
-    toggle_enable_flag(do_draw) {
+    toggle_enable_flag(do_draw, to_value) {
         this.node.of_program.anim_flow.set_anim_node(this.node)
     }
 
@@ -250,7 +250,7 @@ class AnimEventFlow extends NodeAnimCls
         this.current_trigger_value = null
     }
 
-    toggle_enable_flag(do_draw) {
+    toggle_enable_flag(do_draw, to_value) {
         this.node.of_program.anim_flow.toggle_event_node(this.node)
     }
 
@@ -325,7 +325,8 @@ class AnimSpan extends NodeAnimCls
 }
 
 
-
+// this node exposes the variables as output even when it is not currently flowing
+// both in global and local mode
 class FlowVariable extends NodeVariable
 {
     static name() {
@@ -334,18 +335,20 @@ class FlowVariable extends NodeVariable
     constructor(node) {
         super(node)
         node.can_display = false
-        //node.can_follow = true
         node.can_run_on_select = false // doesn't run when selected
 
         this.prev = new AnimInTerminal(node, "previous")
         this.next = new AnimOutTerminal(node, "next")
 
+        this.can_enable = false
+        this.global_checkbox_override = (v)=>{
+            if (this.node.enable_active === v)
+                return
+            this.node.of_program.set_glob_var_node(this.node, true, v)
+        }
+
         this.next_traits = new AnimTraits()
         this.next_traits.next = true
-
-      //  this.run_frame_traits = new AnimTraits()
-      //  this.run_frame_traits.render = true
-      //  this.run_frame_traits.frame_rate = FRAME_RATE_NORMAL // TODO param these
 
         this.cur_traits = null
         this.flowing = false
@@ -353,38 +356,32 @@ class FlowVariable extends NodeVariable
 
     // called when flow just enters this node
     get_anim_traits() { 
-        //const t =  this.cur_traits
-        //this.cur_traits = this.next_traits  // TBD bad since it resets on redraw
         return this.next_traits
     }
 
     // need to implement things from NodeAnimCls
     entered() {
-        //this.node.set_enable_active_dirty(true)
         this.flowing = true
         this.node.set_self_dirty()
-        //this.cur_traits = this.run_frame_traits 
-        //draw_nodes()
     }
 
     exiting() {
-        //this.node.set_enable_active_dirty(false)
         this.flowing = false
         this.node.set_self_dirty()
-        //draw_nodes()
     }
 
     run() 
     {        
         this.set_only_if_missing = false
         if (!this.flowing) {
-            const is_global = this.global.get_value()
-            if (is_global)
+            //const is_global = this.global.get_value()
+            //if (is_global)
                 this.set_only_if_missing = true // make run() do nothing by update with the latest param (but don't output variables)
-            else {
-                this.var_out.set(new VariablesObj())
-                return
-            }
+            //else {
+            //    this.del_cur_refs() // in case it was global before
+            //    this.var_out.set(new VariablesObj())
+            //    return
+            //}
         }
         super.run();
     }

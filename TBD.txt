@@ -54,7 +54,7 @@ EXPRESSIONS
 
 **** Animation program ****
   - set var
-        unify var and span
+
         internal enable that's not saved, what about inital value?
   - event node 
         parameter for internal enable

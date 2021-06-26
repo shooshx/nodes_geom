@@ -565,13 +565,21 @@ class InTerminal extends Terminal {
         this.dirty = true
         this.last_uver_seen = null
     }
+
+    collect_terminal() {
+        // go over all lines coming into this input terminal
+        for(let line of this.lines) {
+            collect_line(line)
+        }
+    }
     intr_set(v, uver) {
         assert(this.lines.length <= 1, this.owner.cls, "too many lines connected to input " + this.name)
         const dirty = (this.last_uver_seen === null || uver === null || uver !== this.last_uver_seen)
         this.last_uver_seen = uver
         this.h = make_weak_handle(v)
         this.tset_dirty(dirty)  // see design_concepts
-    }    
+    }
+
     get_const() {
         if (this.h === null)
             return null        
@@ -897,6 +905,11 @@ class Node {
                                 // NodeAnimCls: start animation flow enable
         this.can_run_on_select = true     // should run when selected? false for flow nodes
 
+        // depends on can_enable 
+        // for NodeVarCls this flags if its global variables
+        // for AnimEventFlow this flags if the node is enabled
+        this.enable_active = false 
+
         this.follow_target = null // for Flow nodes (NodeAnimCls) instance of FollowTarget, if this is null, node can't be followed
         this.snap_suggest = null // null or {x:,y:} of where to draw the snap suggestion block
         this.can_follow = false // Flow node, can this node follow another
@@ -938,10 +951,7 @@ class Node {
 
         this.disp_template = false
         this.receives_input = false // depends on can_input
-        // depends on can_enable 
-        // for NodeVarCls this flags if its global variables
-        // for AnimEventFlow this flags if the node is enabled
-        this.enable_active = false 
+
 
         if (this.state_access === null)
             this.set_state_evaluators([]) // if cls ctor did not call it
@@ -1336,7 +1346,7 @@ class NodeCls {
     is_picking_lines() { return false } // should the engine run and collect all inputs before run(), if not the node decides which inputs to run using select_lines
     pick_lines() { assert(false, this, "not selecting lines") }
     should_clear_out_before_run() { return true }
-    toggle_enable_flag(do_draw) { dassert(false, "unexpected enable") }
+    toggle_enable_flag(do_draw, to_value) { dassert(false, "unexpected enable") }
 
     nresolve_variables(do_globals) {
         try {
@@ -1581,7 +1591,7 @@ function find_node_obj(e) {
             if (n.can_enable) {
                 const shape = (n.cls instanceof NodeVarCls) ? NODE_ENABLE_GLOB_FLAG : NODE_ENABLE_ANIM_FLAG
                 if (px >= n.x + shape.offset) {
-                    return new NodeFlagProxy(n, (n)=>{ n.cls.toggle_enable_flag(true) })
+                    return new NodeFlagProxy(n, (n)=>{ n.cls.toggle_enable_flag(true, null) })
                 }
             }
             if (px >= n.x)                

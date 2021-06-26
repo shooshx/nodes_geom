@@ -32,7 +32,7 @@ class VarsInTerminal extends InTerminal
         this.color = TERM_COLOR_VARS
 
         this.my_vsb = new VariablesObj()
-        this.h = new PHandle(this.my_vsb, null) // my own box that contains stuff from all the inputs
+        this.h = null // never used
     }
     draw_path(ctx, force) {
         if (this.lines.length == 0 && !force)
@@ -43,21 +43,44 @@ class VarsInTerminal extends InTerminal
         draw_curve(ctx, pnts)
     }
 
-    intr_set(cblock, uver) { // from collect_line
+    collect_terminal() {
+        // first set all weak vars
+        for(let line of this.lines) {
+            const cb = line.from_term.get_ctrl_block()
+            assert(cb !== null, line.from_term.owner.cls, "No output from node " + line.from_term.owner.name)
+            if (!cb.po.weak_var)
+                continue
+            this.intr_set(cb, line.from_term.get_cur_uver(), true)
+        }
+        // then all non-weak
+        for(let line of this.lines) {
+            const cb = line.from_term.get_ctrl_block()
+            if (cb.po.weak_var)
+                continue
+            this.intr_set(cb, line.from_term.get_cur_uver(), false)
+        }
+    }
+
+    intr_set(cblock, uver, check_exists) 
+    {
         const obj = cblock.po
         assert(obj.constructor === VariablesObj, this.owner.cls, "Unexpected object type")
         let any_dirty = false
-        for(let name in obj.vb) {
-            // TBD assert(this.my_vsb.vb[name] === undefined, this.owner.cls, "Variable of this name already exists here")
+        for(let name in obj.vb) 
+        {
+            const exists = this.my_vsb.vb[name] !== undefined
+            if (check_exists && exists)
+                continue // already exists
+
+            if (exists && vb_equals(obj.vb[name], this.my_vsb.vb[name]))
+                continue  // already same value
 
             // every node input term has its own clone of the VarBox so that it could keep track of if its dirty or not
             // and so that the original (incoming) VarBox dirty flag could be cleared after the node is done running
-            if (this.my_vsb.vb[name] === undefined || !vb_equals(obj.vb[name], this.my_vsb.vb[name])) {
-                const vb = clone(obj.vb[name]) // TBD still neede with new dirty mechanism?
-                //vb.vis_dirty = true
-                this.my_vsb.vb[name] = vb
-                any_dirty = true
-            }
+
+            const vb = clone(obj.vb[name])
+            this.my_vsb.vb[name] = vb
+            any_dirty = true
         }
         // if this function is called, the var node attach was ran so we assume that's because something changed in it
         // VarNode doesn'd do object caching so it's a safe assumption
@@ -73,8 +96,7 @@ class VarsInTerminal extends InTerminal
     // - do_run() called, vars are resolved
     // - clear() is called at the end of the run
     vclear() { 
-        if (this.h.p !== null)
-            this.h.p.po.clear()
+        this.my_vsb.clear()
     }
     
     /*empty() {
@@ -162,10 +184,10 @@ class VarBox {
 class VariablesObj extends PObject
 {
     static name() { return "Variables" }
-    constructor() {
+    constructor(set_only_if_missing) {
         super()
         this.vb = {} // map variable name to VarBox where type is of TYPE_xxx
-
+        this.weak_var = set_only_if_missing // weak variable set by non flowing node
     }
     lookup(name) {
         let r = this.vb[name]
@@ -338,7 +360,12 @@ class NodeVariable extends NodeVarCls
                 this.add_variable(node, id)
             this.v_group.update_elems()
         })
+        this.global_checkbox_override = null
         this.global = new ParamBool(node, "Global Namespace", false, (v)=>{
+            if (this.global_checkbox_override !== null) {
+                this.global_checkbox_override(v)
+                return
+            }
             node.can_enable = v
             draw_nodes()
         }, {allow_expr:false})
@@ -368,8 +395,8 @@ class NodeVariable extends NodeVarCls
         this.set_only_if_missing = false // for FlowVariable
     }
 
-    toggle_enable_flag(do_draw) {
-        this.node.of_program.set_glob_var_node(this.node, do_draw)
+    toggle_enable_flag(do_draw, to_value=null) {
+        this.node.of_program.set_glob_var_node(this.node, do_draw, (to_value !== null) ? to_value : (!this.node.enable_active))
         if (!this.node.enable_active) {
             // just deactivated, need to remove all current global references, not rely on run() to do it since we might not get run and if we do it's due to selection and too late
             this.del_cur_refs()
@@ -539,7 +566,7 @@ class NodeVariable extends NodeVarCls
             }
         }
         else {
-            out_obj =  new VariablesObj()
+            out_obj =  new VariablesObj(this.set_only_if_missing)
         }
 
         const name_set = new Set()
@@ -550,7 +577,7 @@ class NodeVariable extends NodeVarCls
             assert(!name_set.has(name), this, "Name defined multiple times: " + name)
             name_set.add(name)
 
-            if (this.set_only_if_missing) {
+            if (this.set_only_if_missing) {  // for global variables, if the variable is already there, and we're not flowing, don't set it
                 if (out_obj.exists(name))
                     continue
             }
@@ -587,6 +614,8 @@ class NodeVariable extends NodeVarCls
     }
 
     del_cur_refs() {
+        if (this.cur_glob_refs.length === 0)
+            return
         for (let r of this.cur_glob_refs)
             r.destroy()
         this.cur_glob_refs = []            
