@@ -12,6 +12,7 @@ function remove_selected_node(n) {
 const TERM_RADIUS = 8
 const TERM_MARGIN_X = 20
 const TERM_MARGIN_Y = 2
+const VAR_TERM_MARGIN = 8
 
 const NODE_WIDTH = 120
 const NODE_HEIGHT = 30
@@ -1031,6 +1032,9 @@ class Node {
     }
     
     draw() {
+        //ctx_nodes.fillStyle = "#550000"
+        //ctx_nodes.fillRect(this.tx, this.ty, this.twidth, this.theight)
+
         let px = this.px(), py = this.py()
         if (this.snap_suggest !== null) {
             ctx_nodes.beginPath();
@@ -1132,7 +1136,7 @@ class Node {
 
         for(let t of this.terminals) {
             t.draw()
-        }
+        }        
         ctx_nodes.fillStyle = "#fff"
         ctx_nodes.font = NODE_NAME_PROPS.font;
         ctx_nodes.fillText(this.name, this.namex(), this.namey())
@@ -1188,9 +1192,9 @@ class Node {
 
     // geom including terminals and name
     recalc_bounding_box() {
-        this.tx = this.x - 8 // in var term
+        this.tx = this.x - VAR_TERM_MARGIN
         this.ty = this.y - TERM_RADIUS*2 - 2
-        this.twidth = this.width + this.name_measure.width + NODE_NAME_PROPS.margin_left
+        this.twidth = this.width + this.name_measure.width + this.name_xmargin + VAR_TERM_MARGIN + NODE_NAME_PROPS.margin_left
         this.theight = this.height + TERM_RADIUS * 4 + TERM_MARGIN_Y*2
     }
 

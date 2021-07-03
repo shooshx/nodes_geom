@@ -325,7 +325,7 @@ class NodeVarCls extends NodeCls
         node.can_display = false
         node.can_input = false
         node.can_enable = false
-        node.name_xmargin = 8
+        node.name_xmargin = 8 // due to side terminal
         node.width = 80
         node.nkind = KIND_VARS
 
