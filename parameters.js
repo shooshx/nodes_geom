@@ -672,9 +672,11 @@ class ParamBool extends Parameter {
             this.make_checkbox_ctx_menu()
             this.item = new ExpressionItem(this, "v", ED_BOOL, 
                 (v)=>{ 
-                    if (this.opt.expr_visible) {
-                        this.v = (v == null)?null:(v > 0)
-                    }
+                    if (!this.opt.expr_visible) 
+                        return
+                    this.v = (v == null)?null:(v > 0)
+                    if (this.opt.pulse_btn)
+                        this.pulse_need_reset = true
                 }, 
                 ()=>{ return this.v?1:0 }, 
                 {allowed:false})
@@ -1529,6 +1531,9 @@ let CodeItemMixin = (superclass) => class extends superclass {
 };
 
 // used by single-value params that have expression and code ability
+// conf: show_code: bool 
+//       allowed_code: bool
+//       allowed: bool  (for slider)
 class ParamBaseExpr extends CodeItemMixin(Parameter)
 {
     constructor(node, label, start_v, ed_type, conf=null, change_func=null) {
@@ -1541,7 +1546,7 @@ class ParamBaseExpr extends CodeItemMixin(Parameter)
             set_prop_pos = (v)=>{ if (this.show_code) this.v = v }
         }
         else {
-            set_prop_neg = (v)=>{ if (!this.show_code) { conf.validate(v); this.v = v } }
+            set_prop_neg = (v)=>{ if (!this.show_code) { conf.validate(v); this.v = v } } // prevent negative in physics
             set_prop_pos = (v)=>{ if (this.show_code) { conf.validate(v); this.v = v } }
         }
         this.v = null

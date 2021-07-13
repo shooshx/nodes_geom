@@ -154,6 +154,9 @@ class VarBox {
         this.type = type
         this.vdirtied_at_ver = frame_ver
     }
+    vbget() {
+        return this.v
+    }
     vbset_invalid() {  // signals dirtiness to all expressions that still hold this var
         this.v = null
         this.type = null
@@ -172,7 +175,7 @@ class VarBox {
         if (!ret && this.pulse_need_reset) {
             this.vbset(false, TYPE_BOOL)
             this.pulse_need_reset = false
-            ret = this.vdirtied_at_ver == frame_ver
+            ret = this.vdirtied_at_ver == frame_ver // doesn't do anything?
         }
         return ret
     }
@@ -300,7 +303,7 @@ class VariableEvaluator extends EvaluatorBase
     eval() {
         if (this.var_box === null)
             throw new ExprErr("Unknown identifier " + this.varname) // happens when just parsing, not as part of resolve_variables
-        return this.var_box.v
+        return this.var_box.vbget()
     }
     check_type() {
         eassert(!this.name_reused_error, "Identifier " + this.varname + " should not be used as both variable and local symbol", this.line_num)

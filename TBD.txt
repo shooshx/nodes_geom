@@ -53,10 +53,9 @@ EXPRESSIONS
 - Sample any param from any node ???
 
 **** Animation program ****
-  - set var
   - event node 
         parameter for internal enable
-        start is just an event for pulse variable controlled by the button
+        @@@start is just an event for pulse variable controlled by the button
         interrupt event
   - visualize where control is
   - assert()s in flow nodes

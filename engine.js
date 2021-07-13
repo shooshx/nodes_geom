@@ -839,13 +839,15 @@ class AnimFlow
 
     async check_events() {
         for(let evn of this.event_nodes) {
+            evn.cls.clear_flow_hijack()
             await run_nodes_tree(evn, true)
             const want = evn.cls.want_flow_hijack()
             if (want) {
                 this.current_node = evn
-                return
+                return true
             }
         }
+        return false
     }
 
     async pget_anim_traits()
@@ -863,7 +865,10 @@ class AnimFlow
                 t = this.default_anim_traits
             else {
                 await run_nodes_tree(this.current_node, true)
-                console.log("calling ", this.current_node.name)
+                // by-design, this does not made to trigger more events since events are triggered just once in a frame
+                // otherwise it would cause loops and it's not possible to know what got dirtied since frame_ver is not incremented.
+                // frame_ver can't be incremented here since that would mess with variable dirty check
+               // console.log("calling ", this.current_node.name)
                 t = this.current_node.cls.get_anim_traits()
             }
 

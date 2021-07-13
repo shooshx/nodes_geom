@@ -23,7 +23,9 @@ class NodePickOne extends NodeCls
 
         assert(of_terminal === this.in_m, this, "Unexpected terminal in pick_lines")
         assert(this.in_m.lines.length > 0, this, "No inputs")
-        this.pick_expr.resolve_variables(this.vars_in.my_vsb, true, true) // this is needed since pick_lines runs before resolving variables
+
+        this.pick_expr.resolve_variables(this.vars_in.my_vsb, true, false) // this is needed since pick_lines runs before resolving variables
+        this.pick_expr.resolve_variables(this.vars_in.my_vsb, false, true) // this is needed since pick_lines runs before resolving variables
         const pick = this.pick_expr.get_value()
         assert(pick >= -1 && pick < this.in_m.lines.length, this, "Index out of range " + pick)
         if (pick === -1) {
@@ -243,7 +245,13 @@ class AnimEventFlow extends NodeAnimCls
         super(node)
         node.can_enable = true
         this.start = new AnimOutTerminal(node, "start")
-        this.trigger_on = new ParamBool(node, "Trigger", false, null, {pulse_btn:true})
+        this.type = new ParamSelect(node, "On Event", 0, ["Manual Condition", "Any Input Variable", "Frame-num At"], (sel_idx)=>{
+            this.on_manual.set_visible(sel_idx == 0)
+            this.on_framenum.set_visible(sel_idx == 2)
+        })
+        this.on_manual = new ParamBool(node, "Trigger", false, null, {pulse_btn:true}) // trigger wheneven this is pressed or changes to a true value
+        this.on_framenum = new ParamInt(node, "Frame-Num", 0, { allowed_code:false, allowed:false }) // just a single number, this is an optimization, for anything more, use a condition
+    
 
         this.traits = new AnimTraits()
         this.traits.next = true
@@ -257,12 +265,18 @@ class AnimEventFlow extends NodeAnimCls
     get_anim_traits() {
         return this.traits
     }
+    clear_flow_hijack() {
+        this.current_trigger_value = false // want to see if it was just set this run (if run() was called at all, due to dirtiness)
+    }
     want_flow_hijack() {
         return this.current_trigger_value
     }
     run() {
         // need to cache it in run, before the dirty flag is cleared and the pulse ends
-        this.current_trigger_value = this.trigger_on.get_value()
+        switch(this.type.sel_idx) {
+        case 0: this.current_trigger_value = this.on_manual.get_value(); break;
+        case 2: this.current_trigger_value = (g_anim.frame_num_box.vbget() == this.on_framenum.get_value()); break;
+        }
     }
 }
 
@@ -301,7 +315,7 @@ class AnimSpan extends NodeAnimCls
             const now_frame_num = g_anim.frame_num_box.v
             if (this.first_frame === null) {
                 this.first_frame = now_frame_num
-                console.log("  first-get ", this.node.name, " at frame ", this.first_frame)
+                //console.log("  first-get ", this.node.name, " at frame ", this.first_frame)
             }
             else {
                 const check_count = this.stop_at_count.get_value()

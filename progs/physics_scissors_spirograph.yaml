@@ -6,6 +6,7 @@ nodes:
     x: 96.51000000000008
     y: 569.3100000000004
     disp_param: {}
+    enable_active: false
   '2':
     params:
       Type:
@@ -49,6 +50,7 @@ nodes:
     x: -153.10499999999982
     y: 90.80600000000004
     disp_param: {}
+    enable_active: false
   '4':
     params:
       Type:
@@ -92,6 +94,7 @@ nodes:
     x: -151.2999999999999
     y: -3.700000000000003
     disp_param: {}
+    enable_active: false
   '12':
     params:
       Pick Index:
@@ -105,6 +108,7 @@ nodes:
     x: -34.74141322314053
     y: 713.5125619834708
     disp_param: {}
+    enable_active: false
   '14':
     params:
       Gravity:
@@ -116,6 +120,7 @@ nodes:
     x: 240.51361983471114
     y: 755.4426694214883
     disp_param: {}
+    enable_active: false
   '22':
     params:
       Type:
@@ -159,6 +164,7 @@ nodes:
     x: 128.48961983471094
     y: 82.93566942148745
     disp_param: {}
+    enable_active: false
   '26':
     params:
       Type:
@@ -204,6 +210,7 @@ nodes:
     x: -174.89038016528883
     y: 234.73566942148733
     disp_param: {}
+    enable_active: false
   '30':
     params:
       Type:
@@ -249,6 +256,7 @@ nodes:
     x: -170.05038016528903
     y: 358.1556694214875
     disp_param: {}
+    enable_active: false
   '34':
     params:
       Type:
@@ -294,6 +302,7 @@ nodes:
     x: 148.5096198347114
     y: 227.58566942148735
     disp_param: {}
+    enable_active: false
   '38':
     params:
       Type:
@@ -337,6 +346,7 @@ nodes:
     x: 117.47000000000017
     y: -12.909999999999997
     disp_param: {}
+    enable_active: false
   '43':
     params:
       Type:
@@ -380,6 +390,7 @@ nodes:
     x: 347.2700000000018
     y: 1.930000000000029
     disp_param: {}
+    enable_active: false
   '44':
     params:
       Type:
@@ -425,6 +436,7 @@ nodes:
     x: 247.94000000000221
     y: 301.5700000000001
     disp_param: {}
+    enable_active: false
   '48':
     params:
       Type:
@@ -468,6 +480,7 @@ nodes:
     x: 360.5800000000011
     y: 84.21000000000018
     disp_param: {}
+    enable_active: false
   '50':
     params:
       Type:
@@ -513,6 +526,7 @@ nodes:
     x: 259.05000000000183
     y: 385.83000000000067
     disp_param: {}
+    enable_active: false
   '55':
     params:
       Type:
@@ -558,6 +572,7 @@ nodes:
     x: 436.32600000000184
     y: 223.96499999999978
     disp_param: {}
+    enable_active: false
   '59':
     params:
       Type:
@@ -601,6 +616,7 @@ nodes:
     x: -567.5439999999985
     y: 6.53632999999981
     disp_param: {}
+    enable_active: false
   '60':
     params: {}
     name: physics_merge_2
@@ -608,6 +624,7 @@ nodes:
     x: -532.3371404958665
     y: 308.5440159504133
     disp_param: {}
+    enable_active: false
   '62':
     params:
       Type:
@@ -651,6 +668,7 @@ nodes:
     x: -478.6262318462002
     y: 74.97553072748266
     disp_param: {}
+    enable_active: false
   '64':
     params:
       Type:
@@ -696,6 +714,7 @@ nodes:
     x: -500.7538712502657
     y: 205.37810611845745
     disp_param: {}
+    enable_active: false
   '69':
     params:
       <obj-store>:
@@ -1257,6 +1276,7 @@ nodes:
     x: -203.03716285043888
     y: -75.03491515206214
     disp_param: {}
+    enable_active: true
   '70':
     params:
       Filter Enabled:
@@ -1271,6 +1291,7 @@ nodes:
     x: 259.49999999999943
     y: 667.8000000000008
     disp_param: {}
+    enable_active: false
   '74':
     params:
       Offset:
@@ -1284,6 +1305,7 @@ nodes:
     x: 565.6460000000002
     y: 396.93200000000076
     disp_param: {}
+    enable_active: false
   '86':
     params:
       <obj-store>:
@@ -1312,6 +1334,7 @@ nodes:
     disp_param:
       show_vtx: false
       show_lines: true
+    enable_active: false
     non_caching_out: [0]
   '88':
     params:
@@ -1334,6 +1357,7 @@ nodes:
     disp_param:
       show_vtx: true
       show_lines: true
+    enable_active: false
   '89':
     params:
       Pick Index:
@@ -1349,6 +1373,7 @@ nodes:
     disp_param:
       show_vtx: false
       show_lines: true
+    enable_active: false
     non_caching_out: [0]
   '165':
     params: {}
@@ -1357,6 +1382,7 @@ nodes:
     x: 910.9000000000002
     y: 181.10000000000005
     disp_param: {}
+    enable_active: true
   '166':
     params:
       Frame Rate:
@@ -1377,27 +1403,29 @@ nodes:
     x: 913.7000000000003
     y: 273.20000000000005
     disp_param: {}
+    enable_active: false
   '168':
     params:
       Frame Rate:
         sel_str: Maximum
       Block Frames:
-        e_v: 100
+        e_v: 500
         se_cv: return 1
       Render:
-        v: true
+        v: false
         expr_visible: true
-        se_v: (frame_num % 100) == 0
+        se_v: (frame_num % 500) == 0
       Stop:
         sel_str: Frame Count
       After Count:
-        e_v: 50
+        e_v: 5000
         se_cv: return 0
     name: flow_span_2
     cls_name: Flow Span
     x: 920.3000000000002
     y: 372.9000000000001
     disp_param: {}
+    enable_active: false
   '170':
     params:
       <obj-store>:
@@ -1448,6 +1476,7 @@ nodes:
     x: 691.3000000000001
     y: 48.500000000000085
     disp_param: {}
+    enable_active: false
   '171':
     params:
       Trigger:
@@ -1455,9 +1484,61 @@ nodes:
         e_v: 0
     name: event_flow_1
     cls_name: Event Flow
-    x: 718.6
-    y: 186.0000000000001
+    x: 693.2666777000003
+    y: 158.71796060000008
     disp_param: {}
+    enable_active: true
+  '176':
+    params:
+      <obj-store>:
+        v:
+          gen_id: 2
+          prms_lst: [1]
+      Global Namespace:
+        v: true
+      Brief View:
+        v: false
+      p1_Type:
+        sel_str: Float
+      p1_Name:
+        v: frame_num
+      p1_Float:
+        e_v: 0
+        se_cv: return 1
+      p1_Integer:
+        e_v: 1
+        se_cv: return 1
+      p1_Float2:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      p1_Color:
+        hex: '#CCCCCC'
+        se_cv: 'return rgb(204, 204, 204)'
+      p1_Mouse Coord:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      p1_Bool:
+        v: false
+        se_v: '0'
+      p1_Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
+      p1_Sample At:
+        sel_str: Mouse left down
+    name: frame_num
+    cls_name: Flow Set Variable
+    x: 738.153299459748
+    y: 247.56401260000018
+    disp_param: {}
+    enable_active: true
 lines:
   - from_name: b2_defs
     from_id: 2
@@ -1642,9 +1723,14 @@ lines:
   - from_name: start
     from_id: 171
     to_name: previous
+    to_id: 176
+    uid: 177
+  - from_name: next
+    from_id: 176
+    to_name: previous
     to_id: 166
-    uid: 174
-next_node_id: 176
+    uid: 178
+next_node_id: 179
 names_idx_s:
   Physics Merge: 2
   Physics Body: 10
@@ -1671,17 +1757,15 @@ names_idx_s:
   Start Flow: 1
   Flow Span: 2
   Event Flow: 2
+  Flow Set Variable: 1
 display_node_id: 89
 tdisp_node_ids:
   - 12
 input_node_ids: []
-glob_var_node_ids:
-  - 69
-anim_flow_start_node_id: 165
 nodes_view:
-  pan_x: -473
-  pan_y: 115
-  zoom: 0.9090909090909086
+  pan_x: -379.5894720000005
+  pan_y: -31.25641449999999
+  zoom: 0.5131581182307063
 decor:
   - x: 534.259567504883
     y: 500.51000000000016

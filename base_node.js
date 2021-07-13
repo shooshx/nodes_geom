@@ -320,6 +320,14 @@ class TerminalBase {
             y_offset = -30;
         hover_box.style.top = nodes_view.rect.top + (nodes_view.pan_y + this.center_y())*nodes_view.zoom + y_offset + "px"
     }
+
+    // default impl for InTerminal and InTerminalMulti
+    collect_terminal() {
+        // go over all lines coming into this input terminal
+        for(let line of this.lines) {
+            collect_line(line)
+        }
+    }
     
 }
 
@@ -567,12 +575,6 @@ class InTerminal extends Terminal {
         this.last_uver_seen = null
     }
 
-    collect_terminal() {
-        // go over all lines coming into this input terminal
-        for(let line of this.lines) {
-            collect_line(line)
-        }
-    }
     intr_set(v, uver) {
         assert(this.lines.length <= 1, this.owner.cls, "too many lines connected to input " + this.name)
         const dirty = (this.last_uver_seen === null || uver === null || uver !== this.last_uver_seen)
@@ -759,6 +761,7 @@ class InTerminalMulti extends TerminalBase
         this.dirty = true
         this.width = TERM_MULTI_HWIDTH
     }
+
     draw_path(ctx) {
         rounded_rect(ctx, this.px() - this.width, this.py() - TERM_RADIUS, this.width*2, 2*TERM_RADIUS, TERM_RADIUS)
     }
