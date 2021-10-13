@@ -1375,14 +1375,6 @@ nodes:
       show_lines: true
     enable_active: false
     non_caching_out: [0]
-  '165':
-    params: {}
-    name: start_flow_1
-    cls_name: Start Flow
-    x: 910.9000000000002
-    y: 181.10000000000005
-    disp_param: {}
-    enable_active: true
   '166':
     params:
       Frame Rate:
@@ -1437,11 +1429,11 @@ nodes:
       Brief View:
         v: false
       p1_Type:
-        sel_str: Bool-Pulse
+        sel_str: Float
       p1_Name:
         v: var
       p1_Float:
-        e_v: 1
+        e_v: 1.1716580538076435
         se_cv: return 1
       p1_Integer:
         e_v: 1
@@ -1473,21 +1465,27 @@ nodes:
         sel_str: Mouse left down
     name: var
     cls_name: Variable
-    x: 691.3000000000001
-    y: 48.500000000000085
+    x: 636.7289999999996
+    y: 45.83800000000007
     disp_param: {}
     enable_active: false
   '171':
     params:
+      On Event:
+        sel_str: Any Input Variable
       Trigger:
         v: false
-        e_v: 0
+        expr_visible: true
+        e_v: 1
+      Frame-Num:
+        e_v: 5100
+        se_cv: return 0
     name: event_flow_1
-    cls_name: Event Flow
-    x: 693.2666777000003
-    y: 158.71796060000008
+    cls_name: Flow Event
+    x: 709.2386777000005
+    y: 121.4499606000001
     disp_param: {}
-    enable_active: true
+    enable_active: false
   '176':
     params:
       <obj-store>:
@@ -1503,7 +1501,7 @@ nodes:
       p1_Name:
         v: frame_num
       p1_Float:
-        e_v: 0
+        se_v: '-1'
         se_cv: return 1
       p1_Integer:
         e_v: 1
@@ -1521,7 +1519,7 @@ nodes:
         se_cv: 'return vec2(0, 0)'
       p1_Bool:
         v: false
-        se_v: '0'
+        e_v: 0
       p1_Transform:
         e_tx: 0
         e_ty: 0
@@ -1535,8 +1533,24 @@ nodes:
         sel_str: Mouse left down
     name: frame_num
     cls_name: Flow Set Variable
-    x: 738.153299459748
-    y: 247.56401260000018
+    x: 715.5262994597477
+    y: 207.6340126000004
+    disp_param: {}
+    enable_active: true
+  '179':
+    params:
+      On Event:
+        sel_str: Frame-num At
+      Trigger:
+        v: false
+        e_v: 0
+      Frame-Num:
+        e_v: 0
+        se_cv: return 0
+    name: event_flow_3
+    cls_name: Flow Event
+    x: 945.4880000000002
+    y: 139.82500000000005
     disp_param: {}
     enable_active: true
 lines:
@@ -1710,11 +1724,6 @@ lines:
     to_name: vars_in
     to_id: 88
     uid: 98
-  - from_name: start
-    from_id: 165
-    to_name: previous
-    to_id: 166
-    uid: 167
   - from_name: next
     from_id: 166
     to_name: previous
@@ -1725,12 +1734,17 @@ lines:
     to_name: previous
     to_id: 176
     uid: 177
-  - from_name: next
-    from_id: 176
+  - from_name: start
+    from_id: 179
     to_name: previous
     to_id: 166
-    uid: 178
-next_node_id: 179
+    uid: 180
+  - from_name: variable_out
+    from_id: 170
+    to_name: vars_in
+    to_id: 171
+    uid: 182
+next_node_id: 183
 names_idx_s:
   Physics Merge: 2
   Physics Body: 10
@@ -1756,16 +1770,16 @@ names_idx_s:
   Sample Color: 1
   Start Flow: 1
   Flow Span: 2
-  Event Flow: 2
+  Event Flow: 3
   Flow Set Variable: 1
 display_node_id: 89
 tdisp_node_ids:
   - 12
 input_node_ids: []
 nodes_view:
-  pan_x: -379.5894720000005
-  pan_y: -31.25641449999999
-  zoom: 0.5131581182307063
+  pan_x: -318.3170000000002
+  pan_y: 101.52899999999994
+  zoom: 0.7513148009015773
 decor:
   - x: 534.259567504883
     y: 500.51000000000016

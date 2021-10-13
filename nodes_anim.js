@@ -214,6 +214,7 @@ class AnimTraits
 
 
 // controls program.anim_flow.start_node
+/*
 class AnimStartFlow extends NodeAnimCls
 {
     static name() {
@@ -234,25 +235,24 @@ class AnimStartFlow extends NodeAnimCls
     get_anim_traits() {
         return this.traits
     }
-}
+}*/
 
 class AnimEventFlow extends NodeAnimCls
 {
     static name() {
-        return "Event Flow"
+        return "Flow Event"
     }
     constructor(node) {
         super(node)
         node.can_enable = true
         this.start = new AnimOutTerminal(node, "start")
-        this.type = new ParamSelect(node, "On Event", 0, ["Manual Condition", "Any Input Variable", "Frame-num At"], (sel_idx)=>{
+        this.type = new ParamSelect(node, "On Event", 2, ["Manual Condition", "Any Input Variable", "Frame-num At"], (sel_idx)=>{
             this.on_manual.set_visible(sel_idx == 0)
             this.on_framenum.set_visible(sel_idx == 2)
         })
         this.on_manual = new ParamBool(node, "Trigger", false, null, {pulse_btn:true}) // trigger wheneven this is pressed or changes to a true value
         this.on_framenum = new ParamInt(node, "Frame-Num", 0, { allowed_code:false, allowed:false }) // just a single number, this is an optimization, for anything more, use a condition
     
-
         this.traits = new AnimTraits()
         this.traits.next = true
         this.current_trigger_value = null
@@ -271,10 +271,13 @@ class AnimEventFlow extends NodeAnimCls
     want_flow_hijack() {
         return this.current_trigger_value
     }
+
+
     run() {
         // need to cache it in run, before the dirty flag is cleared and the pulse ends
         switch(this.type.sel_idx) {
         case 0: this.current_trigger_value = this.on_manual.get_value(); break;
+        case 1: this.current_trigger_value = this.vars_in.is_dirty(); break;
         case 2: this.current_trigger_value = (g_anim.frame_num_box.vbget() == this.on_framenum.get_value()); break;
         }
     }

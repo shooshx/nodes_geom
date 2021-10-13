@@ -501,7 +501,7 @@ async function run_nodes_tree(n, picked)
                 out_t.clear()
             }
 
-        n.cls.vars_in.vclear()  // without this variables names from previous runs stick around 
+
         if (!node_picking_lines) // a node that's picking lines, also does its own collect
             collect_inputs(n)
         else
@@ -799,17 +799,18 @@ function get_output_term_of_kind(node, kind) {
     return null
 }
 
+// traces where the animation flow is in the program
 class AnimFlow
 {
     constructor() {
-        this.start_node = null
+      //  this.start_node = null
         this.current_node = null
         this.event_nodes = []
 
         this.default_anim_traits = new AnimTraits()
     }
 
-    set_anim_node(node)
+   /* set_anim_node(node)
     {
         if (node !== null)
             node.enable_active = !node.enable_active 
@@ -818,7 +819,7 @@ class AnimFlow
         else
             this.start_node = node
         this.reset_anim_flow()
-    }
+    }*/
 
     toggle_event_node(node) 
     {
@@ -832,10 +833,10 @@ class AnimFlow
     }
 
 
-    reset_anim_flow()
+   /* reset_anim_flow()
     {
         this.current_node = this.start_node
-    }
+    }*/
 
     async check_events() {
         for(let evn of this.event_nodes) {
@@ -853,9 +854,9 @@ class AnimFlow
     async pget_anim_traits()
     {
         await this.check_events() // event can change current_node
-        if (this.current_node === null) {
-            if (this.current_node === null)
-                return this.default_anim_traits
+        // if there's no events, we should, there can't be any active flow, so we should also be at the default traits
+        if (this.current_node === null || this.event_nodes.length == 0) {
+            return this.default_anim_traits
         }
         let t = null
         // loop until we find a node that doesn't forward to next
@@ -910,7 +911,7 @@ class Animation {
         this.frame_num_box.vbset(0, TYPE_NUM)
         const did_run = this.run
         this.run = false
-        program.anim_flow.reset_anim_flow()
+       // program.anim_flow.reset_anim_flow()
         if (!did_run)
             window.requestAnimationFrame(anim_frame)
     }
@@ -1035,7 +1036,7 @@ const nodes_classes = [
     { group_name: "Flow", nodes: [
         NodePickOne,
         NodeChangeFilter,
-        AnimStartFlow,
+      //  AnimStartFlow,
         AnimEventFlow,
         AnimSpan,
         FlowVariable
@@ -1073,6 +1074,7 @@ nodes_classes_by_name["Scatter"] = NodeRandomPoints
 nodes_classes_by_name["Scatter2"] = NodeScatter2
 nodes_classes_by_name["Distance Field Primitive"] = NodeDFPrimitive
 nodes_classes_by_name["Distance Field Combine"] = NodeDFCombine
+nodes_classes_by_name["Event Flow"] = AnimEventFlow
 
 var nodes_decor = [
     NV_TextNote

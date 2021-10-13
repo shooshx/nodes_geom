@@ -44,35 +44,46 @@ class VarsInTerminal extends InTerminal
     }
 
     collect_terminal() {
+        for(let name in this.my_vsb.vb)
+            this.my_vsb.vb[name].valive = false
+
         // first set all weak vars
         for(let line of this.lines) {
             const cb = line.from_term.get_ctrl_block()
             assert(cb !== null, line.from_term.owner.cls, "No output from node " + line.from_term.owner.name)
             if (!cb.po.weak_var)
                 continue
-            this.intr_set(cb, line.from_term.get_cur_uver(), true)
+            this.intr_set(cb, 0, true)
         }
         // then all non-weak
         for(let line of this.lines) {
             const cb = line.from_term.get_ctrl_block()
             if (cb.po.weak_var)
                 continue
-            this.intr_set(cb, line.from_term.get_cur_uver(), false)
+            this.intr_set(cb, 0, false)
         }
+
+        // this is needed for managing lifetime of global variables
+        for(let name in this.my_vsb.vb)
+            if (!this.my_vsb.vb[name].valive)
+                delete this.my_vsb.vb[name]
     }
 
-    intr_set(cblock, uver, check_exists) 
+    intr_set(cblock, uver, skip_if_exists) 
     {
         const obj = cblock.po
         assert(obj.constructor === VariablesObj, this.owner.cls, "Unexpected object type")
         let any_dirty = false
         for(let name in obj.vb) 
         {
-            const exists = this.my_vsb.vb[name] !== undefined
-            if (check_exists && exists)
+            const evb = this.my_vsb.vb[name]
+            const exists = evb !== undefined
+            if (exists)
+                evb.valive = true
+            if (skip_if_exists && exists)
                 continue // already exists
 
-            if (exists && vb_equals(obj.vb[name], this.my_vsb.vb[name]))
+            if (exists && vb_equals(obj.vb[name], evb))
                 continue  // already same value
 
             // every node input term has its own clone of the VarBox so that it could keep track of if its dirty or not
@@ -80,6 +91,7 @@ class VarsInTerminal extends InTerminal
 
             const vb = clone(obj.vb[name])
             this.my_vsb.vb[name] = vb
+            vb.valive = true
             any_dirty = true
         }
         // if this function is called, the var node attach was ran so we assume that's because something changed in it
@@ -91,17 +103,8 @@ class VarsInTerminal extends InTerminal
         return this.dirty
     }
 
-    // every time a node that has in variables is run:
-    // - set() is called for each of its its var input
-    // - do_run() called, vars are resolved
-    // - clear() is called at the end of the run
-    vclear() { 
-        this.my_vsb.clear()
-    }
-    
-    /*empty() {
-        return this.my_vsb.empty
-    }*/
+
+
 }
 
 // compare VarBoxs
@@ -114,6 +117,7 @@ function vb_equals(a, b) {
     case TYPE_VEC2: return vec2.equals(a.v, b.v)
     case TYPE_VEC3: return vec3.equals(a.v, b.v)
     case TYPE_VEC4: return vec4.equals(a.v, b.v)
+    case TYPE_MAT3: return mat3.equals(a.v, b.v)
     }
     throw new Error("VarBox unknown type in vb_equals")
 }
@@ -147,7 +151,8 @@ class VarBox {
         this.vdirtied_at_ver = null // this is used for determining dirtyness in a way that doesn't require clear()
 
         this.pulse_need_reset = false
-        this.vref_count = 0
+        this.vref_count = 0 // used for global vars
+        this.valive = false // used for checking which were removed during collect of locals
     }
     vbset(v, type) {
         this.v = v
@@ -190,7 +195,7 @@ class VariablesObj extends PObject
     constructor(set_only_if_missing) {
         super()
         this.vb = {} // map variable name to VarBox where type is of TYPE_xxx
-        this.weak_var = set_only_if_missing // weak variable set by non flowing node
+        this.weak_var = set_only_if_missing // weak variable set by non flowing node (so that it won't disappear)
     }
     lookup(name) {
         let r = this.vb[name]
@@ -558,20 +563,7 @@ class NodeVariable extends NodeVarCls
     }
 
     run() {
-        let out_obj = null
-        const is_global = this.global.get_value()
-        if (is_global) {
-            out_obj = g_anim.globals_vars_box
-            if (!this.node.enable_active) { // if it's not enabled, it shouldn't run, just return the global variables unchanged
-                this.del_cur_refs()
-                this.var_out.set(out_obj)
-                return
-            }
-        }
-        else {
-            out_obj =  new VariablesObj(this.set_only_if_missing)
-        }
-
+        // input validation
         const name_set = new Set()
         for(let p of this.vars_prm)
         {
@@ -579,28 +571,48 @@ class NodeVariable extends NodeVarCls
             assert(name.length > 0, this, "Name can't be empty")
             assert(!name_set.has(name), this, "Name defined multiple times: " + name)
             name_set.add(name)
-
-            if (this.set_only_if_missing) {  // for global variables, if the variable is already there, and we're not flowing, don't set it
-                if (out_obj.exists(name))
-                    continue
-            }
-
-            switch(p.type.sel_idx) {
-            case 0: out_obj.set_value(name, p.expr_float.get_value(), TYPE_NUM); break;
-            case 1: out_obj.set_value(name, p.expr_int.get_value(), TYPE_NUM); break;
-            case 2: out_obj.set_value(name, p.expr_vec2.get_value(), TYPE_VEC2); break;
-            case 3: 
-            case 4: out_obj.set_value(name, p.expr_vec2_mouse.get_value(), TYPE_VEC2); break;
-            case 5: out_obj.set_value(name, color_to_uint8arr(p.expr_color.v), TYPE_VEC4); break;
-            case 6: out_obj.set_value(name, p.expr_bool.get_value(), TYPE_BOOL); break;
-            case 8: out_obj.set_value(name, p.expr_trans.get_value(), TYPE_MAT3); break;
-            }
         }
+
+        const is_global = this.global.get_value()
+        if (is_global) {
+            if (!this.node.enable_active) { // if it's not enabled, it shouldn't run, just return the global variables unchanged
+                this.del_cur_refs()
+                this.var_out.set(out_obj)
+                return
+            }
+            this.set_all_values(g_anim.globals_vars_box)
+        }
+
+        const out_obj = new VariablesObj(this.set_only_if_missing)
+        this.set_all_values(out_obj)
 
         // manage references to global vars
         this.manage_global_refs(is_global)
 
         this.var_out.set(out_obj)
+    }
+
+    set_all_values(set_obj)
+    {
+        for(let p of this.vars_prm)
+        {
+            const name = p.name.v
+            if (this.set_only_if_missing) {  // for global variables, if the variable is already there, and we're not flowing, don't set it
+                if (set_obj.exists(name))
+                    continue
+            }
+
+            switch(p.type.sel_idx) {
+            case 0: set_obj.set_value(name, p.expr_float.get_value(), TYPE_NUM); break;
+            case 1: set_obj.set_value(name, p.expr_int.get_value(), TYPE_NUM); break;
+            case 2: set_obj.set_value(name, p.expr_vec2.get_value(), TYPE_VEC2); break;
+            case 3: 
+            case 4: set_obj.set_value(name, p.expr_vec2_mouse.get_value(), TYPE_VEC2); break;
+            case 5: set_obj.set_value(name, color_to_uint8arr(p.expr_color.v), TYPE_VEC4); break;
+            case 6: set_obj.set_value(name, p.expr_bool.get_value(), TYPE_BOOL); break;
+            case 8: set_obj.set_value(name, p.expr_trans.get_value(), TYPE_MAT3); break;
+            }
+        }
     }
 
     manage_global_refs(is_global) {

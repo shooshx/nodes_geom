@@ -53,9 +53,11 @@ EXPRESSIONS
 - Sample any param from any node ???
 
 **** Animation program ****
+  - BUG - refresh spirograph gets an error
+  - BUG spirograph - when changing len1, it jumps to start position, 
+  - BUG physics - importing spirograph after it has ran
   - event node 
         parameter for internal enable
-        @@@start is just an event for pulse variable controlled by the button
         interrupt event
   - visualize where control is
   - assert()s in flow nodes
@@ -371,6 +373,9 @@ NODES:
 
 - 3D boolean ops - http://gts.sourceforge.net/
 - 3D signed distance fields: https://github.com/fogleman/sdf
+- super-shapes: https://www.youtube.com/watch?v=akM4wMZIBWg&ab_channel=TheCodingTrain
+
+- Newton-Raphson fractal
 
 PAPER.JS
 - smooth, simplify
@@ -451,6 +456,7 @@ distance field guy:
 free music: https://freepd.com/
     https://freepd.com/music/Screen%20Saver.mp3
     https://www.youtube.com/watch?v=GSmZHaw9cTs
+    https://artlist.io/
 key-gen music?
     https://opengameart.org/content/deus-ex-tempus
 screen-capture - OBS Studio

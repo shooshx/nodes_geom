@@ -1124,7 +1124,7 @@ class Node {
         if (this.can_enable) // variable
         {
             const shape = (this.cls instanceof NodeVarCls) ? NODE_ENABLE_GLOB_FLAG : NODE_ENABLE_ANIM_FLAG
-            if (this.enable_active || this.of_program.anim_flow.start_node === this) { // place of display flag but controlled by the enable flag
+            if (this.enable_active) { // place of display flag but controlled by the enable flag
                 ctx_nodes.beginPath();
                 rounded_rect_f(ctx_nodes, px + shape.offset, py, this.width - shape.offset, this.height, 0, 0, 5, 5)
                 ctx_nodes.fillStyle = shape.color
