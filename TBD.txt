@@ -13,7 +13,7 @@ GUI:
 - global input indicator that can be quickly turned off
 - log slider (mandelbrot)
 - Display param control default vertex size
-
+- Nodes view copy-paste
 
 ENGINE:
 - before running - do type checking to nodes in/out terminals
@@ -109,12 +109,11 @@ EXPRESSIONS
 - maybe BUG: variables loose exact accuracy on repeated load-save?
 - variable for coord inside geometry (path contains)
 - BUG: output info dialog of mesh doen't align lines
-- demo idea: user presses anywhere, some animation starts where he pressed ?
-    copy node can set take attribute of the position points and add them as attr per path??
-    need for loop
-    variable - just on mouse up
-    node - get variable from geom    
-    pulse on variable change?
+
+- BUG: after loading new program there are still old global variables
+
+
+
 - Box2D
     - BUG: errors don't stop previous anim
     - sim button - current position to defs
@@ -145,16 +144,13 @@ EXPRESSIONS
     - demo - bicycle doing a loop
     - demo - double pendulum
     - demo? Newton cradle
-- Nodes view copy-paste
+
 - variable - comment about each
 - Animation
     - engine - dirty controlled by selected input in pick_one
     - single step button - smaller panel
     - run until frame
     - full bar
-    - restart from frame 0 every change
-    - Separate Program of animation control
-        control speed, visibility
 - game of life
     Random image node - expr func?
     texelFetch coords - expr func?
@@ -420,6 +416,13 @@ demo idea
 - something with penrose tiling?
 - fractal tree with infinite zoom animation
 
+- demo idea: user presses anywhere, some animation starts where he pressed ?
+    copy node can set take attribute of the position points and add them as attr per path??
+    need for loop
+    variable - just on mouse up
+    node - get variable from geom    
+    pulse on variable change?
+
 https://two.js.org/examples/
 https://ptsjs.org/demo/?name=create.delaunay
 https://zimjs.com/cat/generator.html
@@ -493,6 +496,7 @@ Write-About
 nice visualizations:
     https://observablehq.com/@rreusser/complex-function-plotter?collection=@rreusser/writeups
     https://rreusser.github.io/projects/
+	https://visualize-it.github.io/
 
 Links
 - 3D Distance field: https://stephaneginier.com/archive/editSDF/

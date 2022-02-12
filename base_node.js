@@ -412,7 +412,8 @@ class PObject {
     }
 }
 
-// every object has a single CtrlBlock
+// every object has a single CtrlBlock (like the control block of a shared-ptr)
+// the handle in the terminal points to a CtrlBlock which points to the object 
 // used for non-caching output terminals to steal the object for better performance
 class CtrlBlock
 {
@@ -894,6 +895,7 @@ class Node {
         this.of_program = of_prog
         this.rename_observers = []
         this.is_selected_inf = null // if this node is selected, this contains a object with stuff { elem: , popups_dismiss: }. 
+        this.subnodes = null // in case this node has parceled noded
 
         this.x = x
         this.y = y
@@ -1152,12 +1154,20 @@ class Node {
         if (this.follow_target !== null)
             this.follow_target.draw_nshadow()
     }
+
+    set_selected_inf(obj) {
+        this.is_selected_inf = obj
+        if (this.subnodes !== null) {
+            for(let subnode of this.subnodes)
+                subnode.set_selected_inf(obj)
+        }
+    }
     
     select() {
         if (this.is_selected_inf !== null) 
             return // already selected
         add_selected_node(this)
-        this.is_selected_inf = {} // be filled in show_params_of
+        this.set_selected_inf({}) // be filled in show_params_of
         draw_nodes() // need to paint the previous selected one        
         show_params_of(this)
         trigger_frame_draw(false) // if there was image display of the selected node, remove/update it (selected point)
@@ -1168,12 +1178,13 @@ class Node {
         remove_selected_node(this)
         remove_param_of(this)
 
-        this.is_selected_inf = null
+        this.set_selected_inf(null)
         if (redraw) {
             draw_nodes()
             trigger_frame_draw(false)
         }
     }
+
     
     set_name(name) {
         this.name = name

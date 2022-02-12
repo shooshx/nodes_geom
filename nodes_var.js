@@ -69,6 +69,7 @@ class VarsInTerminal extends InTerminal
                 delete this.my_vsb.vb[name]
     }
 
+    // this function takes CtrlBlock in all overrides
     intr_set(cblock, uver, skip_if_exists) 
     {
         const obj = cblock.po
@@ -90,6 +91,9 @@ class VarsInTerminal extends InTerminal
             // and so that the original (incoming) VarBox dirty flag could be cleared after the node is done running
 
             const vb = clone(obj.vb[name])
+            // the fact the for me (this terminal) the value was different means that my node should see this as dirty now in my copy of the VerBox
+            // when it's going to check the dirtyness of the VerBox in resolve_variables
+            vb.mark_dirty_now() 
             this.my_vsb.vb[name] = vb
             vb.valive = true
             any_dirty = true
@@ -152,7 +156,7 @@ class VarBox {
 
         this.pulse_need_reset = false
         this.vref_count = 0 // used for global vars
-        this.valive = false // used for checking which were removed during collect of locals
+        this.valive = false // used for checking which were removed during collect of inputs (important for globals)
     }
     vbset(v, type) {
         this.v = v
@@ -165,6 +169,9 @@ class VarBox {
     vbset_invalid() {  // signals dirtiness to all expressions that still hold this var
         this.v = null
         this.type = null
+        this.vdirtied_at_ver = frame_ver 
+    }
+    mark_dirty_now() {
         this.vdirtied_at_ver = frame_ver 
     }
 
@@ -217,6 +224,7 @@ class VariablesObj extends PObject
             this.vb[name].vbset(value, type)
         }
     }
+    // for globals
     make_ref(name) {
         return new VBRef(this, name)
     }

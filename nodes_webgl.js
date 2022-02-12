@@ -1140,6 +1140,9 @@ class BaseNodeParcel extends NodeCls
     add_parcel_node(cls) {
         const n = this.prog.add_node(0, 0, null, cls, null)
         this.nodes.push(n)
+        if (this.node.subnodes === null)
+            this.node.subnodes = []
+        this.node.subnodes.push(n)
         return n
     }
     destructtor() {

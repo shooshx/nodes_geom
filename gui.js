@@ -641,6 +641,8 @@ function create_dialog(parent, title, resizable, rect, visible_changed, size_cha
     const close_btn = add_div(title_line, "dlg_close_btn")
 
     const set_visible = (v) => {
+        if (v == rect.visible)
+            return
         rect.visible = v;
         if (visible_changed)
             visible_changed(rect.visible)
@@ -1026,7 +1028,7 @@ function create_anim_bar()
 
     myAddEventListener(frame_disp, 'input', function() {
         const num = parseInt(frame_disp.value)
-        g_anim.set_frame_num(num)
+        g_anim.set_frame_num(num - 1) // setting it to -1 so that next time we run we run the frame requested
     })
 
     const edit_hover = add_div(frame_disp_wrap, ["hover_box", "anim_fn_hover_box"])

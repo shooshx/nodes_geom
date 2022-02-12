@@ -901,14 +901,14 @@ class Animation {
         this.pre_draw_handlers = []
         this.globals_vars_box = new VariablesObj()
         this.frame_num_box = new VarBox()
-        this.frame_num_box.vbset(0, TYPE_NUM)
+        this.frame_num_box.vbset(-1, TYPE_NUM)
         this.globals_vars_box.add("frame_num", this.frame_num_box)
         this.start_time = null
         this.frame_time = 0
         this.fixed_refs = [ this.globals_vars_box.make_ref("frame_num") ] // prevent these from releasing by taking a reference to them
     }
     rewind() {
-        this.frame_num_box.vbset(0, TYPE_NUM)
+        this.frame_num_box.vbset(-1, TYPE_NUM)
         const did_run = this.run
         this.run = false
        // program.anim_flow.reset_anim_flow()
@@ -953,13 +953,13 @@ async function anim_frame()
 
     while(iter < frames_at_once)
     {
-        g_anim.notify_pre_draw()
+        g_anim.frame_num_box.vbset(g_anim.frame_num_box.v + 1, TYPE_NUM)
+        g_anim.notify_pre_draw() // show the number that we just set
 
         //g_anim.frame_time = performance.now() - g_anim.start_time
 
         anim_traits = await call_frame_draw(true, false, null)
 
-        g_anim.frame_num_box.vbset(g_anim.frame_num_box.v + 1, TYPE_NUM)
 
         ++iter
         if (anim_traits.frame_rate === FRAME_RATE_MAX && g_anim.run)

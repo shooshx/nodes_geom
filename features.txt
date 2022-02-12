@@ -219,6 +219,7 @@ Node: Pick One
 
 Physics
 -------
+- Non Caching output terminal - hand their output to the conneted input
 
 Node: Physics Body
 - Create a definition of a physical body and add a single Fixture to it
@@ -252,3 +253,4 @@ Node: Extract transform
 - Given a body definition and a physics world, extract the transformation of the body
   and expose it as a variable
 - Can specify the relative offset to the body
+
