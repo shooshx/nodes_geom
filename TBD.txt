@@ -108,7 +108,7 @@ EXPRESSIONS
 - BUG: label space adjust doesn't work for ParamBool, also for bool sharing a line in variables node
 - maybe BUG: variables loose exact accuracy on repeated load-save?
 - variable for coord inside geometry (path contains)
-- BUG: output info dialog of mesh doen't align lines
+- BUG: output info dialog of mesh doen't align lines ??
 
 - BUG: after loading new program there are still old global variables
 

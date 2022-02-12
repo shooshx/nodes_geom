@@ -587,13 +587,15 @@ function eventWrapper(func, event_name, do_save=true) {
             return
         }
         
-        if (draw_request.draw) {
+        // if animation is running calling this would interfere with the animation frame-count and animation state, so don't
+        if (draw_request.draw && !g_anim.run) {
             if (do_save)  // automatic events like onload shouldn't save since they are not user interaction
                 save_state()
 
             const do_run = draw_request.do_run, clear_all = draw_request.clear_all
             //console.log("-event-draw ", event_name, " do-run=", do_run, "  clear=", clear_all)
             clear_draw_req()
+            
             call_frame_draw(do_run, clear_all)
             clear_draw_req() // in case any run triggered a frame again (happens with shaders that are generated in run()
         }
@@ -622,8 +624,9 @@ var in_draw = false
 
 
 async function call_frame_draw(do_run, clear_all, done_callback=null) {  // callback for save PNG
-    if (in_draw)
+    if (in_draw) {
         return null // avoid starting a call if the previous async call didn't finish yet (indicated several triggers from the same stack)
+    }
     in_draw = true
 
     try {
@@ -708,6 +711,7 @@ async function do_frame_draw(do_run, clear_all)
                 do_clear_all(program)
             }
             catch(e) { // can happen if some peval failed
+                console.error("Error in do_clear_all: " + e)
                 return null
             }
         }
@@ -897,7 +901,7 @@ class AnimFlow
 class Animation {
     constructor() {
         //this.frame_time = 0;
-        this.run = false;
+        this.run = false;  // running right now?
         this.pre_draw_handlers = []
         this.globals_vars_box = new VariablesObj()
         this.frame_num_box = new VarBox()
@@ -957,9 +961,8 @@ async function anim_frame()
         g_anim.notify_pre_draw() // show the number that we just set
 
         //g_anim.frame_time = performance.now() - g_anim.start_time
-
         anim_traits = await call_frame_draw(true, false, null)
-
+        // ret can be null if we're already in a draw somewhere else
 
         ++iter
         if (anim_traits.frame_rate === FRAME_RATE_MAX && g_anim.run)
@@ -968,7 +971,7 @@ async function anim_frame()
             break
     }
 
-    if (!g_anim.run)
+    if (!g_anim.run) 
         return
 
     if (anim_traits.frame_rate === FRAME_RATE_NORMAL)

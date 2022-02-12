@@ -263,7 +263,7 @@ class VariablesObj extends PObject
                     s.push(toFixedMag(v[i]))
                 text = s.join(", ")
                 break
-            case TYPE_BOOL: text = vv ? "true" : "false"; break;
+            case TYPE_BOOL: text = v ? "true" : "false"; break;
             case TYPE_MAT3: 
                 text = format_matrix(v)
                 value_e.classList.add("obj_inf_var_matrix")
