@@ -8,7 +8,7 @@ function svg_create_elem(elem_type) {
     return document.createElementNS("http://www.w3.org/2000/svg", elem_type);
 }
 function svg_add_elem(parent, elem_type) {
-    let e = svg_create_elem(elem_type)
+    const e = svg_create_elem(elem_type)
     parent.appendChild(e)
     return e
 }
@@ -18,9 +18,17 @@ function rectEquals(a, b) {
 }
 
 function interp_point(pa, pb, t) {
-    let x = pa[0] * (1-t) + pb[0] * t
-    let y = pa[1] * (1-t) + pb[1] * t
+    const x = pa[0] * (1-t) + pb[0] * t
+    const y = pa[1] * (1-t) + pb[1] * t
     return [x,y]
+}
+
+function interp_color(ca, cb, t) {
+    const r = ca[0] * (1-t) + cb[0] * t
+    const g = ca[1] * (1-t) + cb[1] * t
+    const b = ca[2] * (1-t) + cb[2] * t
+    const a = ca[3] * (1-t) + cb[3] * t
+    return [r,g,b,a]
 }
 
 // number of points in the Node's list that are not stop points from the beginning of the index space
@@ -38,11 +46,12 @@ class Gradient extends PObject
         this.grd = null
         this.ctx_create_func = null
         this.t_mat = mat3.create() // transform for circles and fill
-        this.spread = 'pad'
+        this.spread = 'pad'  // 'reflect', 'repeate'
         this.via_svg = false
         this.svg = null  // image object
         this.svg_of_rect = null // the pmin,pmax points of the rect this svg was generated with
         this.sample_tex = false
+        this.offset = 0
     }
     add_stop(value, color) {
         this.stops.push({value:value,color:color})
@@ -56,6 +65,9 @@ class Gradient extends PObject
     set_spread(spreadName, via_svg) {
         this.spread = spreadName
         this.via_svg = via_svg
+    }
+    set_offset(v) {
+        this.offset = v 
     }
 
     need_svg() {
@@ -251,12 +263,59 @@ class Gradient extends PObject
         lst = lst.concat(geom)
         lst.push(' >')
 
-        const add_stop = (s)=>{
-            const c = s.color, v = s.value            
-            lst.push('<stop offset="', v * 100, '%" stop-color="rgb(', c[0], ',', c[1], ',', c[2], ')" stop-opacity="', c[3]/255, '" />')
+        let use_stops = this.stops
+
+        if (this.offset != 0)
+        {
+            if (this.spread == 'repeat') {
+                let offset = this.offset % 1.0
+                if (offset < 0)
+                    offset += 1.0
+                use_stops = []
+                for(let si in this.stops) {
+                    const s = this.stops[si]
+                    let v = s.value + offset
+                    if (v > 1.0)
+                        v -= 1.0
+                    if (si == this.stops.length - 1) // last
+                        v -= 0.000001 // so first and last don't flickr
+                    use_stops.push({color: s.color, value:v, orig_value:s.value})
+                }
+                use_stops.sort((a, b) => a.value - b.value);
+
+                // add points at 0 and 1, otherwise it does the wrong thing
+                let a = use_stops[use_stops.length - 1]
+                let b = use_stops[0]
+                const back_offset = 1.0 - offset
+
+                const samp = (back_offset - a.orig_value)/(b.orig_value - a.orig_value)
+                const mid_col = interp_color(a.color, b.color, samp);
+                use_stops.push({value: 1.0, color: mid_col})
+                use_stops.unshift({value: 0.0, color: mid_col })
+            }
+            else if (this.spread == 'reflect') {
+                // cover all the space where offset can get to
+                // don't attempt to set points in 0,1 since they'll look bad
+                use_stops = []
+                let offset = this.offset % 2.0
+                for(let si in this.stops) {
+                    const s = this.stops[si]
+                    use_stops.push({color: s.color, value:s.value + offset, orig_value:s.value})  // base
+                    use_stops.push({color: s.color, value:s.value - 2 + offset, orig_value:s.value}) // 1 before neg
+                    use_stops.push({color: s.color, value:s.value + 2 + offset, orig_value:s.value})
+
+                    use_stops.push({color: s.color, value:-s.value + offset, orig_value:s.value}) // invert to neg
+                    use_stops.push({color: s.color, value:-s.value + 2 + offset, orig_value:s.value}) // after base (inverted)
+                }
+                use_stops.sort((a, b) => a.value - b.value);
+            }
         }
-        for(let s of this.stops)
-            add_stop(s)
+
+        const add_stop = (c, v)=>{        
+            lst.push('<stop offset="', v, '" stop-color="rgb(', c[0], ',', c[1], ',', c[2], ')" stop-opacity="', c[3]/255, '" />')
+        }
+        for(let s of use_stops)
+            add_stop(s.color, s.value)    
         
         lst.push('</', elem_name, '><rect x="', rect.x,'" y="', rect.y,'" width="', rect.w, '" height="', rect.h, '" fill="url(\'#grad\')" /></svg>')
         let text = lst.join('')
@@ -753,8 +812,8 @@ const GRADIENT_PRESETS = [
     [ {v:0, c:"#582A20"}, {v:0.056, c:"#E9D7D1"}, {v:0.308, c:"#B64D49"}, {v:0.417, c:"#82322F"}, {v:0.438, c:"#9C6563"}, 
        {v:0.460, c:"#D2B9B8"}, {v:0.479, c:"#FEFEFE"}, {v:0.742, c:"#95B4CB"}, {v:0.871, c:"#7690B9"}, {v:0.919, c:"#83A7C3"}, {v:1, c:"#D9E8F3"} ], // MS Word 2003 "Horizon"
     [ {v:0, c:"#A703AA"}, {v:0.130, c:"#E91A5F"}, {v:0.278, c:"#EF4716"}, {v:0.480, c:"#FFFD00"}, {v:0.648, c:"#209046"}, {v:0.791, c:"#081BF9"}, {v:1, c:"#A203AD"} ], // MS Word 2003 "Rainbow"
-    [ {v:0, c:"#3366FE"}, {v:0.230, c:"#05A298"}, {v:0.363, c:"#74CF4E"}, {v:0.498, c:"#FFFE00"}, {v:0.735, c:"#FF6F30"}, {v:1, c:"#FF3497"} ] // MS Word 2003 "Rainbow II"
-    
+    [ {v:0, c:"#3366FE"}, {v:0.230, c:"#05A298"}, {v:0.363, c:"#74CF4E"}, {v:0.498, c:"#FFFE00"}, {v:0.735, c:"#FF6F30"}, {v:1, c:"#FF3497"} ], // MS Word 2003 "Rainbow II"
+    [ {v:0, c:'#00f'}, {v:0.5, c:'#000'}, {v:1, c:'#f00'}],
   //  [ {v:0, c:'#f00'}, {v:1, c:"#fff"} ],
   //  [ {v:0, c:'#0f0'}, {v:1, c:"#fff"} ],
   //  [ {v:0, c:'#00f'}, {v:1, c:"#fff"} ],
@@ -877,7 +936,10 @@ class NodeGradient extends NodeCls
         this.spread = new ParamSelect(node, "Spread", 0, [["Pad",       ['pad', false]], // [display-name, [spread-name, via_svg]]
                                                           ["Pad (svg)", ['pad', true]],
                                                           ["Reflect",   ['reflect', true]],
-                                                          ["Repeat",    ['repeat', true]] ])
+                                                          ["Repeat",    ['repeat', true]] ], 
+        (sel_idx)=>{
+            this.stops_offset.set_visible(sel_idx == 2 || sel_idx == 3)                                    
+        })
         this.func = new ParamColor(node, "f(t)=", ["#cccccc", "rgb(255, 128, 0.0) + rgb(t, t, t)*255"], {show_code:true}) // just a way to generate points example: rgb(255,128,0)+rgb(t,t,t)*255
         this.func_samples = new ParamInt(node, "Sample Num", 10, {min:1, max:30, visible:false})
         const presets_btn = new ParamImageSelectBtn(node, "Presets", GRADIENT_PRESETS, make_preset_img, (pr)=>{this.load_preset(pr)})
@@ -892,6 +954,7 @@ class NodeGradient extends NodeCls
         // for generating texture
         this.tex_resolution = new ParamInt(node, "Tex Resolution", 128, [8,128]) // only for sampler
         this.tex_smooth = new ParamBool(node, "Tex Smooth", false)
+        this.stops_offset = new ParamFloat(node, "Offset(t)", "0")  // offset function or constant offset
 
         this.load_preset(GRADIENT_PRESETS[0])
         
@@ -968,6 +1031,7 @@ class NodeGradient extends NodeCls
         }
         const [spreadName, via_svg] = this.spread.get_sel_val()
         obj.set_spread(spreadName, via_svg)
+        obj.set_offset(this.stops_offset.dyn_eval())
 
         // making the svg (if needed) is in pre_draw or in adapter's make_pixels()
         this.out.set(obj)

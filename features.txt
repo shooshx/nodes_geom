@@ -53,6 +53,7 @@ Node: Gradient
     - "return rgb(255,128,0) + rgb(t, t, t)*255"
 - Control smoothing and resolution in case it's rendered to a texture
 - Load a preset gradient
+- When spread is repeat or relect, specify offset to show nice animation. example: frame_num/100
 
 Node: Divide
 - Divide each quad in a quad mesh into smaller quads

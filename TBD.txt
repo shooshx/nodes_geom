@@ -112,7 +112,8 @@ EXPRESSIONS
 
 - BUG: after loading new program there are still old global variables
 
-
+- Constraint solver
+    https://solvespace.com/library.pl
 
 - Box2D
     - BUG: errors don't stop previous anim
@@ -188,8 +189,6 @@ EXPRESSIONS
     anim gradient
     Julia
 - default(var, 1)
-- gradient
-    sampler transform only x
 - FuncNode
     noise
     fb_factory from existing image
@@ -297,11 +296,16 @@ NODES:
     for loop?
     webgl point sprites
 - Gradient
+    save preset (so that going to function doesn't delete it)
+    offset
+       in all settings, also negative
+    Conic
     gradient from sample line
     SetAttr resolution depends on image_view.viewport_zoom in GradientPixelsAdapter
     Atari rolling gradient effect
     in stroke (line),
     - Coon patch (not supported in chrome) http://tavmjong.free.fr/SVG/MESH/Mesh.html
+    sampler transform only x
 - PenNode
     render with webgl
         - pen color normalize?
