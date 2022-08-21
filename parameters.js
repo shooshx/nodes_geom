@@ -1827,6 +1827,7 @@ function make_rgb_str(c) {
 
 }
 
+// doesn't support expression in the non-code input
 class ParamColor extends CodeItemMixin(Parameter) 
 {
     constructor(node, label, start_c_str, conf=null) {

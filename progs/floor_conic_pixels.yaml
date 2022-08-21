@@ -1,0 +1,242 @@
+nodes:
+  '1':
+    params:
+      Type:
+        sel_str: Conic
+      Method:
+        sel_str: Stops
+      Point 1:
+        e_x: -0.06595238095238265
+        e_y: -0.12337072018890398
+        se_cv: 'return vec2(-0.5, 0)'
+      Radius 1:
+        e_v: 0.05668600960495378
+        se_cv: return 0.1
+      Point 2:
+        e_x: 0.017000000000001122
+        e_y: -0.24242857142857135
+        se_cv: 'return vec2(0.5, 0)'
+      Radius 2:
+        e_v: 0.5627019727536466
+        se_cv: return 0.7
+      Spread:
+        sel_str: Pad
+      f(t)=:
+        hex: '#CCCCCC'
+        show_code: true
+        se_cv: 'return rgb(255, frame_num, 0.0) + rgb(t, t, t)*255'
+      Sample Num:
+        e_v: 10
+        se_cv: return 10
+      Add stops:
+        v: false
+      Value:
+        lst: [0.03935711830854416, 0.23000000417232513, 0.3630000054836273, 0.49799999594688416, 0.6759787201881409, 0.8642897009849548, 0.995154619216919]
+      Color:
+        lst: [51, 102, 254, 255, 5, 162, 152, 255, 116, 207, 78, 255, 255, 254, 0, 255, 255, 111, 48, 255, 255, 52, 151, 255, 51, 102, 254, 255]
+      Tex Resolution:
+        e_v: 128
+        se_cv: return 128
+      Tex Smooth:
+        v: false
+        e_v: 0
+      Offset(t):
+        se_v: frame_num/100
+        sldcfg_v:
+          min: 0
+          max: 1
+          visible: true
+          allowed: true
+        se_cv: return 0
+    name: gradient_1
+    cls_name: Gradient
+    x: -2159.0468893615753
+    y: 928.0613553192139
+    disp_param:
+      show_fill: true
+    enable_active: false
+  '3':
+    params:
+      Shape:
+        sel_str: Rectangle
+      Size:
+        e_x: 1.9197333333333317
+        e_y: 1.9133952380952364
+        se_cv: 'return vec2(0.5, 0.5)'
+      Num Points:
+        e_v: 5
+        se_cv: return 5
+      Inner Point:
+        e_x: 0.22600000000000003
+        se_y: '-0.311'
+        se_cv: 'return vec2(0.226, -0.311)'
+      Transform:
+        e_tx: -0.03831666666666639
+        e_ty: -0.04724761904761919
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
+    name: geom_primitive_1
+    cls_name: Geom Primitive
+    x: -1941.8522893615732
+    y: 945.4047553192147
+    disp_param:
+      show_vtx: true
+      show_lines: true
+    enable_active: false
+  '4':
+    params:
+      On Event:
+        sel_str: Frame-num At
+      Trigger:
+        v: false
+        e_v: 0
+      Frame-Num:
+        e_v: 0
+        se_cv: return 0
+    name: flow_event_1
+    cls_name: Flow Event
+    x: -1676.6118893615576
+    y: 1019.4432553192149
+    disp_param: {}
+    enable_active: true
+  '5':
+    params:
+      Frame Rate:
+        sel_str: Normal
+      Block Frames:
+        e_v: 1
+        se_cv: return 1
+      Render:
+        v: true
+        e_v: 1
+      Stop:
+        sel_str: Never
+      After Count:
+        e_v: 0
+        se_cv: return 0
+    name: flow_span_1
+    cls_name: Flow Span
+    x: -1673.683689361558
+    y: 1102.8969553192173
+    disp_param: {}
+    enable_active: false
+  '7':
+    params:
+      Set distance:
+        v: false
+        se_v: '0'
+      Divisions:
+        e_v: 16
+        se_cv: return 4
+      Separate U-V:
+        v: false
+        se_v: '0'
+      Distance:
+        e_v: 0.1
+        se_cv: return 0.1
+      Distance U-V:
+        e_x: 0.1
+        e_y: 0.1
+        se_cv: 'return vec2(0.1, 0.1)'
+      Exact:
+        v: false
+        se_v: '0'
+    name: divide_1
+    cls_name: Divide
+    x: -1954.0000610351562
+    y: 1047.9999694824219
+    disp_param:
+      show_vtx: true
+      show_lines: true
+    enable_active: false
+  '9':
+    params:
+      npt:
+        v:
+          '0': color
+          '1': radius
+          '2': normal
+          '3': fill
+          '4': transform
+      Bind To:
+        sel_str: Faces
+      Type:
+        sel_str: Color
+      Edit code:
+        v: true
+      Name:
+        v: color
+      Color:
+        hex: '#D9D9D9'
+        show_code: true
+        se_cv: return in_src
+      Float:
+        e_v: 0
+        se_cv: return 0
+      Float2:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      Select:
+        e_v: 1
+        se_cv: return 1.0
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
+    name: set_attribute_1
+    cls_name: Set Attribute
+    x: -2054.0000610351562
+    y: 1168.9999694824219
+    disp_param:
+      show_vtx: false
+      show_lines: false
+      show_faces: true
+    enable_active: false
+lines:
+  - from_name: start
+    from_id: 4
+    to_name: previous
+    to_id: 5
+    uid: 6
+  - from_name: out_mesh
+    from_id: 3
+    to_name: in_mesh
+    to_id: 7
+    uid: 8
+  - from_name: out_mesh
+    from_id: 7
+    to_name: in_obj
+    to_id: 9
+    uid: 10
+  - from_name: out_gradient
+    from_id: 1
+    to_name: in_src
+    to_id: 9
+    uid: 11
+next_node_id: 12
+names_idx_s:
+  Gradient: 1
+  Point Gradient Fill: 1
+  Geom Primitive: 1
+  Flow Event: 1
+  Flow Span: 1
+  Divide: 1
+  Set Attribute: 1
+display_node_id: 9
+tdisp_node_ids: []
+input_node_ids: []
+nodes_view:
+  pan_x: 2275
+  pan_y: -901
+  zoom: 0.9999999999999997
+decor: []

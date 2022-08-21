@@ -207,22 +207,21 @@ class Gradient extends PObject
 
     // selected points on the line (highlights)
     draw_sel_points(selected_indices, pa, pb) {
-        let radius = MESH_DISP.vtx_sel_radius/image_view.viewport_zoom
+        const radius = MESH_DISP.vtx_sel_radius/image_view.viewport_zoom
         ctx_img.beginPath();
         for(let idx of selected_indices) {
-            if (idx == 0) 
-                var [x,y] = this.p1
-            else if (idx == 1) 
-                var [x,y] = this.p2
-            else if (idx == 2) 
-                var [x,y] = pa
-            else if (idx == 3)
-                var [x,y] = pb
-            else 
-                var [x,y] = interp_point(pa, pb, this.stops[idx-NODE_POINT_LST_OFFSET].value)
+            let p;
+            switch(idx) {
+            case 0: p = this.p1; break;
+            case 1: p = this.p2; break;
+            case 2: p = pa; break;
+            case 3: p = pb; break;
+            default: 
+                p = interp_point(pa, pb, this.stops[idx-NODE_POINT_LST_OFFSET].value)
+            }
             // no need to transorm with t_mat since this is done only on the gradient node where t_mat is ident
-            ctx_img.moveTo(x + radius, y)
-            ctx_img.arc(x, y, radius, 0, 2*Math.PI)
+            ctx_img.moveTo(p[0] + radius, p[1])
+            ctx_img.arc(p[0], p[1], radius, 0, 2*Math.PI)
         }
         ctx_img.lineWidth = 2/image_view.viewport_zoom
         ctx_img.strokeStyle = MESH_DISP.sel_color
@@ -593,17 +592,17 @@ class RadialGradient extends Gradient {
         }
     }
     draw_circles(tp1, tp2, line_color="#000") {
-        let p1 = this.p1, p2 = this.p2, r1 = this.r1, r2 = this.r2
+        const p1 = this.p1, p2 = this.p2, r1 = this.r1, r2 = this.r2
         ctx_img.save()
         canvas_transform(ctx_img, this.t_mat)
         {
             ctx_img.beginPath()
-            circle(p1, r1)
+            circle(p1, r1) // use p1 since we're transforming the canvas above
             circle(p2, r2)
         }
         ctx_img.restore()
         // point marker
-        let radius = MESH_DISP.vtx_radius / image_view.viewport_zoom
+        const radius = MESH_DISP.vtx_radius / image_view.viewport_zoom
         circle(tp1, radius)
         circle(tp2, radius)
         ctx_img.lineWidth = MESH_DISP.line_width/image_view.viewport_zoom
@@ -622,19 +621,19 @@ class RadialGradient extends Gradient {
     draw_controls(line_color="#000") {
         // anything that draws point-marker circles can't use the canvas transform so the points
         // need to be manually transformed with t_mat.
-        let tp1 = vec2.create(), tp2 = vec2.create()
+        const tp1 = vec2.create(), tp2 = vec2.create()
         vec2.transformMat3(tp1, this.p1, this.t_mat)
         vec2.transformMat3(tp2, this.p2, this.t_mat)
         this.draw_circles(tp1, tp2, line_color)
         // not using tp1,tp2 for this since r1,r2 can't be transformed
-        let [pa,pb] = get_circle_points(this.p1, this.r1, this.p2, this.r2)
+        const [pa,pb] = get_circle_points(this.p1, this.r1, this.p2, this.r2)
 
         this.draw_line_points(pa, pb, line_color)        
     }
 
     draw_selection_m(m, selected_indices) {
         this.draw_controls()
-        let [pa,pb] = get_circle_points(this.p1, this.r1, this.p2, this.r2)
+        const [pa,pb] = get_circle_points(this.p1, this.r1, this.p2, this.r2)
         this.draw_sel_points(selected_indices, pa, pb)
     }
     draw_template_m(m) {
@@ -647,6 +646,97 @@ class RadialGradient extends Gradient {
 
     async make_gl_texture(for_obj) {
         return await this.make_img_gl_texture(for_obj)
+    }
+}
+
+const CONIC_COLORS_RADIUS = 100
+
+class ConicGradient extends Gradient
+{
+    static name() { return "Conic Gradient" }
+    constructor(x1,y1, tex_smooth) {
+        super(x1,y1, x1, y1, tex_smooth)
+ 
+        this.ctx_create_func = ()=>{ 
+            return ctx_img.createConicGradient(this.offset*2*Math.PI, x1, y1) 
+        }
+    }
+
+    need_svg() {  // svg doesn't support conic, and we don't need to anyway
+        return false
+    }
+
+    draw_controls(line_color="#000")
+    {
+        const tp1 = vec2.create()
+        vec2.transformMat3(tp1, this.p1, this.t_mat)
+        const vtx_radius = MESH_DISP.vtx_radius / image_view.viewport_zoom
+        ctx_img.beginPath()
+        circle(tp1, vtx_radius)
+
+        circle(tp1, CONIC_COLORS_RADIUS / image_view.viewport_zoom) // color selection radius
+
+        ctx_img.lineWidth = MESH_DISP.line_width/image_view.viewport_zoom
+        ctx_img.strokeStyle = line_color
+        ctx_img.stroke()
+    }
+
+    draw_stops_points()
+    {
+        const tp1 = vec2.create()
+        vec2.transformMat3(tp1, this.p1, this.t_mat)
+        const vtx_radius = MESH_DISP.vtx_radius / image_view.viewport_zoom
+        const colors_radius = CONIC_COLORS_RADIUS / image_view.viewport_zoom
+
+        // reverse order so that the first one show above the last one
+        for(let si = this.stops.length - 1; si >= 0; --si) {
+            const s = this.stops[si]
+            // value is 0-1 for the whole circle, convert to radians
+            const ang = (s.value + this.offset) * 2*Math.PI
+            const x = tp1[0] + Math.cos(ang) * colors_radius
+            const y = tp1[1] + Math.sin(ang) * colors_radius
+
+            ctx_img.beginPath();
+            ctx_img.arc(x, y, vtx_radius, 0, 2*Math.PI)
+            ctx_img.fillStyle = make_str_color(s.color)
+            ctx_img.fill()
+            ctx_img.stroke()
+        }
+    }
+
+    draw_sel_points(selected_indices) {
+        const radius = MESH_DISP.vtx_sel_radius/image_view.viewport_zoom
+        const colors_radius = CONIC_COLORS_RADIUS / image_view.viewport_zoom
+        ctx_img.beginPath();
+        for(let idx of selected_indices) {
+            let p;
+            if (idx == 0) 
+                p = this.p1
+            else if (idx < NODE_POINT_LST_OFFSET)
+                continue
+            else {
+                const s = this.stops[idx-NODE_POINT_LST_OFFSET]
+                const ang = (s.value + this.offset) * 2*Math.PI
+                p = [ this.p1[0] + Math.cos(ang) * colors_radius,
+                      this.p1[1] + Math.sin(ang) * colors_radius ]
+            }
+            // no need to transorm with t_mat since this is done only on the gradient node where t_mat is ident
+            ctx_img.moveTo(p[0] + radius, p[1])
+            ctx_img.arc(p[0], p[1], radius, 0, 2*Math.PI)
+        }
+        ctx_img.lineWidth = 2/image_view.viewport_zoom
+        ctx_img.strokeStyle = MESH_DISP.sel_color
+        ctx_img.stroke()        
+    }
+    
+
+    draw_selection_m(m, selected_indices) {
+        this.draw_controls()
+        this.draw_stops_points()
+        this.draw_sel_points(selected_indices)
+    }
+    draw_template_m(m) {
+        this.draw_controls(TEMPLATE_LINE_COLOR)
     }
 }
 
@@ -667,7 +757,7 @@ class GradPointsAdapterParam {
 
     get_value(vidx) {
         dassert(vidx !== undefined, "unexpected vidx undefined")
-        let idx = vidx / 2
+        const idx = vidx / 2
         //if (idx == 0 || idx == 1)
         //    return [null,null] // test, select only radius points
         if (idx < this.move_prm.length) {
@@ -675,10 +765,10 @@ class GradPointsAdapterParam {
                 return [null,null]
             return this.move_prm[idx].get_value()
         }
-        let [pa,pb] = this.get_pa_pb()
-        let t = this.range_lstprm.get_value(idx - this.move_prm.length)
-        let x = pa.x * (1-t) + pb.x * t
-        let y = pa.y * (1-t) + pb.y * t
+        const [pa,pb] = this.get_pa_pb()
+        const t = this.range_lstprm.get_value(idx - this.move_prm.length)
+        const x = pa.x * (1-t) + pb.x * t
+        const y = pa.y * (1-t) + pb.y * t
         return [x,y]
     }
     increment(idx, dv) {
@@ -686,16 +776,28 @@ class GradPointsAdapterParam {
             this.move_prm[idx].increment(dv)  // move end point
         }
         else {
-            let [pa,pb] = this.get_pa_pb()
+            const [pa,pb] = this.get_pa_pb()
             // project dv on the line
-            let v12 = vec2.fromValues(pb.x - pa.x, pb.y - pa.y)
-            let dt = vec2.dot(dv, v12) / vec2.dot(v12, v12);
-            let ridx = idx - this.move_prm.length
-            let v = Math.min(1, Math.max(0, this.range_lstprm.get_value(ridx) + dt))
-            this.range_lstprm.modify(ridx, v) // moves stop value
-            this.nodecls.redo_sort()
+            const v12 = vec2.fromValues(pb.x - pa.x, pb.y - pa.y)
+            const dt = vec2.dot(dv, v12) / vec2.dot(v12, v12);
+
+            const ridx = idx - this.move_prm.length
+            const v = Math.min(1, Math.max(0, this.range_lstprm.get_value(ridx) + dt))
+
+            this.increment_color_point(ridx, v)
         } 
     }
+    increment_color_point(ridx, v) {
+        this.range_lstprm.modify(ridx, v) // moves stop value
+        this.nodecls.redo_sort()
+    }
+
+    project_to_stops_line(cp) {
+        const [pa,pb] = this.get_pa_pb()
+        // project clicked point to the line and find the distance to the line the the value on the line for that point
+        return project_dist(cp, pa, pb)
+    }
+
     reprint_all_lines() { // mark yellow
         this.range_lstprm.reprint_all_lines()
     }
@@ -778,6 +880,87 @@ class Radial_GradPointsAdapterParam extends GradPointsAdapterParam {
             super.increment(idx, dv)
     }
 }
+
+class Conic_GradPointsAdapterParam extends GradPointsAdapterParam {
+    constructor(p1, range_lst_param, nodecls) {
+        super(p1, null, range_lst_param, nodecls)
+    }
+
+    get_value(vidx) {
+        dassert(vidx !== undefined, "unexpected vidx undefined")
+        let idx = vidx / 2
+        // special handling of the points on the radius
+        if (idx < this.move_prm.length) {
+            return super.get_value(vidx)
+        }
+
+        let t = this.range_lstprm.get_value(idx - this.move_prm.length)
+
+        const colors_radius = CONIC_COLORS_RADIUS / image_view.viewport_zoom
+
+        const ang = (t + this.nodecls.stops_offset.v) * 2*Math.PI
+        const x = this.p1.x + Math.cos(ang) * colors_radius
+        const y = this.p1.y + Math.sin(ang) * colors_radius
+
+        return [x,y]
+        
+    }
+    increment(idx, dv) {
+        if (idx < this.move_prm.length) {
+            super.increment(idx, dv)
+            return
+        }
+
+        const colors_radius = CONIC_COLORS_RADIUS / image_view.viewport_zoom
+
+        const ridx = idx - this.move_prm.length
+        const ot = this.range_lstprm.get_value(ridx) 
+        const o_inang = (ot + this.nodecls.stops_offset.v) * 2*Math.PI
+        const ov = vec2.fromValues(Math.cos(o_inang) * colors_radius,
+                                   Math.sin(o_inang) * colors_radius)
+        const nv = vec2.create()
+        vec2.add(nv, ov, dv)
+        vec2.normalize(nv, nv)
+        vec2.normalize(ov, ov)
+
+        const n_ang = Math.atan2(nv[1], nv[0])
+        const o_ang = Math.atan2(ov[1], ov[0])
+        let d_angle = n_ang - o_ang 
+
+        // like in rotation dial
+        if (d_angle > Math.PI) d_angle -= 2*Math.PI
+        if (d_angle < -Math.PI) d_angle += 2*Math.PI
+
+        const dt = d_angle/(2*Math.PI)
+        // connect start and end
+        let nt = ot + dt
+        if (nt > 1.0)
+            nt -= 1.0
+        if (nt < 0.0)
+            nt += 1.0
+
+        this.increment_color_point(ridx, nt)
+    }
+
+    project_to_stops_line(cp) {
+        const vp = vec2.clone(cp)
+        vp[0] -= this.p1.x
+        vp[1] -= this.p1.y
+
+        let ang = Math.atan2(vp[1], vp[0])
+        //if (ang > Math.PI) ang -= 2*Math.PI
+        if (ang < 0) ang += 2*Math.PI    
+        
+        // const ang = (t + this.nodecls.stops_offset.v) * 2*Math.PI
+        const t = (ang / (2*Math.PI)) - this.nodecls.stops_offset.v
+
+        const colors_radius = CONIC_COLORS_RADIUS / image_view.viewport_zoom
+        const dist = vec2.length(vp) - colors_radius
+
+        return [dist, t]
+    }
+}
+
 
 function project_dist(cp, p1, p2) {
     let v12 = vec2.fromValues(p2.x - p1.x, p2.y - p1.y)
@@ -888,6 +1071,7 @@ class DummyVec2Param {
 }
 
 const SAMPLER_COORDS = [new DummyVec2Param(0,0), new DummyVec2Param(1,0)]
+const GRADIENT_ADD_PNT_DIST = 10
 
 class NodeGradient extends NodeCls
 {
@@ -901,11 +1085,13 @@ class NodeGradient extends NodeCls
 
         this.out = new OutTerminal(node, "out_gradient")
         // Sample is for NodeFuncFill to get color from float. It's just a linear gradient without any geometry
-        this.type = new ParamSelect(node, "Type", 0, ["Linear", "Radial", "Sample"], (sel_idx)=>{
+        this.type = new ParamSelect(node, "Type", 0, ["Linear", "Radial", "Sample", "Conic"], (sel_idx)=>{
             this.r1.set_visible(sel_idx == 1)
             this.r2.set_visible(sel_idx == 1)
-            this.p1.set_visible(sel_idx != 2)
-            this.p2.set_visible(sel_idx != 2)
+            this.p1.set_visible(sel_idx == 0 || sel_idx == 1 || sel_idx == 3)
+            this.p2.set_visible(sel_idx == 0 || sel_idx == 1)
+            this.spread.set_visible(sel_idx != 3)
+            offset_enable()
 
             this.tex_resolution.set_visible(sel_idx == 2)
  
@@ -914,8 +1100,11 @@ class NodeGradient extends NodeCls
                 this.points_adapter = new Linear_GradPointsAdapterParam(this.p1, this.p2, this.values, this)
             else if (sel_idx == 2) //Sample
                 this.points_adapter = new Linear_GradPointsAdapterParam(SAMPLER_COORDS[0], SAMPLER_COORDS[1], this.values, this)
-            else
+            else if (sel_idx == 1)
                 this.points_adapter = new Radial_GradPointsAdapterParam(this.p1, this.r1, this.p2, this.r2, this.values, this)
+            else if (sel_idx == 3)
+                this.points_adapter = new Conic_GradPointsAdapterParam(this.p1, this.values, this)
+                
             this.selected_indices.includes_shifted = function(v) { return this.includes(v + NODE_POINT_LST_OFFSET) } // used for yellow mark of the selected point
             add_point_select_mixin(this, this.selected_indices, this.points_adapter) // done here after the adapter is created
         })
@@ -938,7 +1127,7 @@ class NodeGradient extends NodeCls
                                                           ["Reflect",   ['reflect', true]],
                                                           ["Repeat",    ['repeat', true]] ], 
         (sel_idx)=>{
-            this.stops_offset.set_visible(sel_idx == 2 || sel_idx == 3)                                    
+            offset_enable()
         })
         this.func = new ParamColor(node, "f(t)=", ["#cccccc", "rgb(255, 128, 0.0) + rgb(t, t, t)*255"], {show_code:true}) // just a way to generate points example: rgb(255,128,0)+rgb(t,t,t)*255
         this.func_samples = new ParamInt(node, "Sample Num", 10, {min:1, max:30, visible:false})
@@ -955,13 +1144,16 @@ class NodeGradient extends NodeCls
         this.tex_resolution = new ParamInt(node, "Tex Resolution", 128, [8,128]) // only for sampler
         this.tex_smooth = new ParamBool(node, "Tex Smooth", false)
         this.stops_offset = new ParamFloat(node, "Offset(t)", "0")  // offset function or constant offset
+        const offset_enable = ()=>{
+            this.stops_offset.set_visible( this.spread.sel_idx == 2 || this.spread.sel_idx == 3 || this.type.sel_idx == 3)
+        }
 
         this.load_preset(GRADIENT_PRESETS[0])
         
         // TBD points as expressions
     }
     print_stops() {
-        var s = ""
+        let s = ""
         for(let i = 0; i < this.sorted_order.length; ++i) {
             const ci = this.sorted_order[i]*4
             const c = ColorPicker.make_hex({r:this.colors.lst[ci], g:this.colors.lst[ci+1], b:this.colors.lst[ci+2], alpha:this.colors.lst[ci+3]/255})
@@ -992,15 +1184,16 @@ class NodeGradient extends NodeCls
         }
         this.table.remake_table()
     }
+
+
+
     image_click(ex, ey) {
         if (!this.add_stops_btn.v)
             return
-        let cp = image_view.epnt_to_model(ex, ey)
-        let [pa,pb] = this.points_adapter.get_pa_pb()
-        // project clicked point to the line and find the distance to the line the the value on the line for that point
-        let [dist, d] = project_dist(cp, pa, pb)
+        const cp = image_view.epnt_to_model(ex, ey)
+        const [dist, d] = this.points_adapter.project_to_stops_line(cp)
 
-        if (dist > 10/image_view.viewport_zoom)
+        if (dist > GRADIENT_ADD_PNT_DIST/image_view.viewport_zoom)
             return
         this.values.add(d); 
         this.colors.add([0xcc, 0xcc, 0xcc, 0xff])
@@ -1013,10 +1206,12 @@ class NodeGradient extends NodeCls
         }
         let obj
         try {
-            if (!this.is_radial()) 
-                obj = new LinearGradient(this.p1.x, this.p1.y, this.p2.x, this.p2.y, this.tex_resolution.get_value(), this.tex_smooth.get_value(), this.type.sel_idx == 2)
-            else 
+            if (this.is_radial()) 
                 obj = new RadialGradient(this.p1.x, this.p1.y, this.r1.v, this.p2.x, this.p2.y, this.r2.v, this.tex_smooth.get_value())
+            else if (this.type.sel_idx == 3)
+                obj = new ConicGradient(this.p1.x, this.p1.y, this.tex_smooth.get_value())
+            else
+                obj = new LinearGradient(this.p1.x, this.p1.y, this.p2.x, this.p2.y, this.tex_resolution.get_value(), this.tex_smooth.get_value(), this.type.sel_idx == 2)   
         }
         catch(e) {
             assert(false, this, e.message)

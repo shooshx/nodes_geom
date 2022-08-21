@@ -1,0 +1,599 @@
+nodes:
+  '3':
+    params:
+      Type:
+        sel_str: GLSL Program
+      Use first texture as gradient:
+        v: true
+        e_v: 1
+      "Float\nExpression":
+        se_v: coord.x
+        show_code: true
+        se_cv: return coord.x
+      "Color\nExpression":
+        hex: '#CCCCCC'
+        show_code: true
+        se_cv: 'return rgb(coord.x, coord.y, 1.0)'
+      "GLSL\nCode":
+        text: |
+
+
+          ivec2 toTexelCoord(vec2 coord) {
+              vec2 fc = (_u_tex_tmat_0 * vec3(coord, 1.0)).xy;
+              ivec2 tsz = textureSize(_u_in_tex_0, 0);
+              ivec2 c = ivec2(fc * vec2(tsz));
+              return c;
+          }
+
+          vec3 rgb2hsv(vec3 c)
+          {
+              vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+              vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+              vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+
+              float d = q.x - min(q.w, q.y);
+              float e = 1.0e-10;
+              return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+          }
+
+          vec3 hsv2rgb(vec3 c)
+          {
+              vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+              vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+              return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+          }
+
+          // avoid grayish colors
+          vec3 hsv_stretch(vec3 c) 
+          {
+              vec3 hc = rgb2hsv(c);
+              hc.g = 1.0;  // saturation
+              hc.b = 1.0;  // value
+              return hsv2rgb(hc);
+          }
+
+          ivec2 around[] = ivec2[]( ivec2(-1,-1), ivec2(0,-1), ivec2(1,-1),
+                           ivec2(-1,0), ivec2(1,0),
+                           ivec2(-1,1), ivec2(0,1), ivec2(1,1) );
+
+          uniform float fade_c;
+          uniform bool run_life;
+          uniform bool do_color;
+          uniform bool do_fade;
+
+          void main() {
+              
+              int nei = 0;
+              vec3 new_col = vec3(0.0);
+              ivec2 texel_coord = toTexelCoord(v_coord);
+              for(int i = 0; i < 8; ++i)
+              {
+                  ivec2 cr = texel_coord + around[i];
+                  vec4 c = texelFetch(_u_in_tex_0, cr, 0);
+                  if (c.a == 1.0)
+                  {
+                      ++nei;
+                      new_col += c.rgb;
+                  }
+              }
+              new_col /= float(nei);
+              if (do_color)
+                  new_col = hsv_stretch(new_col);
+                  
+              float fade_fc = do_fade ? fade_c : 0.0; 
+              
+              vec4 myv = texelFetch(_u_in_tex_0, texel_coord, 0);
+              if (!run_life) {
+                  //outColor = vec4(myv.rgb, myv.a*fade_c); // die
+                  outColor = vec4(myv.rgb, 1.0); 
+                  return;
+              }
+              
+              if (myv.a != 1.0)
+              {
+                  if (nei == 3)
+                      outColor = vec4(new_col, 1.0);
+                  else
+                      outColor = vec4(myv.rgb, myv.a*fade_fc); // stay dead
+              }
+              else
+              {
+                  if (nei == 2 || nei == 3)
+                      outColor = vec4(new_col, 1.0);
+                  else
+                      outColor = vec4(myv.rgb, myv.a*fade_fc); // die
+              }
+          }
+        dlg_rect:
+          left: 223
+          top: 8
+          width: 808
+          height: 886
+          visible: false
+          track_top: null
+          track_left: null
+          track_width: null
+          track_height: null
+        panel_rect:
+          height: 284
+      order:
+        sorted_order: [0]
+      fade_c:
+        se_v: fade_factor
+        sldcfg_v:
+          min: 0
+          max: 2
+          visible: true
+          allowed: true
+        se_cv: return 0
+      run_life:
+        v: true
+        e_v: 0
+      do_color:
+        v: true
+        expr_visible: true
+        se_v: do_color
+      do_fade:
+        v: true
+        expr_visible: true
+        se_v: do_fade
+    name: life_integrate
+    cls_name: Function Fill
+    x: -2268.2391071596267
+    y: 1237.0788679031054
+    disp_param: {}
+    enable_active: false
+  '5':
+    params:
+      Pick Index:
+        e_v: 0
+        show_code: true
+        se_cv: |-
+          if (frame_num == 0)
+              return 0
+          else
+              return 1
+      OrderInputs:
+        sorted_order: [1, 0]
+    name: pick_one_1
+    cls_name: Pick One
+    x: -2564.8319999999917
+    y: 1085.7110000000066
+    disp_param: {}
+    enable_active: false
+  '8':
+    params:
+      Filter Enabled:
+        v: true
+        e_v: 1
+      Change Expr:
+        se_v: frame_num
+        show_code: true
+        se_cv: return frame_num
+    name: change_filter_1
+    cls_name: Change Filter
+    x: -2208
+    y: 1103
+    disp_param: {}
+    enable_active: false
+  '23':
+    params:
+      Type:
+        sel_str: GLSL Program
+      Use first texture as gradient:
+        v: true
+        e_v: 1
+      "Float\nExpression":
+        se_v: coord.x
+        show_code: true
+        se_cv: return coord.x
+      "Color\nExpression":
+        hex: '#CCCCCC'
+        show_code: true
+        se_cv: |-
+          r = rand(coord.x)
+          return rgb(coord.x, coord.y, 1.0)
+      "GLSL\nCode":
+        text: |
+          uniform bool do_color;
+
+          // https://stackoverflow.com/questions/4200224/random-noise-functions-for-glsl
+          uint hash(uint x) {
+              x += ( x << 10u );
+              x ^= ( x >>  6u );
+              x += ( x <<  3u );
+              x ^= ( x >> 11u );
+              x += ( x << 15u );
+              return x;
+          }
+
+          uint hash( uvec2 v ) { return hash( v.x ^ hash(v.y)   ); }
+
+          // Construct a float with half-open range [0:1] using low 23 bits.
+          // All zeroes yields 0.0, all ones yields the next smallest representable value below 1.0.
+          float floatConstruct( uint m ) {
+              const uint ieeeMantissa = 0x007FFFFFu; // binary32 mantissa bitmask
+              const uint ieeeOne      = 0x3F800000u; // 1.0 in IEEE binary32
+
+              m &= ieeeMantissa;                     // Keep only mantissa bits (fractional part)
+              m |= ieeeOne;                          // Add fractional part to 1.0
+
+              float  f = uintBitsToFloat( m );       // Range [1:2]
+              return f - 1.0;                        // Range [0:1]
+          }
+
+          // Pseudo-random value in half-open range [0:1].
+          float random( vec2  v ) { return floatConstruct(hash(floatBitsToUint(v))); }
+
+          vec3 hsv2rgb(vec3 c)
+          {
+              vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+              vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+              return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+          }
+
+
+          void main() {
+              vec3 c = do_color ? hsv2rgb(vec3(random(v_coord), 1.0, 1.0) ) : vec3(0,0 ,0);
+            
+              float alpha = 1.0;
+              if (random(v_coord*0.5) < 0.5)
+                  alpha = 0.0;
+              outColor = vec4(c, alpha);    
+          }
+        dlg_rect:
+          left: 475
+          top: 174
+          width: 622
+          height: 688
+          visible: false
+          track_top: 174
+        panel_rect:
+          height: 296
+      order:
+        sorted_order: []
+      do_color:
+        v: true
+        expr_visible: true
+        se_v: do_color
+    name: random pixels
+    cls_name: Function Fill
+    x: -2223.79
+    y: 976.21
+    disp_param: {}
+    enable_active: false
+  '28':
+    params:
+      Resolution:
+        x: 2000
+        y: 2000
+      Size:
+        e_x: 4
+        e_y: 4
+        se_cv: 'return vec2(2, 2)'
+      Smooth Scaling:
+        v: false
+        e_v: 1
+      Texture Edge:
+        sel_str: Pad
+      Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
+    name: create_pixel_buffer_4
+    cls_name: Create Pixel-Buffer
+    x: -2002
+    y: 921
+    disp_param: {}
+    enable_active: false
+  '40':
+    params:
+      <obj-store>:
+        v:
+          gen_id: 4
+          prms_lst: [3, 1, 2]
+      Global Namespace:
+        v: false
+      Brief View:
+        v: true
+      p3_Type:
+        sel_str: Bool
+      p3_Name:
+        v: do_fade
+      p3_Float:
+        e_v: 1
+        se_cv: return 1
+      p3_Integer:
+        e_v: 1
+        se_cv: return 1
+      p3_Float2:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      p3_Color:
+        hex: '#CCCCCC'
+        se_cv: 'return rgb(204, 204, 204)'
+      p3_Mouse Coord:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      p3_Bool:
+        v: true
+        e_v: 0
+      p3_Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
+      p3_Sample At:
+        sel_str: Mouse left down
+      p1_Type:
+        sel_str: Float
+      p1_Name:
+        v: fade_factor
+      p1_Float:
+        e_v: 0.997
+        sldcfg_v:
+          min: 0.8
+          max: 0.997
+          allowed: true
+          visible: true
+        se_cv: return 1
+      p1_Integer:
+        e_v: 1
+        se_cv: return 1
+      p1_Float2:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      p1_Color:
+        hex: '#CCCCCC'
+        se_cv: 'return rgb(204, 204, 204)'
+      p1_Mouse Coord:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      p1_Bool:
+        v: false
+        e_v: 0
+      p1_Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
+      p1_Sample At:
+        sel_str: Mouse left down
+      p2_Type:
+        sel_str: Bool
+      p2_Name:
+        v: do_color
+      p2_Float:
+        e_v: 1
+        se_cv: return 1
+      p2_Integer:
+        e_v: 1
+        se_cv: return 1
+      p2_Float2:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      p2_Color:
+        hex: '#CCCCCC'
+        se_cv: 'return rgb(204, 204, 204)'
+      p2_Mouse Coord:
+        e_x: 0
+        e_y: 0
+        se_cv: 'return vec2(0, 0)'
+      p2_Bool:
+        v: true
+        e_v: 0
+      p2_Transform:
+        e_tx: 0
+        e_ty: 0
+        e_r: 0
+        e_pvx: 0
+        e_pvy: 0
+        e_sx: 1
+        e_sy: 1
+        se_cv: return mat3()
+      p2_Sample At:
+        sel_str: Mouse left down
+    name: var
+    cls_name: Variable
+    x: -2457.4197851239596
+    y: 898.1068925619825
+    disp_param: {}
+    enable_active: false
+  '57':
+    params:
+      Type:
+        sel_str: GLSL Program
+      Use first texture as gradient:
+        v: false
+        e_v: 1
+      "Float\nExpression":
+        se_v: coord.x
+        show_code: true
+        se_cv: return coord.x
+      "Color\nExpression":
+        hex: '#CCCCCC'
+        show_code: true
+        se_cv: 'return rgb(coord.x, coord.y, 1.0)'
+      "GLSL\nCode":
+        text: |-
+          ivec2 toTexelCoord(vec2 coord) {
+              vec2 fc = (_u_tex_tmat_0 * vec3(coord, 1.0)).xy;
+              ivec2 tsz = textureSize(_u_in_tex_0, 0);
+              ivec2 c = ivec2(fc * vec2(tsz));
+              return c;
+          }
+
+
+          ivec2 around[] = ivec2[]( ivec2(-1,-1), ivec2(0,-1), ivec2(1,-1),
+                           ivec2(-1,0), ivec2(1,0),
+                           ivec2(-1,1), ivec2(0,1), ivec2(1,1) );
+
+          void main() {
+              ivec2 cr = toTexelCoord(v_coord);
+              vec4 c = texelFetch(_u_in_tex_0, cr, 0);    
+              
+              if (c.a < 0.8) {
+                  //float v = c.a * 11.0;
+                  float v = 0.9;
+                  c.a = 1.00;
+                  c.r *= v;
+                  c.g *= v;
+                  c.b *= v;
+              }
+              else if (false) {
+                  vec4 sum = vec4(0.0);
+                  int count = 0;
+                  for(int i = 0; i < 8; ++i) {
+                      vec4 ac = texelFetch(_u_in_tex_0, cr+around[i], 0);
+                      if (ac.a != 1.0) {
+                          sum += ac;
+                          ++count;
+                      }
+                  }
+                  sum = sum * (1.0 / float(count) * 4.0);
+                  //sum /= 4.0;
+                  c = sum;
+                  c.a = 1.0;
+              }
+              
+              outColor = c;
+          }
+        panel_rect:
+          height: 265
+      order:
+        sorted_order: [0]
+    name: saturate
+    cls_name: Image Process
+    x: -2572.654999999991
+    y: 1242.8079999999984
+    disp_param: {}
+    enable_active: false
+  '59':
+    params:
+      On Event:
+        sel_str: Frame-num At
+      Trigger:
+        v: false
+        e_v: 0
+      Frame-Num:
+        e_v: 0
+        se_cv: return 0
+    name: flow_event_2
+    cls_name: Flow Event
+    x: -1876.1319999999998
+    y: 1089.5450000000008
+    disp_param: {}
+    enable_active: true
+  '60':
+    params:
+      Frame Rate:
+        sel_str: Maximum
+      Block Frames:
+        e_v: 1
+        se_cv: return 1
+      Render:
+        v: true
+        e_v: 1
+      Stop:
+        sel_str: Never
+      After Count:
+        e_v: 0
+        se_cv: return 0
+    name: flow_span_1
+    cls_name: Flow Span
+    x: -1878.7940000000006
+    y: 1193.3630000000005
+    disp_param: {}
+    enable_active: false
+lines:
+  - from_name: out
+    from_id: 5
+    to_name: in
+    to_id: 8
+    uid: 9
+  - from_name: out
+    from_id: 8
+    to_name: in_texs
+    to_id: 3
+    uid: 10
+  - from_name: out_texture
+    from_id: 3
+    to_name: in_multi
+    to_id: 5
+    uid: 11
+  - from_name: out_tex
+    from_id: 28
+    to_name: in_fb
+    to_id: 23
+    uid: 29
+  - from_name: out_texture
+    from_id: 23
+    to_name: in_multi
+    to_id: 5
+    uid: 31
+  - from_name: out_tex
+    from_id: 28
+    to_name: in_fb
+    to_id: 3
+    uid: 32
+  - from_name: variable_out
+    from_id: 40
+    to_name: vars_in
+    to_id: 3
+    uid: 41
+  - from_name: variable_out
+    from_id: 40
+    to_name: vars_in
+    to_id: 23
+    uid: 48
+  - from_name: out
+    from_id: 5
+    to_name: in_texs
+    to_id: 57
+    uid: 58
+  - from_name: start
+    from_id: 59
+    to_name: previous
+    to_id: 60
+    uid: 61
+next_node_id: 62
+names_idx_s:
+  Load Image: 1
+  Create Pixel-Buffer: 4
+  Function Fill: 5
+  Pick One: 2
+  Change Filter: 1
+  Geom Primitive: 4
+  Manual Geometry: 1
+  Image Process: 4
+  Variable: 1
+  Divide: 1
+  Set Attribute: 1
+  Flow Event: 2
+  Flow Span: 1
+display_node_id: 23
+tdisp_node_ids: []
+input_node_ids: []
+nodes_view:
+  pan_x: 2342.777300000001
+  pan_y: -858.3923000000008
+  zoom: 0.6830134553650702
+decor: []
