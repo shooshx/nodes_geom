@@ -1,5 +1,7 @@
-import sys, os, time, threading, ctypes, subprocess
-from http.server import BaseHTTPRequestHandler, HTTPServer
+import sys, os, time, threading, ctypes, subprocess, functools
+from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
+from PIL import Image, ImageTk
+import tkinter as tk
 
 #run C:\lib\emscripten\emsdk\emsdk_env.bat
 
@@ -62,7 +64,72 @@ def compile():
     global compiling_thread
     compiling_thread = None
 
+
+class TkImgWnd:
+    def __init__(self):
+        def tk_loop():
+            self.root = tk.Tk()
+            #self.root.geometry("700x350")
+
+            self.panel = tk.Label(self.root)  # , image=img)
+            self.panel.pack(side="bottom", fill="both", expand="yes")
+
+            self.root.mainloop()
+
+        thread = threading.Thread(target=tk_loop)
+        thread.start()
+
+    def set_im(self, im):
+        rim = im.resize((250,250), Image.NEAREST)
+        img2 = ImageTk.PhotoImage(rim, (100,100))
+        self.panel.configure(image=img2)
+        self.panel.image = img2
+
+
+class DataDisplay:
+    def __init__(self):
+        self.count = 0
+        self.last_print_ts = 0
+        self.last_print_count = 0
+
+        self.wnd = TkImgWnd()
+
+    def display_data(self, data):
+        #print("disp got", len(data), "count", self.count)
+
+        im = Image.frombytes("RGBA", (16, 16), data)
+        #im.save( os.path.join(this_dir, "data_display.png"))
+        #im.show()
+        self.wnd.set_im(im)
+
+
+        now = time.time()
+        if now - self.last_print_ts >= 1.0:
+            print(self.count - self.last_print_count, "FPS")
+            self.last_print_ts = now
+            self.last_print_count = self.count
+        self.count += 1
+
+
+
 class MyHandler(BaseHTTPRequestHandler):
+    def __init__(self, disp, *args, **kwargs):
+        self.display = disp
+        super().__init__(*args, **kwargs)
+
+    def log_message(self, format, *args):
+        return
+
+    def do_POST(self):
+        content_len = int(self.headers['Content-Length'])
+        data = self.rfile.read(content_len)
+        self.display.display_data(data)
+
+        self.send_response(200)
+        self.send_header('Content-type', 'text/plain')
+        self.end_headers()
+        self.wfile.write(bytes("OK", "latin1"))
+
     def do_GET(self):
         try:
             if "/./" in self.path or "/../" in self.path:
@@ -134,8 +201,13 @@ class MyHandler(BaseHTTPRequestHandler):
         self.wfile.write(content)
 
 
+
 def serve():
-    httpd = HTTPServer((HOST_NAME, PORT_NUMBER), MyHandler)
+    disp = DataDisplay()
+    handler_cls = functools.partial(MyHandler, disp)
+
+# ThreadingHTTPServer
+    httpd = HTTPServer((HOST_NAME, PORT_NUMBER), handler_cls)
     print(time.asctime(), 'Server Starts - %s:%s' % (HOST_NAME, PORT_NUMBER))
     try:
         httpd.serve_forever()
@@ -147,7 +219,11 @@ def serve():
 
 
 
+
 def main():
+    serve()
+    return
+
     thread = threading.Thread(target=serve)
     thread.start()
     print("started")
@@ -156,9 +232,7 @@ def main():
             time.sleep(1)
     except KeyboardInterrupt:
         pass
-    print("killing")
-    ctypes.windll.kernel32.TerminateProcess(ctypes.windll.kernel32.GetCurrentProcess())
-    #os.kill(os.getpid(), signal.SIGKILL)
+
 
 if __name__ == '__main__':
     sys.exit(main())

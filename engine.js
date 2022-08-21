@@ -963,6 +963,8 @@ async function anim_frame()
         //g_anim.frame_time = performance.now() - g_anim.start_time
         anim_traits = await call_frame_draw(true, false, null)
         // ret can be null if we're already in a draw somewhere else
+        if (anim_traits === null)
+            anim_traits = g_anim.default_anim_traits
 
         ++iter
         if (anim_traits.frame_rate === FRAME_RATE_MAX && g_anim.run)
@@ -1058,6 +1060,9 @@ const nodes_classes = [
     { group_name: "Groups", nodes: [
         NodeGroupObjects,
         NodeGroupSelect
+    ]},
+    { group_name: "I/O", nodes: [
+        NodeHTTPSend
     ]},
     NodeTransform,
 ]
