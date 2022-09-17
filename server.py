@@ -2,6 +2,7 @@ import sys, os, time, threading, ctypes, subprocess, functools
 from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 from PIL import Image, ImageTk
 import tkinter as tk
+import requests
 
 #run C:\lib\emscripten\emsdk\emsdk_env.bat
 
@@ -86,7 +87,8 @@ class TkImgWnd:
         self.panel.image = img2
 
 
-class DataDisplay:
+
+class DisplayWnd:
     def __init__(self):
         self.count = 0
         self.last_print_ts = 0
@@ -110,6 +112,46 @@ class DataDisplay:
             self.last_print_count = self.count
         self.count += 1
 
+
+def data_to_arduino(data):
+    assert len(data) == 1024, "unexpected data size"
+    tosend = []
+    si = 0
+    # RGBA to RGB
+    while si < 1024:
+        tosend.append(data[si])
+        si += 1
+        tosend.append(data[si])
+        si += 1
+        tosend.append(data[si])
+        si += 2
+    return bytes(tosend)
+
+class DisplayArduinoSerial:
+    def __init__(self):
+        import serial
+        self.ser = serial.Serial('COM5', 300000) #115200)
+        self.count = 0
+
+    def display_data(self, data):
+        tosend = data_to_arduino(data)
+        s = time.time()
+        self.ser.write(tosend)
+        print("sent", self.count, "took", time.time()-s)
+        self.count += 1
+
+
+class DisplayArduinoWifi:
+    def __init__(self):
+        self.count = 0
+
+    def display_data(self, data):
+        tosend = data_to_arduino(data)
+        s = time.time()
+        requests.post("http://192.168.4.22/data/", tosend)
+        #requests.post("http://10.100.102.51/data/", tosend)
+        print("sent", self.count, "took", time.time()-s)
+        self.count += 1
 
 
 class MyHandler(BaseHTTPRequestHandler):
@@ -203,7 +245,8 @@ class MyHandler(BaseHTTPRequestHandler):
 
 
 def serve():
-    disp = DataDisplay()
+    # DisplayArduinoWifi()
+    disp = DisplayArduinoSerial()
     handler_cls = functools.partial(MyHandler, disp)
 
 # ThreadingHTTPServer

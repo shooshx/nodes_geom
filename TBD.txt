@@ -297,9 +297,7 @@ NODES:
     webgl point sprites
 - Gradient
     save preset (so that going to function doesn't delete it)
-    offset
-       in all settings, also negative
-    Conic
+
     gradient from sample line
     SetAttr resolution depends on image_view.viewport_zoom in GradientPixelsAdapter
     Atari rolling gradient effect
