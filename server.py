@@ -1,7 +1,6 @@
-import sys, os, time, threading, ctypes, subprocess, functools
+import sys, os, time, threading, ctypes, subprocess, functools, signal
 from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
-from PIL import Image, ImageTk
-import tkinter as tk
+
 import requests
 
 #run C:\lib\emscripten\emsdk\emsdk_env.bat
@@ -9,7 +8,8 @@ import requests
 
 this_dir = os.path.dirname(os.path.abspath(__file__))
 
-HOST_NAME = 'localhost'
+# HOST_NAME = 'localhost'
+HOST_NAME = '0.0.0.0'
 PORT_NUMBER = 8000
 
 MIME_TYPES = {".html": "text/html", 
@@ -90,6 +90,9 @@ class TkImgWnd:
 
 class DisplayWnd:
     def __init__(self):
+        from PIL import Image, ImageTk
+        import tkinter as tk
+
         self.count = 0
         self.last_print_ts = 0
         self.last_print_count = 0
@@ -152,6 +155,37 @@ class DisplayArduinoWifi:
         #requests.post("http://10.100.102.51/data/", tosend)
         print("sent", self.count, "took", time.time()-s)
         self.count += 1
+
+py_ws2811 = None
+class DisplayRaspPi:
+    def __init__(self):
+        sys.path.append(os.path.join(this_dir, "../build/lib.linux-armv7l-3.9"))
+        import py_ws2811 as _py_ws2811
+        global py_ws2811
+        py_ws2811 = _py_ws2811
+        py_ws2811.init(16, 16, 2.0)
+
+        signal.signal(signal.SIGINT, ctrl_c_handler)
+
+        self.count = 0
+        self.last_print_ts = 0
+
+    def display_data(self, data):
+        py_ws2811.set_buffer(data)
+
+        self.count += 1
+        now = time.time()
+        if now - self.last_print_ts >= 1.0:
+            print(self.count, "FPS")
+            self.last_print_ts = now
+            self.count = 0
+
+
+def ctrl_c_handler(sig, frame):
+    print('You pressed Ctrl+C!')
+    py_ws2811.fill(0)
+    sys.exit(0)
+
 
 
 class MyHandler(BaseHTTPRequestHandler):
@@ -245,8 +279,8 @@ class MyHandler(BaseHTTPRequestHandler):
 
 
 def serve():
-    # DisplayArduinoWifi()
-    disp = DisplayArduinoSerial()
+    # DisplayArduinoWifi() DisplayArduinoSerial()
+    disp = DisplayRaspPi()
     handler_cls = functools.partial(MyHandler, disp)
 
 # ThreadingHTTPServer
