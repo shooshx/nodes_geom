@@ -11,8 +11,6 @@
 #include "../../rpi_ws281x/ws2811.h"
 
 
-// https://github.com/jgarff/rpi_ws281x
-
 #define ARRAY_SIZE(stuff)       (sizeof(stuff) / sizeof(stuff[0]))
 
 // defaults for cmdline options
@@ -138,16 +136,22 @@ static PyObject *py_set_buffer(PyObject *self, PyObject *args)
 
     uint32_t* dest = ledstring.channel[0].leds;
     uint32_t* src = buf.buf;
-    for(int y = 0; y < g_height; y += 2)
+
+    if (false) // back and forth pattern
     {
-        for(int x = 0; x < g_width; ++x)
+        for(int y = 0; y < g_height; y += 2)
         {
-            dest[y*g_width + x] = src[y*g_width + x];
-            dest[(y+1)*g_width + x] = src[(y+1)*g_width + (g_width - x - 1)];
+            for(int x = 0; x < g_width; ++x)
+            {
+                dest[y*g_width + x] = src[y*g_width + x];
+                dest[(y+1)*g_width + x] = src[(y+1)*g_width + (g_width - x - 1)];
+            }
         }
     }
-
-    //memcpy(ledstring.channel[0].leds, buf.buf, buf.len);
+    else
+    {
+        memcpy(ledstring.channel[0].leds, buf.buf, buf.len);
+    }
 
     if ((ret = ws2811_render(&ledstring)) != WS2811_SUCCESS)
     {
