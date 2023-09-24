@@ -246,7 +246,7 @@ class MyHandler(BaseHTTPRequestHandler):
 
 def serve():
     # DisplayArduinoWifi()
-    disp = DisplayArduinoSerial()
+    disp = DisplayWnd()
     handler_cls = functools.partial(MyHandler, disp)
 
 # ThreadingHTTPServer
