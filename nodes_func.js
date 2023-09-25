@@ -1,4 +1,4 @@
-"use strict"
+"use strict";
 
 
 const FUNC_VERT_SRC = `

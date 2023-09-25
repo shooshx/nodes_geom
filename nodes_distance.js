@@ -1,4 +1,4 @@
-"use strict"
+"use strict";
 
 // cool smoothmin in 3d video https://youtu.be/lctXaT9pxA0?t=370   
 // meatballs: http://jamie-wong.com/2014/08/19/metaballs-and-marching-squares/

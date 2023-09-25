@@ -1,4 +1,4 @@
-"use strict"
+"use strict";
 
 var vec2 = glMatrix.vec2, mat3 = glMatrix.mat3, mat2 = glMatrix.mat2, glm = glMatrix.glMatrix, vec4 = glMatrix.vec4, vec3 = glMatrix.vec3
 glm.setMatrixArrayType(Float64Array)
@@ -204,7 +204,7 @@ class Program {
         else {
             console.assert(this.obj_map[id] === undefined, "node-id already exists")
         }
-        let node = new Node(x, y, name, cls, id, this)
+        let node = new PNode(x, y, name, cls, id, this)
         this.obj_map[node.id] = node
         this.nodes.push(node)
 
@@ -898,7 +898,7 @@ class AnimFlow
     }
 }
 
-class Animation {
+class PAnimation {
     constructor() {
         //this.frame_time = 0;
         this.run = false;  // running right now?
@@ -948,7 +948,7 @@ class Animation {
     }
 }
 
-var g_anim = new Animation()
+var g_anim = new PAnimation()
 
 async function anim_frame()
 {

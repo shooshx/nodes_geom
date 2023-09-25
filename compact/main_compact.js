@@ -1,4 +1,7 @@
 
+"use strict";
+
+
 /*!
 @fileoverview gl-matrix - High performance matrix and vector operations
 @author Brandon Jones
@@ -84991,7 +84994,7 @@ var Potrace = (function() {
 
 }());
 
-"use strict"
+
 // inspired by https://github.com/PitPik/colorPicker
 
 var ColorPicker = (function(){
@@ -85719,7 +85722,7 @@ return { create_at:create_at }
 
 
 
-"use strict"
+
 
 var selected_nodes = []
 function add_selected_node(n) {
@@ -85907,7 +85910,7 @@ class TerminalBase {
     constructor(name, in_node, is_input, conn_ev=null) {
         this.name = name
         console.assert(is_input !== undefined, "don't instantiate TerminalBase")
-        this.owner = in_node // Node object
+        this.owner = in_node // PNode object
         this.line_pending = null
         this.lines = []
       //  this.node = in_node
@@ -85915,9 +85918,9 @@ class TerminalBase {
         this.tuid = null // set in add_node
         this.kind = KIND_OBJ
         this.color = "#aaa"
-        this.tvisible = true // inheriting Node can set to false and set something to the terminal
+        this.tvisible = true // inheriting PNode can set to false and set something to the terminal
 
-        this.xoffset = null // will be set again in Node
+        this.xoffset = null // will be set again in PNode
         this.connection_event = conn_ev
 
         if (is_input) {
@@ -86611,7 +86614,7 @@ class StateAccess {
     }
 }
 
-class Node {    
+class PNode {    
     constructor(x, y, name, cls, id, of_prog) {
         this.of_program = of_prog
         this.rename_observers = []
@@ -86993,7 +86996,7 @@ class Node {
         this.cls.cclear_dirty()
     }
     
-    // from Node ctor
+    // from PNode ctor
     call_params_change() {
         for(let p of this.parameters)
             if (p.call_change)
@@ -87478,7 +87481,7 @@ function nodes_context_menu(e) {
     
     let opt = null, node = null, out_term = null;
     if (obj != null) {
-        if (obj.constructor === Node)
+        if (obj.constructor === PNode)
             node = obj
         else if (obj.constructor === NodeFlagProxy)  // display,template flags
             node = obj.node
@@ -87632,7 +87635,7 @@ function draw_nodes(and_save = true)
 
 
 
-"use strict"
+
 
 const GRIP_WIDTH = 5
 const MIN_PANEL_SIZE = 10
@@ -87895,7 +87898,7 @@ function image_shadow_find_obj(e)
     if (node_id === null)
         return null
     const node = program.obj_map[node_id]
-    if (node === undefined || node.constructor !== Node)  // can happen due to antialiasing
+    if (node === undefined || node.constructor !== PNode)  // can happen due to antialiasing
         return null
     return node.cls.img_hit_find_obj()
 }
@@ -88696,7 +88699,7 @@ function fps_counter_update()
 }
 
 
-"use strict"
+
 
 class Parameter
 {
@@ -92309,7 +92312,7 @@ class ParamTextMenuBtn extends ParamMenuBtn
 }
 
 
-"use strict"
+
 
 
 const MESH_NOT_SET = 0
@@ -93297,7 +93300,7 @@ function arr_gl_type(arr) {
 
     }
 */
-"use strict"
+
 
 function save_program() {
     let sprog = { nodes: {}, lines:[], 
@@ -93483,10 +93486,10 @@ function _load_program(sprog)
     }
     for(let sl of sprog.lines) {
         let from_node = newprog.obj_map[sl.from_id]
-        console.assert(from_node.constructor === Node)
+        console.assert(from_node.constructor === PNode)
         let from_term = find_by_name(from_node.terminals, sl.from_name)
         let to_node = newprog.obj_map[sl.to_id]
-        console.assert(to_node.constructor === Node)
+        console.assert(to_node.constructor === PNode)
         let to_term = find_by_name(to_node.terminals, sl.to_name)
         if (to_term === null)
             to_term = to_node.terminal_aliases[sl.to_name]
@@ -93593,7 +93596,7 @@ function load_state() {
     }
 }
 
-"use strict"
+
 
 // https://github.com/NishadSaraf/First-Order-Differentiation-In-C/blob/d6965c15bef4fe84837105eb0e5ed8f21ae9f80b/calculator.hpp
 
@@ -96288,7 +96291,7 @@ float cubic_bezier_dis(vec2 uv, vec2 p0, vec2 p1, vec2 p2, vec2 p3){
     return d0 * sgn; 
 }*/
 `
-"use strict"
+
 
 const LINE_COLOR_VARS = "#a9ef50"
 const TERM_COLOR_VARS = "#b9ff50"
@@ -96871,6 +96874,7 @@ class NodeVariable extends NodeVarCls
             name_set.add(name)
         }
 
+        const out_obj = new VariablesObj(this.set_only_if_missing)
         const is_global = this.global.get_value()
         if (is_global) {
             if (!this.node.enable_active) { // if it's not enabled, it shouldn't run, just return the global variables unchanged
@@ -96881,7 +96885,6 @@ class NodeVariable extends NodeVarCls
             this.set_all_values(g_anim.globals_vars_box)
         }
 
-        const out_obj = new VariablesObj(this.set_only_if_missing)
         this.set_all_values(out_obj)
 
         // manage references to global vars
@@ -97031,7 +97034,7 @@ class NodeVarStep extends NodeVarCls
         this.out_single_var(this.name.get_value(), this.type.get_sel_val(), v_ret)
     }
 }
-"use strict"
+
 
 
 class NodeTestDummy extends NodeCls {
@@ -99163,7 +99166,7 @@ class RandNumGen
     }
 }
 
-function dist(ax, ay, bx, by) {
+function pdist(ax, ay, bx, by) {
     let dx = ax - bx, dy = ay - by
     return Math.sqrt(dx*dx+dy*dy)
 }
@@ -99933,7 +99936,7 @@ class NodeOffsetPath extends NodeCls {
 
     }
 }
-"use strict"
+
 
 var gl = null
 
@@ -101514,7 +101517,7 @@ class NodePixelsToVertices extends NodeCls
         this.out_pnt.set(mesh)
     }
 }
-"use strict"
+
 
 
 class PImage extends FrameBuffer
@@ -101796,7 +101799,7 @@ function handle_spread(spread, coord, length)
 
 
 
-"use strict"
+
 
 const PATH_CLOSED = 1
 const PATH_CONTINUE_PREV = 2  //means that there shouldn't be a new beingPath for this range, that it continues the previous path (it's a hole)
@@ -102958,7 +102961,7 @@ class NodeBoolOp extends NodeCls
     }
 
 }
-"use strict"
+
 
 function make_str_color(c) {
     return "rgba(" + c[0] + "," + c[1] + "," + c[2] + "," + (c[3]/255) + ")"
@@ -104273,7 +104276,7 @@ class NodeGradient extends NodeCls
         // TBD don't do all the color table on every click (when doing colors.add)
     }
 }
-"use strict"
+
 
 
 const FUNC_VERT_SRC = `
@@ -104877,7 +104880,7 @@ void main() {
 
 
 
-"use strict"
+
 
 // cool smoothmin in 3d video https://youtu.be/lctXaT9pxA0?t=370   
 // meatballs: http://jamie-wong.com/2014/08/19/metaballs-and-marching-squares/
@@ -106407,7 +106410,7 @@ class NodeMarchingSquares extends NodeCls
 }
 
 
-"use strict"
+
 
 
 //pick one of the inputs and set it to the output depending on an expression
@@ -106813,7 +106816,7 @@ class FlowVariable extends NodeVariable
     }
 
 }
-"use strict"
+
 
 // body - position and velocity, apply force
 
@@ -108027,7 +108030,7 @@ class CanvasDebugDraw extends b2.Draw
   }
 
 
-"use strict"
+
 
 
 class NodeHTTPSend extends NodeCls
@@ -108065,7 +108068,7 @@ class NodeHTTPSend extends NodeCls
         this.out.set(obj)
     }
 }
-"use strict"
+
 
 var vec2 = glMatrix.vec2, mat3 = glMatrix.mat3, mat2 = glMatrix.mat2, glm = glMatrix.glMatrix, vec4 = glMatrix.vec4, vec3 = glMatrix.vec3
 glm.setMatrixArrayType(Float64Array)
@@ -108271,7 +108274,7 @@ class Program {
         else {
             console.assert(this.obj_map[id] === undefined, "node-id already exists")
         }
-        let node = new Node(x, y, name, cls, id, this)
+        let node = new PNode(x, y, name, cls, id, this)
         this.obj_map[node.id] = node
         this.nodes.push(node)
 
@@ -108965,7 +108968,7 @@ class AnimFlow
     }
 }
 
-class Animation {
+class PAnimation {
     constructor() {
         //this.frame_time = 0;
         this.run = false;  // running right now?
@@ -109015,7 +109018,7 @@ class Animation {
     }
 }
 
-var g_anim = new Animation()
+var g_anim = new PAnimation()
 
 async function anim_frame()
 {
@@ -109157,3 +109160,5 @@ var nodes_decor = [
 var nodes_decor_by_name = {}
 for(let d of nodes_decor)
     nodes_decor_by_name[d.name()] = d
+
+window.page_onload = page_onload

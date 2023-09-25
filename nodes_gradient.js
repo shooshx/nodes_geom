@@ -1,4 +1,4 @@
-"use strict"
+"use strict";
 
 function make_str_color(c) {
     return "rgba(" + c[0] + "," + c[1] + "," + c[2] + "," + (c[3]/255) + ")"

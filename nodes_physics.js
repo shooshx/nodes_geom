@@ -1,4 +1,4 @@
-"use strict"
+"use strict";
 
 // body - position and velocity, apply force
 

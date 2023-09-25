@@ -1,4 +1,4 @@
-"use strict"
+"use strict";
 
 
 class NodeTestDummy extends NodeCls {
@@ -2130,7 +2130,7 @@ class RandNumGen
     }
 }
 
-function dist(ax, ay, bx, by) {
+function pdist(ax, ay, bx, by) {
     let dx = ax - bx, dy = ay - by
     return Math.sqrt(dx*dx+dy*dy)
 }

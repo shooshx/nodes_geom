@@ -1,4 +1,4 @@
-"use strict"
+"use strict";
 
 // https://github.com/NishadSaraf/First-Order-Differentiation-In-C/blob/d6965c15bef4fe84837105eb0e5ed8f21ae9f80b/calculator.hpp
 

@@ -1,4 +1,4 @@
-"use strict"
+"use strict";
 // inspired by https://github.com/PitPik/colorPicker
 
 var ColorPicker = (function(){

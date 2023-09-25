@@ -1,4 +1,4 @@
-"use strict"
+"use strict";
 
 function save_program() {
     let sprog = { nodes: {}, lines:[], 
@@ -184,10 +184,10 @@ function _load_program(sprog)
     }
     for(let sl of sprog.lines) {
         let from_node = newprog.obj_map[sl.from_id]
-        console.assert(from_node.constructor === Node)
+        console.assert(from_node.constructor === PNode)
         let from_term = find_by_name(from_node.terminals, sl.from_name)
         let to_node = newprog.obj_map[sl.to_id]
-        console.assert(to_node.constructor === Node)
+        console.assert(to_node.constructor === PNode)
         let to_term = find_by_name(to_node.terminals, sl.to_name)
         if (to_term === null)
             to_term = to_node.terminal_aliases[sl.to_name]

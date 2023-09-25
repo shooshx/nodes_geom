@@ -1,4 +1,4 @@
-"use strict"
+"use strict";
 
 
 //pick one of the inputs and set it to the output depending on an expression

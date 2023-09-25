@@ -1,4 +1,4 @@
-"use strict"
+"use strict";
 
 const PATH_CLOSED = 1
 const PATH_CONTINUE_PREV = 2  //means that there shouldn't be a new beingPath for this range, that it continues the previous path (it's a hole)

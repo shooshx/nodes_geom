@@ -1,4 +1,4 @@
-"use strict"
+"use strict";
 
 const LINE_COLOR_VARS = "#a9ef50"
 const TERM_COLOR_VARS = "#b9ff50"
@@ -581,6 +581,7 @@ class NodeVariable extends NodeVarCls
             name_set.add(name)
         }
 
+        const out_obj = new VariablesObj(this.set_only_if_missing)
         const is_global = this.global.get_value()
         if (is_global) {
             if (!this.node.enable_active) { // if it's not enabled, it shouldn't run, just return the global variables unchanged
@@ -591,7 +592,6 @@ class NodeVariable extends NodeVarCls
             this.set_all_values(g_anim.globals_vars_box)
         }
 
-        const out_obj = new VariablesObj(this.set_only_if_missing)
         this.set_all_values(out_obj)
 
         // manage references to global vars

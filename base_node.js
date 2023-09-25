@@ -1,4 +1,4 @@
-"use strict"
+"use strict";
 
 var selected_nodes = []
 function add_selected_node(n) {
@@ -186,7 +186,7 @@ class TerminalBase {
     constructor(name, in_node, is_input, conn_ev=null) {
         this.name = name
         console.assert(is_input !== undefined, "don't instantiate TerminalBase")
-        this.owner = in_node // Node object
+        this.owner = in_node // PNode object
         this.line_pending = null
         this.lines = []
       //  this.node = in_node
@@ -194,9 +194,9 @@ class TerminalBase {
         this.tuid = null // set in add_node
         this.kind = KIND_OBJ
         this.color = "#aaa"
-        this.tvisible = true // inheriting Node can set to false and set something to the terminal
+        this.tvisible = true // inheriting PNode can set to false and set something to the terminal
 
-        this.xoffset = null // will be set again in Node
+        this.xoffset = null // will be set again in PNode
         this.connection_event = conn_ev
 
         if (is_input) {
@@ -890,7 +890,7 @@ class StateAccess {
     }
 }
 
-class Node {    
+class PNode {    
     constructor(x, y, name, cls, id, of_prog) {
         this.of_program = of_prog
         this.rename_observers = []
@@ -1272,7 +1272,7 @@ class Node {
         this.cls.cclear_dirty()
     }
     
-    // from Node ctor
+    // from PNode ctor
     call_params_change() {
         for(let p of this.parameters)
             if (p.call_change)
@@ -1757,7 +1757,7 @@ function nodes_context_menu(e) {
     
     let opt = null, node = null, out_term = null;
     if (obj != null) {
-        if (obj.constructor === Node)
+        if (obj.constructor === PNode)
             node = obj
         else if (obj.constructor === NodeFlagProxy)  // display,template flags
             node = obj.node

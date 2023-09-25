@@ -1,4 +1,4 @@
-"use strict"
+"use strict";
 
 const GRIP_WIDTH = 5
 const MIN_PANEL_SIZE = 10
@@ -261,7 +261,7 @@ function image_shadow_find_obj(e)
     if (node_id === null)
         return null
     const node = program.obj_map[node_id]
-    if (node === undefined || node.constructor !== Node)  // can happen due to antialiasing
+    if (node === undefined || node.constructor !== PNode)  // can happen due to antialiasing
         return null
     return node.cls.img_hit_find_obj()
 }
